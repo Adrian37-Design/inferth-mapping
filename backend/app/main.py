@@ -48,13 +48,21 @@ async def startup_event():
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
-    # start MQTT client
-    start_mqtt()
-    # start TCP server for tracker devices
-    loop = asyncio.get_running_loop()
-    server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
-    print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+    
+    # start MQTT client (optional - for device tracking)
+    try:
+        start_mqtt()
+        print("MQTT client started successfully")
+    except Exception as e:
+        print(f"Warning: MQTT client not available: {e}")
+    
+    # start TCP server for tracker devices (optional)
+    try:
+        loop = asyncio.get_running_loop()
+        server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
+        print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+    except Exception as e:
+        print(f"Warning: TCP server not available: {e}")
     
 @app.websocket("/ws/positions")
 async def ws_positions(websocket: WebSocket):
