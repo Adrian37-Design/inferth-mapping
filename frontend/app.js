@@ -5,8 +5,8 @@ if (!window.AuthManager || !window.AuthManager.checkAuth()) {
     window.location.href = 'login.html';
 }
 
-const API_URL = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws/positions';
+const API_URL = 'https://inferth-mapping.up.railway.app';
+const WS_URL = 'wss://inferth-mapping.up.railway.app/ws/positions';
 
 // State
 let map;
