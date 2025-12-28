@@ -1,5 +1,5 @@
 // Authentication Manager
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://inferth-mapping.up.railway.app';
 
 class AuthManager {
     constructor() {
@@ -76,7 +76,7 @@ class AuthManager {
     // Verify setup token
     async verifyToken(token) {
         const response = await fetch(`${API_BASE}/auth/verify-token/${token}`);
-        
+
         if (!response.ok) {
             throw new Error('Invalid or expired setup token');
         }
@@ -122,7 +122,7 @@ class AuthManager {
         // Handle form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const email = emailInput.value.trim();
             const password = passwordInput.value;
 
@@ -249,7 +249,7 @@ class AuthManager {
         if (!strengthFill || !strengthText) return;
 
         let strength = 0;
-        
+
         if (password.length >= 8) strength++;
         if (/[a-z]/.test(password)) strength++;
         if (/[A-Z]/.test(password)) strength++;
@@ -303,9 +303,9 @@ class AuthManager {
     // Check if password is valid
     isPasswordValid(password) {
         return password.length >= 8 &&
-               /[A-Z]/.test(password) &&
-               /[a-z]/.test(password) &&
-               /[0-9]/.test(password);
+            /[A-Z]/.test(password) &&
+            /[a-z]/.test(password) &&
+            /[0-9]/.test(password);
     }
 
     // Show error message
