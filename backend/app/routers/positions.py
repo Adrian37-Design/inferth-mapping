@@ -1,0 +1,210 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db import get_db
+from app.models import Position, Device
+from app.schemas import PositionCreate, PositionOut
+from sqlalchemy.future import select
+from datetime import datetime
+
+router = APIRouter(prefix="/positions")
+
+@router.post("/", response_model=PositionOut)
+async def create_position(payload: PositionCreate, db: AsyncSession = Depends(get_db)):
+    # find device by IMEI
+    q = await db.execute(select(Device).where(Device.imei == payload.imei))
+    device = q.scalars().first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    pos = Position(
+        device_id=device.id,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        speed=payload.speed,
+        course=payload.course,
+        timestamp=payload.timestamp or datetime.utcnow(),
+        raw=payload.raw
+    )
+    db.add(pos)
+    await db.commit()
+    await db.refresh(pos)
+    # publish to redis (realtime) - omitted here; call publish_position(pos)
+    return pos
+
+@router.get("/latest/{imei}", response_model=PositionOut)
+async def latest_position(imei: str, db: AsyncSession = Depends(get_db)):
+    q = await db.execute(
+        select(Position).join(Device).where(Device.imei == imei).order_by(Position.timestamp.desc()).limit(1)
+    )
+    pos = q.scalars().first()
+    if not pos:
+        raise HTTPException(404, "No positions")
+    return pos
+
+@router.get("/")
+async def list_positions(device_id: int = None, limit: int = 10, db: AsyncSession = Depends(get_db)):
+    query = select(Position)
+    
+    if device_id:
+        query = query.where(Position.device_id == device_id)
+    
+    query = query.order_by(Position.timestamp.desc()).limit(limit)
+    
+    result = await db.execute(query)
+    positions = result.scalars().all()
+    
+    return [
+        {
+            "id": p.id,
+            "device_id": p.device_id,
+            "latitude": p.latitude,
+            "longitude": p.longitude,
+            "speed": p.speed,
+            "timestamp": p.timestamp,
+            "raw": p.raw
+        }
+        for p in positions
+    ]
+
+@router.get("/routes/{device_id}")
+async def get_device_route(
+    device_id: int,
+    start_date: str = None,
+    end_date: str = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get route data for a device with optional date filtering"""
+    from datetime import datetime
+    
+    query = select(Position).where(Position.device_id == device_id)
+    
+    # Add date filtering
+    if start_date:
+        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        query = query.where(Position.timestamp >= start_dt)
+    
+    if end_date:
+        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        query = query.where(Position.timestamp <= end_dt)
+    
+    query = query.order_by(Position.timestamp.asc())
+    
+    result = await db.execute(query)
+    positions = result.scalars().all()
+    
+    # Calculate route with distance
+    route_points = []
+    total_distance = 0
+    
+    for i, p in enumerate(positions):
+        point = {
+            "lat": p.latitude,
+            "lng": p.longitude,
+            "timestamp": p.timestamp.isoformat(),
+            "speed": p.speed or 0
+        }
+        
+        # Calculate distance from previous point
+        if i > 0:
+            from math import radians, cos, sin, asin, sqrt
+            prev = positions[i-1]
+            
+            # Haversine formula for distance
+            lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            km = 6371 * c  # Radius of earth in kilometers
+            total_distance += km
+        
+        route_points.append(point)
+    
+    return {
+        "device_id": device_id,
+        "points": route_points,
+        "total_distance_km": round(total_distance, 2),
+        "total_points": len(route_points)
+    }
+
+@router.get("/trips/{device_id}")
+async def get_device_trips(
+    device_id: int,
+    days: int = 7,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get trip summary for last N days"""
+    from datetime import datetime, timedelta
+    
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    query = select(Position).where(
+        Position.device_id == device_id,
+        Position.timestamp >= start_date
+    ).order_by(Position.timestamp.asc())
+    
+    result = await db.execute(query)
+    positions = result.scalars().all()
+    
+    if not positions:
+        return {"device_id": device_id, "trips": [], "total_trips": 0}
+    
+    # Group positions into trips (simple: gap > 30 min = new trip)
+    trips = []
+    current_trip = []
+    
+    for i, pos in enumerate(positions):
+        if i == 0:
+            current_trip.append(pos)
+        else:
+            time_gap = (pos.timestamp - positions[i-1].timestamp).total_seconds() / 60
+            if time_gap > 30:  # 30 minute gap = new trip
+                if current_trip:
+                    trips.append(current_trip)
+                current_trip = [pos]
+            else:
+                current_trip.append(pos)
+    
+    if current_trip:
+        trips.append(current_trip)
+    
+    # Calculate trip summaries
+    trip_summaries = []
+    for trip_positions in trips:
+        if len(trip_positions) < 2:
+            continue
+            
+        start_pos = trip_positions[0]
+        end_pos = trip_positions[-1]
+        duration = (end_pos.timestamp - start_pos.timestamp).total_seconds() / 60  # minutes
+        
+        # Calculate distance
+        total_distance = 0
+        for i in range(1, len(trip_positions)):
+            from math import radians, cos, sin, asin, sqrt
+            prev = trip_positions[i-1]
+            curr = trip_positions[i]
+            
+            lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, curr.longitude, curr.latitude])
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            km = 6371 * c
+            total_distance += km
+        
+        trip_summaries.append({
+            "start_time": start_pos.timestamp.isoformat(),
+            "end_time": end_pos.timestamp.isoformat(),
+            "duration_minutes": round(duration, 1),
+            "distance_km": round(total_distance, 2),
+            "start_location": {"lat": start_pos.latitude, "lng": start_pos.longitude},
+            "end_location": {"lat": end_pos.latitude, "lng": end_pos.longitude},
+            "points_count": len(trip_positions)
+        })
+    
+    return {
+        "device_id": device_id,
+        "trips": trip_summaries,
+        "total_trips": len(trip_summaries),
+        "period_days": days
+    }

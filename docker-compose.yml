@@ -1,0 +1,54 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: kwaramba1
+      POSTGRES_DB: inferth
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  backend:
+    build: ./backend
+    depends_on:
+      - db
+      - redis
+      - mqtt
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:kwaramba1@db:5432/inferth
+      REDIS_URL: redis://redis:6379/0
+      MQTT_BROKER: mqtt
+      JWT_SECRET: "change_this_secret"
+      TCP_LISTEN_ADDR: "0.0.0.0"
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
+volumes:
+  db_data:

@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth Mapping - Complete Pricing Guide</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="Inferth_Mapping_Logo.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 50px 40px;
+            text-align: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .logo-section img {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 50px 40px;
+        }
+
+        h2 {
+            font-size: 2rem;
+            color: #1a202c;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h2:first-of-type {
+            margin-top: 0;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #667eea;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            font-size: 1.2rem;
+            color: #1a202c;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.05rem;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+
+        .highlight-box h4 {
+            color: #667eea;
+            margin-top: 0;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .comparison-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            transition: border-color 0.3s ease;
+        }
+
+        .comparison-card:hover {
+            border-color: #667eea;
+        }
+
+        .comparison-card h4 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            margin: 15px 0 15px 25px;
+            color: #4a5568;
+        }
+
+        ul li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .pricing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .pricing-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .pricing-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .pricing-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge.success {
+            background: #10b981;
+        }
+
+        .badge.warning {
+            background: #f59e0b;
+        }
+
+        .footer {
+            background: #f7fafc;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+            color: #4a5568;
+        }
+
+        .contact-item i {
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 30px 20px;
+            }
+
+            header {
+                padding: 30px 20px;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            h3 {
+                font-size: 1.3rem;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-section">
+                <img src="Inferth_Mapping_Logo.png" alt="Inferth Logo">
+                <h1>Inferth Mapping</h1>
+            </div>
+            <p>Complete Pricing Guide & Package Explanations</p>
+        </header>
+
+        <div class="content">
+            <!-- Introduction -->
+            <div class="highlight-box">
+                <h4><i class="fas fa-info-circle"></i> Two Flexible Payment Options</h4>
+                <p>We offer two pricing models to suit different business needs and budgets. Choose the model that works
+                    best for your fleet operation:</p>
+                <ul>
+                    <li><strong>Monthly Subscription:</strong> Low upfront cost, predictable monthly payments</li>
+                    <li><strong>One-Time License:</strong> Pay once, own forever with optional maintenance</li>
+                </ul>
+            </div>
+
+            <!-- MONTHLY SUBSCRIPTION MODEL -->
+            <h2><i class="fas fa-calendar-alt"></i> Monthly Subscription Model</h2>
+
+            <p>The monthly subscription model provides access to our full fleet tracking platform with ongoing support,
+                updates, and hosting included. This is ideal for businesses that prefer predictable monthly expenses
+                without large upfront investments.</p>
+
+            <h3>How It Works</h3>
+            <ul>
+                <li>Pay a monthly fee per vehicle</li>
+                <li>Cancel anytime with no long-term commitment</li>
+                <li>All software updates included automatically</li>
+                <li>Cloud hosting and data storage provided</li>
+                <li>Technical support included in all plans</li>
+                <li>Scale up or down as your fleet changes</li>
+            </ul>
+
+            <h3>Monthly Subscription Packages</h3>
+
+            <h4>1. Starter Plan - $29/vehicle/month</h4>
+            <p><strong>Best For:</strong> Small businesses with 1-5 vehicles who need basic tracking capabilities.</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Real-time GPS Tracking:</strong> See exactly where your vehicles are at any moment</li>
+                    <li><strong>Live Fleet Map View:</strong> Visual dashboard showing all vehicles on an interactive
+                        map</li>
+                    <li><strong>30-Day Trip History:</strong> Access to routes and stops from the past month</li>
+                    <li><strong>Basic Reporting:</strong> Generate simple reports on vehicle usage and mileage</li>
+                    <li><strong>Email Support:</strong> Get help via email during business hours</li>
+                    <li><strong>Vehicle Limit:</strong> Up to 5 vehicles maximum</li>
+                </ul>
+
+                <h4>Not Included:</h4>
+                <ul>
+                    <li>Geofencing capabilities</li>
+                    <li>Speed or idle time alerts</li>
+                    <li>Advanced analytics and insights</li>
+                    <li>API access for custom integrations</li>
+                </ul>
+            </div>
+
+            <h4>2. Professional Plan - $24/vehicle/month <span class="badge success">Most Popular</span></h4>
+            <p><strong>Best For:</strong> Growing businesses with 5-25 vehicles who need advanced features and better
+                support.</p>
+            <p><strong>Annual Billing:</strong> Save 17% compared to monthly billing ($29 → $24 per vehicle/month)</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Everything in Starter Plan</strong></li>
+                    <li><strong>90-Day Trip History:</strong> Three months of historical route data</li>
+                    <li><strong>Geofencing & Alerts:</strong> Create virtual boundaries and get notified when vehicles
+                        enter/exit zones</li>
+                    <li><strong>Speed Alerts:</strong> Automatic notifications when vehicles exceed speed limits</li>
+                    <li><strong>Idle Time Monitoring:</strong> Track when vehicles are running but stationary (fuel
+                        waste detection)</li>
+                    <li><strong>Route Playback:</strong> Replay past trips to see exactly how routes were traveled</li>
+                    <li><strong>Advanced Analytics:</strong> Detailed insights into fleet performance, efficiency, and
+                        driver behavior</li>
+                    <li><strong>Priority Support:</strong> Faster response times via email and live chat</li>
+                    <li><strong>Vehicle Limit:</strong> Up to 25 vehicles maximum</li>
+                </ul>
+
+                <h4>Use Cases:</h4>
+                <ul>
+                    <li>Delivery and logistics companies</li>
+                    <li>Service businesses (plumbing, HVAC, electrical)</li>
+                    <li>Small to medium construction companies</li>
+                    <li>Businesses wanting to improve driver accountability</li>
+                </ul>
+            </div>
+
+            <h4>3. Enterprise Plan - $19/vehicle/month</h4>
+            <p><strong>Best For:</strong> Large fleets (25+ vehicles) requiring custom integrations and premium support.
+            </p>
+            <p><strong>Custom Pricing:</strong> Volume discounts available for fleets over 100 vehicles.</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Everything in Professional Plan</strong></li>
+                    <li><strong>Unlimited Trip History:</strong> Access to all historical data with no time limit</li>
+                    <li><strong>Full API Access:</strong> Integrate tracking data into your own systems and software
+                    </li>
+                    <li><strong>Custom Integrations:</strong> Connect to accounting, dispatch, or CRM systems</li>
+                    <li><strong>Driver Behavior Analytics:</strong> Detailed scoring on harsh braking, acceleration,
+                        cornering</li>
+                    <li><strong>Fuel Consumption Tracking:</strong> Monitor fuel usage and identify inefficiencies</li>
+                    <li><strong>Custom Branding:</strong> White-label the platform with your company logo and colors
+                    </li>
+                    <li><strong>On-Premise Deployment Option:</strong> Host the system on your own servers for maximum
+                        control</li>
+                    <li><strong>Dedicated Account Manager:</strong> Personal point of contact for your fleet</li>
+                    <li><strong>24/7 Phone Support:</strong> Round-the-clock technical assistance</li>
+                    <li><strong>99.9% SLA Guarantee:</strong> Service level agreement ensuring uptime</li>
+                    <li><strong>No Vehicle Limit:</strong> Unlimited vehicles in your fleet</li>
+                </ul>
+
+                <h4>Ideal For:</h4>
+                <ul>
+                    <li>Transportation and logistics companies</li>
+                    <li>Large construction firms</li>
+                    <li>Government fleet operations</li>
+                    <li>Businesses requiring integration with existing systems</li>
+                </ul>
+            </div>
+
+            <!-- ONE-TIME LICENSE MODEL -->
+            <h2><i class="fas fa-crown"></i> One-Time License Model (Perpetual)</h2>
+
+            <p>The one-time license model lets you purchase the software outright with a single payment. You own the
+                license forever and can use it indefinitely. This option is perfect for businesses that want to avoid
+                recurring costs and prefer to make a capital investment.</p>
+
+            <h3>How It Works</h3>
+            <ul>
+                <li>One-time payment per vehicle</li>
+                <li>Perpetual license - use forever with no expiration</li>
+                <li>Includes installation and setup</li>
+                <li>Includes updates and support for a specified period (1-3 years depending on package)</li>
+                <li>Optional maintenance plans available after initial period expires</li>
+                <li>You can self-host or use our cloud hosting</li>
+            </ul>
+
+            <h3>One-Time License Packages</h3>
+
+            <h4>1. Starter License - $1,499/vehicle</h4>
+            <p><strong>Best For:</strong> Small operations wanting to own their software with minimal ongoing costs.</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Perpetual Software License:</strong> Own the software forever</li>
+                    <li><strong>Professional Installation & Setup:</strong> We configure everything for you</li>
+                    <li><strong>All Core Features:</strong> Real-time tracking, map view, 30-day history, basic
+                        reporting</li>
+                    <li><strong>1 Year of Updates:</strong> Free software updates and new features for 12 months</li>
+                    <li><strong>1 Year of Email Support:</strong> Technical assistance during the first year</li>
+                    <li><strong>Vehicle Limit:</strong> Up to 5 vehicles</li>
+                </ul>
+
+                <h4>After Year 1 (Optional):</h4>
+                <p><strong>Optional Maintenance Plan:</strong> $199/vehicle/year</p>
+                <ul>
+                    <li>Continued software updates</li>
+                    <li>Ongoing technical support</li>
+                    <li>Security patches and bug fixes</li>
+                </ul>
+
+                <p><strong>Note:</strong> If you don't renew maintenance, your software continues to work exactly as-is,
+                    but you won't receive new features or updates.</p>
+            </div>
+
+            <h4>2. Professional License - $1,199/vehicle <span class="badge success">Best Value</span></h4>
+            <p><strong>Best For:</strong> Growing businesses with 5-25 vehicles wanting long-term ownership with
+                advanced features.</p>
+            <p><strong>Savings:</strong> $300 less per vehicle compared to Starter License</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Perpetual Software License:</strong> Own forever</li>
+                    <li><strong>Full Installation & Configuration:</strong> Complete setup with custom configuration
+                    </li>
+                    <li><strong>All Advanced Features:</strong> Geofencing, alerts, route playback, 90-day history,
+                        advanced analytics</li>
+                    <li><strong>2 Years of Updates:</strong> Free software updates for 24 months</li>
+                    <li><strong>2 Years of Priority Support:</strong> Email and chat support with faster response times
+                    </li>
+                    <li><strong>Training Session:</strong> Online training for your team</li>
+                    <li><strong>Vehicle Limit:</strong> Up to 25 vehicles</li>
+                </ul>
+
+                <h4>After Year 2 (Optional):</h4>
+                <p><strong>Optional Maintenance Plan:</strong> $149/vehicle/year</p>
+                <ul>
+                    <li>Continued updates and new features</li>
+                    <li>Priority technical support</li>
+                    <li>Annual training refresher</li>
+                </ul>
+            </div>
+
+            <h4>3. Enterprise License - $899/vehicle</h4>
+            <p><strong>Best For:</strong> Large fleets (25+) wanting maximum savings with full ownership and enterprise
+                features.</p>
+            <p><strong>Savings:</strong> $600 less per vehicle compared to Starter License</p>
+
+            <div class="highlight-box">
+                <h4>What's Included:</h4>
+                <ul class="feature-list">
+                    <li><strong>Perpetual Software License:</strong> Own forever with no restrictions</li>
+                    <li><strong>Full Deployment & On-Site Training:</strong> We visit your location for setup and staff
+                        training</li>
+                    <li><strong>All Enterprise Features:</strong> API access, custom integrations, driver scoring, fuel
+                        tracking, unlimited history</li>
+                    <li><strong>3 Years of Updates:</strong> Free software updates for 36 months</li>
+                    <li><strong>3 Years of Dedicated Support:</strong> Personal account manager and 24/7 phone support
+                    </li>
+                    <li><strong>Custom Integration Work:</strong> We'll integrate with your existing systems</li>
+                    <li><strong>On-Premise Deployment Option:</strong> Host on your servers if required</li>
+                    <li><strong>No Vehicle Limit:</strong> Unlimited vehicles</li>
+                </ul>
+
+                <h4>After Year 3 (Optional):</h4>
+                <p><strong>Optional Maintenance Plan:</strong> $99/vehicle/year</p>
+                <ul>
+                    <li>Continued updates and features</li>
+                    <li>Dedicated support continuation</li>
+                    <li>Quarterly business reviews</li>
+                </ul>
+            </div>
+
+            <!-- HYBRID MODEL -->
+            <h2><i class="fas fa-bolt"></i> Hybrid Model - Lower Entry with Monthly Service</h2>
+
+            <p>Can't afford the full one-time license? We offer a hybrid approach that splits the cost:</p>
+
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h4>One-Time Setup Fee</h4>
+                    <p style="font-size: 2rem; font-weight: 700; color: #667eea; margin: 15px 0;">$699</p>
+                    <p>per vehicle</p>
+                    <ul class="feature-list">
+                        <li>Perpetual software license</li>
+                        <li>Professional installation</li>
+                        <li>Initial configuration</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card">
+                    <h4>Monthly Service Fee</h4>
+                    <p style="font-size: 2rem; font-weight: 700; color: #667eea; margin: 15px 0;">$9</p>
+                    <p>per vehicle/month</p>
+                    <ul class="feature-list">
+                        <li>Cloud hosting & storage</li>
+                        <li>Ongoing support</li>
+                        <li>Software updates</li>
+                        <li>Data backup</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <h4>Total Cost Analysis (Hybrid Model):</h4>
+                <table class="pricing-table">
+                    <tr>
+                        <th>Time Period</th>
+                        <th>Total Cost per Vehicle</th>
+                        <th>vs. Full License</th>
+                    </tr>
+                    <tr>
+                        <td>Year 1</td>
+                        <td>$807 ($699 + $108)</td>
+                        <td>46% cheaper than Starter License</td>
+                    </tr>
+                    <tr>
+                        <td>Year 2</td>
+                        <td>$915 (cumulative)</td>
+                        <td>39% cheaper than Starter License</td>
+                    </tr>
+                    <tr>
+                        <td>Year 3</td>
+                        <td>$1,023 (cumulative)</td>
+                        <td>32% cheaper than Starter License</td>
+                    </tr>
+                </table>
+                <p><strong>Recommendation:</strong> The hybrid model is perfect if you want to own the license but need
+                    to spread costs over time. After 3 years, you've paid less than a full Starter License while
+                    maintaining full service.</p>
+            </div>
+
+            <!-- HARDWARE ADD-ONS -->
+            <h2><i class="fas fa-microchip"></i> Hardware Add-Ons (Optional)</h2>
+
+            <p>Our software works with most GPS tracking devices, but we also offer hardware packages:</p>
+
+            <h3>GPS Tracker Devices - $89 to $149 per unit</h3>
+            <ul>
+                <li><strong>Basic 4G Tracker:</strong> $89 - Simple plug-and-play device</li>
+                <li><strong>Advanced 4G Tracker:</strong> $129 - Includes accelerometer for driver behavior monitoring
+                </li>
+                <li><strong>Premium Hardwired Tracker:</strong> $149 - Professional-grade with tamper alerts and backup
+                    battery</li>
+            </ul>
+
+            <h4>Features of Our GPS Trackers:</h4>
+            <ul class="feature-list">
+                <li>4G LTE connectivity for real-time updates</li>
+                <li>Location updates every 10-60 seconds (configurable)</li>
+                <li>Internal battery backup (continues tracking if disconnected)</li>
+                <li>Waterproof and dustproof enclosure (IP67 rated)</li>
+                <li>3-year warranty included</li>
+            </ul>
+
+            <h3>Professional Installation - $50 to $100 per vehicle</h3>
+            <ul>
+                <li><strong>Basic Installation:</strong> $50 - OBD port plug-in (10 minutes)</li>
+                <li><strong>Standard Installation:</strong> $75 - Hardwired with concealed mounting (30-45 minutes)</li>
+                <li><strong>Premium Installation:</strong> $100 - Hardwired with advanced features like ignition
+                    detection (1 hour)</li>
+            </ul>
+
+            <h3>Bulk Package Deal - $199 per vehicle (10+ units)</h3>
+            <p>For orders of 10 or more vehicles, we offer a complete bundle:</p>
+            <ul class="feature-list">
+                <li>Advanced GPS tracker device ($129 value)</li>
+                <li>Professional hardwired installation ($75 value)</li>
+                <li>2-year extended warranty</li>
+                <li>Free training session for your team</li>
+                <li><strong>Total Value:</strong> $204, You Pay: $199</li>
+            </ul>
+
+            <!-- COMPARISON TABLE -->
+            <h2><i class="fas fa-balance-scale"></i> Which Pricing Model Should You Choose?</h2>
+
+            <table class="pricing-table">
+                <tr>
+                    <th>Consideration</th>
+                    <th>Monthly Subscription</th>
+                    <th>One-Time License</th>
+                </tr>
+                <tr>
+                    <td><strong>Initial Cost</strong></td>
+                    <td>Low - starts at $29/vehicle/month</td>
+                    <td>High - starts at $899/vehicle one-time</td>
+                </tr>
+                <tr>
+                    <td><strong>Long-Term Cost</strong></td>
+                    <td>Higher over 3+ years</td>
+                    <td>Lower after breakeven point</td>
+                </tr>
+                <tr>
+                    <td><strong>Updates</strong></td>
+                    <td>Always included automatically</td>
+                    <td>Included for 1-3 years, then optional</td>
+                </tr>
+                <tr>
+                    <td><strong>Support</strong></td>
+                    <td>Always included</td>
+                    <td>Included for 1-3 years, then optional</td>
+                </tr>
+                <tr>
+                    <td><strong>Flexibility</strong></td>
+                    <td>Cancel anytime, scale easily</td>
+                    <td>Committed investment, but own forever</td>
+                </tr>
+                <tr>
+                    <td><strong>Best For</strong></td>
+                    <td>Growing businesses, seasonal operations</td>
+                    <td>Established fleets, capital budget available</td>
+                </tr>
+            </table>
+
+            <div class="highlight-box">
+                <h4><i class="fas fa-calculator"></i> Breakeven Analysis Example:</h4>
+                <p>Let's compare a 10-vehicle fleet choosing Professional tier:</p>
+                <ul>
+                    <li><strong>Monthly Subscription:</strong> $24/vehicle × 10 vehicles = $240/month = $2,880/year</li>
+                    <li><strong>One-Time License:</strong> $1,199/vehicle × 10 vehicles = $11,990 one-time</li>
+                </ul>
+                <p><strong>Breakeven Point:</strong> $11,990 ÷ $2,880 = 4.16 years</p>
+                <p><strong>Conclusion:</strong> If you plan to use the system for more than 4-5 years, the one-time
+                    license saves money. If you're unsure or might scale down, monthly subscription offers more
+                    flexibility.</p>
+            </div>
+
+            <!-- RECOMMENDATIONS -->
+            <h2><i class="fas fa-lightbulb"></i> Our Recommendations</h2>
+
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h4>Choose Monthly Subscription If:</h4>
+                    <ul class="feature-list">
+                        <li>You're a new or growing business</li>
+                        <li>You have limited upfront capital</li>
+                        <li>Your fleet size changes seasonally</li>
+                        <li>You want predictable monthly expenses</li>
+                        <li>You prefer expense vs. capital investment</li>
+                        <li>You might scale down in the future</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card">
+                    <h4>Choose One-Time License If:</h4>
+                    <ul class="feature-list">
+                        <li>You have stable, long-term fleet needs</li>
+                        <li>You have capital budget available</li>
+                        <li>You want to minimize long-term costs</li>
+                        <li>You prefer ownership over subscription</li>
+                        <li>You plan to use for 5+ years</li>
+                        <li>You want control over updates/hosting</li>
+                    </ul>
+                </div>
+
+                <div class="comparison-card">
+                    <h4>Choose Hybrid Model If:</h4>
+                    <ul class="feature-list">
+                        <li>You want ownership but need lower upfront cost</li>
+                        <li>You want ongoing support included</li>
+                        <li>You prefer not to manage hosting</li>
+                        <li>You want flexibility to switch later</li>
+                        <li>You're between the two options</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer">
+            <h3 style="color: #1a202c; margin-bottom: 10px;">Questions About Pricing?</h3>
+            <p style="color: #718096;">Our team is here to help you choose the right package for your fleet.</p>
+            <div class="contact-info">
+                <div class="contact-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>sales@inferthProjects.com</span>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-phone"></i>
+                    <span>+263783009275</span>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-globe"></i>
+                    <span>www.inferthProjects.com</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Smooth scrolling for any internal links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

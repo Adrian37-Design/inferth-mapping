@@ -1,0 +1,64 @@
+import uvicorn
+from fastapi import FastAPI, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from app.routers import auth, devices, positions
+from app.services.mqtt_client import start_mqtt
+import asyncio
+from app.config import settings
+from app.services.tcp_server import TCPTrackerProtocol
+from app.realtime import ws_listener
+import os
+
+app = FastAPI(title="Inferth Mapping")
+
+# Mount static files (frontend)
+frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+if os.path.exists(frontend_path):
+    app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
+
+# Add CORS middleware for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add explicit CORS headers middleware
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+
+app.include_router(auth.router)
+app.include_router(devices.router)
+app.include_router(positions.router)
+
+from app.db import engine, Base
+
+@app.on_event("startup")
+async def startup_event():
+    # Create tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
+    # start MQTT client
+    start_mqtt()
+    # start TCP server for tracker devices
+    loop = asyncio.get_running_loop()
+    server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
+    print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+    
+@app.websocket("/ws/positions")
+async def ws_positions(websocket: WebSocket):
+    await ws_listener(websocket)
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

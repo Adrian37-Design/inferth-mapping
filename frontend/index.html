@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth Mapping - Fleet Tracking</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="app.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <script src="auth.js"></script>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="logo.png" alt="Inferth Logo" class="brand-logo">
+            <span>Inferth Mapping</span>
+        </div>
+        <div class="nav-stats">
+            <div class="stat-item">
+                <i class="fas fa-car"></i>
+                <span id="vehicle-count">0</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-circle" id="status-dot"></i>
+                <span id="status-text">Connecting...</span>
+            </div>
+            <button class="logout-btn" id="logout-btn" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Fleet Overview</h3>
+                <button class="close-sidebar" id="close-sidebar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="vehicle-list" id="vehicle-list">
+                <p class="loading">Loading vehicles...</p>
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <div class="map-wrapper">
+            <div id="map"></div>
+
+            <!-- Route Controls (Hidden by default) -->
+            <div class="route-controls hidden" id="route-controls">
+                <button class="control-btn" id="play-route" title="Play Route">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button class="control-btn" id="pause-route" title="Pause">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button class="control-btn" id="stop-route" title="Stop">
+                    <i class="fas fa-stop"></i>
+                </button>
+                <div class="speed-control">
+                    <label>Speed: <span id="speed-value">1x</span></label>
+                    <input type="range" id="playback-speed" min="1" max="10" value="1">
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Action Buttons -->
+        <div class="fab-container">
+            <button class="fab" id="toggle-sidebar" title="Toggle Sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+            <button class="fab fab-primary" id="add-vehicle" title="Add Vehicle">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button class="fab" id="show-route" title="Show Route">
+                <i class="fas fa-route"></i>
+            </button>
+            <button class="fab" id="show-trips" title="Trip History">
+                <i class="fas fa-history"></i>
+            </button>
+            <button class="fab" id="center-map" title="Center Map">
+                <i class="fas fa-crosshairs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Trip History Modal -->
+    <div class="modal hidden" id="trip-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Trip History</h3>
+                <button class="close-modal" id="close-trip-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="date-selector">
+                    <label>Last <input type="number" id="trip-days" value="7" min="1" max="30"> days</label>
+                    <button id="load-trips">Load Trips</button>
+                </div>
+                <div id="trip-list" class="trip-list">
+                    <p>Select a vehicle and load trips</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Vehicle Modal -->
+    <div class="modal hidden" id="add-vehicle-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-car"></i> Add New Vehicle</h3>
+                <button class="close-modal" id="close-add-vehicle">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-vehicle-form">
+                    <div class="form-group">
+                        <label for="vehicle-imei">IMEI / Device ID *</label>
+                        <input type="text" id="vehicle-imei" required placeholder="e.g., 359710048216253">
+                        <small>Enter the tracker's IMEI number</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="vehicle-name">Vehicle Name</label>
+                        <input type="text" id="vehicle-name" placeholder="e.g., Toyota Hilux - AXK 1234">
+                        <small>Optional: Give this vehicle a friendly name</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancel-add-vehicle">Cancel</button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-plus-circle"></i> Add Vehicle
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

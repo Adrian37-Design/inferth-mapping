@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth Mapping - Pricing Plans</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="Inferth_Mapping_Logo.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            color: white;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .logo-section img {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.95;
+            font-weight: 400;
+        }
+
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .pricing-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pricing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        }
+
+        .pricing-card.featured {
+            border: 3px solid #667eea;
+            transform: scale(1.05);
+        }
+
+        .pricing-card.featured::before {
+            height: 8px;
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+        }
+
+        .popular-badge {
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+            padding: 5px 40px;
+            transform: rotate(45deg);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .plan-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 10px;
+        }
+
+        .plan-description {
+            color: #718096;
+            font-size: 0.95rem;
+            margin-bottom: 25px;
+            min-height: 45px;
+        }
+
+        .price {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+
+        .currency {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .amount {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: #1a202c;
+            line-height: 1;
+        }
+
+        .period {
+            font-size: 1rem;
+            color: #718096;
+            margin-left: 5px;
+        }
+
+        .price-note {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            margin-bottom: 30px;
+        }
+
+        .features-list {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .features-list li {
+            padding: 12px 0;
+            color: #4a5568;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.95rem;
+        }
+
+        .features-list li i {
+            color: #667eea;
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+
+        .features-list li.unavailable {
+            color: #cbd5e0;
+            text-decoration: line-through;
+        }
+
+        .features-list li.unavailable i {
+            color: #cbd5e0;
+        }
+
+        .cta-button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cta-button.primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .cta-button.primary:hover {
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .cta-button.secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .cta-button.secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .comparison-table {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            overflow-x: auto;
+        }
+
+        .comparison-table h2 {
+            font-size: 2rem;
+            color: #1a202c;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        thead th:first-child {
+            border-top-left-radius: 12px;
+        }
+
+        thead th:last-child {
+            border-top-right-radius: 12px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+
+        tbody td {
+            padding: 18px 20px;
+            color: #4a5568;
+        }
+
+        tbody td:first-child {
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        .check-icon {
+            color: #48bb78;
+            font-size: 1.2rem;
+        }
+
+        .cross-icon {
+            color: #cbd5e0;
+            font-size: 1.2rem;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 60px;
+            color: white;
+        }
+
+        .footer h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+        }
+
+        .contact-item i {
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+
+            .comparison-table {
+                padding: 20px;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 20px;
+            }
+
+            .pricing-card {
+                break-inside: avoid;
+            }
+
+            .cta-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-section">
+                <img src="Inferth_Mapping_Logo.png" alt="Inferth Logo">
+                <h1>Inferth Mapping</h1>
+            </div>
+            <p class="subtitle">Real-Time Fleet Tracking & Management Solutions</p>
+        </header>
+
+        <div class="pricing-cards">
+            <!-- Starter Plan -->
+            <div class="pricing-card">
+                <h3 class="plan-name">Starter</h3>
+                <p class="plan-description">Perfect for small businesses with 1-5 vehicles</p>
+                <div class="price">
+                    <span class="currency">$</span>
+                    <span class="amount">29</span>
+                    <span class="period">/vehicle/month</span>
+                </div>
+                <p class="price-note">Billed monthly</p>
+                <ul class="features-list">
+                    <li><i class="fas fa-check-circle"></i> Real-time GPS tracking</li>
+                    <li><i class="fas fa-check-circle"></i> Live fleet map view</li>
+                    <li><i class="fas fa-check-circle"></i> 30-day trip history</li>
+                    <li><i class="fas fa-check-circle"></i> Basic reporting</li>
+                    <li><i class="fas fa-check-circle"></i> Email support</li>
+                    <li><i class="fas fa-check-circle"></i> Up to 5 vehicles</li>
+                    <li class="unavailable"><i class="fas fa-times-circle"></i> Geofencing</li>
+                    <li class="unavailable"><i class="fas fa-times-circle"></i> Advanced analytics</li>
+                    <li class="unavailable"><i class="fas fa-times-circle"></i> API access</li>
+                </ul>
+                <button class="cta-button secondary">Get Started</button>
+            </div>
+
+            <!-- Professional Plan (Featured) -->
+            <div class="pricing-card featured">
+                <div class="popular-badge">Most Popular</div>
+                <h3 class="plan-name">Professional</h3>
+                <p class="plan-description">Ideal for growing businesses with 5-25 vehicles</p>
+                <div class="price">
+                    <span class="currency">$</span>
+                    <span class="amount">24</span>
+                    <span class="period">/vehicle/month</span>
+                </div>
+                <p class="price-note">Billed annually (save 17%)</p>
+                <ul class="features-list">
+                    <li><i class="fas fa-check-circle"></i> Real-time GPS tracking</li>
+                    <li><i class="fas fa-check-circle"></i> Live fleet map view</li>
+                    <li><i class="fas fa-check-circle"></i> 90-day trip history</li>
+                    <li><i class="fas fa-check-circle"></i> Advanced reporting & analytics</li>
+                    <li><i class="fas fa-check-circle"></i> Priority email & chat support</li>
+                    <li><i class="fas fa-check-circle"></i> Up to 25 vehicles</li>
+                    <li><i class="fas fa-check-circle"></i> Geofencing alerts</li>
+                    <li><i class="fas fa-check-circle"></i> Speed & idle time alerts</li>
+                    <li><i class="fas fa-check-circle"></i> Route playback</li>
+                    <li class="unavailable"><i class="fas fa-times-circle"></i> API access</li>
+                    <li class="unavailable"><i class="fas fa-times-circle"></i> Custom integrations</li>
+                </ul>
+                <button class="cta-button primary">Get Started</button>
+            </div>
+
+            <!-- Enterprise Plan -->
+            <div class="pricing-card">
+                <h3 class="plan-name">Enterprise</h3>
+                <p class="plan-description">Custom solutions for large fleets (25+ vehicles)</p>
+                <div class="price">
+                    <span class="currency">$</span>
+                    <span class="amount">19</span>
+                    <span class="period">/vehicle/month</span>
+                </div>
+                <p class="price-note">Custom pricing available</p>
+                <ul class="features-list">
+                    <li><i class="fas fa-check-circle"></i> Everything in Professional</li>
+                    <li><i class="fas fa-check-circle"></i> Unlimited trip history</li>
+                    <li><i class="fas fa-check-circle"></i> Full API access</li>
+                    <li><i class="fas fa-check-circle"></i> Custom integrations</li>
+                    <li><i class="fas fa-check-circle"></i> Dedicated account manager</li>
+                    <li><i class="fas fa-check-circle"></i> 24/7 phone support</li>
+                    <li><i class="fas fa-check-circle"></i> Custom branding</li>
+                    <li><i class="fas fa-check-circle"></i> On-premise deployment option</li>
+                    <li><i class="fas fa-check-circle"></i> SLA guarantee</li>
+                    <li><i class="fas fa-check-circle"></i> Driver behavior analytics</li>
+                    <li><i class="fas fa-check-circle"></i> Fuel consumption tracking</li>
+                </ul>
+                <button class="cta-button secondary">Contact Sales</button>
+            </div>
+        </div>
+
+        <!-- Detailed Comparison Table -->
+        <div class="comparison-table">
+            <h2>Detailed Feature Comparison</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Starter</th>
+                        <th>Professional</th>
+                        <th>Enterprise</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Vehicle Limit</td>
+                        <td>Up to 5</td>
+                        <td>Up to 25</td>
+                        <td>Unlimited</td>
+                    </tr>
+                    <tr>
+                        <td>Real-time GPS Tracking</td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Live Map View</td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Trip History</td>
+                        <td>30 days</td>
+                        <td>90 days</td>
+                        <td>Unlimited</td>
+                    </tr>
+                    <tr>
+                        <td>Route Playback</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Geofencing</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Speed Alerts</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Idle Time Monitoring</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Driver Behavior Analytics</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Fuel Consumption Tracking</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Reporting</td>
+                        <td>Basic</td>
+                        <td>Advanced</td>
+                        <td>Custom</td>
+                    </tr>
+                    <tr>
+                        <td>API Access</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Custom Integrations</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Custom Branding</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>Support</td>
+                        <td>Email</td>
+                        <td>Email & Chat</td>
+                        <td>24/7 Phone</td>
+                    </tr>
+                    <tr>
+                        <td>Account Manager</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-check check-icon"></i></td>
+                    </tr>
+                    <tr>
+                        <td>SLA Guarantee</td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td><i class="fas fa-times cross-icon"></i></td>
+                        <td>99.9% uptime</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <h3>Questions? Let's Talk!</h3>
+            <div class="contact-info">
+                <div class="contact-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>sales@inferthProjects.com</span>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-phone"></i>
+                    <span>+263783009275</span>
+                </div>
+                <div class="contact-item">
+                    <i class="fas fa-globe"></i>
+                    <span>www.inferthProjects.com</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth scroll behavior
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.pricing-card, .comparison-table').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        // Button click handlers (placeholder - connect to your actual system)
+        document.querySelectorAll('.cta-button').forEach(button => {
+            button.addEventListener('click', function () {
+                const planName = this.closest('.pricing-card').querySelector('.plan-name').textContent;
+                alert(`Thank you for your interest in the ${planName} plan! Our sales team will contact you shortly.`);
+            });
+        });
+    </script>
+</body>
+
+</html>
