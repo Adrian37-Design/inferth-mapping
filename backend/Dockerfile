@@ -9,13 +9,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Install python dependencies
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && pip install email-validator
 
 # Copy the rest of the application
-COPY . .
+COPY backend/ .
 
 # Expose the port the app runs on
 EXPOSE 8000
