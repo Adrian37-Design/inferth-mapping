@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partnership Proposal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: #f9f9f9;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #0056b3;
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .logo-img {
+            max-width: 180px;
+            height: auto;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 10px;
+        }
+
+        .intro {
+            font-size: 18px;
+            color: #555;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .option-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border-left: 5px solid #bdc3c7;
+            transition: transform 0.2s;
+        }
+
+        .option-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .option-card.recommended {
+            border-left: 5px solid #27ae60;
+        }
+
+        .option-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            font-size: 12px;
+            background: #27ae60;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .option-desc {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+
+        .financials {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .math-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .math-row.Highlight {
+            font-weight: bold;
+            color: #2c3e50;
+            border-top: 1px solid #ddd;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            font-size: 14px;
+        }
+
+        .pros h4,
+        .cons h4 {
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .pros ul,
+        .cons ul {
+            padding-left: 20px;
+            margin: 0;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .option-card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <img src="Company Logo.png" alt="Inferth Projects Logo" class="logo-img">
+        <h1>Partnership Proposal</h1>
+        <p>Launch Options for Your Tracking Business</p>
+    </div>
+
+    <p class="intro">To help you get started immediately without the upfront capital requirement ($6,700), I have
+        structured three alternative partnership models. These allow you to launch your business today with <strong>$0
+            upfront development cost</strong>.</p>
+
+    <!-- Option 1 -->
+    <div class="option-card recommended">
+        <div class="option-title">
+            Option 1: White Label Tenant (Pay-As-You-Grow)
+            <span class="badge">Recommended</span>
+        </div>
+        <p class="option-desc">
+            You rent the platform infrastructure from me. I give you your own admin panel (e.g.,
+            <code>tracking.yourbrand.com</code>) branded with your logo. You manage your clients; I manage the
+            technology.
+        </p>
+
+        <div class="financials">
+            <div class="math-row">
+                <span>Start-up Cost:</span>
+                <span>$0.00</span>
+            </div>
+            <div class="math-row">
+                <span>Your Hardware Profit (Installation):</span>
+                <span>You keep 100%</span>
+            </div>
+            <div class="math-row">
+                <span>Your Monthly Service Charge to Client:</span>
+                <span>$15.00 / month (Example)</span>
+            </div>
+            <div class="math-row" style="color: #c0392b;">
+                <span>System Usage Fee (Paid to me):</span>
+                <span>- $5.00 / month / vehicle</span>
+            </div>
+            <div class="math-row Highlight">
+                <span>Your Net Monthly Profit:</span>
+                <span>$10.00 / vehicle</span>
+            </div>
+        </div>
+
+        <div class="pros-cons">
+            <div class="pros">
+                <h4>Your Benefit</h4>
+                <ul>
+                    <li><strong>No risk.</strong> You only pay when you have a paying client.</li>
+                    <li>You own your customer relationships 100%.</li>
+                    <li>Immediate launch.</li>
+                </ul>
+            </div>
+            <div class="cons">
+                <h4>My Role</h4>
+                <ul>
+                    <li>I ensure 24/7 server uptime.</li>
+                    <li>I handle all technical maintenance.</li>
+                    <li>I retain ownership of the software IP.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option 2 -->
+    <div class="option-card">
+        <div class="option-title">
+            Option 2: 60/40 Partnership (Revenue Share)
+        </div>
+        <p class="option-desc">
+            We enter this as full partners in a joint venture. You act as the <strong>Sales Director</strong> (finding
+            clients, installations), and I act as the <strong>CTO</strong> (managing the platform). We split the net
+            profit.
+        </p>
+
+        <div class="financials">
+            <div class="math-row">
+                <span>Total Revenue (Subscriptions):</span>
+                <span>100%</span>
+            </div>
+            <div class="math-row">
+                <span>Minus Server/SMS Costs:</span>
+                <span>Deducted first</span>
+            </div>
+            <div class="math-row Highlight">
+                <span>Net Profit Split:</span>
+                <span>You: 60% | Me: 40%</span>
+            </div>
+        </div>
+
+        <div class="pros-cons">
+            <div class="pros">
+                <h4>Your Benefit</h4>
+                <ul>
+                    <li>We are fully aligned partners.</li>
+                    <li>Great if you want shared responsibility.</li>
+                </ul>
+            </div>
+            <div class="cons">
+                <h4>Consideration</h4>
+                <ul>
+                    <li>Requires a formal partnership agreement.</li>
+                    <li>Your upside is capped at 60% of profits.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option 3 -->
+    <div class="option-card">
+        <div class="option-title">
+            Option 3: Lease-to-Own
+        </div>
+        <p class="option-desc">
+            If your goal is to eventually own the source code yourself but you cannot pay upfront, we can structure a
+            24-month lease.
+        </p>
+
+        <div class="financials">
+            <div class="math-row">
+                <span>Monthly Technology Lease:</span>
+                <span>$350.00 / month</span>
+            </div>
+            <div class="math-row">
+                <span>Duration:</span>
+                <span>24 Months</span>
+            </div>
+            <div class="math-row Highlight">
+                <span>Outcome:</span>
+                <span>After 24 months, full code ownership transfers to you.</span>
+            </div>
+        </div>
+
+        <div class="pros-cons">
+            <div class="pros">
+                <h4>Your Benefit</h4>
+                <ul>
+                    <li>You eventually own the asset.</li>
+                    <li>No per-vehicle fees paid to me (you keep 100% of sub revenue).</li>
+                </ul>
+            </div>
+            <div class="cons">
+                <h4>Consideration</h4>
+                <ul>
+                    <li>Fixed monthly cost regardless of your sales.</li>
+                    <li>Software remains mine until final payment.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Proposal prepared by Inferth Projects for Prospective Partner</p>
+    </div>
+
+</body>
+
+</html>
