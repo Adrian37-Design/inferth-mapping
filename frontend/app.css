@@ -710,3 +710,29 @@ body {
         box-shadow: 0 0 0 0 rgba(45, 95, 109, 0);
     }
 }
+
+/* Role Badges */
+.role-badge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-admin {
+    background-color: #ff4757;
+    color: white;
+}
+
+.badge-manager {
+    background-color: #ffa502;
+    color: white;
+}
+
+.badge-viewer {
+    background-color: #2ed573;
+    color: white;
+}

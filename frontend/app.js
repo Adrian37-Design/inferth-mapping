@@ -62,6 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Display User Role
+    const roleDisplay = document.getElementById('user-role-display');
+    if (roleDisplay) {
+        let role = window.AuthManager.getRole();
+        if (window.AuthManager.isAdmin()) role = 'Admin';
+        roleDisplay.textContent = role.toUpperCase();
+        roleDisplay.className = `role-badge badge-${role.toLowerCase()}`;
+    }
+
     // Role-based UI updates
     if (!window.AuthManager.canEdit()) {
         const addBtn = document.getElementById('add-vehicle');

@@ -44,8 +44,7 @@ class AuthManager {
 
     // Check if user is manager or admin
     isManager() {
-        const role = this.getRole();
-        return role === 'admin' || role === 'manager';
+        return this.isAdmin() || this.getRole() === 'manager';
     }
 
     // Check if user can edit/delete (Admin or Manager)
