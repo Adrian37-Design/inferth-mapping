@@ -9,11 +9,14 @@ def hash_password(password: str):
     return pwd_context.hash(password)
 
 def verify_password(plain, hashed):
-    # Bcrypt has a 72 byte limit. Newer versions error instead of truncating.
-    # We explicitly truncate to avoid the crash.
-    if plain and len(plain) > 72:
-        plain = plain[:72]
-    return pwd_context.verify(plain, hashed)
+    try:
+        # Bcrypt has a 72 byte limit. Newer versions error instead of truncating.
+        if plain and len(plain) > 72:
+            plain = plain[:72]
+        return pwd_context.verify(plain, hashed)
+    except Exception as e:
+        print(f"Password verification error: {e}")
+        return False
 
 def create_access_token(data: dict, expires_minutes: int = 60*24*7):
     to_encode = data.copy()
