@@ -1,5 +1,5 @@
 // Authentication Manager
-const API_BASE = 'https://inferth-mapping.up.railway.app';
+const API_BASE = window.location.origin;
 
 class AuthManager {
     constructor() {
