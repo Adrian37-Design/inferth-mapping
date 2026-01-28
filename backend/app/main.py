@@ -64,6 +64,49 @@ async def startup_event():
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Initialize/Reset Admin User (Auto-fix for Invalid Credentials)
+    from app.db import AsyncSessionLocal
+    from app.models import User, Tenant
+    from app.utils import hash_password
+    from sqlalchemy.future import select
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            # 1. Ensure Tenant exists
+            res = await db.execute(select(Tenant).where(Tenant.id == 1))
+            tenant = res.scalars().first()
+            if not tenant:
+                tenant = Tenant(id=1, name="Default Organization")
+                db.add(tenant)
+                await db.commit()
+            
+            # 2. Ensure User exists or Update Password
+            res = await db.execute(select(User).where(User.email == "adriankwaramba@gmail.com"))
+            user = res.scalars().first()
+            
+            new_hash = hash_password("Kingcarter@1")
+            
+            if not user:
+                print("Creating admin user...")
+                user = User(
+                    email="adriankwaramba@gmail.com", 
+                    hashed_password=new_hash, 
+                    is_active=True, 
+                    is_admin=True, 
+                    tenant_id=1
+                )
+                db.add(user)
+            else:
+                print("Updating admin user password...")
+                user.hashed_password = new_hash
+                user.is_active = True
+                user.is_admin = True
+            
+            await db.commit()
+            print("Admin user initialized successfully")
+        except Exception as e:
+            print(f"Error initializing admin user: {e}")
     
     # start MQTT client (optional - for device tracking)
     try:
