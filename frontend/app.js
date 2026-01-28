@@ -73,7 +73,7 @@ function updateStatus(status, text) {
 // Load vehicles
 async function loadVehicles() {
     try {
-        const response = await fetch(`${API_URL}/devices`, {
+        const response = await fetch(`${API_URL}/devices/`, {
             headers: window.AuthManager.getAuthHeader()
         });
         const vehicles = await response.json();
