@@ -17,6 +17,12 @@ frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fronte
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/static/login.html")
+
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
