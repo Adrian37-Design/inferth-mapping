@@ -149,7 +149,7 @@ async function loadVehicles() {
 async function loadAllPositions(vehicles) {
     for (const vehicle of vehicles) {
         try {
-            const response = await fetch(`${API_URL}/positions?device_id=${vehicle.id}&limit=1`, {
+            const response = await fetch(`${API_URL}/positions/?device_id=${vehicle.id}&limit=1`, {
                 headers: window.AuthManager.getAuthHeader()
             });
             const positions = await response.json();
@@ -349,7 +349,7 @@ function openEditModal(vehicle) {
 // Add new vehicle
 async function addVehicle(imei, name) {
     try {
-        const response = await fetch(`${API_URL}/devices`, {
+        const response = await fetch(`${API_URL}/devices/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
