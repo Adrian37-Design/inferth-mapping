@@ -33,7 +33,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=True)  # Nullable for new users
-    is_admin = Column(Boolean, default=False)
+    role = Column(String, default="admin") # admin, manager, viewer
+    is_admin = Column(Boolean, default=False) # Keep for backward compat, but rely on role
     is_active = Column(Boolean, default=False)  # False until password is set
     setup_token = Column(String, nullable=True, unique=True)  # For first-time setup
     tenant_id = Column(Integer, ForeignKey("tenants.id"))

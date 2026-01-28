@@ -55,11 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Logout handler
+    // Logout handler
     document.getElementById('logout-btn').addEventListener('click', () => {
         if (confirm('Are you sure you want to logout?')) {
             window.AuthManager.logout();
         }
     });
+
+    // Role-based UI updates
+    if (!window.AuthManager.canEdit()) {
+        const addBtn = document.getElementById('add-vehicle');
+        if (addBtn) addBtn.style.display = 'none';
+    }
 });
 
 function updateStatus(status, text) {
@@ -98,12 +105,14 @@ async function loadVehicles() {
                         <span>Active</span>
                     </span>
                     <div class="action-buttons">
+                        ${window.AuthManager.canEdit() ? `
                         <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
                             <i class="fas fa-edit"></i>
-                        </button>
+                        </button>` : ''}
+                        ${window.AuthManager.isAdmin() ? `
                         <button class="delete-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" title="Delete Vehicle">
                             <i class="fas fa-trash"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </div>
             `;
@@ -117,17 +126,21 @@ async function loadVehicles() {
 
             // Add edit button handler
             const editBtn = card.querySelector('.edit-vehicle-btn');
-            editBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openEditModal(vehicle);
-            });
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openEditModal(vehicle);
+                });
+            }
 
             // Add delete button handler
             const deleteBtn = card.querySelector('.delete-vehicle-btn');
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteVehicle(vehicle.id, vehicle.imei);
-            });
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteVehicle(vehicle.id, vehicle.imei);
+                });
+            }
 
             vehicleList.appendChild(card);
         });
