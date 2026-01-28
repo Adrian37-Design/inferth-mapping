@@ -34,7 +34,11 @@ class UserResponse(BaseModel):
     email: str
     is_admin: bool
     is_active: bool
-    setup_token: str = None
+    role: str = "viewer"
+    setup_token: str | None = None
+
+    class Config:
+        orm_mode = True
 
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
