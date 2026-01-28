@@ -205,3 +205,13 @@ async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
         "email": user.email,
         "valid": True
     }
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """List all users (admin only)"""
+    result = await db.execute(select(User))
+    users = result.scalars().all()
+    return users

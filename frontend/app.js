@@ -72,10 +72,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Role-based UI updates
+    if (window.AuthManager.isAdmin()) {
+        const usersBtn = document.getElementById('manage-users-btn');
+        if (usersBtn) {
+            usersBtn.style.display = 'flex';
+            usersBtn.addEventListener('click', () => {
+                document.getElementById('users-modal').classList.remove('hidden');
+                loadUsers();
+            });
+        }
+    }
+
     if (!window.AuthManager.canEdit()) {
         const addBtn = document.getElementById('add-vehicle');
         if (addBtn) addBtn.style.display = 'none';
     }
+});
+
+// Users Management Logic
+async function loadUsers() {
+    const list = document.getElementById('users-list');
+    list.innerHTML = '<p class="loading">Loading users...</p>';
+
+    try {
+        const response = await fetch(`${API_URL}/auth/users`, {
+            headers: window.AuthManager.getAuthHeader()
+        });
+
+        if (!response.ok) throw new Error('Failed to load users');
+
+        const users = await response.json();
+        list.innerHTML = '';
+
+        users.forEach(user => {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.innerHTML = `
+                <div class="user-info">
+                    <span class="user-email">${user.email}</span>
+                    <span class="user-role">
+                        <span class="status-indicator ${user.is_active ? 'status-active' : 'status-pending'}"></span>
+                        ${user.role.toUpperCase()}
+                        ${user.is_admin ? '<i class="fas fa-crown" title="Admin"></i>' : ''}
+                    </span>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+
+    } catch (error) {
+        console.error('Error loading users:', error);
+        list.innerHTML = '<p class="error">Failed to load users</p>';
+    }
+}
+
+document.getElementById('invite-user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('invite-email').value;
+    const role = document.getElementById('invite-role').value;
+    const btn = e.target.querySelector('button');
+
+    btn.disabled = true;
+    btn.textContent = 'Inviting...';
+
+    try {
+        const response = await fetch(`${API_URL}/auth/create-user`, {
+            method: 'POST',
+            headers: {
+                ...window.AuthManager.getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email,
+                role,
+                is_admin: role === 'admin',
+                tenant_id: window.AuthManager.user.tenant_id || 1
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to invite user');
+        }
+
+        const data = await response.json();
+        alert(`User invited! Setup Link (Copy this): \n\n${window.location.origin}/signup.html?token=${data.setup_token}`);
+
+        document.getElementById('invite-email').value = '';
+        loadUsers();
+
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Invite';
+    }
+});
+
+document.getElementById('close-users-modal').addEventListener('click', () => {
+    document.getElementById('users-modal').classList.add('hidden');
 });
 
 function updateStatus(status, text) {
