@@ -116,9 +116,35 @@ async def startup_event():
                 user.role = "admin"
             
             await db.commit()
-            print("Admin user initialized successfully")
+            # 3. Create/Update Test Users from User Request
+            test_users = [
+                {"email": "adriantakudzwa7337@gmail.com", "role": "manager", "name": "Test Manager"},
+                {"email": "adriantakudzwa3773@gmail.com", "role": "viewer", "name": "Test Viewer"}
+            ]
+
+            for t_user in test_users:
+                res = await db.execute(select(User).where(User.email == t_user["email"]))
+                existing = res.scalars().first()
+                if not existing:
+                    print(f"Creating {t_user['role']} user: {t_user['email']}")
+                    new_user = User(
+                        email=t_user["email"],
+                        hashed_password=new_hash, # Same default password
+                        is_active=True,
+                        is_admin=False,
+                        role=t_user["role"],
+                        tenant_id=1
+                    )
+                    db.add(new_user)
+                else:
+                    print(f"Updating {t_user['role']} user role...")
+                    existing.role = t_user["role"]
+                    existing.hashed_password = new_hash
+            
+            await db.commit()
+            print("Admin user and test accounts initialized successfully")
         except Exception as e:
-            print(f"Error initializing admin user: {e}")
+            print(f"Error initializing users: {e}")
     
     # start MQTT client (optional - for device tracking)
     try:
