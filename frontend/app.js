@@ -5,8 +5,13 @@ if (!window.AuthManager || !window.AuthManager.checkAuth()) {
     window.location.href = 'login.html';
 }
 
-const API_URL = window.location.origin;
-const WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/positions';
+let API_URL = window.location.origin;
+let WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/positions';
+
+if (window.location.hostname.includes('vercel.app')) {
+    API_URL = 'https://inferth-mapping.up.railway.app';
+    WS_URL = 'wss://inferth-mapping.up.railway.app/ws/positions';
+}
 
 // State
 let map;
