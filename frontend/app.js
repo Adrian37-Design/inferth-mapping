@@ -5,9 +5,11 @@ if (!window.AuthManager || !window.AuthManager.checkAuth()) {
     window.location.href = 'login.html';
 }
 
-let API_URL = window.location.origin;
+// Use relative path for same-origin requests (Monolithic deployment)
+let API_URL = '';
 let WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/positions';
 
+// Only override if we are on Vercel (external frontend)
 if (window.location.hostname.includes('vercel.app')) {
     API_URL = 'https://inferth-mapping.up.railway.app';
     WS_URL = 'wss://inferth-mapping.up.railway.app/ws/positions';
@@ -27,6 +29,7 @@ let editingVehicleId = null;
 
 // Initialize map
 function initMap() {
+    if (map) return; // Prevent double initialization
     map = L.map('map').setView([-17.8252, 31.0335], 12);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -629,8 +632,8 @@ document.getElementById('close-sidebar').addEventListener('click', () => {
 
 // Initialize
 window.addEventListener('load', () => {
-    initMap();
-    loadVehicles();
+    // initMap handled by DOMContentLoaded
+    // loadVehicles handled by DOMContentLoaded
     connectWebSocket();
 });
 
