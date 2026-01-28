@@ -1,5 +1,8 @@
 // Authentication Manager
-const API_BASE = window.location.origin;
+let API_BASE = window.location.origin;
+if (window.location.hostname.includes('vercel.app')) {
+    API_BASE = 'https://inferth-mapping.up.railway.app';
+}
 
 class AuthManager {
     constructor() {
