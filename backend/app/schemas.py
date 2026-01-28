@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 
@@ -22,3 +22,17 @@ class PositionOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+class UserBase(BaseModel):
+    email: EmailStr
+
+class UserOut(UserBase):
+    id: int
+    is_active: bool
+    is_admin: bool
+    role: str
+    tenant_id: int | None = None
+
+    class Config:
+        orm_mode = True
+

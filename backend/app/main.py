@@ -70,9 +70,19 @@ async def startup_event():
     from app.models import User, Tenant
     from app.utils import hash_password
     from sqlalchemy.future import select
+    from sqlalchemy import text
     
     async with AsyncSessionLocal() as db:
         try:
+            # 0. Auto-Migration: Ensure 'role' column exists
+            try:
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
+                await db.commit()
+                print("Schema migration: 'role' column checked/added.")
+            except Exception as e:
+                print(f"Schema migration skipped or failed: {e}")
+                await db.rollback()
+
             # 1. Ensure Tenant exists
             res = await db.execute(select(Tenant).where(Tenant.id == 1))
             tenant = res.scalars().first()
@@ -94,14 +104,16 @@ async def startup_event():
                     hashed_password=new_hash, 
                     is_active=True, 
                     is_admin=True, 
+                    role="admin",
                     tenant_id=1
                 )
                 db.add(user)
             else:
-                print("Updating admin user password...")
+                print("Updating admin user password & role...")
                 user.hashed_password = new_hash
                 user.is_active = True
                 user.is_admin = True
+                user.role = "admin"
             
             await db.commit()
             print("Admin user initialized successfully")

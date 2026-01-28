@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
-from app.models import Device, Tenant
+from app.models import Device, Tenant, User
+from app.auth_middleware import require_admin, require_manager
 from pydantic import BaseModel
 from sqlalchemy.future import select
 
@@ -13,7 +14,11 @@ class DeviceCreate(BaseModel):
     tenant_name: str | None = None
 
 @router.post("/")
-async def create_device(payload: DeviceCreate, db: AsyncSession = Depends(get_db)):
+async def create_device(
+    payload: DeviceCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
     # simple tenant lookup / create for dev
     tenant = None
     if payload.tenant_name:
@@ -37,7 +42,11 @@ async def list_devices(db: AsyncSession = Depends(get_db)):
     return [{"id": d.id, "imei": d.imei, "name": d.name or f"Device {d.imei}"} for d in devices]
 
 @router.delete("/{device_id}")
-async def delete_device(device_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_device(
+    device_id: int, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
     result = await db.execute(select(Device).where(Device.id == device_id))
     device = result.scalars().first()
     
@@ -51,7 +60,12 @@ async def delete_device(device_id: int, db: AsyncSession = Depends(get_db)):
     return {"message": f"Device {device.imei} deleted successfully"}
 
 @router.put("/{device_id}")
-async def update_device(device_id: int, payload: DeviceCreate, db: AsyncSession = Depends(get_db)):
+async def update_device(
+    device_id: int, 
+    payload: DeviceCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
     result = await db.execute(select(Device).where(Device.id == device_id))
     device = result.scalars().first()
     

@@ -25,6 +25,7 @@ class SetupAccountRequest(BaseModel):
 
 class CreateUserRequest(BaseModel):
     email: EmailStr
+    role: str = "viewer"
     is_admin: bool = False
     tenant_id: int
 
@@ -63,6 +64,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         "sub": user.email,
         "user_id": user.id,
         "tenant_id": user.tenant_id,
+        "role": user.role,
         "is_admin": user.is_admin
     })
     
@@ -72,6 +74,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         "user": {
             "id": user.id,
             "email": user.email,
+            "role": user.role,
             "is_admin": user.is_admin,
             "tenant_id": user.tenant_id
         }
@@ -118,6 +121,7 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
         "user": {
             "id": user.id,
             "email": user.email,
+            "role": user.role,
             "is_admin": user.is_admin,
             "tenant_id": user.tenant_id
         }
@@ -157,6 +161,7 @@ async def create_user(
     new_user = User(
         email=data.email,
         is_admin=data.is_admin,
+        role=data.role, # Save assigned role
         is_active=False,
         setup_token=setup_token,
         tenant_id=data.tenant_id

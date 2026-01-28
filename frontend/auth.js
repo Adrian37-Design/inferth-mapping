@@ -32,6 +32,27 @@ class AuthManager {
         return !!this.token && !!this.user;
     }
 
+    // Get current user role
+    getRole() {
+        return this.user ? (this.user.role || 'viewer') : 'viewer';
+    }
+
+    // Check if user is admin
+    isAdmin() {
+        return this.user && (this.user.is_admin || this.user.role === 'admin');
+    }
+
+    // Check if user is manager or admin
+    isManager() {
+        const role = this.getRole();
+        return role === 'admin' || role === 'manager';
+    }
+
+    // Check if user can edit/delete (Admin or Manager)
+    canEdit() {
+        return this.isManager();
+    }
+
     // Get authorization header
     getAuthHeader() {
         return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
