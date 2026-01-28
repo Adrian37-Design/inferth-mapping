@@ -7,7 +7,14 @@ from app.config import settings
 # -----------------------------------------
 
 # We use the DATABASE_URL from your .env via settings
+# We use the DATABASE_URL from your .env via settings
 DATABASE_URL = settings.DATABASE_URL
+
+# Fix for Railway/Heroku: Ensure we use the async driver
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
 # Create async engine
 engine = create_async_engine(
