@@ -2,7 +2,7 @@
 .users-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
     margin-top: 15px;
 }
 
@@ -10,40 +10,55 @@
     background: var(--card-bg);
     border: 1px solid rgba(45, 95, 109, 0.2);
     border-radius: 8px;
-    padding: 12px 15px;
-    /* More horizontal padding */
+    padding: 15px;
     display: flex;
-    flex-direction: row;
-    /* Force row */
-    justify-content: space-between;
-    /* Space out email and actions */
-    align-items: center;
-    /* Center vertically */
-    gap: 15px;
+    flex-direction: column;
+    /* Stack vertically */
+    gap: 10px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.user-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .user-info {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 4px;
-    flex: 1;
-    /* Take up available space */
+    width: 100%;
 }
 
+.user-email {
+    font-weight: 600;
+    font-size: 1.05em;
+    color: var(--text-primary);
+}
+
+.user-role {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* User Actions Row (Below Email) */
 .user-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    /* Align right */
-    gap: 15px;
-    border-top: none;
-    /* Remove separator */
-    padding-top: 0;
-    width: auto;
-    /* Auto width */
+    justify-content: flex-start;
+    /* Align to the left */
+    gap: 20px;
+    /* Space out the controls */
+    width: 100%;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    /* Subtle divider */
 }
 
+/* User Action Buttons */
 .icon-btn {
     background: none;
     border: none;
@@ -69,4 +84,61 @@
 .icon-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+/* --- Toggle Switch Styles --- */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #3f4b5b;
+    /* Darker off state */
+    border: 1px solid #566b7c;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+/* Green Slide color */
+input:checked+.slider {
+    background-color: #10b981;
+    /* Bright Green */
+    border-color: #10b981;
+}
+
+input:focus+.slider {
+    box-shadow: 0 0 1px #10b981;
+}
+
+input:checked+.slider:before {
+    transform: translateX(20px);
 }
