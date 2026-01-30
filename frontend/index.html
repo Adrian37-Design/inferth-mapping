@@ -40,11 +40,11 @@
         <aside class="sidebar-container" id="sidebar">
             <!-- Icon Rail -->
             <div class="sidebar-rail">
-                <div class="rail-item active" data-tab="tab-fleet" title="Fleet">
+                <div class="rail-item" data-tab="tab-fleet" title="Fleet">
                     <i class="fas fa-map-marker-alt"></i>
                 </div>
-                <div class="rail-item" data-tab="tab-analytics" title="Analytics">
-                    <i class="fas fa-chart-pie"></i>
+                <div class="rail-item active" data-tab="tab-dashboard" title="Dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
                 </div>
                 <div class="rail-item" data-tab="tab-alerts" title="Alerts">
                     <i class="fas fa-bell"></i>
@@ -58,14 +58,14 @@
             <!-- Panel Content -->
             <div class="sidebar-panel">
                 <div class="panel-header">
-                    <h3 id="panel-title">Fleet Overview</h3>
+                    <h3 id="panel-title">Dashboard</h3>
                     <button class="toggle-panel" id="toggle-sidebar-btn">
                         <i class="fas fa-chevron-left"></i>
                     </button>
                 </div>
 
                 <!-- Tab: Fleet List -->
-                <div id="tab-fleet" class="tab-content active">
+                <div id="tab-fleet" class="tab-content">
                     <div class="action-bar">
                         <button class="btn-small" id="add-vehicle-sidebar"><i class="fas fa-plus"></i> Add</button>
                     </div>
@@ -74,30 +74,39 @@
                     </div>
                 </div>
 
-                <!-- Tab: Analytics -->
-                <div id="tab-analytics" class="tab-content">
-                    <div class="summary-card-sidebar">
-                        <h4>Fleet Status</h4>
-                        <div class="summary-grid">
-                            <div class="summary-item">
-                                <span class="value" id="summary-total">0</span>
-                                <span class="label">Total</span>
+                <!-- Tab: Dashboard (Entry Point) -->
+                <div id="tab-dashboard" class="tab-content active">
+                    <!-- Fleet Snapshot (KPIs) -->
+                    <div class="dashboard-section">
+                        <h4 class="section-title">Fleet Snapshot</h4>
+                        <div class="kpi-grid">
+                            <div class="kpi-card active-card">
+                                <span class="kpi-value" id="kpi-active">0</span>
+                                <span class="kpi-label">Active</span>
                             </div>
-                            <div class="summary-item">
-                                <span class="value success" id="summary-online">0</span>
-                                <span class="label">Online</span>
+                            <div class="kpi-card idle-card">
+                                <span class="kpi-value" id="kpi-idle">0</span>
+                                <span class="kpi-label">Idle</span>
                             </div>
-                            <div class="summary-item">
-                                <span class="value danger" id="summary-offline">0</span>
-                                <span class="label">Offline</span>
+                            <div class="kpi-card alert-card">
+                                <span class="kpi-value" id="kpi-alerts">0</span>
+                                <span class="kpi-label">Alerts Today</span>
+                            </div>
+                            <div class="kpi-card offline-card">
+                                <span class="kpi-value" id="kpi-offline">0</span>
+                                <span class="kpi-label">Offline</span>
                             </div>
                         </div>
                     </div>
+
                     <hr class="panel-divider">
-                    <div class="quick-stats">
-                        <h4>Quick Actions</h4>
-                        <button class="panel-btn" id="show-trips-sidebar"><i class="fas fa-history"></i> Trip
-                            History</button>
+
+                    <!-- Priority Alerts Panel -->
+                    <div class="dashboard-section">
+                        <h4 class="section-title">Priority Alerts</h4>
+                        <div id="priority-alerts-list" class="priority-list">
+                            <p class="empty-state">No priority alerts</p>
+                        </div>
                     </div>
                 </div>
 
