@@ -64,6 +64,88 @@
                     </button>
                 </div>
 
+                <!-- Tab: Asset Detail View (STEP 5) -->
+                <div id="tab-asset-detail" class="tab-content">
+                    <div class="asset-header-container">
+                        <div class="asset-title-row">
+                            <button class="btn-text back-btn" onclick="closeAssetDetail()">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                            <h2 id="detail-name">Vehicle Name</h2>
+                            <span class="status-badge" id="detail-status">Unknown</span>
+                        </div>
+                        <div class="asset-subtitle" id="detail-driver">No Driver Assigned</div>
+                    </div>
+
+                    <div class="detail-scroll-area">
+                        <!-- Section 1: Current Status -->
+                        <div class="detail-section">
+                            <h4 class="section-title">Current Status</h4>
+                            <div class="status-grid">
+                                <div class="status-item">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span class="status-label">Speed</span>
+                                    <span class="status-value" id="detail-speed">0 km/h</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-key"></i>
+                                    <span class="status-label">Ignition</span>
+                                    <span class="status-value" id="detail-ignition">Off</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span class="status-label">Location</span>
+                                    <span class="status-value" id="detail-coords">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-clock"></i>
+                                    <span class="status-label">Last Seen</span>
+                                    <span class="status-value" id="detail-last-seen">Just now</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 2: Timeline & History -->
+                        <div class="detail-section">
+                            <h4 class="section-title">History & Timeline</h4>
+                            <div class="history-controls">
+                                <select id="history-filter" class="form-select-small">
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="trip">By Trip</option>
+                                </select>
+                                <button class="btn-small" id="load-history-btn">Load</button>
+                            </div>
+                            <div class="timeline-view" id="detail-timeline">
+                                <p class="empty-state">Select a range to view history</p>
+                            </div>
+                        </div>
+
+                        <!-- Section 3: Quick Actions -->
+                        <div class="detail-section">
+                            <h4 class="section-title">Quick Actions</h4>
+                            <div class="action-grid">
+                                <button class="action-btn" title="Create Geofence">
+                                    <div class="action-icon"><i class="fas fa-draw-polygon"></i></div>
+                                    <span>Geofence</span>
+                                </button>
+                                <button class="action-btn" title="Download Report">
+                                    <div class="action-icon"><i class="fas fa-file-download"></i></div>
+                                    <span>Report</span>
+                                </button>
+                                <button class="action-btn" title="Set Alert">
+                                    <div class="action-icon"><i class="fas fa-bell"></i></div>
+                                    <span>Alert</span>
+                                </button>
+                                <button class="action-btn" title="Assign Driver" onclick="openAssignDriver()">
+                                    <div class="action-icon"><i class="fas fa-id-card"></i></div>
+                                    <span>Driver</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab: Fleet List -->
                 <div id="tab-fleet" class="tab-content">
                     <div class="action-bar">
@@ -290,7 +372,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>

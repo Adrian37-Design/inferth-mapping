@@ -18,6 +18,7 @@ if (window.location.hostname.includes('vercel.app')) {
 // State
 let map;
 let markers = {};
+let vehiclePositions = {}; // Store latest data for details view
 let routes = {};
 let selectedVehicle = null;
 let ws = null;
@@ -653,6 +654,14 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
         markers[id] = marker;
     }
 
+    // Store latest data
+    vehiclePositions[id] = { lat, lng, speed, timestamp };
+
+    // Update Detail View if open
+    if (selectedVehicle && selectedVehicle.id === id) {
+        updateAssetDetailUI(id);
+    }
+
     // 2. Update Control Panel Card (The Asset-Centric View)
     updateVehicleCard(id, speed, timestamp, lat, lng);
 }
@@ -702,21 +711,122 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     }
 }
 
-// Select vehicle
+// Open Asset Detail View
+function openAssetDetail(vehicle) {
+    // Switch Tabs
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-asset-detail').classList.add('active');
+
+    // Update Header
+    document.getElementById('panel-title').textContent = 'Asset Details';
+    document.getElementById('detail-name').textContent = vehicle.name || `Device ${vehicle.imei}`;
+    document.getElementById('detail-driver').textContent = vehicle.driver_name || 'No Driver Assigned';
+
+    // Initial Data Population
+    updateAssetDetailUI(vehicle.id);
+
+    // Load History (Default: Today)
+    loadAssetHistory(vehicle.id, 'today');
+}
+
+// Close Asset Detail View
+function closeAssetDetail() {
+    // Switch Tabs
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-fleet').classList.add('active'); // Back to fleet list
+
+    // Reset Header
+    document.getElementById('panel-title').textContent = 'Dashboard';
+    selectedVehicle = null;
+
+    // Clear map route if any
+    if (playbackRoute) {
+        stopRoute();
+        playbackRoute = null;
+    }
+}
+
+// Update Asset Detail UI with real-time data
+function updateAssetDetailUI(id) {
+    const data = vehiclePositions[id];
+    if (!data) return;
+
+    // Status Badge
+    const statusBadge = document.getElementById('detail-status');
+    let status = 'Idle';
+    let statusClass = 'badge-idle';
+
+    if (data.speed > 3) {
+        status = 'Moving';
+        statusClass = 'badge-moving';
+    } else if ((Date.now() - new Date(data.timestamp).getTime()) > 300000) { // > 5 mins
+        status = 'Offline';
+        statusClass = 'badge-offline';
+    }
+
+    statusBadge.textContent = status;
+    statusBadge.className = `status-badge ${statusClass}`; // Needs CSS for this
+
+    // Grid Items
+    document.getElementById('detail-speed').textContent = `${Math.round(data.speed)} km/h`;
+    document.getElementById('detail-ignition').textContent = data.speed > 0 ? 'On' : 'Off'; // Simple logic
+    document.getElementById('detail-coords').textContent = `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
+
+    const timeDiff = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
+    document.getElementById('detail-last-seen').textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
+}
+
+// Select vehicle (Entry Point)
 function selectVehicle(vehicle) {
     selectedVehicle = vehicle;
-
-    // Update UI
-    document.querySelectorAll('.vehicle-card').forEach(card => {
-        card.classList.remove('active');
-    });
-    document.querySelector(`[data-id="${vehicle.id}"]`).classList.add('active');
 
     // Center map on vehicle
     if (markers[vehicle.id]) {
         const latLng = markers[vehicle.id].getLatLng();
-        map.setView(latLng, 15);
+        map.setView(latLng, 16);
         markers[vehicle.id].openPopup();
+    }
+
+    // Open Detail View
+    openAssetDetail(vehicle);
+}
+
+// Load Asset History (Mock/Real)
+async function loadAssetHistory(id, range) {
+    const timeline = document.getElementById('detail-timeline');
+    timeline.innerHTML = '<p class="loading">Loading history...</p>';
+
+    // Reuse existing loadTrips logic but formatted for timeline
+    // For now, simpler implementation:
+    try {
+        // Fetch trips
+        const days = range === 'today' ? 1 : (range === 'yesterday' ? 2 : 7);
+        const response = await fetch(`${API_URL}/positions/trips/${id}?days=${days}`);
+        const data = await response.json();
+
+        timeline.innerHTML = '';
+
+        if (data.trips.length === 0) {
+            timeline.innerHTML = '<p class="empty-state">No activity recorded</p>';
+            return;
+        }
+
+        data.trips.forEach(trip => {
+            const item = document.createElement('div');
+            item.className = 'timeline-item'; // Needs CSS
+            item.innerHTML = `
+                <div class="timeline-icon"><i class="fas fa-route"></i></div>
+                <div class="timeline-content">
+                    <div class="timeline-time">${new Date(trip.start_time).toLocaleTimeString()}</div>
+                    <div class="timeline-title">Trip: ${trip.distance_km} km</div>
+                    <div class="timeline-desc">Duration: ${trip.duration_minutes} min</div>
+                </div>
+            `;
+            timeline.appendChild(item);
+        });
+    } catch (e) {
+        console.error("History load error", e);
+        timeline.innerHTML = '<p class="empty-state">Failed to load history</p>';
     }
 }
 
@@ -1123,6 +1233,25 @@ document.getElementById('toggle-sidebar').addEventListener('click', () => {
         map.invalidateSize();
     }, 350);
 });
+
+// History Filter Listener
+const historyFilter = document.getElementById('history-filter');
+if (historyFilter) {
+    historyFilter.addEventListener('change', (e) => {
+        if (selectedVehicle) {
+            loadAssetHistory(selectedVehicle.id, e.target.value);
+        }
+    });
+}
+const loadHistoryBtn = document.getElementById('load-history-btn');
+if (loadHistoryBtn) {
+    loadHistoryBtn.addEventListener('click', () => {
+        if (selectedVehicle) {
+            const range = document.getElementById('history-filter').value;
+            loadAssetHistory(selectedVehicle.id, range);
+        }
+    });
+}
 
 document.getElementById('close-sidebar').addEventListener('click', () => {
     document.getElementById('sidebar').classList.add('hidden');
