@@ -861,13 +861,13 @@ transition: all 0.3s;
 
 .p-alert-title {
     font-weight: 600;
-    color: #fecaca;
+    color: #991b1b;
     font-size: 0.9em;
 }
 
 .p-alert-time {
     font-size: 0.75em;
-    color: #fca5a5;
+    color: #b91c1c;
 }
 
 .dropdown-container {
