@@ -28,6 +28,46 @@ let playbackRoute = null;
 let playbackMarker = null;
 let editingVehicleId = null;
 
+// --- Quick Actions Logic (Global Scope) ---
+
+window.openAssignDriver = async function () {
+    if (!selectedVehicle) return;
+
+    // Simple prompt for now
+    const driverName = prompt('Assign Driver to ' + (selectedVehicle.name || selectedVehicle.imei), selectedVehicle.driver_name || '');
+
+    if (driverName !== null) {
+        try {
+            await updateVehicle(selectedVehicle.id, selectedVehicle.imei, selectedVehicle.name, driverName);
+            // Verification is handled inside updateVehicle return but we want UI feedback here
+            alert('Driver assigned: ' + driverName);
+
+            // Update UI locally
+            document.getElementById('detail-driver').textContent = driverName;
+            selectedVehicle.driver_name = driverName;
+        } catch (e) {
+            console.error(e);
+            // alert already shown in updateVehicle
+        }
+    }
+};
+
+window.triggerGeofenceAction = function () {
+    alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
+};
+
+window.triggerReportAction = function () {
+    if (!selectedVehicle) return;
+    alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
+};
+
+window.triggerAlertAction = function () {
+    const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
+    if (type) {
+        alert('Alert for ' + type + ' configured successfully!');
+    }
+};
+
 // Initialize map
 function initMap() {
     if (map) return; // Prevent double initialization
@@ -1327,40 +1367,4 @@ document.head.appendChild(style);
 // --- Quick Actions Logic ---
 
 // Make global so onclick can find them
-window.openAssignDriver = async function () {
-    if (!selectedVehicle) return;
 
-    // Simple prompt for now
-    const driverName = prompt('Assign Driver to ' + (selectedVehicle.name || selectedVehicle.imei), selectedVehicle.driver_name || '');
-
-    if (driverName !== null) {
-        try {
-            await updateVehicle(selectedVehicle.id, selectedVehicle.imei, selectedVehicle.name, driverName);
-            // Verification is handled inside updateVehicle return but we want UI feedback here
-            alert('Driver assigned: ' + driverName);
-
-            // Update UI locally
-            document.getElementById('detail-driver').textContent = driverName;
-            selectedVehicle.driver_name = driverName;
-        } catch (e) {
-            console.error(e);
-            // alert already shown in updateVehicle
-        }
-    }
-};
-
-window.triggerGeofenceAction = function () {
-    alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
-};
-
-window.triggerReportAction = function () {
-    if (!selectedVehicle) return;
-    alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
-};
-
-window.triggerAlertAction = function () {
-    const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
-    if (type) {
-        alert('Alert for ' + type + ' configured successfully!');
-    }
-};
