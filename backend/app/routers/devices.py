@@ -39,7 +39,7 @@ async def create_device(
 async def list_devices(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Device))
     devices = result.scalars().all()
-    return [{"id": d.id, "imei": d.imei, "name": d.name or f"Device {d.imei}"} for d in devices]
+    return [{"id": d.id, "imei": d.imei, "name": d.name or f"Device {d.imei}", "driver_name": d.driver_name} for d in devices]
 
 @router.delete("/{device_id}")
 async def delete_device(
@@ -75,8 +75,10 @@ async def update_device(
     device.imei = payload.imei
     if payload.name is not None:
         device.name = payload.name
+    if payload.driver_name is not None:
+        device.driver_name = payload.driver_name
         
     await db.commit()
     await db.refresh(device)
     
-    return {"id": device.id, "imei": device.imei, "name": device.name}
+    return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name}

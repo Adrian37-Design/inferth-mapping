@@ -74,11 +74,12 @@ async def startup_event():
     
     async with AsyncSessionLocal() as db:
         try:
-            # 0. Auto-Migration: Ensure 'role' column exists
+            # 0. Auto-Migration: Ensure 'role' and 'driver_name' columns exist
             try:
                 await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
+                await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
                 await db.commit()
-                print("Schema migration: 'role' column checked/added.")
+                print("Schema migration: Columns checked/added.")
             except Exception as e:
                 print(f"Schema migration skipped or failed: {e}")
                 await db.rollback()
