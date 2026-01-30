@@ -30,6 +30,20 @@
                 <i class="fas fa-circle" id="status-dot"></i>
                 <span id="status-text">Connecting...</span>
             </div>
+            <div class="stat-item dropdown-container">
+                <i class="fas fa-bell" id="alerts-btn"></i>
+                <span class="badge-count hidden" id="alerts-count">0</span>
+                <!-- Alerts Dropdown -->
+                <div class="dropdown-menu hidden" id="alerts-dropdown">
+                    <div class="dropdown-header">
+                        <h4>Notifications</h4>
+                        <button id="clear-alerts">Clear All</button>
+                    </div>
+                    <div class="dropdown-body" id="alerts-list">
+                        <p class="empty-state">No new alerts</p>
+                    </div>
+                </div>
+            </div>
             <button class="logout-btn" id="logout-btn" title="Logout">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
@@ -56,6 +70,27 @@
         <!-- Map Container -->
         <div class="map-wrapper">
             <div id="map"></div>
+
+            <!-- Dashboard Summary Widget -->
+            <div class="dashboard-summary" id="dashboard-summary">
+                <div class="summary-card">
+                    <h4>Fleet Status</h4>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <span class="value" id="summary-total">0</span>
+                            <span class="label">Total</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="value success" id="summary-online">0</span>
+                            <span class="label">Online</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="value danger" id="summary-offline">0</span>
+                            <span class="label">Offline</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Route Controls (Hidden by default) -->
             <div class="route-controls hidden" id="route-controls">

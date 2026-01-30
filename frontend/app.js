@@ -87,7 +87,103 @@ document.addEventListener('DOMContentLoaded', () => {
         const addBtn = document.getElementById('add-vehicle');
         if (addBtn) addBtn.style.display = 'none';
     }
+
+    // Alerts Logic
+    setupAlerts();
 });
+
+// Alerts System
+let alerts = [];
+
+function setupAlerts() {
+    const btn = document.getElementById('alerts-btn');
+    const dropdown = document.getElementById('alerts-dropdown');
+    const clearBtn = document.getElementById('clear-alerts');
+
+    // Toggle Dropdown
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && e.target !== btn) {
+            dropdown.classList.add('hidden');
+        }
+    });
+
+    // Clear All
+    clearBtn.addEventListener('click', () => {
+        alerts = [];
+        renderAlerts();
+    });
+
+    // DEMO: Add a fake alert after 5 seconds to show functionality
+    setTimeout(() => {
+        addAlert('warning', 'Unit 001 disconnected', 'Connection lost for > 5 mins');
+    }, 5000);
+
+    setTimeout(() => {
+        addAlert('danger', 'Speeding Alert', 'Toyota Hilux exceeded 100km/h');
+    }, 12000);
+}
+
+function addAlert(type, title, message) {
+    const alert = {
+        id: Date.now(),
+        type,
+        title,
+        message,
+        time: new Date(),
+        read: false
+    };
+
+    alerts.unshift(alert); // Add to top
+    updateAlertsCount();
+    renderAlerts();
+}
+
+function updateAlertsCount() {
+    const count = alerts.filter(a => !a.read).length;
+    const badge = document.getElementById('alerts-count');
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function renderAlerts() {
+    const list = document.getElementById('alerts-list');
+    list.innerHTML = '';
+
+    if (alerts.length === 0) {
+        list.innerHTML = '<p class="empty-state">No new alerts</p>';
+        return;
+    }
+
+    alerts.forEach(alert => {
+        const item = document.createElement('div');
+        item.className = `alert-item ${alert.read ? '' : 'unread'}`;
+
+        let icon = 'fa-info-circle';
+        if (alert.type === 'warning') icon = 'fa-exclamation-triangle';
+        if (alert.type === 'danger') icon = 'fa-exclamation-circle';
+
+        item.innerHTML = `
+            <div class="alert-icon"><i class="fas ${icon}"></i></div>
+            <div class="alert-content">
+                <h5>${alert.title}</h5>
+                <p>${alert.message}</p>
+                <span class="alert-time">${alert.time.toLocaleTimeString()}</span>
+            </div>
+        `;
+        list.appendChild(item);
+    });
+}
 
 // Users Management Logic
 async function loadUsers() {
@@ -353,6 +449,9 @@ async function loadVehicles() {
             vehicleList.appendChild(card);
         });
 
+        // Update Dashboard Summary
+        updateDashboardSummary(vehicles);
+
         // Load positions for all vehicles
         loadAllPositions(vehicles);
 
@@ -364,6 +463,34 @@ async function loadVehicles() {
         console.error('Error loading vehicles:', error);
         updateStatus('disconnected', 'Failed to load vehicles');
     }
+}
+
+function updateDashboardSummary(vehicles) {
+    const total = vehicles.length;
+    // For now, assume a random distribution for demo, or based on last position time if available
+    // In real app, check 'last_update' timestamp vs current time
+    const online = vehicles.filter(v => true).length; // Needs real timestamp logic
+    const offline = total - online;
+
+    document.getElementById('summary-total').textContent = total;
+
+    // Animate numbers for polish
+    animateValue('summary-total', 0, total, 1000);
+}
+
+function animateValue(id, start, end, duration) {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
 }
 
 // Load all vehicle positions
