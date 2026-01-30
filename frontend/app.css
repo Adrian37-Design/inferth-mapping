@@ -865,8 +865,9 @@ body {
 
 .p-alert-time {
     font-size: 0.75em;
-    color: #333333;
-    /* Dark Grey */
+    color: #000000;
+    font-weight: 700;
+    /* Bold */
 }
 
 .dropdown-container {
@@ -973,19 +974,25 @@ body {
 .alert-content h5 {
     margin: 0 0 4px 0;
     font-size: 0.9rem;
+    color: #000000;
+    font-weight: 700;
 }
 
 .alert-content p {
     margin: 0;
     font-size: 0.8rem;
-    color: #666;
+    color: #000000;
+    /* Black */
+    font-weight: 500;
 }
 
 .alert-time {
     font-size: 0.7rem;
-    color: #999;
+    color: #000000;
+    /* Black */
     display: block;
     margin-top: 4px;
+    font-weight: 600;
 }
 
 /* Form Styles */
