@@ -59,7 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Load Data
-        loadVehicles();
+        try {
+            loadVehicles();
+        } catch (e) {
+            console.error("Auto-load failed, forcing logout check", e);
+            if (e.message.includes("401") || e.message.includes("Unauthorized")) {
+                window.AuthManager.logout();
+            }
+        }
 
         // If admin, load users into the tab immediately
         if (user.role === 'admin') {
@@ -106,8 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) logoutBtn.addEventListener('click', () => window.AuthManager.logout());
+    // Logout button handled via inline onclick in index.html for robustness
 
     // Alerts Logic
     setupAlerts();
