@@ -36,3 +36,18 @@ class UserOut(UserBase):
     class Config:
         orm_mode = True
 
+class DeviceBase(BaseModel):
+    imei: str
+    name: Optional[str] = None
+    driver_name: Optional[str] = None
+
+class DeviceCreate(DeviceBase):
+    pass
+
+class DeviceOut(DeviceBase):
+    id: int
+    tenant_id: int | None = None
+    created_at: datetime
+    
+    class Config:
+        orm_mode = True

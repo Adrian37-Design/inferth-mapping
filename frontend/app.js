@@ -630,9 +630,9 @@ async function loadAllPositions(vehicles) {
     }
 }
 
-// Add or update marker
+// Add or update marker and update Control Panel Card
 function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
-    // Create custom icon
+    // 1. Update Map Marker
     const icon = L.divIcon({
         html: `<div class="vehicle-marker">
                 <i class="fas fa-car"></i>
@@ -645,25 +645,58 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
     if (markers[id]) {
         markers[id].setLatLng([lat, lng]);
         markers[id].setIcon(icon);
-        markers[id].getPopup().setContent(`
-            <div class="marker-popup">
-                <strong>${name}</strong><br>
-                IMEI: ${imei}<br>
-                Speed: ${Math.round(speed || 0)} km/h<br>
-                Last update: ${new Date(timestamp).toLocaleString()}
-            </div>
-        `);
+        // Update Popup Content...
     } else {
         const marker = L.marker([lat, lng], { icon: icon }).addTo(map);
-        marker.bindPopup(`
-            <div class="marker-popup">
-                <strong>${name}</strong><br>
-                IMEI: ${imei}<br>
-                Speed: ${Math.round(speed || 0)} km/h<br>
-                Last update: ${new Date(timestamp).toLocaleString()}
-            </div>
-        `);
         markers[id] = marker;
+    }
+
+    // 2. Update Control Panel Card (The Asset-Centric View)
+    updateVehicleCard(id, speed, timestamp, lat, lng);
+}
+
+function updateVehicleCard(id, speed, timestamp, lat, lng) {
+    const card = document.querySelector(`.vehicle-card[data-id="${id}"]`);
+    if (!card) return;
+
+    // Determine Status
+    // Simple logic: Speed > 3 = Moving, Speed <=3 = Idle (if recent).
+    // For now, assume data is "recent" if we are receiving it.
+    let status = 'idle';
+    let label = 'Idle';
+    if (speed > 3) {
+        status = 'moving';
+        label = 'Moving';
+    }
+
+    // Update Classes
+    card.classList.remove('status-offline', 'status-idle', 'status-moving');
+    card.classList.add(`status-${status}`);
+
+    // Update Badge
+    const badge = card.querySelector('.vehicle-status-badge');
+    if (badge) {
+        badge.className = `vehicle-status-badge badge-${status}`;
+        badge.textContent = label;
+    }
+
+    // Update Meta Data
+    const timeSpan = card.querySelector('.meta-time');
+    if (timeSpan) {
+        // Calculate relative time or just show time
+        const date = new Date(timestamp);
+        timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    const speedSpan = card.querySelector('.meta-speed');
+    if (speedSpan) {
+        speedSpan.textContent = `${Math.round(speed)} km/h`;
+    }
+
+    const locSpan = card.querySelector('.meta-location');
+    if (locSpan) {
+        // Mocking address for now (or strictly showing lat/lng)
+        locSpan.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
 }
 

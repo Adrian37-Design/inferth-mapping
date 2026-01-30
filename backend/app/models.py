@@ -49,6 +49,7 @@ class Device(Base):
     id = Column(Integer, primary_key=True, index=True)
     imei = Column(String, unique=True, index=True, nullable=False)
     name = Column(String)
+    driver_name = Column(String, nullable=True) # Added driver name
     tenant_id = Column(Integer, ForeignKey("tenants.id"))
     device_metadata = Column(JSON, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now())
