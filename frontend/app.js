@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Data Load
     if (window.AuthManager.isAuthenticated()) {
-        const user = window.AuthManager.getUser();
+        const user = window.AuthManager.user; // Use property directly
 
         // Show/Hide Role Specific Items
         if (user.role !== 'admin' && user.role !== 'manager') {
@@ -60,19 +60,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Load Data
         try {
-            loadVehicles();
+            // loadVehicles(); // Called automatically above
         } catch (e) {
-            console.error("Auto-load failed, forcing logout check", e);
-            if (e.message.includes("401") || e.message.includes("Unauthorized")) {
-                window.AuthManager.logout();
-            }
+            console.error("Auto-load failed", e);
         }
 
         // If admin, show the button but don't auto-load
         if (user.role === 'admin') {
             // loadUsers() - moved to lazy load on tab click
         } else {
-            document.getElementById('rail-users-btn').style.display = 'none';
+            const railUsersBtn = document.getElementById('rail-users-btn');
+            if (railUsersBtn) railUsersBtn.style.display = 'none';
         }
 
         // Initialize WebSocket
@@ -80,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Event Listeners
+    // Removed duplicate listeners
+
     if (document.getElementById('add-vehicle-sidebar')) {
         document.getElementById('add-vehicle-sidebar').addEventListener('click', () => {
             document.getElementById('add-vehicle-modal').classList.remove('hidden');
@@ -428,9 +428,9 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
     }
 });
 
-document.getElementById('close-users-modal').addEventListener('click', () => {
-    document.getElementById('users-modal').classList.add('hidden');
-});
+// document.getElementById('close-users-modal').addEventListener('click', () => {
+//     document.getElementById('users-modal').classList.add('hidden');
+// });
 
 function updateStatus(status, text) {
     const dot = document.getElementById('status-dot');
@@ -451,7 +451,7 @@ async function loadVehicles() {
 
         const vehicles = await response.json();
 
-        document.getElementById('vehicle-count').textContent = vehicles.length;
+        // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
         const vehicleList = document.getElementById('vehicle-list');
         vehicleList.innerHTML = '';
