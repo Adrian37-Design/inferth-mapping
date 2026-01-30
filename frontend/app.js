@@ -444,7 +444,10 @@ function updateStatus(status, text) {
 async function loadVehicles() {
     try {
         const response = await window.AuthManager.fetchAPI('/devices/');
-        if (!response.ok) throw new Error('Failed to load vehicles');
+        if (!response.ok) {
+            alert(`DEBUG: API Error loading vehicles!\nStatus: ${response.status} ${response.statusText}\nURL: ${response.url}`);
+            throw new Error('Failed to load vehicles');
+        }
 
         const vehicles = await response.json();
 
