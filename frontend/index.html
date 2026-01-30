@@ -26,7 +26,8 @@
                 <i class="fas fa-circle" id="status-dot"></i>
                 <span id="status-text">Connecting...</span>
             </div>
-            <button class="logout-btn" id="logout-btn" title="Logout">
+            <button class="logout-btn" id="logout-btn" title="Logout"
+                onclick="window.AuthManager && window.AuthManager.logout()">
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
