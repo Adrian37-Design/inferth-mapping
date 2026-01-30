@@ -68,9 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // If admin, load users into the tab immediately
+        // If admin, show the button but don't auto-load
         if (user.role === 'admin') {
-            loadUsers();
+            // loadUsers() - moved to lazy load on tab click
         } else {
             document.getElementById('rail-users-btn').style.display = 'none';
         }
@@ -121,6 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- UI Logic ---
 
+// State for lazy loading
+let usersLoaded = false;
+
 function setupTabs() {
     const railItems = document.querySelectorAll('.rail-item');
     const panels = document.querySelectorAll('.tab-content');
@@ -144,6 +147,12 @@ function setupTabs() {
 
             // Ensure sidebar is open
             document.querySelector('.sidebar-container').classList.remove('collapsed');
+
+            // Lazy Load Users
+            if (tabId === 'tab-users' && !usersLoaded && window.AuthManager.isAdmin()) {
+                loadUsers();
+                usersLoaded = true;
+            }
         });
     });
 }
