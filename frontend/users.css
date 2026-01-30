@@ -10,31 +10,38 @@
     background: var(--card-bg);
     border: 1px solid rgba(45, 95, 109, 0.2);
     border-radius: 8px;
-    padding: 12px;
+    padding: 12px 15px;
+    /* More horizontal padding */
     display: flex;
-    flex-direction: column;
-    /* Stack vertically */
-    gap: 10px;
+    flex-direction: row;
+    /* Force row */
+    justify-content: space-between;
+    /* Space out email and actions */
+    align-items: center;
+    /* Center vertically */
+    gap: 15px;
 }
 
 .user-info {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 4px;
-    width: 100%;
+    flex: 1;
+    /* Take up available space */
 }
 
 .user-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    /* Align icons to the left */
+    justify-content: flex-end;
+    /* Align right */
     gap: 15px;
-    /* More space between icons */
-    width: 100%;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    /* Separator line */
-    padding-top: 8px;
+    border-top: none;
+    /* Remove separator */
+    padding-top: 0;
+    width: auto;
+    /* Auto width */
 }
 
 .icon-btn {

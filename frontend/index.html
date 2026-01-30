@@ -165,7 +165,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-user-plus"></i> Invite User</h3>
-                <button class="close-modal" id="close-user-form">
+                <button class="close-modal" id="close-user-form"
+                    onclick="document.getElementById('user-form-modal').classList.add('hidden')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -192,7 +193,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-user-edit"></i> Edit User</h3>
-                <button class="close-modal" id="close-edit-user">
+                <button class="close-modal" id="close-edit-user"
+                    onclick="document.getElementById('edit-user-modal').classList.add('hidden'); document.getElementById('users-modal').classList.remove('hidden')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -212,7 +214,8 @@
                         </select>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="cancel-edit-user">Cancel</button>
+                        <button type="button" class="btn-secondary" id="cancel-edit-user"
+                            onclick="document.getElementById('edit-user-modal').classList.add('hidden'); document.getElementById('users-modal').classList.remove('hidden')">Cancel</button>
                         <button type="submit" class="btn-primary">Save Changes</button>
                     </div>
                 </form>
@@ -225,7 +228,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Trip History</h3>
-                <button class="close-modal" id="close-trip-modal">
+                <button class="close-modal" id="close-trip-modal"
+                    onclick="document.getElementById('trip-modal').classList.add('hidden')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -246,7 +250,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-car"></i> Add New Vehicle</h3>
-                <button class="close-modal" id="close-add-vehicle">
+                <button class="close-modal" id="close-add-vehicle"
+                    onclick="document.getElementById('add-vehicle-modal').classList.add('hidden')">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
