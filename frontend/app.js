@@ -182,6 +182,12 @@ function setupAlerts() {
         clearBtn.addEventListener('click', () => {
             alerts = [];
             renderAlerts();
+            updateAlertsCount(); // Fix: Update badge too
+            updatePriorityAlertsPanel(); // Fix: Clear priority panel
+
+            // Clear KPI count
+            const kpiAlerts = document.getElementById('kpi-alerts');
+            if (kpiAlerts) kpiAlerts.textContent = '0';
         });
     }
 
