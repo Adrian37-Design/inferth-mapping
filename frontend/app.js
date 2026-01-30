@@ -107,14 +107,30 @@ async function loadUsers() {
         users.forEach(user => {
             const div = document.createElement('div');
             div.className = 'user-item';
+
+            // Prevent editing self
+            const isSelf = user.id === window.AuthManager.user.id;
+
             div.innerHTML = `
                 <div class="user-info">
                     <span class="user-email">${user.email}</span>
                     <span class="user-role">
-                        <span class="status-indicator ${user.is_active ? 'status-active' : 'status-pending'}"></span>
                         ${user.role.toUpperCase()}
                         ${user.is_admin ? '<i class="fas fa-crown" title="Admin"></i>' : ''}
                     </span>
+                </div>
+                <div class="user-actions">
+                    <label class="switch" title="Enable/Disable Account">
+                        <input type="checkbox" ${user.is_active ? 'checked' : ''} 
+                               onchange="toggleUserStatus(${user.id}, this.checked)" ${isSelf ? 'disabled' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                    <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}')" ${isSelf ? 'disabled' : ''} title="Edit Role">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="icon-btn delete-btn" onclick="deleteUser(${user.id})" ${isSelf ? 'disabled' : ''} title="Delete User">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             `;
             list.appendChild(div);
@@ -125,6 +141,94 @@ async function loadUsers() {
         list.innerHTML = '<p class="error">Failed to load users</p>';
     }
 }
+
+// Toggle User Status
+async function toggleUserStatus(userId, isActive) {
+    try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                ...window.AuthManager.getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_active: isActive })
+        });
+
+        if (!response.ok) throw new Error('Failed to update status');
+        // Silent success
+    } catch (error) {
+        alert(error.message);
+        loadUsers(); // Revert UI on error
+    }
+}
+
+// Delete User
+async function deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+
+    try {
+        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+            method: 'DELETE',
+            headers: window.AuthManager.getAuthHeader()
+        });
+
+        if (!response.ok) throw new Error('Failed to delete user');
+        loadUsers();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+// Edit User
+window.openEditUser = function (id, email, role) {
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-user-email').value = email;
+    document.getElementById('edit-user-role').value = role;
+    document.getElementById('users-modal').classList.add('hidden'); // temp hide list
+    document.getElementById('edit-user-modal').classList.remove('hidden');
+}
+
+document.getElementById('edit-user-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-user-id').value;
+    const role = document.getElementById('edit-user-role').value;
+    const btn = e.target.querySelector('button[type="submit"]');
+
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_URL}/auth/users/${id}`, {
+            method: 'PUT',
+            headers: {
+                ...window.AuthManager.getAuthHeader(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ role: role })
+        });
+
+        if (!response.ok) throw new Error('Failed to update user');
+
+        document.getElementById('edit-user-modal').classList.add('hidden');
+        document.getElementById('users-modal').classList.remove('hidden');
+        loadUsers();
+        alert('User updated successfully');
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+// Cancel Edit
+document.getElementById('cancel-edit-user').addEventListener('click', () => {
+    document.getElementById('edit-user-modal').classList.add('hidden');
+    document.getElementById('users-modal').classList.remove('hidden');
+});
+
+document.getElementById('close-edit-user').addEventListener('click', () => {
+    document.getElementById('edit-user-modal').classList.add('hidden');
+    document.getElementById('users-modal').classList.remove('hidden');
+});
 
 document.getElementById('invite-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();

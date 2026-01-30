@@ -217,5 +217,59 @@ async def list_users(
 ):
     """List all users (admin only)"""
     result = await db.execute(select(User))
-    users = result.scalars().all()
     return users
+
+class UpdateUserRequest(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    data: UpdateUserRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Update user role or status (admin only)"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Prevent modifying self to avoid lockout
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account status/role")
+
+    if data.role:
+        user.role = data.role
+        # Sync is_admin flag for backward compatibility
+        user.is_admin = (data.role == 'admin')
+        
+    if data.is_active is not None:
+        user.is_active = data.is_active
+        
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Delete a user (admin only)"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+        
+    await db.delete(user)
+    await db.commit()
+    
+    return {"message": "User deleted successfully"}
