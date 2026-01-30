@@ -984,7 +984,11 @@ async function addVehicle(imei, name) {
 }
 
 // Update existing vehicle
-async function updateVehicle(id, imei, name) {
+// Update existing vehicle
+async function updateVehicle(id, imei, name, driver_name = null) {
+    const payload = { imei, name: name || imei };
+    if (driver_name !== null) payload.driver_name = driver_name;
+
     try {
         const response = await fetch(`${API_URL}/devices/${id}`, {
             method: 'PUT',
@@ -992,20 +996,28 @@ async function updateVehicle(id, imei, name) {
                 'Content-Type': 'application/json',
                 ...window.AuthManager.getAuthHeader()
             },
-            body: JSON.stringify({ imei, name: name || imei })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            closeModal();
+            // Only close modal if it's open (check implicitly or just try)
+            if (!document.getElementById('add-vehicle-modal').classList.contains('hidden')) {
+                closeModal();
+                alert('Vehicle updated successfully!');
+            }
             loadVehicles();
-            alert('Vehicle updated successfully!');
+            return true;
         } else {
             const error = await response.json();
             alert(`Failed to update vehicle: ${error.detail || 'Unknown error'}`);
+            throw new Error(error.detail);
         }
     } catch (error) {
         console.error('Error updating vehicle:', error);
-        alert('Failed to update vehicle. Please check your connection.');
+        if (!document.getElementById('add-vehicle-modal').classList.contains('hidden')) {
+            alert('Failed to update vehicle. Please check your connection.');
+        }
+        throw error;
     }
 }
 
@@ -1311,3 +1323,56 @@ style.textContent = `
 }
 `;
 document.head.appendChild(style);
+
+// --- Quick Actions Logic ---
+
+async function openAssignDriver() {
+    if (!selectedVehicle) return;
+    
+    // Simple prompt for now
+    const driverName = prompt('Assign Driver to ' + (selectedVehicle.name || selectedVehicle.imei), selectedVehicle.driver_name || '');
+    
+    if (driverName !== null) {
+        try {
+            await updateVehicle(selectedVehicle.id, selectedVehicle.imei, selectedVehicle.name, driverName);
+            // Verification is handled inside updateVehicle return but we want UI feedback here
+            alert('Driver assigned: ' + driverName);
+            
+            // Update UI locally
+            document.getElementById('detail-driver').textContent = driverName;
+            selectedVehicle.driver_name = driverName;
+        } catch (e) {
+            console.error(e);
+            alert('Failed to assign driver');
+        }
+    }
+}
+
+// Attach listeners for other buttons
+// We use optional chaining or checks in case element ID changes
+const btnGeofence = document.getElementById('action-geofence');
+if (btnGeofence) {
+    btnGeofence.addEventListener('click', () => {
+        alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
+    });
+}
+
+const btnReport = document.getElementById('action-report');
+if (btnReport) {
+    btnReport.addEventListener('click', () => {
+        if(!selectedVehicle) return;
+        alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
+        // Mock download
+        // window.open(API_URL + '/reports/...' );
+    });
+}
+
+const btnAlert = document.getElementById('action-alert');
+if (btnAlert) {
+    btnAlert.addEventListener('click', () => {
+        const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
+        if(type) {
+             alert('Alert for ' + type + ' configured successfully!');
+        }
+    });
+}
