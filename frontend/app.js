@@ -68,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('rail-users-btn').style.display = 'none';
         }
 
-        // Placeholder for WebSocket connection, assuming it will be added later
-        // connectWebSocket(); 
+        // Initialize WebSocket
+        connectWebSocket();
     }
 
     // Event Listeners
