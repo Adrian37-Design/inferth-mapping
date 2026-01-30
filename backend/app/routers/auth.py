@@ -217,6 +217,7 @@ async def list_users(
 ):
     """List all users (admin only)"""
     result = await db.execute(select(User))
+    users = result.scalars().all()
     return users
 
 class UpdateUserRequest(BaseModel):
