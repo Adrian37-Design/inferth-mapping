@@ -1260,11 +1260,12 @@ body {
     background-color: #2ed573;
     color: white;
 }
+
 /* --- Asset Detail Panel --- */
 .asset-header-container {
     padding: 15px;
     background: var(--light-bg);
-    border-bottom: 1px solid rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .asset-title-row {
@@ -1305,7 +1306,8 @@ body {
     padding: 15px;
     overflow-y: auto;
     flex: 1;
-    height: calc(100vh - 130px); /* Fill remaining sidebar height */
+    height: calc(100vh - 130px);
+    /* Fill remaining sidebar height */
 }
 
 .detail-section {
@@ -1335,18 +1337,23 @@ body {
     margin-bottom: 5px;
 }
 
+/* Fix Asset Detail Colors */
 .status-label {
     font-size: 0.75em;
-    color: var(--text-secondary);
+    color: #666 !important;
+    /* Dark Grey for White BG */
     text-transform: uppercase;
+    font-weight: 600;
 }
 
 .status-value {
     font-size: 1em;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    color: #000 !important;
+    /* Black for White BG */
 }
 
+/* History Controls */
 .history-controls {
     display: flex;
     gap: 10px;
@@ -1360,7 +1367,8 @@ body {
     font-size: 0.9em;
     flex: 1;
     background: white;
-    color: var(--text-primary);
+    color: #333 !important;
+    /* Dark Text */
 }
 
 .btn-small {
@@ -1373,6 +1381,7 @@ body {
     cursor: pointer;
 }
 
+/* Actions */
 .action-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1393,7 +1402,7 @@ body {
 }
 
 .action-btn:hover {
-    background: var(--light-bg);
+    background: #f8fafc;
     border-color: var(--primary);
     transform: translateY(-2px);
 }
@@ -1412,7 +1421,8 @@ body {
 .action-btn span {
     font-size: 0.7em;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #333 !important;
+    /* Dark Text */
 }
 
 /* Timeline */
