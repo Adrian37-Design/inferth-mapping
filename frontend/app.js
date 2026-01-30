@@ -194,14 +194,7 @@ function setupAlerts() {
         });
     }
 
-    // DEMO
-    setTimeout(() => {
-        addAlert('warning', 'Unit 001 disconnected', 'Connection lost for > 5 mins');
-    }, 5000);
-
-    setTimeout(() => {
-        addAlert('danger', 'Speeding Alert', 'Toyota Hilux exceeded 100km/h');
-    }, 12000);
+    // Alerts initialized
 }
 
 function addAlert(type, title, message) {
