@@ -698,7 +698,128 @@ transition: all 0.3s;
     color: #888;
 }
 
-/* Alerts & Dropdowns */
+/* --- Dashboard Entry Point Styles --- */
+.dashboard-section {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--primary);
+    padding-left: 8px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.kpi-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.kpi-value {
+    font-size: 1.8em;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.kpi-label {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+/* KPI Color Coding */
+.active-card {
+    border-bottom: 3px solid var(--success);
+}
+
+.active-card .kpi-value {
+    color: var(--success);
+}
+
+.idle-card {
+    border-bottom: 3px solid var(--warning);
+}
+
+.idle-card .kpi-value {
+    color: var(--warning);
+}
+
+.alert-card {
+    border-bottom: 3px solid var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+    /* Subtle red tint */
+}
+
+.alert-card .kpi-value {
+    color: var(--danger);
+}
+
+.offline-card {
+    border-bottom: 3px solid #6b7280;
+}
+
+.offline-card .kpi-value {
+    color: #9ca3af;
+}
+
+/* Priority Alerts List */
+.priority-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.priority-alert-item {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 4px solid var(--danger);
+    padding: 12px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.p-alert-icon {
+    color: var(--danger);
+    font-size: 1.2em;
+}
+
+.p-alert-info {
+    flex: 1;
+}
+
+.p-alert-title {
+    font-weight: 600;
+    color: #fecaca;
+    font-size: 0.9em;
+}
+
+.p-alert-time {
+    font-size: 0.75em;
+    color: #fca5a5;
+}
+
 .dropdown-container {
     position: relative;
     cursor: pointer;

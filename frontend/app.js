@@ -208,6 +208,11 @@ function addAlert(type, title, message) {
     alerts.unshift(alert); // Add to top
     updateAlertsCount();
     renderAlerts();
+    updatePriorityAlertsPanel(); // Refresh priority panel
+
+    // Animate KPI update if KPI exists
+    const kpiAlerts = document.getElementById('kpi-alerts');
+    if (kpiAlerts) kpiAlerts.textContent = alerts.filter(a => !a.read).length;
 }
 
 function updateAlertsCount() {
@@ -502,11 +507,11 @@ async function loadVehicles() {
             vehicleList.appendChild(card);
         });
 
-        // Update Dashboard Summary
-        updateDashboardSummary(vehicles);
-
         // Load positions for all vehicles
-        loadAllPositions(vehicles);
+        await loadAllPositions(vehicles); // Wait for positions to load stats
+
+        // Update Dashboard Summary (Now KPIs)
+        updateDashboardKPIs(vehicles);
 
         // Update status to show we're connected to API
         if (vehicles.length > 0) {
@@ -518,17 +523,79 @@ async function loadVehicles() {
     }
 }
 
-function updateDashboardSummary(vehicles) {
-    const total = vehicles.length;
-    // For now, assume a random distribution for demo, or based on last position time if available
-    // In real app, check 'last_update' timestamp vs current time
-    const online = vehicles.filter(v => true).length; // Needs real timestamp logic
-    const offline = total - online;
+// Update Dashboard (KPIs)
+function updateDashboardKPIs(vehicles) {
+    let active = 0;
+    let idle = 0;
+    let offline = 0;
+    let alertsCount = alerts.filter(a => !a.read).length; // Count unread alerts
 
-    document.getElementById('summary-total').textContent = total;
+    // Calculate status based on markers (latest data)
+    vehicles.forEach(v => {
+        const marker = markers[v.id];
+        if (marker) {
+            // We need to store speed in the marker options or access content?
+            // Parsing popup content is messy. Let's rely on a global state if possible,
+            // or just assume if it has a marker it's online for now (Simulated).
+            // Better: Check the speed printed in the marker HTML?
+            // "speed-label">X km/h</span>
 
-    // Animate numbers for polish
-    animateValue('summary-total', 0, total, 1000);
+            // For this implementation, let's look at the HTML content of the icon
+            const html = marker.getIcon().options.html;
+            try {
+                const speedMatch = html.match(/(\d+)\s*km\/h/);
+                const speed = speedMatch ? parseInt(speedMatch[1]) : 0;
+
+                if (speed > 0) active++;
+                else idle++;
+            } catch (e) {
+                idle++;
+            }
+        } else {
+            offline++;
+        }
+    });
+
+    // Update UI Elements
+    animateValue('kpi-active', 0, active, 1000);
+    animateValue('kpi-idle', 0, idle, 1000);
+    animateValue('kpi-alerts', 0, alertsCount, 1000); // Using alerts count
+    animateValue('kpi-offline', 0, offline, 1000);
+
+    // Update Priority Alerts Panel
+    updatePriorityAlertsPanel();
+}
+
+function updatePriorityAlertsPanel() {
+    const list = document.getElementById('priority-alerts-list');
+    if (!list) return;
+
+    // Filter for Priority Alerts (Danger/Warning)
+    const priorityAlerts = alerts.filter(a => a.type === 'danger' || a.type === 'warning').slice(0, 5); // Top 5
+
+    list.innerHTML = '';
+
+    if (priorityAlerts.length === 0) {
+        list.innerHTML = '<p class="empty-state">No priority alerts</p>';
+        return;
+    }
+
+    priorityAlerts.forEach(alert => {
+        const item = document.createElement('div');
+        item.className = 'priority-alert-item';
+
+        let icon = 'fa-exclamation-circle';
+        if (alert.type === 'warning') icon = 'fa-exclamation-triangle';
+
+        item.innerHTML = `
+            <div class="p-alert-icon"><i class="fas ${icon}"></i></div>
+            <div class="p-alert-info">
+                <div class="p-alert-title">${alert.title}</div>
+                <div class="p-alert-time">${alert.time.toLocaleTimeString()}</div>
+            </div>
+        `;
+        list.appendChild(item);
+    });
 }
 
 function animateValue(id, start, end, duration) {
