@@ -245,9 +245,7 @@ async function loadUsers() {
     list.innerHTML = '<p class="loading">Loading users...</p>';
 
     try {
-        const response = await fetch(`${API_URL}/auth/users`, {
-            headers: window.AuthManager.getAuthHeader()
-        });
+        const response = await window.AuthManager.fetchAPI('/auth/users');
 
         if (!response.ok) throw new Error('Failed to load users');
 
@@ -295,12 +293,8 @@ async function loadUsers() {
 // Toggle User Status
 async function toggleUserStatus(userId, isActive) {
     try {
-        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
+        const response = await window.AuthManager.fetchAPI(`/auth/users/${userId}`, {
             method: 'PUT',
-            headers: {
-                ...window.AuthManager.getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ is_active: isActive })
         });
 
@@ -317,9 +311,8 @@ async function deleteUser(userId) {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
     try {
-        const response = await fetch(`${API_URL}/auth/users/${userId}`, {
-            method: 'DELETE',
-            headers: window.AuthManager.getAuthHeader()
+        const response = await window.AuthManager.fetchAPI(`/auth/users/${userId}`, {
+            method: 'DELETE'
         });
 
         if (!response.ok) throw new Error('Failed to delete user');
@@ -347,12 +340,8 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
     btn.disabled = true;
 
     try {
-        const response = await fetch(`${API_URL}/auth/users/${id}`, {
+        const response = await window.AuthManager.fetchAPI(`/auth/users/${id}`, {
             method: 'PUT',
-            headers: {
-                ...window.AuthManager.getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({ role: role })
         });
 
@@ -390,12 +379,8 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
     btn.textContent = 'Inviting...';
 
     try {
-        const response = await fetch(`${API_URL}/auth/create-user`, {
+        const response = await window.AuthManager.fetchAPI('/auth/create-user', {
             method: 'POST',
-            headers: {
-                ...window.AuthManager.getAuthHeader(),
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 email,
                 role,
@@ -438,9 +423,9 @@ function updateStatus(status, text) {
 // Load vehicles
 async function loadVehicles() {
     try {
-        const response = await fetch(`${API_URL}/devices/`, {
-            headers: window.AuthManager.getAuthHeader()
-        });
+        const response = await window.AuthManager.fetchAPI('/devices/');
+        if (!response.ok) throw new Error('Failed to load vehicles');
+
         const vehicles = await response.json();
 
         document.getElementById('vehicle-count').textContent = vehicles.length;
@@ -455,29 +440,28 @@ async function loadVehicles() {
             card.dataset.imei = vehicle.imei;
 
             card.innerHTML = `
-                <div class="vehicle-name">${vehicle.name}</div>
-                <div class="vehicle-imei">IMEI: ${vehicle.imei}</div>
-                <div class="vehicle-status">
-                    <span class="status-badge">
-                        <i class="fas fa-car"></i>
-                        <span>Active</span>
-                    </span>
-                    <div class="action-buttons">
-                        ${window.AuthManager.canEdit() ? `
-                        <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
-                            <i class="fas fa-edit"></i>
-                        </button>` : ''}
-                        ${window.AuthManager.isAdmin() ? `
-                        <button class="delete-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" title="Delete Vehicle">
-                            <i class="fas fa-trash"></i>
-                        </button>` : ''}
-                    </div>
+                <div class="vehicle-header">
+                    <div class="vehicle-name">${vehicle.name}</div>
+                    <div class="vehicle-status">Active</div>
+                </div>
+                <div class="vehicle-details">
+                    <div>IMEI: ${vehicle.imei}</div>
+                </div>
+                <div class="action-buttons">
+                    ${window.AuthManager.canEdit() ? `
+                    <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
+                        <i class="fas fa-edit"></i>
+                    </button>` : ''}
+                    ${window.AuthManager.isAdmin() ? `
+                    <button class="delete-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" title="Delete Vehicle">
+                        <i class="fas fa-trash"></i>
+                    </button>` : ''}
                 </div>
             `;
 
             card.addEventListener('click', (e) => {
                 // Don't select vehicle if delete button was clicked
-                if (!e.target.closest('.delete-vehicle-btn')) {
+                if (!e.target.closest('.delete-vehicle-btn') && !e.target.closest('.edit-vehicle-btn')) {
                     selectVehicle(vehicle);
                 }
             });
@@ -551,9 +535,7 @@ function animateValue(id, start, end, duration) {
 async function loadAllPositions(vehicles) {
     for (const vehicle of vehicles) {
         try {
-            const response = await fetch(`${API_URL}/positions/?device_id=${vehicle.id}&limit=1`, {
-                headers: window.AuthManager.getAuthHeader()
-            });
+            const response = await window.AuthManager.fetchAPI(`/positions/?device_id=${vehicle.id}&limit=1`);
             const positions = await response.json();
 
             if (positions.length > 0) {
