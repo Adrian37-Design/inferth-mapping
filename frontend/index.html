@@ -125,19 +125,20 @@
                         <div class="detail-section">
                             <h4 class="section-title">Quick Actions</h4>
                             <div class="action-grid">
-                                <button class="action-btn" title="Create Geofence">
+                                <button class="action-btn" id="action-geofence" title="Create Geofence">
                                     <div class="action-icon"><i class="fas fa-draw-polygon"></i></div>
                                     <span>Geofence</span>
                                 </button>
-                                <button class="action-btn" title="Download Report">
+                                <button class="action-btn" id="action-report" title="Download Report">
                                     <div class="action-icon"><i class="fas fa-file-download"></i></div>
                                     <span>Report</span>
                                 </button>
-                                <button class="action-btn" title="Set Alert">
+                                <button class="action-btn" id="action-alert" title="Set Alert">
                                     <div class="action-icon"><i class="fas fa-bell"></i></div>
                                     <span>Alert</span>
                                 </button>
-                                <button class="action-btn" title="Assign Driver" onclick="openAssignDriver()">
+                                <button class="action-btn" id="action-driver" title="Assign Driver"
+                                    onclick="openAssignDriver()">
                                     <div class="action-icon"><i class="fas fa-id-card"></i></div>
                                     <span>Driver</span>
                                 </button>
@@ -372,7 +373,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 
 </html>
