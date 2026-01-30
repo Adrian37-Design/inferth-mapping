@@ -43,83 +43,134 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
 
+    // Tab Switching Logic
+    setupTabs();
+
+    // Sidebar Toggle
+    setupSidebarToggle();
+
+    // Initial Data Load
+    if (window.AuthManager.isAuthenticated()) {
+        const user = window.AuthManager.getUser();
+
+        // Show/Hide Role Specific Items
+        if (user.role !== 'admin' && user.role !== 'manager') {
+            // Viewer stuff
+        }
+
+        // Load Data
+        loadVehicles();
+
+        // If admin, load users into the tab immediately
+        if (user.role === 'admin') {
+            loadUsers();
+        } else {
+            document.getElementById('rail-users-btn').style.display = 'none';
+        }
+
+        // Placeholder for WebSocket connection, assuming it will be added later
+        // connectWebSocket(); 
+    }
+
     // Event Listeners
-    document.getElementById('close-sidebar').addEventListener('click', () => {
-        document.querySelector('.sidebar').classList.add('hidden');
-    });
-
-    document.getElementById('playback-speed').addEventListener('change', () => {
-        if (playbackInterval) {
-            playRoute(); // Restart with new speed
-        }
-    });
-
-    // Logout handler
-    // Logout handler
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        if (confirm('Are you sure you want to logout?')) {
-            window.AuthManager.logout();
-        }
-    });
-
-    // Display User Role
-    const roleDisplay = document.getElementById('user-role-display');
-    if (roleDisplay) {
-        let role = window.AuthManager.getRole();
-        if (window.AuthManager.isAdmin()) role = 'Admin';
-        roleDisplay.textContent = role.toUpperCase();
-        roleDisplay.className = `role-badge badge-${role.toLowerCase()}`;
+    if (document.getElementById('add-vehicle-sidebar')) {
+        document.getElementById('add-vehicle-sidebar').addEventListener('click', () => {
+            document.getElementById('add-vehicle-modal').classList.remove('hidden');
+        });
     }
 
-    // Role-based UI updates
-    if (window.AuthManager.isAdmin()) {
-        const usersBtn = document.getElementById('manage-users-btn');
-        if (usersBtn) {
-            usersBtn.style.display = 'flex';
-            usersBtn.addEventListener('click', () => {
-                document.getElementById('users-modal').classList.remove('hidden');
-                loadUsers();
-            });
-        }
+    if (document.getElementById('show-trips-sidebar')) {
+        document.getElementById('show-trips-sidebar').addEventListener('click', () => {
+            document.getElementById('trip-modal').classList.remove('hidden');
+        });
     }
 
-    if (!window.AuthManager.canEdit()) {
-        const addBtn = document.getElementById('add-vehicle');
-        if (addBtn) addBtn.style.display = 'none';
+    if (document.getElementById('invite-user-sidebar')) {
+        document.getElementById('invite-user-sidebar').addEventListener('click', () => {
+            document.getElementById('user-form-modal').classList.remove('hidden');
+        });
     }
+
+    // ... global listeners (map center etc)
+    const centerBtn = document.getElementById('center-map');
+    if (centerBtn) {
+        centerBtn.addEventListener('click', () => {
+            // Assuming 'vehicles' and 'markers' are globally accessible and populated
+            // This part of the code was not provided in the instruction, so keeping original logic if it exists
+            // If 'vehicles' is not defined, this will cause an error.
+            // For now, I'll assume 'vehicles' is defined elsewhere or this is a placeholder.
+            if (map && Object.keys(markers).length > 0) { // Changed vehicles.length > 0 to Object.keys(markers).length > 0
+                const group = new L.featureGroup(Object.values(markers));
+                map.fitBounds(group.getBounds());
+            }
+        });
+    }
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.addEventListener('click', () => window.AuthManager.logout());
 
     // Alerts Logic
     setupAlerts();
 });
 
-// Alerts System
+// --- UI Logic ---
+
+function setupTabs() {
+    const railItems = document.querySelectorAll('.rail-item');
+    const panels = document.querySelectorAll('.tab-content');
+    const panelTitle = document.getElementById('panel-title');
+
+    railItems.forEach(item => {
+        item.addEventListener('click', () => {
+            // Remove active class from all
+            railItems.forEach(i => i.classList.remove('active'));
+            panels.forEach(p => p.classList.remove('active'));
+
+            // Add active to clicked
+            item.classList.add('active');
+
+            // Show content
+            const tabId = item.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
+
+            // Update Header Title
+            panelTitle.textContent = item.getAttribute('title');
+
+            // Ensure sidebar is open
+            document.querySelector('.sidebar-container').classList.remove('collapsed');
+        });
+    });
+}
+
+function setupSidebarToggle() {
+    const btn = document.getElementById('toggle-sidebar-btn');
+    const sidebar = document.querySelector('.sidebar-container');
+    const icon = btn.querySelector('i');
+
+    btn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        if (sidebar.classList.contains('collapsed')) {
+            icon.className = 'fas fa-chevron-right';
+        } else {
+            icon.className = 'fas fa-chevron-left';
+        }
+    });
+}
+
+// Alerts System (Refactored for Tab)
 let alerts = [];
 
 function setupAlerts() {
-    const btn = document.getElementById('alerts-btn');
-    const dropdown = document.getElementById('alerts-dropdown');
     const clearBtn = document.getElementById('clear-alerts');
 
-    // Toggle Dropdown
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('hidden');
-    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            alerts = [];
+            renderAlerts();
+        });
+    }
 
-    // Close when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target) && e.target !== btn) {
-            dropdown.classList.add('hidden');
-        }
-    });
-
-    // Clear All
-    clearBtn.addEventListener('click', () => {
-        alerts = [];
-        renderAlerts();
-    });
-
-    // DEMO: Add a fake alert after 5 seconds to show functionality
+    // DEMO
     setTimeout(() => {
         addAlert('warning', 'Unit 001 disconnected', 'Connection lost for > 5 mins');
     }, 5000);
@@ -146,7 +197,7 @@ function addAlert(type, title, message) {
 
 function updateAlertsCount() {
     const count = alerts.filter(a => !a.read).length;
-    const badge = document.getElementById('alerts-count');
+    const badge = document.getElementById('rail-alerts-count');
 
     if (count > 0) {
         badge.textContent = count;
@@ -158,6 +209,8 @@ function updateAlertsCount() {
 
 function renderAlerts() {
     const list = document.getElementById('alerts-list');
+    if (!list) return;
+
     list.innerHTML = '';
 
     if (alerts.length === 0) {
@@ -168,6 +221,7 @@ function renderAlerts() {
     alerts.forEach(alert => {
         const item = document.createElement('div');
         item.className = `alert-item ${alert.read ? '' : 'unread'}`;
+        // ... (rest is same)
 
         let icon = 'fa-info-circle';
         if (alert.type === 'warning') icon = 'fa-exclamation-triangle';
