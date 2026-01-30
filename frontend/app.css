@@ -471,6 +471,188 @@ body {
     flex: 1;
 }
 
+/* Dashboard Summary Widget */
+.dashboard-summary {
+    position: absolute;
+    top: 20px;
+    left: 60px;
+    /* Offset from sidebar */
+    z-index: 1000;
+    pointer-events: none;
+    /* Allow clicking map through container */
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    pointer-events: auto;
+    min-width: 200px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.summary-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #666;
+    letter-spacing: 0.5px;
+}
+
+.summary-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-item .value {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-color);
+    line-height: 1;
+    margin-bottom: 3px;
+}
+
+.summary-item .value.success {
+    color: var(--success-color);
+}
+
+.summary-item .value.danger {
+    color: var(--danger-color);
+}
+
+.summary-item .label {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+/* Alerts & Dropdowns */
+.dropdown-container {
+    position: relative;
+    cursor: pointer;
+}
+
+.badge-count {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--danger-color);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    border-radius: 10px;
+    border: 2px solid var(--nav-bg);
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 300px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    z-index: 2000;
+    margin-top: 10px;
+    overflow: hidden;
+    color: var(--text-color);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-header {
+    background: var(--light-bg);
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+}
+
+.dropdown-header h4 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.dropdown-header button {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.dropdown-body {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.alert-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.alert-item:hover {
+    background: #f9f9f9;
+}
+
+.alert-item.unread {
+    background: #eef2ff;
+}
+
+.alert-icon {
+    color: var(--warning-color);
+    margin-top: 3px;
+}
+
+.alert-content h5 {
+    margin: 0 0 4px 0;
+    font-size: 0.9rem;
+}
+
+.alert-content p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.alert-time {
+    font-size: 0.7rem;
+    color: #999;
+    display: block;
+    margin-top: 4px;
+}
+
 /* Form Styles */
 .form-group {
     margin-bottom: 20px;
