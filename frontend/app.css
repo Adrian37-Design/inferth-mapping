@@ -475,8 +475,9 @@ body {
 .dashboard-summary {
     position: absolute;
     top: 20px;
-    left: 60px;
-    /* Offset from sidebar */
+    left: 50%;
+    /* Center it */
+    transform: translateX(-50%);
     z-index: 1000;
     pointer-events: none;
     /* Allow clicking map through container */
