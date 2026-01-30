@@ -1326,53 +1326,41 @@ document.head.appendChild(style);
 
 // --- Quick Actions Logic ---
 
-async function openAssignDriver() {
+// Make global so onclick can find them
+window.openAssignDriver = async function () {
     if (!selectedVehicle) return;
-    
+
     // Simple prompt for now
     const driverName = prompt('Assign Driver to ' + (selectedVehicle.name || selectedVehicle.imei), selectedVehicle.driver_name || '');
-    
+
     if (driverName !== null) {
         try {
             await updateVehicle(selectedVehicle.id, selectedVehicle.imei, selectedVehicle.name, driverName);
             // Verification is handled inside updateVehicle return but we want UI feedback here
             alert('Driver assigned: ' + driverName);
-            
+
             // Update UI locally
             document.getElementById('detail-driver').textContent = driverName;
             selectedVehicle.driver_name = driverName;
         } catch (e) {
             console.error(e);
-            alert('Failed to assign driver');
+            // alert already shown in updateVehicle
         }
     }
-}
+};
 
-// Attach listeners for other buttons
-// We use optional chaining or checks in case element ID changes
-const btnGeofence = document.getElementById('action-geofence');
-if (btnGeofence) {
-    btnGeofence.addEventListener('click', () => {
-        alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
-    });
-}
+window.triggerGeofenceAction = function () {
+    alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
+};
 
-const btnReport = document.getElementById('action-report');
-if (btnReport) {
-    btnReport.addEventListener('click', () => {
-        if(!selectedVehicle) return;
-        alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
-        // Mock download
-        // window.open(API_URL + '/reports/...' );
-    });
-}
+window.triggerReportAction = function () {
+    if (!selectedVehicle) return;
+    alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
+};
 
-const btnAlert = document.getElementById('action-alert');
-if (btnAlert) {
-    btnAlert.addEventListener('click', () => {
-        const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
-        if(type) {
-             alert('Alert for ' + type + ' configured successfully!');
-        }
-    });
-}
+window.triggerAlertAction = function () {
+    const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
+    if (type) {
+        alert('Alert for ' + type + ' configured successfully!');
+    }
+};

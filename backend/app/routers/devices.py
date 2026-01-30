@@ -11,6 +11,7 @@ router = APIRouter(prefix="/devices")
 class DeviceCreate(BaseModel):
     imei: str
     name: str | None = None
+    driver_name: str | None = None
     tenant_name: str | None = None
 
 @router.post("/")
