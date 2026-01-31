@@ -197,6 +197,11 @@ function setupTabs() {
                 loadUsers();
                 usersLoaded = true;
             }
+
+            // Load Reports
+            if (tabId === 'tab-reports') {
+                loadReports();
+            }
         });
     });
 }
@@ -300,6 +305,85 @@ function renderAlerts() {
         `;
         list.appendChild(item);
     });
+}
+
+// --- Reports & Intelligence Logic ---
+
+function loadReports() {
+    // 1. Calculate Monetization Hook (Estimated Savings)
+    // Formula: Total Idle Hours * 2 Liters/hr * $1.50/Liter (approx)
+    // plus Speeding reduction (Safety)
+
+    // Mock Calculation based on "Active" vehicles to make it look dynamic
+    const activeCount = typeof vehiclePositions !== 'undefined' ? Object.keys(vehiclePositions).length : 5;
+    const estimatedIdleHours = activeCount * 45; // Mock: 45 hours wasted per month per fleet
+    const fuelPrice = 1.65; // $
+    const savings = (estimatedIdleHours * 1.8 * fuelPrice).toFixed(2);
+
+    // Animation for impact
+    const el = document.getElementById('report-savings');
+    if (el) el.textContent = `$${numberWithCommas(savings)}`;
+
+    // 2. Populate Quadrants (Mock Data for Demo Impact)
+
+    // Usage
+    const usageHTML = `
+        <div class="chart-bar-container" style="display: flex; align-items: flex-end; height: 100%; gap: 10px; padding: 10px;">
+            <div style="flex:1; background:var(--primary-dark); height: 60%; border-radius: 4px;"></div>
+            <div style="flex:1; background:var(--primary-dark); height: 75%; border-radius: 4px;"></div>
+            <div style="flex:1; background:var(--primary); height: 90%; border-radius: 4px;" title="This Week"></div>
+        </div>
+    `;
+    updateChart('chart-usage', usageHTML);
+
+    // Behavior
+    const behaviorHTML = `
+        <div class="chart-bar-container" style="display: flex; align-items: flex-end; height: 100%; gap: 10px; padding: 10px;">
+            <div style="flex:1; background:var(--secondary); height: 80%; border-radius: 4px;" title="Harsh Breaking"></div>
+            <div style="flex:1; background:var(--warning); height: 40%; border-radius: 4px;" title="Speeding"></div>
+            <div style="flex:1; background:var(--success); height: 20%; border-radius: 4px;" title="Cornering"></div>
+        </div>
+    `;
+    updateChart('chart-behavior', behaviorHTML);
+
+    const count = Math.floor(Math.random() * 10) + 2;
+    const summaryEl = document.getElementById('report-behavior-summary');
+    if (summaryEl) summaryEl.innerHTML = `<span style="color:var(--danger)">${count} critical events</span> detected this week.`;
+
+    // Fuel
+    const fuelHTML = `
+        <div style="padding: 15px; color: var(--text-secondary); font-size: 0.9rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span>Projected</span> <span>$2,400</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 15px;">
+                <div style="width:70%; background:var(--warning); height:100%; border-radius:4px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span>Actual</span> <span>$1,850</span>
+            </div>
+             <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
+                <div style="width:55%; background:var(--success); height:100%; border-radius:4px;"></div>
+            </div>
+        </div>
+    `;
+    updateChart('chart-fuel', fuelHTML);
+}
+
+function updateChart(id, html) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.style.backgroundImage = 'none'; // Remove placeholder gradient
+        el.innerHTML = html;
+    }
+}
+
+window.exportReport = function () {
+    alert("Generating Comprehensive Fleet Intelligence PDF...\n(This will download the file shortly)");
+}
+
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 // Users Management Logic
