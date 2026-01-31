@@ -831,44 +831,6 @@ function selectVehicle(vehicle) {
     openAssetDetail(vehicle);
 }
 
-// Load Asset History (Mock/Real)
-async function loadAssetHistory(id, range) {
-    const timeline = document.getElementById('detail-timeline');
-    timeline.innerHTML = '<p class="loading">Loading history...</p>';
-
-    // Reuse existing loadTrips logic but formatted for timeline
-    // For now, simpler implementation:
-    try {
-        // Fetch trips
-        const days = range === 'today' ? 1 : (range === 'yesterday' ? 2 : 7);
-        const response = await fetch(`${API_URL}/positions/trips/${id}?days=${days}`);
-        const data = await response.json();
-
-        timeline.innerHTML = '';
-
-        if (data.trips.length === 0) {
-            timeline.innerHTML = '<p class="empty-state">No activity recorded</p>';
-            return;
-        }
-
-        data.trips.forEach(trip => {
-            const item = document.createElement('div');
-            item.className = 'timeline-item'; // Needs CSS
-            item.innerHTML = `
-                <div class="timeline-icon"><i class="fas fa-route"></i></div>
-                <div class="timeline-content">
-                    <div class="timeline-time">${new Date(trip.start_time).toLocaleTimeString()}</div>
-                    <div class="timeline-title">Trip: ${trip.distance_km} km</div>
-                    <div class="timeline-desc">Duration: ${trip.duration_minutes} min</div>
-                </div>
-            `;
-            timeline.appendChild(item);
-        });
-    } catch (e) {
-        console.error("History load error", e);
-        timeline.innerHTML = '<p class="empty-state">Failed to load history</p>';
-    }
-}
 
 // Show route for selected vehicle
 async function showRoute() {
@@ -1286,10 +1248,75 @@ document.getElementById('toggle-sidebar').addEventListener('click', () => {
     }, 350);
 });
 
-// History Filter Listener
-const historyFilter = document.getElementById('history-filter');
-if (historyFilter) {
-    historyFilter.addEventListener('change', (e) => {
+// Load Asset History
+async function loadAssetHistory(id, dateStr) {
+    const timeline = document.getElementById('detail-timeline');
+    if (!timeline) return;
+
+    timeline.innerHTML = '<p class="loading">Loading history...</p>';
+
+    // Default to today if no date provided
+    if (!dateStr) {
+        dateStr = new Date().toISOString().split('T')[0];
+        // Update picker visual
+        const picker = document.getElementById('history-date-picker');
+        if (picker) picker.value = dateStr;
+    }
+
+    try {
+        // We need an endpoint that accepts a specific date.
+        // Assuming /positions/trips/{id}?date=YYYY-MM-DD
+        // Note: The previous logic used 'days=1'. We might need to adjust the backend or 
+        // rely on the existing params. Let's assume we can pass start/end timestamps or a date.
+        // If the backend only supports `days`, we are limited.
+        // Let's try sending `start_date` and `end_date` query params which are standard.
+
+        const start = new Date(dateStr);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(dateStr);
+        end.setHours(23, 59, 59, 999);
+
+        const response = await fetch(`${API_URL}/positions/trips/${id}?start_date=${start.toISOString()}&end_date=${end.toISOString()}`);
+
+        // If the backend assumes "days" logic, we might need a fallback.
+        // But let's try the standard date range first.
+
+        const data = await response.json();
+
+        timeline.innerHTML = '';
+
+        if (!data.trips || data.trips.length === 0) {
+            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date</p>';
+            return;
+        }
+
+        data.trips.forEach(trip => {
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+            item.innerHTML = `
+                <div class="timeline-icon"><i class="fas fa-route"></i></div>
+                <div class="timeline-content">
+                    <div class="timeline-time">${new Date(trip.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="timeline-title">Trip: ${trip.distance_km.toFixed(2)} km</div>
+                    <div class="timeline-desc">Duration: ${trip.duration_minutes} min</div>
+                </div>
+            `;
+            timeline.appendChild(item);
+        });
+    } catch (e) {
+        console.error("History load error", e);
+        timeline.innerHTML = '<p class="empty-state">Failed to load history</p>';
+    }
+}
+
+// ... inside document ready ...
+// History Filter Listener (Date Picker)
+const historyPicker = document.getElementById('history-date-picker');
+if (historyPicker) {
+    // Set default to today
+    historyPicker.valueAsDate = new Date();
+
+    historyPicker.addEventListener('change', (e) => {
         if (selectedVehicle) {
             loadAssetHistory(selectedVehicle.id, e.target.value);
         }
@@ -1299,8 +1326,8 @@ const loadHistoryBtn = document.getElementById('load-history-btn');
 if (loadHistoryBtn) {
     loadHistoryBtn.addEventListener('click', () => {
         if (selectedVehicle) {
-            const range = document.getElementById('history-filter').value;
-            loadAssetHistory(selectedVehicle.id, range);
+            const dateStr = document.getElementById('history-date-picker').value;
+            loadAssetHistory(selectedVehicle.id, dateStr);
         }
     });
 }
