@@ -656,8 +656,30 @@ function animateValue(id, start, end, duration) {
     window.requestAnimationFrame(step);
 }
 
-// Load all vehicle positions
+// Load all vehicle positions (Optimized)
 async function loadAllPositions(vehicles) {
+    try {
+        // Try bulk load first (N+1 Optimization)
+        const response = await window.AuthManager.fetchAPI('/positions/snapshot');
+
+        if (response.ok) {
+            const positions = await response.json();
+            const posMap = {};
+            positions.forEach(p => posMap[p.device_id] = p);
+
+            vehicles.forEach(vehicle => {
+                const pos = posMap[vehicle.id];
+                if (pos) {
+                    addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp);
+                }
+            });
+            return;
+        }
+    } catch (e) {
+        console.warn("Snapshot load failed, falling back to individual requests", e);
+    }
+
+    // Fallback: Individual Request Loop (Slow)
     for (const vehicle of vehicles) {
         try {
             const response = await window.AuthManager.fetchAPI(`/positions/?device_id=${vehicle.id}&limit=1`);

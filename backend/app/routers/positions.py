@@ -40,6 +40,41 @@ async def latest_position(imei: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "No positions")
     return pos
 
+@router.get("/snapshot")
+async def get_fleet_snapshot(db: AsyncSession = Depends(get_db)):
+    """Get the latest position for ALL devices in one query"""
+    from sqlalchemy import func
+    
+    # Subquery to find max timestamp per device
+    subq = (
+        select(Position.device_id, func.max(Position.timestamp).label("max_ts"))
+        .group_by(Position.device_id)
+        .subquery()
+    )
+    
+    # Join to get full position details
+    query = select(Position).join(
+        subq, 
+        (Position.device_id == subq.c.device_id) & (Position.timestamp == subq.c.max_ts)
+    )
+    
+    result = await db.execute(query)
+    positions = result.scalars().all()
+    
+    return [
+        {
+            "id": p.id,
+            "device_id": p.device_id,
+            "latitude": p.latitude,
+            "longitude": p.longitude,
+            "speed": p.speed,
+            "timestamp": p.timestamp,
+            "course": p.course,
+            "raw": p.raw
+        }
+        for p in positions
+    ]
+
 @router.get("/")
 async def list_positions(device_id: int = None, limit: int = 10, db: AsyncSession = Depends(get_db)):
     query = select(Position)
