@@ -213,8 +213,10 @@ body {
 
 /* Sidebar Panel */
 .sidebar-panel {
-    width: 300px;
-    background: var(--glass-bg);
+    /* Full Page Mode: Width fills the rest of the screen (Rail is 60px) */
+    width: calc(100vw - 60px);
+    background: var(--dark-bg);
+    /* Opaque background to cover map */
     backdrop-filter: blur(20px);
     border-right: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;

@@ -56,247 +56,249 @@
                 </div>
                 <div class="rail-item" data-tab="tab-users" title="Management" id="rail-users-btn">
                     <i class="fas fa-users-cog"></i>
-                </div>
-            </div>
-
-            <!-- Panel Content -->
-            <div class="sidebar-panel">
-                <div class="panel-header">
-                    <h3 id="panel-title">Dashboard</h3>
-                    <button class="toggle-panel" id="toggle-sidebar-btn">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                </div>
-
-                <!-- Tab: Asset Detail View (STEP 5) -->
-                <div id="tab-asset-detail" class="tab-content">
-                    <div class="asset-header-container">
-                        <div class="asset-title-row">
-                            <button class="btn-text back-btn" onclick="closeAssetDetail()">
-                                <i class="fas fa-arrow-left"></i>
-                            </button>
-                            <h2 id="detail-name">Vehicle Name</h2>
-                            <span class="status-badge" id="detail-status">Unknown</span>
-                        </div>
-                        <div class="asset-subtitle" id="detail-driver">No Driver Assigned</div>
-                    </div>
-
-                    <div class="detail-scroll-area">
-                        <!-- Section 1: Current Status -->
-                        <div class="detail-section">
-                            <h4 class="section-title">Current Status</h4>
-                            <div class="status-grid">
-                                <div class="status-item">
-                                    <i class="fas fa-tachometer-alt"></i>
-                                    <span class="status-label">Speed</span>
-                                    <span class="status-value" id="detail-speed">0 km/h</span>
-                                </div>
-                                <div class="status-item">
-                                    <i class="fas fa-key"></i>
-                                    <span class="status-label">Ignition</span>
-                                    <span class="status-value" id="detail-ignition">Off</span>
-                                </div>
-                                <div class="status-item">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span class="status-label">Location</span>
-                                    <span class="status-value" id="detail-coords">--</span>
-                                </div>
-                                <div class="status-item">
-                                    <i class="fas fa-clock"></i>
-                                    <span class="status-label">Last Seen</span>
-                                    <span class="status-value" id="detail-last-seen">Just now</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Section 2: Timeline & History -->
-                        <div class="detail-section">
-                            <h4 class="section-title">History & Timeline</h4>
-                            <div class="history-controls">
-                                <input type="date" id="history-date-picker" class="form-select-small">
-                                <button class="btn-small" id="load-history-btn">Load</button>
-                            </div>
-                            <div class="timeline-view" id="detail-timeline">
-                                <p class="empty-state">Select a range to view history</p>
-                            </div>
-                        </div>
-
-                        <!-- Section 3: Quick Actions -->
-                        <div class="detail-section">
-                            <h4 class="section-title">Quick Actions</h4>
-                            <div class="action-grid">
-                                <button class="action-btn" id="action-geofence" title="Create Geofence"
-                                    onclick="window.triggerGeofenceAction()">
-                                    <div class="action-icon"><i class="fas fa-draw-polygon"></i></div>
-                                    <span>Geofence</span>
-                                </button>
-                                <button class="action-btn" id="action-report" title="Download Report"
-                                    onclick="window.triggerReportAction()">
-                                    <div class="action-icon"><i class="fas fa-file-download"></i></div>
-                                    <span>Report</span>
-                                </button>
-                                <button class="action-btn" id="action-alert" title="Set Alert"
-                                    onclick="window.triggerAlertAction()">
-                                    <div class="action-icon"><i class="fas fa-bell"></i></div>
-                                    <span>Alert</span>
-                                </button>
-                                <button class="action-btn" id="action-driver" title="Assign Driver"
-                                    onclick="window.openAssignDriver()">
-                                    <div class="action-icon"><i class="fas fa-id-card"></i></div>
-                                    <span>Driver</span>
-                                </button>
-                            </div>
-                        </div>
+                    <div class="rail-item" data-tab="tab-map" title="Full Map">
+                        <i class="fas fa-map"></i>
                     </div>
                 </div>
 
-                <!-- Tab: Fleet List -->
-                <div id="tab-fleet" class="tab-content">
-                    <div class="action-bar">
-                        <button class="btn-small" id="add-vehicle-sidebar"
-                            onclick="document.getElementById('add-vehicle-modal').classList.remove('hidden')"><i
-                                class="fas fa-plus"></i> Add</button>
-                    </div>
-                    <div class="vehicle-list" id="vehicle-list">
-                        <p class="loading">Loading vehicles...</p>
-                    </div>
-                </div>
-
-                <!-- Tab: Dashboard (Entry Point) -->
-                <div id="tab-dashboard" class="tab-content active">
-                    <!-- Fleet Snapshot (KPIs) -->
-                    <div class="dashboard-section">
-                        <h4 class="section-title">Fleet Snapshot</h4>
-                        <div class="kpi-grid">
-                            <div class="kpi-card active-card">
-                                <span class="kpi-value" id="kpi-active">0</span>
-                                <span class="kpi-label">Active</span>
-                            </div>
-                            <div class="kpi-card idle-card">
-                                <span class="kpi-value" id="kpi-idle">0</span>
-                                <span class="kpi-label">Idle</span>
-                            </div>
-                            <div class="kpi-card alert-card">
-                                <span class="kpi-value" id="kpi-alerts">0</span>
-                                <span class="kpi-label">Alerts Today</span>
-                            </div>
-                            <div class="kpi-card offline-card">
-                                <span class="kpi-value" id="kpi-offline">0</span>
-                                <span class="kpi-label">Offline</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr class="panel-divider">
-
-                    <!-- Priority Alerts Panel -->
-                    <div class="dashboard-section">
-                        <h4 class="section-title">Priority Alerts</h4>
-                        <div id="priority-alerts-list" class="priority-list">
-                            <p class="empty-state">No priority alerts</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab: Alerts -->
-                <div id="tab-alerts" class="tab-content">
-                    <div class="alert-controls">
-                        <button class="btn-text" id="clear-alerts">Clear All</button>
-                    </div>
-                    <div id="alerts-list" class="sidebar-list">
-                        <p class="empty-state">No new alerts</p>
-                    </div>
-                </div>
-
-                <!-- Tab: Reports & Intelligence -->
-                <div id="tab-reports" class="tab-content">
-                    <div class="reports-header">
-                        <div class="date-range-picker">
-                            <span>Last 30 Days</span> <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <button class="btn-primary" onclick="exportReport()">
-                            <i class="fas fa-download"></i> Export
+                <!-- Panel Content -->
+                <div class="sidebar-panel">
+                    <div class="panel-header">
+                        <h3 id="panel-title">Dashboard</h3>
+                        <button class="toggle-panel" id="toggle-sidebar-btn">
+                            <i class="fas fa-chevron-left"></i>
                         </button>
                     </div>
 
-                    <!-- Monetization Hook: Savings Widget -->
-                    <div class="savings-widget">
-                        <div class="savings-icon">
-                            <i class="fas fa-coins"></i>
+                    <!-- Tab: Asset Detail View (STEP 5) -->
+                    <div id="tab-asset-detail" class="tab-content">
+                        <div class="asset-header-container">
+                            <div class="asset-title-row">
+                                <button class="btn-text back-btn" onclick="closeAssetDetail()">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <h2 id="detail-name">Vehicle Name</h2>
+                                <span class="status-badge" id="detail-status">Unknown</span>
+                            </div>
+                            <div class="asset-subtitle" id="detail-driver">No Driver Assigned</div>
                         </div>
-                        <div class="savings-content">
-                            <h4>Estimated Monthly Savings</h4>
-                            <div class="savings-amount" id="report-savings">$0.00</div>
-                            <p class="savings-disclaimer">Based on idle reduction & fuel efficiency</p>
+
+                        <div class="detail-scroll-area">
+                            <!-- Section 1: Current Status -->
+                            <div class="detail-section">
+                                <h4 class="section-title">Current Status</h4>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                        <span class="status-label">Speed</span>
+                                        <span class="status-value" id="detail-speed">0 km/h</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-key"></i>
+                                        <span class="status-label">Ignition</span>
+                                        <span class="status-value" id="detail-ignition">Off</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span class="status-label">Location</span>
+                                        <span class="status-value" id="detail-coords">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span class="status-label">Last Seen</span>
+                                        <span class="status-value" id="detail-last-seen">Just now</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Timeline & History -->
+                            <div class="detail-section">
+                                <h4 class="section-title">History & Timeline</h4>
+                                <div class="history-controls">
+                                    <input type="date" id="history-date-picker" class="form-select-small">
+                                    <button class="btn-small" id="load-history-btn">Load</button>
+                                </div>
+                                <div class="timeline-view" id="detail-timeline">
+                                    <p class="empty-state">Select a range to view history</p>
+                                </div>
+                            </div>
+
+                            <!-- Section 3: Quick Actions -->
+                            <div class="detail-section">
+                                <h4 class="section-title">Quick Actions</h4>
+                                <div class="action-grid">
+                                    <button class="action-btn" id="action-geofence" title="Create Geofence"
+                                        onclick="window.triggerGeofenceAction()">
+                                        <div class="action-icon"><i class="fas fa-draw-polygon"></i></div>
+                                        <span>Geofence</span>
+                                    </button>
+                                    <button class="action-btn" id="action-report" title="Download Report"
+                                        onclick="window.triggerReportAction()">
+                                        <div class="action-icon"><i class="fas fa-file-download"></i></div>
+                                        <span>Report</span>
+                                    </button>
+                                    <button class="action-btn" id="action-alert" title="Set Alert"
+                                        onclick="window.triggerAlertAction()">
+                                        <div class="action-icon"><i class="fas fa-bell"></i></div>
+                                        <span>Alert</span>
+                                    </button>
+                                    <button class="action-btn" id="action-driver" title="Assign Driver"
+                                        onclick="window.openAssignDriver()">
+                                        <div class="action-icon"><i class="fas fa-id-card"></i></div>
+                                        <span>Driver</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 4-Quadrant Layout -->
-                    <div class="reports-grid">
-                        <!-- Quadrant 1: Usage -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-clock"></i> Usage & Productivity</h5>
-                            </div>
-                            <div class="report-summary" id="report-usage-summary">
-                                Fleet utilization is up 5% this week.
-                            </div>
-                            <div class="chart-placeholder" id="chart-usage">
-                                <!-- CSS Bars -->
+                    <!-- Tab: Fleet List -->
+                    <div id="tab-fleet" class="tab-content">
+                        <div class="action-bar">
+                            <button class="btn-small" id="add-vehicle-sidebar"
+                                onclick="document.getElementById('add-vehicle-modal').classList.remove('hidden')"><i
+                                    class="fas fa-plus"></i> Add</button>
+                        </div>
+                        <div class="vehicle-list" id="vehicle-list">
+                            <p class="loading">Loading vehicles...</p>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Dashboard (Entry Point) -->
+                    <div id="tab-dashboard" class="tab-content active">
+                        <!-- Fleet Snapshot (KPIs) -->
+                        <div class="dashboard-section">
+                            <h4 class="section-title">Fleet Snapshot</h4>
+                            <div class="kpi-grid">
+                                <div class="kpi-card active-card">
+                                    <span class="kpi-value" id="kpi-active">0</span>
+                                    <span class="kpi-label">Active</span>
+                                </div>
+                                <div class="kpi-card idle-card">
+                                    <span class="kpi-value" id="kpi-idle">0</span>
+                                    <span class="kpi-label">Idle</span>
+                                </div>
+                                <div class="kpi-card alert-card">
+                                    <span class="kpi-value" id="kpi-alerts">0</span>
+                                    <span class="kpi-label">Alerts Today</span>
+                                </div>
+                                <div class="kpi-card offline-card">
+                                    <span class="kpi-value" id="kpi-offline">0</span>
+                                    <span class="kpi-label">Offline</span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Quadrant 2: Behavior -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-user-shield"></i> Driver Behavior</h5>
+                        <hr class="panel-divider">
+
+                        <!-- Priority Alerts Panel -->
+                        <div class="dashboard-section">
+                            <h4 class="section-title">Priority Alerts</h4>
+                            <div id="priority-alerts-list" class="priority-list">
+                                <p class="empty-state">No priority alerts</p>
                             </div>
-                            <div class="report-summary" id="report-behavior-summary">
-                                3 harsh braking events detected.
+                        </div>
+                    </div>
+
+                    <!-- Tab: Alerts -->
+                    <div id="tab-alerts" class="tab-content">
+                        <div class="alert-controls">
+                            <button class="btn-text" id="clear-alerts">Clear All</button>
+                        </div>
+                        <div id="alerts-list" class="sidebar-list">
+                            <p class="empty-state">No new alerts</p>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Reports & Intelligence -->
+                    <div id="tab-reports" class="tab-content">
+                        <div class="reports-header">
+                            <div class="date-range-picker">
+                                <span>Last 30 Days</span> <i class="fas fa-chevron-down"></i>
                             </div>
-                            <div class="chart-placeholder" id="chart-behavior"></div>
+                            <button class="btn-primary" onclick="exportReport()">
+                                <i class="fas fa-download"></i> Export
+                            </button>
                         </div>
 
-                        <!-- Quadrant 3: Fuel -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-gas-pump"></i> Fuel & Cost</h5>
+                        <!-- Monetization Hook: Savings Widget -->
+                        <div class="savings-widget">
+                            <div class="savings-icon">
+                                <i class="fas fa-coins"></i>
                             </div>
-                            <div class="report-summary" id="report-fuel-summary">
-                                Est. fuel cost: $1,200 (Mock)
+                            <div class="savings-content">
+                                <h4>Estimated Monthly Savings</h4>
+                                <div class="savings-amount" id="report-savings">$0.00</div>
+                                <p class="savings-disclaimer">Based on idle reduction & fuel efficiency</p>
                             </div>
-                            <div class="chart-placeholder" id="chart-fuel"></div>
                         </div>
 
-                        <!-- Quadrant 4: Compliance -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-clipboard-check"></i> Compliance</h5>
+                        <!-- 4-Quadrant Layout -->
+                        <div class="reports-grid">
+                            <!-- Quadrant 1: Usage -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-clock"></i> Usage & Productivity</h5>
+                                </div>
+                                <div class="report-summary" id="report-usage-summary">
+                                    Fleet utilization is up 5% this week.
+                                </div>
+                                <div class="chart-placeholder" id="chart-usage">
+                                    <!-- CSS Bars -->
+                                </div>
                             </div>
-                            <div class="report-summary" id="report-compliance-summary">
-                                All vehicles active within hours.
+
+                            <!-- Quadrant 2: Behavior -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-user-shield"></i> Driver Behavior</h5>
+                                </div>
+                                <div class="report-summary" id="report-behavior-summary">
+                                    3 harsh braking events detected.
+                                </div>
+                                <div class="chart-placeholder" id="chart-behavior"></div>
                             </div>
-                            <div class="compliance-list" id="report-compliance-list">
-                                <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
-                                <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
+
+                            <!-- Quadrant 3: Fuel -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-gas-pump"></i> Fuel & Cost</h5>
+                                </div>
+                                <div class="report-summary" id="report-fuel-summary">
+                                    Est. fuel cost: $1,200 (Mock)
+                                </div>
+                                <div class="chart-placeholder" id="chart-fuel"></div>
                             </div>
+
+                            <!-- Quadrant 4: Compliance -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-clipboard-check"></i> Compliance</h5>
+                                </div>
+                                <div class="report-summary" id="report-compliance-summary">
+                                    All vehicles active within hours.
+                                </div>
+                                <div class="compliance-list" id="report-compliance-list">
+                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
+                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Users -->
+                    <div id="tab-users" class="tab-content">
+                        <div class="action-bar">
+                            <button class="btn-small" id="invite-user-sidebar"
+                                onclick="document.getElementById('user-form-modal').classList.remove('hidden')"><i
+                                    class="fas fa-user-plus"></i>
+                                Invite</button>
+                        </div>
+                        <div id="users-list" class="users-list">
+                            <p class="loading">Loading users...</p>
                         </div>
                     </div>
                 </div>
-
-                <!-- Tab: Users -->
-                <div id="tab-users" class="tab-content">
-                    <div class="action-bar">
-                        <button class="btn-small" id="invite-user-sidebar"
-                            onclick="document.getElementById('user-form-modal').classList.remove('hidden')"><i
-                                class="fas fa-user-plus"></i>
-                            Invite</button>
-                    </div>
-                    <div id="users-list" class="users-list">
-                        <p class="loading">Loading users...</p>
-                    </div>
-                </div>
-            </div>
         </aside>
 
         <!-- Map Container -->
