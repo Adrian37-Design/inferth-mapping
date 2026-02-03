@@ -211,16 +211,25 @@ function setupTabs() {
 function setupSidebarToggle() {
     const btn = document.getElementById('toggle-sidebar-btn');
     const sidebar = document.querySelector('.sidebar-container');
-    const icon = btn.querySelector('i');
 
-    btn.addEventListener('click', () => {
-        sidebar.classList.toggle('collapsed');
-        if (sidebar.classList.contains('collapsed')) {
-            icon.className = 'fas fa-chevron-right';
-        } else {
-            icon.className = 'fas fa-chevron-left';
-        }
-    });
+    if (btn && sidebar) {
+        btn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+
+            const icon = btn.querySelector('i');
+            if (icon) {
+                if (sidebar.classList.contains('collapsed')) {
+                    icon.className = 'fas fa-chevron-right';
+                } else {
+                    icon.className = 'fas fa-chevron-left';
+                }
+            }
+
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 350);
+        });
+    }
 }
 
 // Alerts System (Refactored for Tab)
@@ -1379,19 +1388,7 @@ if (addVehicleBtn) {
     });
 }
 
-// Sidebar Toggle
-const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-if (toggleSidebarBtn) {
-    toggleSidebarBtn.addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) {
-            sidebar.classList.toggle('hidden');
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 350);
-        }
-    });
-}
+
 
 // Load Asset History
 async function loadAssetHistory(id, dateStr) {
