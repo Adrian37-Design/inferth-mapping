@@ -203,12 +203,7 @@ function setupTabs() {
                 loadReports();
             }
 
-            // Full Map Mode (Collapse Sidebar)
-            if (tabId === 'tab-map') {
-                document.querySelector('.sidebar-container').classList.add('collapsed');
-                // Ensure no specific tab content is active (optional, but good for state)
-                setTimeout(() => map.invalidateSize(), 300); // Resize map
-            }
+
         });
     });
 }
