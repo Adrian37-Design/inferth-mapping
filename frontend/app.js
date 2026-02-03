@@ -1680,8 +1680,200 @@ window.deleteRule = function (id) {
 }
 
 // Initialize Rules Engine on Load
-window.addEventListener('DOMContentLoaded', () => {
-    // ... existing init ...
-    setupRulesEngine();
+});
+
+// --- Geofencing Logic (Phase 8 - Re-applied) ---
+let drawnItems;
+let activeGeofences = [];
+let currentDrawLayer = null;
+
+function setupGeofencing() {
+    if (!map) return;
+
+    // Initialize FeatureGroup to store editable layers
+    drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    // Initialize Draw Control (Hidden Toolbar, we trigger programmatically)
+    const drawControl = new L.Control.Draw({
+        edit: {
+            featureGroup: drawnItems,
+            remove: false, // Custom delete via UI
+            edit: false
+        },
+        draw: {
+            polygon: {
+                allowIntersection: false,
+                showArea: true,
+                shapeOptions: { color: '#00d4ff', weight: 2 }
+            },
+            circle: false,
+            rectangle: false,
+            marker: false,
+            polyline: false,
+            circlemarker: false
+        }
+    });
+    map.addControl(drawControl);
+
+    // Handle Draw Created
+    map.on(L.Draw.Event.CREATED, function (e) {
+        currentDrawLayer = e.layer;
+
+        // Populate Asset Dropdown
+        const assetSelect = document.getElementById('geo-asset-select');
+        if (assetSelect) {
+            assetSelect.innerHTML = '<option value="all">All Vehicles</option>';
+            if (window.vehicles && window.vehicles.length > 0) {
+                window.vehicles.forEach(v => {
+                    const option = document.createElement('option');
+                    option.value = v.id;
+                    option.textContent = v.name || `Vehicle ${v.id}`;
+                    assetSelect.appendChild(option);
+                });
+            }
+            // Pre-select if we have a selectedVehicle
+            if (window.selectedVehicle) {
+                assetSelect.value = window.selectedVehicle.id;
+            }
+        }
+
+        // Open Form
+        document.getElementById('new-geofence-form').classList.remove('hidden');
+        document.getElementById('start-draw-btn').classList.add('hidden');
+        document.getElementById('geofence-list').classList.add('hidden');
+    });
+
+    // "Draw Zone" Button
+    const drawBtn = document.getElementById('start-draw-btn');
+    if (drawBtn) {
+        // Remove old listeners to prevent duplicates if re-initialized
+        const newBtn = drawBtn.cloneNode(true);
+        drawBtn.parentNode.replaceChild(newBtn, drawBtn);
+        newBtn.addEventListener('click', () => {
+            // Programmatically trigger Polygon draw
+            new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+        });
+    }
+
+    // "Save Zone" Button
+    const saveGeoBtn = document.getElementById('save-geo-btn');
+    if (saveGeoBtn) {
+        saveGeoBtn.addEventListener('click', () => {
+            const name = document.getElementById('geo-name').value;
+            const assetId = document.getElementById('geo-asset-select').value;
+
+            if (!name) { alert("Please name your zone"); return; }
+
+            // Save to Map (Visual)
+            drawnItems.addLayer(currentDrawLayer);
+
+            const newZone = {
+                id: Date.now(),
+                name: name,
+                assetId: assetId,
+                layerId: L.stamp(currentDrawLayer)
+            };
+            activeGeofences.push(newZone);
+
+            // Reset UI
+            document.getElementById('geo-name').value = '';
+            document.getElementById('new-geofence-form').classList.add('hidden');
+            document.getElementById('start-draw-btn').classList.remove('hidden'); // Show draw button again
+            const list = document.getElementById('geofence-list');
+            if (list) list.classList.remove('hidden');
+
+            renderGeofences();
+        });
+    }
+
+    // "Cancel" Button
+    const cancelGeoBtn = document.getElementById('cancel-geo-btn');
+    if (cancelGeoBtn) {
+        cancelGeoBtn.addEventListener('click', () => {
+            if (currentDrawLayer) map.removeLayer(currentDrawLayer); // Discard from map
+            document.getElementById('new-geofence-form').classList.add('hidden');
+            document.getElementById('start-draw-btn').classList.remove('hidden');
+            const list = document.getElementById('geofence-list');
+            if (list) list.classList.remove('hidden');
+        });
+    }
+
+    // Initial Render of Mock Violations
+    renderMockViolations();
+}
+
+function renderGeofences() {
+    const list = document.getElementById('geofence-list');
+    if (!list) return;
+
+    if (activeGeofences.length === 0) {
+        list.innerHTML = '<p class="empty-state">No geofences active. Draw one on the map!</p>';
+        return;
+    }
+
+    list.innerHTML = activeGeofences.map(zone => `
+        <div class="rule-item" style="border-left-color: var(--primary);">
+            <div class="rule-text"><i class="fas fa-vector-square"></i> ${zone.name}</div>
+            <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+window.deleteGeofence = function (id) {
+    const zone = activeGeofences.find(z => z.id === id);
+    if (zone) {
+        // Remove from map
+        drawnItems.eachLayer(layer => {
+            if (L.stamp(layer) === zone.layerId) {
+                drawnItems.removeLayer(layer);
+            }
+        });
+    }
+    activeGeofences = activeGeofences.filter(z => z.id !== id);
+    renderGeofences();
+};
+
+function renderMockViolations() {
+    const list = document.getElementById('geo-violations-list');
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="priority-alert-item">
+            <div class="p-alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="p-alert-info">
+                <div class="p-alert-title">Exit: HQ Perimeter</div>
+                <div class="p-alert-time">Volvo FH16 • 2 mins ago</div>
+            </div>
+        </div>
+    `;
+}
+
+// Global Action Trigger
+window.triggerGeofenceAction = function () {
+    // 1. Switch Tab to Geofence
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.getElementById('tab-geofence').style.display = 'block';
+
+    // Update Rail Active State (Clear others)
+    document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
+
+    // 2. Pre-select asset logic is handled in setupGeofencing or here if needed immediately
+    // If setupGeofencing populated common elements, we are good. 
+    // Just click the button to start drawing!
+
+    setTimeout(() => {
+        const drawBtn = document.getElementById('start-draw-btn');
+        if (drawBtn) {
+            drawBtn.click();
+        }
+    }, 100);
+}
+
+// Ensure init
+window.addEventListener('load', () => {
+    setTimeout(setupGeofencing, 1000);
 });
 
