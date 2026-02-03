@@ -1743,3 +1743,9 @@ background: var(--primary-light);
 
 .delete-rule-btn:hover {
     color: var(--danger);
+}
+
+/* Force Modals to Top */
+.modal {
+    z-index: 10000 !important;
+}
