@@ -1501,5 +1501,98 @@ document.head.appendChild(style);
 
 // --- Quick Actions Logic ---
 
-// Make global so onclick can find them
+
+// --- Rules Engine Logic (Phase 7) ---
+
+let activeRules = [
+    { id: 1, text: "Notify me when Any Vehicle Speeding over 100 km/h via Mobile App" }
+];
+
+function setupRulesEngine() {
+    const assetSelect = document.getElementById('rule-asset');
+    const eventSelect = document.getElementById('rule-event');
+    const valueContainer = document.getElementById('rule-value-container');
+    const saveBtn = document.getElementById('save-rule-btn');
+
+    // Dynamic Input Handling
+    if (eventSelect) {
+        eventSelect.addEventListener('change', () => {
+            const val = eventSelect.value;
+            if (val === 'speeding') {
+                valueContainer.style.display = 'inline';
+                document.getElementById('rule-unit').textContent = 'km/h';
+            } else if (val === 'geofence_exit') {
+                valueContainer.style.display = 'none'; // Simplify for demo
+            } else {
+                valueContainer.style.display = 'none';
+            }
+        });
+    }
+
+    // Save Rule Logic
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const assetTxt = assetSelect.options[assetSelect.selectedIndex].text;
+            const eventTxt = eventSelect.options[eventSelect.selectedIndex].text;
+            const channelTxt = document.getElementById('rule-channel').options[document.getElementById('rule-channel').selectedIndex].text;
+
+            let condition = "";
+            if (eventSelect.value === 'speeding') {
+                const val = document.getElementById('rule-value').value;
+                condition = `over ${val} km/h`;
+            }
+
+            // Construct Sentence
+            const ruleSentence = `Notify me when <b>${assetTxt}</b> triggers <b>${eventTxt}</b> ${condition} via <b>${channelTxt}</b>`;
+
+            // Mock Save
+            activeRules.push({
+                id: Date.now(),
+                text: ruleSentence
+            });
+
+            renderRules();
+
+            // Visual Feedback
+            saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
+            setTimeout(() => saveBtn.innerHTML = '<i class="fas fa-plus"></i> Save Rule', 1500);
+        });
+    }
+
+    renderRules();
+}
+
+function renderRules() {
+    const list = document.getElementById('active-rules-list');
+    if (!list) return;
+
+    if (activeRules.length === 0) {
+        list.innerHTML = '<p class="empty-state">No rules defined.</p>';
+        return;
+    }
+
+    list.innerHTML = '';
+    activeRules.forEach(rule => {
+        const item = document.createElement('div');
+        item.className = 'rule-item';
+        item.innerHTML = `
+            <div class="rule-text">${rule.text}</div>
+            <button class="delete-rule-btn" onclick="deleteRule(${rule.id})">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        list.appendChild(item);
+    });
+}
+
+window.deleteRule = function (id) {
+    activeRules = activeRules.filter(r => r.id !== id);
+    renderRules();
+}
+
+// Initialize Rules Engine on Load
+window.addEventListener('DOMContentLoaded', () => {
+    // ... existing init ...
+    setupRulesEngine();
+});
 

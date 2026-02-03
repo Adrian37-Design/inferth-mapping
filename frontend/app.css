@@ -1642,4 +1642,99 @@ background: var(--primary-light);
     .reports-grid {
         grid-template-columns: 1fr;
     }
-}
+
+    /* --- Rules Builder (Alerts) --- */
+    .rules-builder-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .sentence-builder {
+        font-size: 1.1rem;
+        line-height: 2;
+        color: var(--text-secondary);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sentence-builder span {
+        color: var(--text-secondary);
+    }
+
+    .inline-select,
+    .inline-input {
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid var(--primary);
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 0 5px;
+        outline: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 60px;
+        text-align: center;
+    }
+
+    .inline-select:hover,
+    .inline-input:focus {
+        border-bottom-color: var(--secondary);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .inline-select option {
+        background: var(--darker-bg);
+        color: white;
+    }
+
+    .sentence-builder-row2 {
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: space-between;
+    }
+
+    .btn-sm {
+        padding: 5px 15px;
+        font-size: 0.9rem;
+    }
+
+    .rules-list {
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .rule-item {
+        background: rgba(255, 255, 255, 0.03);
+        border-left: 3px solid var(--success);
+        padding: 10px 15px;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .rule-text {
+        font-size: 0.95rem;
+        color: var(--text-primary);
+    }
+
+    .delete-rule-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+
+    .delete-rule-btn:hover {
+        color: var(--danger);
+    }
