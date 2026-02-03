@@ -1350,7 +1350,6 @@ if (centerMapBtn) {
         }
     });
 }
-});
 
 // Safe playback controls
 const playRouteBtn = document.getElementById('play-route');
