@@ -203,7 +203,58 @@
                 <!-- Tab: Alerts -->
                 <div id="tab-alerts" class="tab-content">
                     <div class="alert-controls">
-                        <button class="btn-text" id="clear-alerts">Clear All</button>
+                        <h4 class="section-title">Rules Engine</h4>
+                    </div>
+
+                    <!-- Rule Builder UI (Sentence Form) -->
+                    <div class="rules-builder-card">
+                        <div class="sentence-builder">
+                            <span>Notify me when</span>
+                            <select id="rule-asset" class="inline-select">
+                                <option value="all">Any Vehicle</option>
+                                <option value="group_a">Heavy Trucks</option>
+                            </select>
+                            <span>triggers</span>
+                            <select id="rule-event" class="inline-select">
+                                <option value="speeding">Speeding</option>
+                                <option value="geofence_exit">Geofence Exit</option>
+                                <option value="offline">Offline</option>
+                                <option value="harsh_braking">Harsh Braking</option>
+                            </select>
+                            <!-- Dynamic Input (Visible based on event) -->
+                            <span id="rule-value-container">
+                                <span>over</span>
+                                <input type="number" id="rule-value" class="inline-input" placeholder="0" value="80">
+                                <span id="rule-unit">km/h</span>
+                            </span>
+                        </div>
+                        <div class="sentence-builder-row2">
+                            <span>via</span>
+                            <select id="rule-channel" class="inline-select">
+                                <option value="push">Mobile App</option>
+                                <option value="email">Email</option>
+                                <option value="sms">SMS</option>
+                            </select>
+                            <button id="save-rule-btn" class="btn-primary btn-sm">
+                                <i class="fas fa-plus"></i> Save Rule
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="alert-controls" style="margin-top: 20px;">
+                        <h4 class="section-title">Active Rules</h4>
+                        <button class="btn-text" id="clear-alerts">Clear History</button>
+                    </div>
+
+                    <div id="active-rules-list" class="rules-list">
+                        <!-- Rules will appear here -->
+                        <p class="empty-state">No rules defined. Try creating one above.</p>
+                    </div>
+
+                    <hr class="panel-divider">
+
+                    <div class="alert-controls">
+                        <h4 class="section-title">Recent Alerts</h4>
                     </div>
                     <div id="alerts-list" class="sidebar-list">
                         <p class="empty-state">No new alerts</p>
