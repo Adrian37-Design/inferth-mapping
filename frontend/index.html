@@ -208,6 +208,82 @@
                     </div>
                 </div>
 
+                <!-- Tab: Reports & Intelligence -->
+                <div id="tab-reports" class="tab-content">
+                    <div class="reports-header">
+                        <div class="date-range-picker">
+                            <span>Last 30 Days</span> <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <button class="btn-primary" onclick="exportReport()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+
+                    <!-- Monetization Hook: Savings Widget -->
+                    <div class="savings-widget">
+                        <div class="savings-icon">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="savings-content">
+                            <h4>Estimated Monthly Savings</h4>
+                            <div class="savings-amount" id="report-savings">$0.00</div>
+                            <p class="savings-disclaimer">Based on idle reduction & fuel efficiency</p>
+                        </div>
+                    </div>
+
+                    <!-- 4-Quadrant Layout -->
+                    <div class="reports-grid">
+                        <!-- Quadrant 1: Usage -->
+                        <div class="report-card">
+                            <div class="report-card-header">
+                                <h5><i class="fas fa-clock"></i> Usage & Productivity</h5>
+                            </div>
+                            <div class="report-summary" id="report-usage-summary">
+                                Fleet utilization is up 5% this week.
+                            </div>
+                            <div class="chart-placeholder" id="chart-usage">
+                                <!-- CSS Bars -->
+                            </div>
+                        </div>
+
+                        <!-- Quadrant 2: Behavior -->
+                        <div class="report-card">
+                            <div class="report-card-header">
+                                <h5><i class="fas fa-user-shield"></i> Driver Behavior</h5>
+                            </div>
+                            <div class="report-summary" id="report-behavior-summary">
+                                3 harsh braking events detected.
+                            </div>
+                            <div class="chart-placeholder" id="chart-behavior"></div>
+                        </div>
+
+                        <!-- Quadrant 3: Fuel -->
+                        <div class="report-card">
+                            <div class="report-card-header">
+                                <h5><i class="fas fa-gas-pump"></i> Fuel & Cost</h5>
+                            </div>
+                            <div class="report-summary" id="report-fuel-summary">
+                                Est. fuel cost: $1,200 (Mock)
+                            </div>
+                            <div class="chart-placeholder" id="chart-fuel"></div>
+                        </div>
+
+                        <!-- Quadrant 4: Compliance -->
+                        <div class="report-card">
+                            <div class="report-card-header">
+                                <h5><i class="fas fa-clipboard-check"></i> Compliance</h5>
+                            </div>
+                            <div class="report-summary" id="report-compliance-summary">
+                                All vehicles active within hours.
+                            </div>
+                            <div class="compliance-list" id="report-compliance-list">
+                                <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
+                                <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab: Users -->
                 <div id="tab-users" class="tab-content">
                     <div class="action-bar">
