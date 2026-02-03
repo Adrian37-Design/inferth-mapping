@@ -150,8 +150,14 @@ body {
 .sidebar-container {
     display: flex;
     height: 100%;
-    z-index: 500;
+    z-index: 2000;
+    /* High Z-Index to overlay map */
     transition: all 0.3s ease;
+    position: absolute;
+    /* Take out of flex flow to overlay */
+    left: 0;
+    top: 0;
+    bottom: 0;
 }
 
 .sidebar-container.collapsed .sidebar-panel {
@@ -299,8 +305,17 @@ body {
     gap: 5px;
 }
 
-.btn-small:hover {
-    background: var(--primary-light);
+/* Map Wrapper */
+.map-wrapper {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    /* Fill screen */
+    height: 100%;
+}
+
+background: var(--primary-light);
 }
 
 .summary-card-sidebar {
