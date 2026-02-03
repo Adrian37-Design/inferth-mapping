@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="app.css?v=24">
-    <link rel="stylesheet" href="users.css?v=24">
+    <link rel="stylesheet" href="app.css?v=25">
+    <link rel="stylesheet" href="users.css?v=25">
     <link rel="icon" type="image/png" href="logo.png">
-    <script src="auth.js?v=24"></script>
+    <script src="auth.js?v=25"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 </head>
 
@@ -373,13 +373,13 @@
 
                         <div class="form-group" style="margin-top:10px;">
                             <label>Assign Assets</label>
-                            <div class="checkbox-group" id="geo-assets-list">
-                                <label><input type="checkbox" value="all" checked> All Vehicles</label>
-                            </div>
+                            <select id="geo-asset-select" class="glass-input">
+                                <option value="all">All Vehicles</option>
+                                <!-- Populated dynamically -->
+                            </select>
                         </div>
 
                         <div class="form-group" style="margin-top:10px;">
-                            <label>Alert Rules</label>
                             <div class="checkbox-group">
                                 <label><input type="checkbox" id="geo-rule-entry" checked> Alert on Entry</label>
                                 <label><input type="checkbox" id="geo-rule-exit"> Alert on Exit</label>
@@ -570,7 +570,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=24"></script>
+    <script src="app.js?v=25"></script>
 </body>
 
 </html>
