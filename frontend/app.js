@@ -1307,27 +1307,40 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     }
 });
 
-document.getElementById('show-route').addEventListener('click', showRoute);
+// Safe Event Listeners
+const showRouteBtn = document.getElementById('show-route');
+if (showRouteBtn) showRouteBtn.addEventListener('click', showRoute);
 
-document.getElementById('show-trips').addEventListener('click', () => {
-    if (!selectedVehicle) {
-        alert('Please select a vehicle first');
-        return;
-    }
-    document.getElementById('trip-modal').classList.remove('hidden');
-});
+const showTripsBtn = document.getElementById('show-trips');
+if (showTripsBtn) {
+    showTripsBtn.addEventListener('click', () => {
+        if (!selectedVehicle) {
+            alert('Please select a vehicle first');
+            return;
+        }
+        document.getElementById('trip-modal').classList.remove('hidden');
+    });
+}
 
-document.getElementById('close-trip-modal').addEventListener('click', () => {
-    document.getElementById('trip-modal').classList.add('hidden');
-});
+const closeTripModalBtn = document.getElementById('close-trip-modal');
+if (closeTripModalBtn) {
+    closeTripModalBtn.addEventListener('click', () => {
+        document.getElementById('trip-modal').classList.add('hidden');
+    });
+}
 
-document.getElementById('load-trips').addEventListener('click', loadTrips);
+const loadTripsBtn = document.getElementById('load-trips');
+if (loadTripsBtn) loadTripsBtn.addEventListener('click', loadTrips);
 
-document.getElementById('center-map').addEventListener('click', () => {
-    if (selectedVehicle && markers[selectedVehicle.id]) {
-        const latLng = markers[selectedVehicle.id].getLatLng();
-        map.setView(latLng, 15);
-    }
+const centerMapBtn = document.getElementById('center-map');
+if (centerMapBtn) {
+    centerMapBtn.addEventListener('click', () => {
+        if (selectedVehicle && markers[selectedVehicle.id]) {
+            const latLng = markers[selectedVehicle.id].getLatLng();
+            map.setView(latLng, 15);
+        }
+    });
+}
 });
 
 document.getElementById('play-route').addEventListener('click', playRoute);
