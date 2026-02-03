@@ -1537,63 +1537,115 @@ document.head.appendChild(style);
 
 // --- Rules Engine Logic (Phase 7) ---
 
+// --- Rules Engine Logic (Phase 7) ---
+
 let activeRules = [
     { id: 1, text: "Notify me when Any Vehicle Speeding over 100 km/h via Mobile App" }
 ];
 
-function setupRulesEngine() {
+// Global function for Save Rule to ensure accessibility
+window.saveRule = function () {
     const assetSelect = document.getElementById('rule-asset');
     const eventSelect = document.getElementById('rule-event');
+    const channelSelect = document.getElementById('rule-channel');
+    const valueInput = document.getElementById('rule-value');
+    const contactInput = document.getElementById('rule-contact');
+
+    if (!assetSelect || !eventSelect || !channelSelect) return;
+
+    const asset = assetSelect.options[assetSelect.selectedIndex].text;
+    const eventType = eventSelect.options[eventSelect.selectedIndex].text;
+    const channel = channelSelect.options[channelSelect.selectedIndex].text;
+    const val = valueInput.value;
+    const contact = contactInput.value.trim();
+
+    // Basic Validation
+    if (eventSelect.value === 'speeding' && !val) {
+        alert("Please enter a speed limit.");
+        return;
+    }
+
+    if ((channelSelect.value === 'email' || channelSelect.value === 'sms') && !contact) {
+        alert("Please enter contact details (Email or Phone).");
+        return;
+    }
+
+    let ruleText = `Notify me when ${asset} triggers ${eventType}`;
+
+    if (eventSelect.value === 'speeding') {
+        ruleText += ` over ${val} km/h`;
+    }
+
+    ruleText += ` via ${channel}`;
+
+    if (contact) {
+        ruleText += ` (${contact})`;
+    }
+
+    const newRule = {
+        id: Date.now(),
+        text: ruleText
+    };
+
+    activeRules.push(newRule);
+    renderRules();
+
+    // Provide feedback
+    const btn = document.getElementById('save-rule-btn');
+    if (btn) {
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Saved';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 1500);
+    }
+};
+
+function setupRulesEngine() {
+    const eventSelect = document.getElementById('rule-event');
     const valueContainer = document.getElementById('rule-value-container');
-    const saveBtn = document.getElementById('save-rule-btn');
+    const channelSelect = document.getElementById('rule-channel');
+    const contactContainer = document.getElementById('contact-container');
+    const contactInput = document.getElementById('rule-contact');
 
     // Dynamic Input Handling
     if (eventSelect) {
         eventSelect.addEventListener('change', () => {
             const val = eventSelect.value;
             if (val === 'speeding') {
-                valueContainer.style.display = 'inline';
-                document.getElementById('rule-unit').textContent = 'km/h';
-            } else if (val === 'geofence_exit') {
-                valueContainer.style.display = 'none'; // Simplify for demo
+                if (valueContainer) valueContainer.style.display = 'inline';
+                const unit = document.getElementById('rule-unit');
+                if (unit) unit.textContent = 'km/h';
             } else {
-                valueContainer.style.display = 'none';
+                if (valueContainer) valueContainer.style.display = 'none';
             }
         });
     }
 
-    // Save Rule Logic
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            const assetTxt = assetSelect.options[assetSelect.selectedIndex].text;
-            const eventTxt = eventSelect.options[eventSelect.selectedIndex].text;
-            const channelTxt = document.getElementById('rule-channel').options[document.getElementById('rule-channel').selectedIndex].text;
-
-            let condition = "";
-            if (eventSelect.value === 'speeding') {
-                const val = document.getElementById('rule-value').value;
-                condition = `over ${val} km/h`;
+    // Dynamic Contact Handling
+    if (channelSelect) {
+        channelSelect.addEventListener('change', () => {
+            const val = channelSelect.value;
+            if (val === 'email') {
+                if (contactContainer) contactContainer.style.display = 'inline';
+                if (contactInput) contactInput.placeholder = "Enter email address...";
+            } else if (val === 'sms') {
+                if (contactContainer) contactContainer.style.display = 'inline';
+                if (contactInput) contactInput.placeholder = "Enter phone number...";
+            } else {
+                if (contactContainer) contactContainer.style.display = 'none';
             }
-
-            // Construct Sentence
-            const ruleSentence = `Notify me when <b>${assetTxt}</b> triggers <b>${eventTxt}</b> ${condition} via <b>${channelTxt}</b>`;
-
-            // Mock Save
-            activeRules.push({
-                id: Date.now(),
-                text: ruleSentence
-            });
-
-            renderRules();
-
-            // Visual Feedback
-            saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved';
-            setTimeout(() => saveBtn.innerHTML = '<i class="fas fa-plus"></i> Save Rule', 1500);
         });
     }
 
     renderRules();
 }
+
+// Global ensure delete works
+window.deleteRule = function (id) {
+    activeRules = activeRules.filter(r => r.id !== id);
+    renderRules();
+};
 
 function renderRules() {
     const list = document.getElementById('active-rules-list');
