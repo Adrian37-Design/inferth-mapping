@@ -7,10 +7,10 @@
     <title>Inferth Mapping - Fleet Tracking</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="app.css?v=15">
-    <link rel="stylesheet" href="users.css?v=15">
+    <link rel="stylesheet" href="app.css?v=16">
+    <link rel="stylesheet" href="users.css?v=16">
     <link rel="icon" type="image/png" href="logo.png">
-    <script src="auth.js?v=15"></script>
+    <script src="auth.js?v=16"></script>
 </head>
 
 <body>
@@ -235,6 +235,10 @@
                                 <option value="email">Email</option>
                                 <option value="sms">SMS</option>
                             </select>
+                            <span id="contact-container" style="display: none; margin-left: 10px;">
+                                <input type="text" id="rule-contact" class="inline-input"
+                                    placeholder="Enter contact info..." style="min-width: 150px;">
+                            </span>
                             <button id="save-rule-btn" class="btn-primary btn-sm" onclick="saveRule()">
                                 <i class="fas fa-plus"></i> Save Rule
                             </button>
@@ -505,7 +509,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="app.js?v=15"></script>
+    <script src="app.js?v=16"></script>
 </body>
 
 </html>
