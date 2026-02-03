@@ -1544,9 +1544,7 @@ document.head.appendChild(style);
 
 // --- Rules Engine Logic (Phase 7) ---
 
-let activeRules = [
-    { id: 1, text: "Notify me when Any Vehicle Speeding over 100 km/h via Mobile App" }
-];
+let activeRules = [];
 
 // Global function for Save Rule to ensure accessibility
 window.saveRule = function () {
