@@ -1343,31 +1343,55 @@ if (centerMapBtn) {
 }
 });
 
-document.getElementById('play-route').addEventListener('click', playRoute);
-document.getElementById('pause-route').addEventListener('click', pauseRoute);
-document.getElementById('stop-route').addEventListener('click', stopRoute);
+// Safe playback controls
+const playRouteBtn = document.getElementById('play-route');
+if (playRouteBtn) playRouteBtn.addEventListener('click', playRoute);
 
-document.getElementById('playback-speed').addEventListener('input', (e) => {
-    document.getElementById('speed-value').textContent = `${e.target.value}x`;
-});
+const pauseRouteBtn = document.getElementById('pause-route');
+if (pauseRouteBtn) pauseRouteBtn.addEventListener('click', pauseRoute);
+
+const stopRouteBtn = document.getElementById('stop-route');
+if (stopRouteBtn) stopRouteBtn.addEventListener('click', stopRoute);
+
+const playbackSpeedInput = document.getElementById('playback-speed');
+if (playbackSpeedInput) {
+    playbackSpeedInput.addEventListener('input', (e) => {
+        const valSpan = document.getElementById('speed-value');
+        if (valSpan) valSpan.textContent = `${e.target.value}x`;
+    });
+}
 
 // Add Vehicle Button
-document.getElementById('add-vehicle').addEventListener('click', () => {
-    editingVehicleId = null; // Reset editing state
-    document.getElementById('vehicle-imei').value = '';
-    document.getElementById('vehicle-name').value = '';
-    document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';
-    document.getElementById('add-vehicle-modal').classList.remove('hidden');
-});
+const addVehicleBtn = document.getElementById('add-vehicle');
+if (addVehicleBtn) {
+    addVehicleBtn.addEventListener('click', () => {
+        editingVehicleId = null; // Reset editing state
+        const imeiInput = document.getElementById('vehicle-imei');
+        const nameInput = document.getElementById('vehicle-name');
+        if (imeiInput) imeiInput.value = '';
+        if (nameInput) nameInput.value = '';
+
+        const modalTitle = document.querySelector('#add-vehicle-modal .modal-header h3');
+        if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';
+
+        const modal = document.getElementById('add-vehicle-modal');
+        if (modal) modal.classList.remove('hidden');
+    });
+}
 
 // Sidebar Toggle
-document.getElementById('toggle-sidebar').addEventListener('click', () => {
-    const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('hidden');
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 350);
-});
+const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+if (toggleSidebarBtn) {
+    toggleSidebarBtn.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.classList.toggle('hidden');
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 350);
+        }
+    });
+}
 
 // Load Asset History
 async function loadAssetHistory(id, dateStr) {
