@@ -1473,12 +1473,17 @@ if (loadHistoryBtn) {
     });
 }
 
-document.getElementById('close-sidebar').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.add('hidden');
-    setTimeout(() => {
-        map.invalidateSize();
-    }, 350);
-});
+// Safe sidebar close for mobile
+const closeSidebarBtn = document.getElementById('close-sidebar');
+if (closeSidebarBtn) {
+    closeSidebarBtn.addEventListener('click', () => {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.add('hidden');
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+        }, 350);
+    });
+}
 
 // Initialize
 window.addEventListener('load', () => {
