@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="app.css?v=30">
-    <link rel="stylesheet" href="users.css?v=30">
+    <link rel="stylesheet" href="app.css?v=31">
+    <link rel="stylesheet" href="users.css?v=31">
     <link rel="icon" type="image/png" href="logo.png">
-    <script src="auth.js?v=30"></script>
+    <script src="auth.js?v=31"></script>
 
 </head>
 
@@ -368,18 +368,32 @@
                             <input type="text" id="geo-name" class="glass-input" placeholder="e.g. HQ Perimeter">
                         </div>
 
+                        <!-- Removed Assign Assets as requested -->
+
                         <div class="form-group" style="margin-top:10px;">
-                            <label>Assign Assets</label>
-                            <select id="geo-asset-select" class="glass-input">
-                                <option value="all">All Vehicles</option>
-                                <!-- Populated dynamically -->
-                            </select>
+                            <label style="margin-bottom: 5px; display: block;">Alert Triggers</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="geo-rule-entry" checked>
+                                    <span>Alert on Entry</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="geo-rule-exit">
+                                    <span>Alert on Exit</span>
+                                </label>
+                            </div>
                         </div>
 
                         <div class="form-group" style="margin-top:10px;">
-                            <div class="checkbox-group">
-                                <label><input type="checkbox" id="geo-rule-entry" checked> Alert on Entry</label>
-                                <label><input type="checkbox" id="geo-rule-exit"> Alert on Exit</label>
+                            <label>Notification Channel</label>
+                            <div class="sentence-builder-row2" style="margin-top: 5px; justify-content: flex-start;">
+                                <select id="geo-channel" class="inline-select" style="width: auto;">
+                                    <option value="system">System Only</option>
+                                    <option value="email">Email</option>
+                                    <option value="sms">SMS</option>
+                                </select>
+                                <input type="text" id="geo-contact" class="inline-input hidden"
+                                    placeholder="Enter contact..." style="min-width: 150px;">
                             </div>
                         </div>
 
@@ -568,7 +582,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="app.js?v=30"></script>
+    <script src="app.js?v=31"></script>
 </body>
 
 </html>

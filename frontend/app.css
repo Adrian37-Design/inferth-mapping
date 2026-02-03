@@ -1749,3 +1749,24 @@ background: var(--primary-light);
 .modal {
     z-index: 10000 !important;
 }
+
+/* Geofence Checkbox Alignment */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.checkbox-label input[type="checkbox"] {
+    accent-color: var(--primary);
+    transform: scale(1.1);
+}
