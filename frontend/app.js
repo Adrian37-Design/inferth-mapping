@@ -1490,6 +1490,9 @@ window.addEventListener('load', () => {
     // initMap handled by DOMContentLoaded
     // loadVehicles handled by DOMContentLoaded
     connectWebSocket();
+    setTimeout(() => {
+        setupGeofencing();
+    }, 1000); // Delay to ensure map is ready
 });
 
 // Add custom marker styles
