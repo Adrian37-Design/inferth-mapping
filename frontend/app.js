@@ -52,9 +52,7 @@ window.openAssignDriver = async function () {
     }
 };
 
-window.triggerGeofenceAction = function () {
-    alert('Geofence Creator: Coming Soon!\n(This will allow drawing polygon zones on the map)');
-};
+
 
 window.triggerReportAction = function () {
     if (!selectedVehicle) return;
