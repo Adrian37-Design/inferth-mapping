@@ -1680,6 +1680,9 @@ window.deleteRule = function (id) {
 }
 
 // Initialize Rules Engine on Load
+window.addEventListener('DOMContentLoaded', () => {
+    // ... existing init ...
+    setupRulesEngine();
 });
 
 // --- Geofencing Logic (Phase 8 - Re-applied) ---
