@@ -67,3 +67,25 @@ After deployment:
 Once backend is live, we'll update the frontend API URL and deploy to Vercel.
 
 Your Railway backend URL: `_________` (fill in after deployment)
+
+---
+
+## Step 6: Deploy Universal Gateway (Optional)
+
+If you are using the Universal Gateway (`gateway.py`) to support multiple tracker types:
+
+1.  **Add a New Service** in your Railway Project.
+2.  **Select "GitHub Repo"** and choose `inferth-mapping` **AGAIN**.
+    *   (You are deploying the same code a second time, but we will run a different script).
+3.  **Configure the New Service**:
+    *   **Root Directory**: `/backend`
+    *   **Variables**: Copy the variables from your main backend, PLUS:
+        *   `GATEWAY_PORT`: `9000` (or `PORT`)
+        *   `SECONDARY_DESTINATION`: `123.456.78.9:5000` (Optional)
+4.  **Change Start Command**:
+    *   Go to **Settings** -> **Deploy** -> **Start Command**.
+    *   Enter: `python gateway.py`
+5.  **Expose the Port**:
+    *   Railway usually auto-detects `PORT` env var. If you set `GATEWAY_PORT=9000`, make sure to set `PORT=9000` as well so Railway knows where to route traffic.
+    *   **Note:** Railway's Public Domain supports HTTP/HTTPS/WebSockets. For **TCP/UDP** (Raw Device Traffic), you might need to use a dedicated VPS or Railway's generic TCP proxy if available (check their docs).
+    *   **Recommendation:** For raw TCP tracking, a cheap **$5 DigitalOcean Droplet** running this script is often easier than Serverless PaaS.
