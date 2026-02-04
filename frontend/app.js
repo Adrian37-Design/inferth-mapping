@@ -1685,153 +1685,193 @@ window.addEventListener('DOMContentLoaded', () => {
     setupRulesEngine();
 });
 
-// --- Geofencing Logic (Phase 8 - Re-applied & Polished) ---
-let drawnItems;
+// --- Geofencing Logic (Phase 8 - Mini Map & Fixes) ---
 let activeGeofences = [];
-let currentDrawLayer = null;
+let miniMap = null;
+let miniDrawControl = null;
+let currentMiniLayer = null;
+
+// Main FeatureGroup on the MAIN map (for showing active zones)
+let mainMapGeofenceGroup;
 
 function setupGeofencing() {
-    if (!map) return;
-
-    // Initialize FeatureGroup to store editable layers
-    // Only add if not already added to prevent duplicates on re-run
-    if (!drawnItems) {
-        drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
+    // 1. Setup Main Map Display of Active Zones
+    if (map && !mainMapGeofenceGroup) {
+        mainMapGeofenceGroup = new L.FeatureGroup();
+        map.addLayer(mainMapGeofenceGroup);
     }
 
-    // Initialize Draw Control (Hidden Toolbar, we trigger programmatically)
-    // We can store this on the map object to avoid re-creation issues
-    if (!map.drawControl) {
-        const drawControl = new L.Control.Draw({
+    // 2. Initialize Mini Map (if not already)
+    // We do this check because setupGeofencing might be called multiple times
+    const miniMapEl = document.getElementById('geo-mini-map');
+    if (miniMapEl && !miniMap) {
+        // Init Mini Map
+        miniMap = L.map('geo-mini-map').setView([-17.824858, 31.053028], 13); // Default to Harare or user loc
+
+        // Add Tile Layer to Mini Map
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '©OpenStreetMap, ©CartoDB'
+        }).addTo(miniMap);
+
+        // Draw Feature Group for Mini Map
+        const miniDrawnItems = new L.FeatureGroup();
+        miniMap.addLayer(miniDrawnItems);
+
+        // Draw Control for Mini Map
+        miniDrawControl = new L.Control.Draw({
             edit: {
-                featureGroup: drawnItems,
-                remove: false, // Custom delete via UI
-                edit: false
+                featureGroup: miniDrawnItems,
+                remove: true,
+                edit: true
             },
             draw: {
-                polygon: {
-                    allowIntersection: false,
-                    showArea: true,
-                    shapeOptions: { color: '#00d4ff', weight: 2 }
-                },
-                circle: false,
-                rectangle: false,
+                polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00d4ff' } },
+                circle: { shapeOptions: { color: '#00d4ff' } },
+                rectangle: { shapeOptions: { color: '#00d4ff' } },
                 marker: false,
                 polyline: false,
                 circlemarker: false
             }
         });
-        map.addControl(drawControl);
-        map.drawControl = drawControl;
+        miniMap.addControl(miniDrawControl);
+
+        // Listener for Creation on Mini Map
+        miniMap.on(L.Draw.Event.CREATED, function (e) {
+            // Remove previous if any (single zone creation mode)
+            miniDrawnItems.clearLayers();
+
+            const layer = e.layer;
+            miniDrawnItems.addLayer(layer);
+            currentMiniLayer = layer;
+        });
+
+        // Sync Mini Map to Main Map location on open? 
+        // We'll do that in the "Draw Zone" click handler.
     }
 
-    // Remove existing listener to be safe
-    map.off(L.Draw.Event.CREATED);
-
-    // Handle Draw Created
-    map.on(L.Draw.Event.CREATED, function (e) {
-        currentDrawLayer = e.layer;
-
-        // Open Form
-        const form = document.getElementById('new-geofence-form');
-        const drawBtn = document.getElementById('start-draw-btn');
-        const list = document.getElementById('geofence-list');
-
-        if (form) form.classList.remove('hidden');
-        if (drawBtn) drawBtn.classList.add('hidden');
-        if (list) list.classList.add('hidden');
-
-        // Channel Logic Initialization
-        const channel = document.getElementById('geo-channel');
-        const contact = document.getElementById('geo-contact');
-        if (channel && contact) {
-            // Remove old listener if any (simplest is to just re-assign onchange)
-            channel.onchange = () => {
-                if (channel.value === 'system') contact.classList.add('hidden');
-                else contact.classList.remove('hidden');
-            };
-            // Trigger once
-            channel.dispatchEvent(new Event('change'));
-        }
-    });
-
-    // "Draw Zone" Button
+    // 3. "Draw Zone" Button Logic (Opens the Form)
     const drawBtn = document.getElementById('start-draw-btn');
     if (drawBtn) {
-        const newBtn = drawBtn.cloneNode(true);
-        drawBtn.parentNode.replaceChild(newBtn, drawBtn);
-        newBtn.addEventListener('click', () => {
-            // Programmatically trigger Polygon draw
-            if (map.drawControl) {
-                new L.Draw.Polygon(map, map.drawControl.options.draw.polygon).enable();
+        // Use direct onclick to avoid cloneNode issues
+        drawBtn.onclick = function () {
+            // Hide list, Show Form
+            document.getElementById('geofence-list').classList.add('hidden');
+            document.getElementById('start-draw-btn').classList.add('hidden');
+            document.getElementById('new-geofence-form').classList.remove('hidden');
+
+            // Refresh Mini Map (Crucial!)
+            if (miniMap) {
+                miniMap.invalidateSize();
+                // Optionally center on current main map center
+                if (map) {
+                    miniMap.setView(map.getCenter(), map.getZoom());
+                }
             }
-        });
+        };
     }
 
-    // "Save Zone" Button
+    // 4. "Save Zone" Button Logic
     const saveGeoBtn = document.getElementById('save-geo-btn');
     if (saveGeoBtn) {
-        const newSaveBtn = saveGeoBtn.cloneNode(true);
-        saveGeoBtn.parentNode.replaceChild(newSaveBtn, saveGeoBtn);
-
-        newSaveBtn.addEventListener('click', () => {
+        saveGeoBtn.onclick = function () {
             const nameInput = document.getElementById('geo-name');
-            const name = nameInput ? nameInput.value : "Unnamed Zone";
+            const name = nameInput ? nameInput.value : "Unnamed";
 
-            if (!name) { alert("Please name your zone"); return; }
+            if (!name) { alert("Please enter a name for this zone."); return; }
+            if (!currentMiniLayer) { alert("Please draw a zone on the map first."); return; }
 
-            // Save to Map (Visual)
-            if (currentDrawLayer) {
-                drawnItems.addLayer(currentDrawLayer);
+            // Create Zone Object
+            const newZone = {
+                id: Date.now(),
+                name: name,
+                // We need to clone the geometry to the MAIN map
+                // For simplicity, we just store the GeoJSON and recreate it
+                geoJSON: currentMiniLayer.toGeoJSON()
+            };
 
-                const newZone = {
-                    id: Date.now(),
-                    name: name,
-                    layerId: L.stamp(currentDrawLayer)
-                };
-                activeGeofences.push(newZone);
-            }
+            // Add to Active List
+            activeGeofences.push(newZone);
 
-            // Reset UI
-            if (nameInput) nameInput.value = '';
-            document.getElementById('new-geofence-form').classList.add('hidden');
-            const drawBtn = document.getElementById('start-draw-btn');
-            if (drawBtn) drawBtn.classList.remove('hidden');
-            const list = document.getElementById('geofence-list');
-            if (list) list.classList.remove('hidden');
+            // Render on Main Map
+            const mainLayer = L.geoJSON(newZone.geoJSON, {
+                style: { color: '#00d4ff', weight: 2, fillOpacity: 0.2 }
+            });
+            // Store reference for deletion
+            newZone.layerId = L.stamp(mainLayer);
+            mainMapGeofenceGroup.addLayer(mainLayer);
 
+            // Access mainLayer to get stamped ID if needed? 
+            // L.geoJSON creates a layer group usually. 
+            // Let's attach the ID to the layer object itself if we can, or just rely on tracking.
+            // Actually, `L.geoJSON` returns a layer group. We should probably extract the first layer if it's a simple polygon.
+            // But mainMapGeofenceGroup can hold the Group.
+
+            // Clean UI
+            closeGeofenceForm();
             renderGeofences();
-        });
+        };
     }
 
-    // "Cancel" Button
+    // 5. "Cancel" Button Logic
     const cancelGeoBtn = document.getElementById('cancel-geo-btn');
     if (cancelGeoBtn) {
-        const newCancelBtn = cancelGeoBtn.cloneNode(true);
-        cancelGeoBtn.parentNode.replaceChild(newCancelBtn, cancelGeoBtn);
-
-        newCancelBtn.addEventListener('click', () => {
-            if (currentDrawLayer) map.removeLayer(currentDrawLayer); // Discard from map
-            document.getElementById('new-geofence-form').classList.add('hidden');
-            const drawBtn = document.getElementById('start-draw-btn');
-            if (drawBtn) drawBtn.classList.remove('hidden');
-            const list = document.getElementById('geofence-list');
-            if (list) list.classList.remove('hidden');
-        });
+        cancelGeoBtn.onclick = function () {
+            closeGeofenceForm();
+        };
     }
+
+    // Helper to Channel Select
+    const channel = document.getElementById('geo-channel');
+    const contact = document.getElementById('geo-contact');
+    if (channel && contact) {
+        channel.onchange = () => {
+            if (channel.value === 'system') contact.classList.add('hidden');
+            else contact.classList.remove('hidden');
+        };
+    }
+}
+
+function closeGeofenceForm() {
+    // Reset Form
+    document.getElementById('geo-name').value = '';
+
+    // Clear Mini Map
+    if (miniMap) {
+        miniMap.eachLayer(layer => {
+            // Keep tiles, remove shapes. 
+            // We need to find the drawnItems feature group. 
+            // We didn't expose it globally. 
+            // We can just recreate or clear specific layers.
+            // Easier: just remove currentMiniLayer if it exists.
+        });
+        // Actually, let's just use a clear function if we had reference.
+        // Or simpler: We know currentMiniLayer.
+        if (currentMiniLayer && miniMap.hasLayer(currentMiniLayer)) {
+            // Using the feature group would be cleaner, but we defined it locally.
+            // Let's just reload the map or iterate? 
+            // Iterating is safe-ish.
+            miniMap.eachLayer(l => {
+                if (l instanceof L.Path || l instanceof L.Marker) {
+                    miniMap.removeLayer(l);
+                }
+            });
+        }
+    }
+    currentMiniLayer = null;
+
+    // Toggle UI
+    document.getElementById('new-geofence-form').classList.add('hidden');
+    document.getElementById('geofence-list').classList.remove('hidden');
+    document.getElementById('start-draw-btn').classList.remove('hidden');
 }
 
 function renderGeofences() {
     const list = document.getElementById('geofence-list');
-    if (!list) return;
+    list.innerHTML = '<p class="empty-state">No geofences active. Draw one on the map!</p>';
+    return;
+}
 
-    if (activeGeofences.length === 0) {
-        list.innerHTML = '<p class="empty-state">No geofences active. Draw one on the map!</p>';
-        return;
-    }
-
-    list.innerHTML = activeGeofences.map(zone => `
+list.innerHTML = activeGeofences.map(zone => `
         <div class="rule-item" style="border-left-color: var(--primary);">
             <div class="rule-text"><i class="fas fa-vector-square"></i> ${zone.name}</div>
             <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">

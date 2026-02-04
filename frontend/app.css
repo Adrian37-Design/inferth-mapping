@@ -1770,3 +1770,13 @@ background: var(--primary-light);
     accent-color: var(--primary);
     transform: scale(1.1);
 }
+
+.mini-map-container {
+    height: 300px;
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1;
+    /* Ensure controls are clickable */
+}
