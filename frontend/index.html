@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="app.css?v=34">
-    <link rel="stylesheet" href="users.css?v=34">
+    <link rel="stylesheet" href="app.css?v=35">
+    <link rel="stylesheet" href="users.css?v=35">
     <link rel="icon" type="image/png" href="logo.png">
-    <script src="auth.js?v=34"></script>
+    <script src="auth.js?v=35"></script>
 
 </head>
 
@@ -363,6 +363,12 @@
                     <div id="new-geofence-form" class="rules-builder-card hidden">
                         <h4 style="margin-top:0; color:var(--primary);">New Geofence</h4>
 
+                        <!-- Mini Map for Drawing -->
+                        <div id="geo-mini-map" class="mini-map-container"></div>
+                        <p class="helper-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px;">
+                            <i class="fas fa-info-circle"></i> Use the tools on the small map to draw your zone.
+                        </p>
+
                         <div class="form-group">
                             <label>Zone Name</label>
                             <input type="text" id="geo-name" class="glass-input" placeholder="e.g. HQ Perimeter">
@@ -582,7 +588,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="app.js?v=34"></script>
+    <script src="app.js?v=35"></script>
 </body>
 
 </html>
