@@ -1867,11 +1867,14 @@ function closeGeofenceForm() {
 
 function renderGeofences() {
     const list = document.getElementById('geofence-list');
-    list.innerHTML = '<p class="empty-state">No geofences active. Draw one on the map!</p>';
-    return;
-}
+    if (!list) return;
 
-list.innerHTML = activeGeofences.map(zone => `
+    if (activeGeofences.length === 0) {
+        list.innerHTML = '<p class="empty-state">No geofences active. Draw one on the map!</p>';
+        return;
+    }
+
+    list.innerHTML = activeGeofences.map(zone => `
         <div class="rule-item" style="border-left-color: var(--primary);">
             <div class="rule-text"><i class="fas fa-vector-square"></i> ${zone.name}</div>
             <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">
@@ -1883,13 +1886,22 @@ list.innerHTML = activeGeofences.map(zone => `
 
 window.deleteGeofence = function (id) {
     const zone = activeGeofences.find(z => z.id === id);
-    if (zone) {
+    if (zone && mainMapGeofenceGroup) {
+        // Remove from Main Map
+        mainMapGeofenceGroup.eachLayer(layer => {
+            if (L.stamp(layer) === zone.layerId) {
+                mainMapGeofenceGroup.removeLayer(layer);
+            }
+        });
+    } else if (zone && typeof drawnItems !== 'undefined') {
+        // Fallback for older sessions/logic
         drawnItems.eachLayer(layer => {
             if (L.stamp(layer) === zone.layerId) {
                 drawnItems.removeLayer(layer);
             }
         });
     }
+
     activeGeofences = activeGeofences.filter(z => z.id !== id);
     renderGeofences();
 };
