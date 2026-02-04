@@ -8,10 +8,10 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
-    <link rel="stylesheet" href="app.css?v=36">
-    <link rel="stylesheet" href="users.css?v=36">
+    <link rel="stylesheet" href="app.css?v=37">
+    <link rel="stylesheet" href="users.css?v=37">
     <link rel="icon" type="image/png" href="logo.png">
-    <script src="auth.js?v=36"></script>
+    <script src="auth.js?v=37"></script>
 
 </head>
 
@@ -348,26 +348,32 @@
                     <div class="panel-section">
                         <div class="alert-controls">
                             <h4 class="section-title">Geofence Manager</h4>
-                            <button class="btn-primary btn-sm" id="start-draw-btn">
-                                <i class="fas fa-pencil-alt"></i> Draw Zone
+                            <button class="btn-primary btn-sm hidden" id="start-draw-btn">
+                                <i class="fas fa-pencil-alt"></i> New Zone
                             </button>
                         </div>
 
+                        <!-- Mini Map for Drawing (Always Visible) -->
+                        <div id="geo-mini-map" class="mini-map-container" style="height: 250px; margin-bottom: 15px;">
+                        </div>
+                        <p class="helper-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px;">
+                            <i class="fas fa-info-circle"></i> Draw and manage zones on this map.
+                        </p>
+
                         <!-- Active Zones List -->
                         <div class="rules-list" id="geofence-list">
-                            <p class="empty-state">No geofences active. Draw one on the map!</p>
+                            <button class="btn-primary btn-block" id="show-create-geo-btn" style="margin-bottom: 15px;">
+                                <i class="fas fa-plus"></i> Create New Zone
+                            </button>
+                            <div id="active-zones-container">
+                                <p class="empty-state">No geofences active.</p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- New Geofence Form (Hidden by default) -->
+                    <!-- New Geofence Form (Inputs Only, Hidden by default) -->
                     <div id="new-geofence-form" class="rules-builder-card hidden">
-                        <h4 style="margin-top:0; color:var(--primary);">New Geofence</h4>
-
-                        <!-- Mini Map for Drawing -->
-                        <div id="geo-mini-map" class="mini-map-container"></div>
-                        <p class="helper-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px;">
-                            <i class="fas fa-info-circle"></i> Use the tools on the small map to draw your zone.
-                        </p>
+                        <h4 style="margin-top:0; color:var(--primary);">Zone Details</h4>
 
                         <div class="form-group">
                             <label>Zone Name</label>
@@ -588,7 +594,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="app.js?v=36"></script>
+    <script src="app.js?v=37"></script>
 </body>
 
 </html>
