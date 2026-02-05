@@ -27,8 +27,60 @@ async def create_position(payload: PositionCreate, db: AsyncSession = Depends(ge
     db.add(pos)
     await db.commit()
     await db.refresh(pos)
+    db.add(pos)
+    await db.commit()
+    await db.refresh(pos)
     # publish to redis (realtime) - omitted here; call publish_position(pos)
     return pos
+
+@router.post("/ingest")
+async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
+    """
+    Ingest Raw Data from Gateway
+    Payload: {"raw_hex": "...", "source_ip": "..."}
+    """
+    import codecs
+    from app.services.decoders.gps103 import GPS103Decoder # For now just hardcoded or iterated
+    
+    raw_hex = payload.get("raw_hex")
+    if not raw_hex:
+        raise HTTPException(400, "Missing raw_hex")
+    
+    try:
+        raw_bytes = codecs.decode(raw_hex, "hex")
+    except:
+        raise HTTPException(400, "Invalid hex")
+        
+    # Attempt Decode (Simple MVP: Try GPS103)
+    decoder = GPS103Decoder() # In future, factory pattern based on protocol
+    data = await decoder.decode(raw_bytes)
+    
+    if "imei" in data and "latitude" in data:
+        # Save to DB
+        # Find Device
+        device_q = await db.execute(select(Device).where(Device.imei == data["imei"]))
+        device = device_q.scalars().first()
+        
+        if not device:
+            # Auto-create? Or Log Warning?
+            # For Safety: Log Warning and return 200 (so Gateway doesn't retry)
+            print(f"Unknown Device Ingested: {data['imei']}")
+            return {"status": "unknown_device", "imei": data["imei"]}
+            
+        pos = Position(
+            device_id=device.id,
+            latitude=data["latitude"],
+            longitude=data["longitude"],
+            speed=data.get("speed", 0),
+            course=data.get("course", 0),
+            timestamp=datetime.utcnow(),
+            raw=payload.get("raw_hex")
+        )
+        db.add(pos)
+        await db.commit()
+        return {"status": "ok", "id": pos.id}
+        
+    return {"status": "ignored", "reason": "no_gps_data"}
 
 @router.get("/latest/{imei}", response_model=PositionOut)
 async def latest_position(imei: str, db: AsyncSession = Depends(get_db)):
