@@ -1826,6 +1826,26 @@ function setupGeofencing() {
     // "Create New  Zone" Button removed from UI
     // Drawing on map automatically opens form via L.Draw.Event.CREATED
 
+    // "Exit" Button (Geofence Manager)
+    const exitGeoBtn = document.getElementById('exit-geofence-btn');
+    if (exitGeoBtn) {
+        exitGeoBtn.onclick = () => {
+            // Switch back to Dashboard
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-dashboard').classList.add('active');
+
+            // Update sidebar rail icons
+            document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
+            // Find dashboard icon (data-tab="tab-dashboard")
+            const dashIcon = document.querySelector('.rail-item[data-tab="tab-dashboard"]');
+            if (dashIcon) dashIcon.classList.add('active');
+
+            // Update Header Title
+            const title = document.getElementById('panel-title');
+            if (title) title.innerText = "Dashboard";
+        };
+    }
+
     // "Save Zone" Button
     const saveGeoBtn = document.getElementById('save-geo-btn');
     if (saveGeoBtn) {
