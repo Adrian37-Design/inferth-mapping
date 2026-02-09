@@ -570,7 +570,7 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
 });
 
 // Helper for Invite Success Modal
-function showInviteSuccessModal(link, email) {
+window.showInviteSuccessModal = function (link, email) {
     // Create modal elements dynamically
     const modalId = 'invite-success-modal';
     let modal = document.getElementById(modalId);
@@ -579,7 +579,10 @@ function showInviteSuccessModal(link, email) {
         modal = document.createElement('div');
         modal.id = modalId;
         modal.className = 'modal'; // Reuse existing modal CSS
-        // Inline styles for specific overrides if needed or add to CSS later
+        // Ensure high z-index and block display
+        modal.style.zIndex = '9999';
+        modal.style.display = 'block';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.8)'; // Darker backdrop
         document.body.appendChild(modal);
     }
 
@@ -588,25 +591,25 @@ function showInviteSuccessModal(link, email) {
     const waUrl = `https://wa.me/?text=${waText}`;
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; text-align: center;">
+        <div class="modal-content" style="max-width: 500px; text-align: center; position: relative; z-index: 10000;">
             <div class="modal-header">
                 <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
-                <span class="close" onclick="document.getElementById('${modalId}').remove()">&times;</span>
+                <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
             </div>
             <div class="modal-body">
-                <p>An invitation has been created for <strong>${email}</strong>.</p>
-                <p>Share this link with them to get started:</p>
+                <p>An invitation email has been sent to <strong>${email}</strong>.</p>
+                <p>You can also share this link manually:</p>
                 
                 <div style="display: flex; gap: 10px; margin: 15px 0;">
                     <input type="text" value="${link}" id="invite-link-copy" readonly 
-                           style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9; color: #333;">
-                    <button onclick="copyInviteLink()" class="btn btn-secondary" title="Copy Link">
-                        <i class="fas fa-copy"></i>
+                           style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9; color: #333; cursor: text;">
+                    <button onclick="window.copyInviteLink()" class="btn btn-secondary" title="Copy Link" style="cursor: pointer;">
+                        <i class="fas fa-copy"></i> Copy
                     </button>
                 </div>
 
                 <div style="margin-top: 20px;">
-                    <a href="${waUrl}" target="_blank" class="btn" style="background-color: #25D366; color: white; text-decoration: none; display: inline-block; width: 100%;">
+                    <a href="${waUrl}" target="_blank" class="btn" style="background-color: #25D366; color: white; text-decoration: none; display: inline-block; width: 100%; padding: 10px; border-radius: 4px; cursor: pointer;">
                         <i class="fab fa-whatsapp"></i> Share via WhatsApp
                     </a>
                 </div>
@@ -616,19 +619,32 @@ function showInviteSuccessModal(link, email) {
 
     // Make visible
     modal.classList.remove('hidden');
-    // Ensure display block if CSS uses that
     modal.style.display = 'block';
 }
 
 window.copyInviteLink = function () {
     const input = document.getElementById('invite-link-copy');
-    input.select();
-    document.execCommand('copy'); // Fallback
-    // Modern: navigator.clipboard.writeText(input.value);
+    if (!input) return;
 
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile devices
+
+    // Modern API with fallback
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            // Success feedback handled below
+        }).catch(err => {
+            console.error('Async: Could not copy text: ', err);
+            document.execCommand('copy'); // Fallback
+        });
+    } else {
+        document.execCommand('copy');
+    }
+
+    // Visual Feedback
     const btn = input.nextElementSibling;
     const original = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i>';
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
     setTimeout(() => btn.innerHTML = original, 2000);
 };
 
