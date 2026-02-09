@@ -1823,18 +1823,8 @@ function setupGeofencing() {
         });
     }
 
-    // "Create New  Zone" Button (Visible in List)
-    const createBtn = document.getElementById('show-create-geo-btn');
-    if (createBtn) {
-        createBtn.onclick = () => {
-            document.getElementById('geofence-list').classList.add('hidden');
-            document.getElementById('new-geofence-form').classList.remove('hidden');
-
-            // Enable drawing tool programmatically or just hint user
-            // Let's just hint user
-            alert("Draw a shape using the toolbar on the map above!");
-        };
-    }
+    // "Create New  Zone" Button removed from UI
+    // Drawing on map automatically opens form via L.Draw.Event.CREATED
 
     // "Save Zone" Button
     const saveGeoBtn = document.getElementById('save-geo-btn');
