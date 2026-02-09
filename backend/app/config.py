@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change_this_secret_key_in_production"
     JWT_ALGORITHM: str = "HS256"
 
+    # Email Settings
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_EMAIL: str | None = None
+    SMTP_PASSWORD: str | None = None
+
     class Config:
         env_file = ".env"
         extra = "allow"
