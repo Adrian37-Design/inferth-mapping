@@ -551,7 +551,12 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
         }
 
         const data = await response.json();
-        alert(`User invited! Setup Link (Copy this): \n\n${window.location.origin}/signup.html?token=${data.setup_token}`);
+        const data = await response.json();
+
+        const inviteLink = `${window.location.origin}/signup.html?token=${data.setup_token}`;
+
+        // Show Custom Modal instead of Alert
+        showInviteSuccessModal(inviteLink, email);
 
         document.getElementById('invite-email').value = '';
         loadUsers();
@@ -563,6 +568,69 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
         btn.textContent = 'Invite';
     }
 });
+
+// Helper for Invite Success Modal
+function showInviteSuccessModal(link, email) {
+    // Create modal elements dynamically
+    const modalId = 'invite-success-modal';
+    let modal = document.getElementById(modalId);
+
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal'; // Reuse existing modal CSS
+        // Inline styles for specific overrides if needed or add to CSS later
+        document.body.appendChild(modal);
+    }
+
+    // WhatsApp URL
+    const waText = encodeURIComponent(`Hello! I've invited you to join the Inferth Mapping Platform. Click here to set up your account: ${link}`);
+    const waUrl = `https://wa.me/?text=${waText}`;
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; text-align: center;">
+            <div class="modal-header">
+                <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
+                <span class="close" onclick="document.getElementById('${modalId}').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>An invitation has been created for <strong>${email}</strong>.</p>
+                <p>Share this link with them to get started:</p>
+                
+                <div style="display: flex; gap: 10px; margin: 15px 0;">
+                    <input type="text" value="${link}" id="invite-link-copy" readonly 
+                           style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9; color: #333;">
+                    <button onclick="copyInviteLink()" class="btn btn-secondary" title="Copy Link">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <a href="${waUrl}" target="_blank" class="btn" style="background-color: #25D366; color: white; text-decoration: none; display: inline-block; width: 100%;">
+                        <i class="fab fa-whatsapp"></i> Share via WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Make visible
+    modal.classList.remove('hidden');
+    // Ensure display block if CSS uses that
+    modal.style.display = 'block';
+}
+
+window.copyInviteLink = function () {
+    const input = document.getElementById('invite-link-copy');
+    input.select();
+    document.execCommand('copy'); // Fallback
+    // Modern: navigator.clipboard.writeText(input.value);
+
+    const btn = input.nextElementSibling;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => btn.innerHTML = original, 2000);
+};
 
 // document.getElementById('close-users-modal').addEventListener('click', () => {
 //     document.getElementById('users-modal').classList.add('hidden');

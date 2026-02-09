@@ -175,6 +175,38 @@ async def create_user(
     await db.commit()
     await db.refresh(new_user)
     
+    # Send Invitation Email
+    from app.services.email import send_email
+    from app.config import settings
+    
+    # Check if we are in production or local to determine the link
+    # We can use a setting or a hardcoded fallback if domain is not set
+    # ideally settings.FRONTEND_URL, but for now we infer or use a placeholder
+    base_url = "https://inferth-mapping.up.railway.app" 
+    link = f"{base_url}/signup.html?token={setup_token}"
+    
+    subject = "Welcome to Inferth Mapping - Setup Your Account"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #007bff;">Welcome to Inferth Mapping!</h2>
+        <p>You have been invited to join the platform as a <strong>{data.role}</strong>.</p>
+        <p>Please click the button below to set up your password and access your account:</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{link}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Set Up Account</a>
+        </div>
+        <p style="font-size: 12px; color: #888;">If the button doesn't work, copy this link:<br>{link}</p>
+    </div>
+    """
+    
+    # Run synchronously or in background task? 
+    # For simplicity in FastAPI, we can just call it (it blocks slightly but okay for low volume)
+    # properly we'd use BackgroundTasks
+    
+    try:
+        send_email(new_user.email, subject, html_content)
+    except Exception as e:
+        print(f"Failed to send invite email: {e}")
+
     return {
         "id": new_user.id,
         "email": new_user.email,
