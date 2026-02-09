@@ -551,7 +551,6 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
         }
 
         const data = await response.json();
-        const data = await response.json();
 
         const inviteLink = `${window.location.origin}/signup.html?token=${data.setup_token}`;
 
