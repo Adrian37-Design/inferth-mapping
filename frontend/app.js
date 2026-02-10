@@ -579,25 +579,32 @@ window.showInviteSuccessModal = function (link, email) {
         modal.id = modalId;
         modal.className = 'modal'; // Reuse existing modal CSS
         // Ensure high z-index and block display
-        modal.style.zIndex = '9999';
-        modal.style.display = 'flex'; // Use flex for centering
+        // Ensure high z-index and flex display
+        modal.style.zIndex = '11000'; // Higher than CSS
+        modal.style.display = 'flex';
         modal.style.justifyContent = 'center';
         modal.style.alignItems = 'center';
         modal.style.position = 'fixed';
         modal.style.top = '0';
         modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.8)'; // Darker backdrop
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.85)'; // Darker backdrop
         document.body.appendChild(modal);
     }
+
+    // Force styles every time it opens, in case CSS overrides
+    modal.style.removeProperty('display');
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
 
     // WhatsApp URL
     const waText = encodeURIComponent(`Hello! I've invited you to join the Inferth Mapping Platform. Click here to set up your account: ${link}`);
     const waUrl = `https://wa.me/?text=${waText}`;
 
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; text-align: center; position: relative; z-index: 10000;">
+        <div class="modal-content" style="margin: auto; max-width: 500px; width: 90%; text-align: center; position: relative; z-index: 11001; background: #0f172a; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
             <div class="modal-header">
                 <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
                 <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
