@@ -184,7 +184,7 @@ async def create_user(
     # We can use a setting or a hardcoded fallback if domain is not set
     # ideally settings.FRONTEND_URL, but for now we infer or use a placeholder
     base_url = "https://inferth-mapping.up.railway.app" 
-    link = f"{base_url}/signup.html?token={setup_token}"
+    link = f"{base_url}/static/signup.html?token={setup_token}"
     
     subject = "Welcome to Inferth Mapping - Setup Your Account"
     html_content = f"""
