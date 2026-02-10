@@ -21,9 +21,14 @@ def send_email(to_email: str, subject: str, html_content: str):
             logger.info(f"Sending email via Resend API to {to_email}...")
             
             # If "From" is just an email, Resend requires a verified domain.
-            # For testing/onboarding, use 'onboarding@resend.dev' if you don't have a domain yet.
-            # OR better: User should set SMTP_EMAIL to their verified sender in Resend.
-            from_email = settings.SMTP_EMAIL or "onboarding@resend.dev" 
+            # Unverified domains cannot send FROM gmail.com/etc.
+            # We force 'onboarding@resend.dev' if we detect a specific API key or just for safety during testing phase.
+            # Only use settings.SMTP_EMAIL if it's NOT a gmail/yahoo/hotmail address, or if we trust the user knows what they are doing.
+            
+            from_email = settings.SMTP_EMAIL
+            if not from_email or "gmail.com" in from_email or "yahoo.com" in from_email:
+                from_email = "onboarding@resend.dev"
+                logger.info(f"Using test sender {from_email} because configured email is generic provider.")
             
             url = "https://api.resend.com/emails"
             headers = {
