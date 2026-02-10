@@ -580,7 +580,14 @@ window.showInviteSuccessModal = function (link, email) {
         modal.className = 'modal'; // Reuse existing modal CSS
         // Ensure high z-index and block display
         modal.style.zIndex = '9999';
-        modal.style.display = 'block';
+        modal.style.display = 'flex'; // Use flex for centering
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
         modal.style.backgroundColor = 'rgba(0,0,0,0.8)'; // Darker backdrop
         document.body.appendChild(modal);
     }
