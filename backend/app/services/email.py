@@ -59,10 +59,10 @@ def send_email(to_email: str, subject: str, html_content: str):
             
             if attempt['method'] == "SSL":
                 # For SSL, pass context to constructor
-                server = smtplib.SMTP_SSL(smtp_host_ip, attempt['port'], timeout=10, context=context)
+                server = smtplib.SMTP_SSL(smtp_host_ip, attempt['port'], timeout=30, context=context)
             else:
                 # For TLS, connect then starttls
-                server = smtplib.SMTP(smtp_host_ip, attempt['port'], timeout=10)
+                server = smtplib.SMTP(smtp_host_ip, attempt['port'], timeout=30)
                 server.starttls(context=context)
             
             server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
