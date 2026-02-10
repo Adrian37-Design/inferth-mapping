@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
 
     # Email Settings
+    RESEND_API_KEY: str | None = None
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
     SMTP_EMAIL: str | None = None
