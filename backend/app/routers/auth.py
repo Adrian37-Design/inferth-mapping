@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import User, Tenant
@@ -134,6 +134,7 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
 @router.post("/create-user", response_model=UserResponse)
 async def create_user(
     data: CreateUserRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
@@ -198,14 +199,8 @@ async def create_user(
     </div>
     """
     
-    # Run synchronously or in background task? 
-    # For simplicity in FastAPI, we can just call it (it blocks slightly but okay for low volume)
-    # properly we'd use BackgroundTasks
-    
-    try:
-        send_email(new_user.email, subject, html_content)
-    except Exception as e:
-        print(f"Failed to send invite email: {e}")
+    # Send email in background to avoid blocking the UI
+    background_tasks.add_task(send_email, new_user.email, subject, html_content)
 
     return {
         "id": new_user.id,
