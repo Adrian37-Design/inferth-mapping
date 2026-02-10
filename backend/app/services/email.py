@@ -3,6 +3,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.config import settings
 import logging
+import socket
+import ssl
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,11 @@ def send_email(to_email: str, subject: str, html_content: str):
         logger.warning("SMTP not configured. Email not sent.")
         print(f"--- MOCK EMAIL TO {to_email} ---\nSubject: {subject}\n{html_content}\n-----------------------------")
         return False
+
+    # Debug: Check what config we actually loaded
+    pass_len = len(settings.SMTP_PASSWORD) if settings.SMTP_PASSWORD else 0
+    pass_start = settings.SMTP_PASSWORD[:2] if settings.SMTP_PASSWORD else "**"
+    logger.info(f"DEBUG SMTP Config: Host='{settings.SMTP_HOST}', Port='{settings.SMTP_PORT}' ({type(settings.SMTP_PORT)}), User='{settings.SMTP_EMAIL}', PassLen={pass_len}, PassStart='{pass_start}'")
 
     msg = MIMEMultipart()
     msg['From'] = settings.SMTP_EMAIL
@@ -28,19 +35,35 @@ def send_email(to_email: str, subject: str, html_content: str):
         {"method": "SSL", "port": 465},
         # Method 2: TLS on configured port (usually 587)
         {"method": "TLS", "port": 587},
-        # Method 3: Configured port as is
-        {"method": "Configured", "port": int(settings.SMTP_PORT)}
     ]
+
+    # Resolve hostname to IPv4 to bypass Railway IPv6 issues
+    smtp_host_ip = settings.SMTP_HOST
+    try:
+        addr_info = socket.getaddrinfo(settings.SMTP_HOST, None, family=socket.AF_INET)
+        if addr_info:
+            smtp_host_ip = addr_info[0][4][0]
+            logger.info(f"Resolved {settings.SMTP_HOST} to IPv4: {smtp_host_ip}")
+    except Exception as e:
+        logger.warning(f"IPv4 resolution failed, using hostname: {e}")
+
+    # Create SSL Context that allows IP connection (ignore hostname mismatch)
+    # This is necessary because we are connecting to an IP (142.x.x.x) but cert is for smtp.gmail.com
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_REQUIRED 
 
     for attempt in connection_attempts:
         try:
-            logger.info(f"Attempting email send via {attempt['method']} on port {attempt['port']}...")
+            logger.info(f"Attempting email send via {attempt['method']} on port {attempt['port']} (IP: {smtp_host_ip})...")
             
             if attempt['method'] == "SSL":
-                server = smtplib.SMTP_SSL(settings.SMTP_HOST, attempt['port'], timeout=10)
+                # For SSL, pass context to constructor
+                server = smtplib.SMTP_SSL(smtp_host_ip, attempt['port'], timeout=10, context=context)
             else:
-                server = smtplib.SMTP(settings.SMTP_HOST, attempt['port'], timeout=10)
-                server.starttls()
+                # For TLS, connect then starttls
+                server = smtplib.SMTP(smtp_host_ip, attempt['port'], timeout=10)
+                server.starttls(context=context)
             
             server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
             server.sendmail(settings.SMTP_EMAIL, to_email, text)
