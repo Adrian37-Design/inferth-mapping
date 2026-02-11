@@ -1781,25 +1781,26 @@ window.addEventListener('DOMContentLoaded', () => {
     // ... existing init ...
     setupRulesEngine();
 
-    // "Exit" Button (Geofence Manager) - Global Handler
-    const exitGeoBtn = document.getElementById('exit-geofence-btn');
-    if (exitGeoBtn) {
-        exitGeoBtn.onclick = () => {
-            // Switch back to Dashboard
+    // "Exit" Button (Geofence Manager) - Global Handler via Delegation
+    // We use delegation on document.body to ensure we catch it even if DOM is tricky
+    document.body.addEventListener('click', (e) => {
+        const btn = e.target.closest('#exit-geofence-btn');
+        if (btn) {
+            console.log("Exit Geofence Button Clicked -> Going to Fleet");
+            // Switch back to FLEET (as requested)
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-dashboard').classList.add('active');
+            document.getElementById('tab-fleet').classList.add('active');
 
             // Update sidebar rail icons
             document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
-            // Find dashboard icon (data-tab="tab-dashboard")
-            const dashIcon = document.querySelector('.rail-item[data-tab="tab-dashboard"]');
-            if (dashIcon) dashIcon.classList.add('active');
+            const fleetIcon = document.querySelector('.rail-item[data-tab="tab-fleet"]');
+            if (fleetIcon) fleetIcon.classList.add('active');
 
             // Update Header Title
             const title = document.getElementById('panel-title');
-            if (title) title.innerText = "Dashboard";
-        };
-    }
+            if (title) title.innerText = "Fleet";
+        }
+    });
 });
 
 // --- Geofencing Logic (Phase 8 - Permanent Mini Map) ---
