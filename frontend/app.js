@@ -1787,9 +1787,20 @@ window.addEventListener('DOMContentLoaded', () => {
         const btn = e.target.closest('#exit-geofence-btn');
         if (btn) {
             console.log("Exit Geofence Button Clicked -> Going to Fleet");
-            // Switch back to FLEET (as requested)
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-fleet').classList.add('active');
+
+            // CRITICAL FIX: The `triggerGeofenceAction` uses inline style.display = 'block/none'.
+            // We must clear those inline styles AND manage classes to ensure clean switching.
+            document.querySelectorAll('.tab-content').forEach(t => {
+                t.style.display = ''; // Clear inline styles (let CSS handle it)
+                t.classList.remove('active');
+            });
+
+            const fleetTab = document.getElementById('tab-fleet');
+            if (fleetTab) {
+                fleetTab.classList.add('active');
+                // Ensure it's not hidden by inline style left over from elsewhere
+                fleetTab.style.display = '';
+            }
 
             // Update sidebar rail icons
             document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
@@ -1992,8 +2003,16 @@ function renderMockViolations() {
 
 // Global Action Trigger
 window.triggerGeofenceAction = function () {
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.getElementById('tab-geofence').style.display = 'block';
+    // Standardize: Use classes, but also force display block if needed to override previous inline logic
+    // actually better to just clean up inline styles first
+    document.querySelectorAll('.tab-content').forEach(t => {
+        t.style.display = '';
+        t.classList.remove('active');
+    });
+
+    const geoTab = document.getElementById('tab-geofence');
+    if (geoTab) geoTab.classList.add('active');
+
     document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
 
     setTimeout(() => {
