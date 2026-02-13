@@ -158,6 +158,14 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
+    pointer-events: none;
+    /* Allow clicks to pass through to map */
+}
+
+/* Re-enable pointer events for actual content */
+.sidebar-rail,
+.sidebar-panel {
+    pointer-events: auto;
 }
 
 .sidebar-container.collapsed .sidebar-panel {
