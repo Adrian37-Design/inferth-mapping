@@ -467,6 +467,14 @@ async function toggleUserStatus(userId, isActive) {
 async function deleteUser(userId) {
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
 
+    // Show loading state on button if possible, or global spinner
+    const btn = document.querySelector(`.delete-btn[onclick="deleteUser(${userId})"]`);
+    const originalContent = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+    }
+
     try {
         const response = await window.AuthManager.fetchAPI(`/auth/users/${userId}`, {
             method: 'DELETE'
@@ -478,9 +486,15 @@ async function deleteUser(userId) {
         }
 
         // Success
+        alert("User deleted successfully!");
         await loadUsers(); // Refresh list
     } catch (error) {
         alert("Error: " + error.message);
+        // Reset button only on error (on success list reloads)
+        if (btn) {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }
     }
 }
 
