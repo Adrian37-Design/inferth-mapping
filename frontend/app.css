@@ -315,8 +315,6 @@ body {
     height: 100%;
 }
 
-background: var(--primary-light);
-}
 
 .summary-card-sidebar {
     background: var(--card-bg);
