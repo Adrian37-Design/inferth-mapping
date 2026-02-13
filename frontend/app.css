@@ -568,8 +568,8 @@ background: var(--primary-light);
 /* On mobile, adjust position to not overlap with attribution or other elements */
 @media (max-width: 768px) {
     .map-controls {
-        bottom: 80px;
-        /* moved up slightly */
+        bottom: 140px;
+        /* Moved up significantly to avoid mobile nav bars */
         right: 15px;
     }
 }
