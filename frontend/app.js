@@ -401,7 +401,8 @@ async function loadUsers() {
     list.innerHTML = '<p class="loading">Loading users...</p>';
 
     try {
-        const response = await window.AuthManager.fetchAPI('/auth/users');
+        // Add cache buster
+        const response = await window.AuthManager.fetchAPI(`/auth/users?_t=${new Date().getTime()}`);
 
         if (!response.ok) throw new Error('Failed to load users');
 
@@ -471,10 +472,15 @@ async function deleteUser(userId) {
             method: 'DELETE'
         });
 
-        if (!response.ok) throw new Error('Failed to delete user');
-        loadUsers();
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to delete user');
+        }
+
+        // Success
+        await loadUsers(); // Refresh list
     } catch (error) {
-        alert(error.message);
+        alert("Error: " + error.message);
     }
 }
 
