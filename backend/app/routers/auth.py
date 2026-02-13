@@ -245,6 +245,7 @@ async def list_users(
     """List all users (admin only)"""
     result = await db.execute(select(User))
     users = result.scalars().all()
+    print(f"DEBUG: list_users returning {len(users)} users: {[u.email for u in users]}") 
     return users
 
 class UpdateUserRequest(BaseModel):

@@ -482,6 +482,15 @@ async function deleteUser(userId) {
 
         if (!response.ok) {
             const data = await response.json();
+
+            // If user not found (404), they are already deleted. 
+            // Treat this as success to clear them from UI.
+            if (response.status === 404) {
+                alert("User was already deleted. Refreshing list...");
+                await loadUsers();
+                return;
+            }
+
             throw new Error(data.detail || 'Failed to delete user');
         }
 
@@ -490,7 +499,7 @@ async function deleteUser(userId) {
         await loadUsers(); // Refresh list
     } catch (error) {
         alert("Error: " + error.message);
-        // Reset button only on error (on success list reloads)
+        // Reset button only on error
         if (btn) {
             btn.innerHTML = originalContent;
             btn.disabled = false;
