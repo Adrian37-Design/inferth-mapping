@@ -552,7 +552,8 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
 
         const data = await response.json();
 
-        const inviteLink = `${window.location.origin}/signup.html?token=${data.setup_token}`;
+        // Fix: Point to /static/signup.html
+        const inviteLink = `${window.location.origin}/static/signup.html?token=${data.setup_token}`;
 
         // Show Custom Modal instead of Alert
         showInviteSuccessModal(inviteLink, email);
