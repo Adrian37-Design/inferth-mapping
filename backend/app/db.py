@@ -16,11 +16,15 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
 elif DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
-# Create async engine
+# Create async engine with robust connection pooling
 engine = create_async_engine(
     DATABASE_URL,
     echo=True,  # Logs SQL statements — good for debugging
-    future=True
+    future=True,
+    pool_pre_ping=True,  # Check connection liveness before using
+    pool_recycle=300,    # Recycle connections every 5 minutes (prevents stale connections)
+    pool_size=5,         # Baseline number of connections
+    max_overflow=10      # How many extra connections can be created during spikes
 )
 
 # Create async session factory
