@@ -2020,15 +2020,8 @@ function renderMockViolations() {
     const list = document.getElementById('geo-violations-list');
     if (!list) return;
 
-    list.innerHTML = `
-        <div class="priority-alert-item">
-            <div class="p-alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
-            <div class="p-alert-info">
-                <div class="p-alert-title">Exit: HQ Perimeter</div>
-                <div class="p-alert-time">Volvo FH16 • 2 mins ago</div>
-            </div>
-        </div>
-    `;
+    // Mock data removed. Real data integration pending.
+    list.innerHTML = '<p class="text-muted" style="padding:10px; text-align:center;">No recent violations</p>';
 }
 
 // Global Action Trigger
