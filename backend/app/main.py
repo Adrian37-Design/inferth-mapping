@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions
+from app.routers import auth, devices, positions, users, audit
 from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
@@ -56,6 +56,8 @@ async def add_cors_headers(request, call_next):
 app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(positions.router)
+app.include_router(users.router)
+app.include_router(audit.router)
 
 from app.db import engine, Base
 
@@ -77,6 +79,8 @@ async def startup_event():
             # 0. Auto-Migration: Ensure 'role' and 'driver_name' columns exist
             try:
                 await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'"))
                 await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
                 await db.commit()
                 print("Schema migration: Columns checked/added.")

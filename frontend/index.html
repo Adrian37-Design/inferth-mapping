@@ -61,6 +61,10 @@
                 <div class="rail-item" data-tab="tab-users" title="Management" id="rail-users-btn">
                     <i class="fas fa-users-cog"></i>
                 </div>
+                <!-- Audit Logs Tab (Admin Only) -->
+                <div class="rail-item hidden" data-tab="tab-audit" title="Audit Logs" id="rail-audit-btn">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
 
             </div>
 
@@ -430,8 +434,44 @@
                                 class="fas fa-user-plus"></i>
                             Invite</button>
                     </div>
-                    <div id="users-list" class="users-list">
-                        <p class="loading">Loading users...</p>
+                    <div id="users-list" class="users-list-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Last Login</th>
+                                    <th>Scope</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab: Audit Logs -->
+                <div id="tab-audit" class="tab-content">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-shield-alt"></i> System Audit Logs</h2>
+                    </div>
+                    <div class="audit-list-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

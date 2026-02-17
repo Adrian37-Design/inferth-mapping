@@ -1,0 +1,148 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from app.db import get_db
+from app.models import User, Tenant, AuditLog
+from app.auth_middleware import require_admin, get_current_user
+from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import List, Optional
+import secrets
+from app.utils import hash_password, send_email
+
+router = APIRouter(prefix="/users", tags=["Users"])
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    role: str = "viewer"
+    tenant_id: int
+
+class UserUpdate(BaseModel):
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    is_active: bool
+    last_login: Optional[datetime] = None
+    accessible_assets: Optional[List[str]] = None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+@router.get("/", response_model=List[UserOut])
+async def get_users(
+    skip: int = 0, 
+    limit: int = 100, 
+    current_user: User = Depends(require_admin), 
+    db: AsyncSession = Depends(get_db)
+):
+    """List all users (Admin only)"""
+    result = await db.execute(select(User).offset(skip).limit(limit))
+    users = result.scalars().all()
+    return users
+
+@router.post("/", response_model=UserOut)
+async def create_user(
+    user_in: UserCreate, 
+    current_user: User = Depends(require_admin), 
+    db: AsyncSession = Depends(get_db)
+):
+    """Invite a new user"""
+    # Check if user exists
+    result = await db.execute(select(User).where(User.email == user_in.email))
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Generate setup token
+    setup_token = secrets.token_urlsafe(32)
+    
+    new_user = User(
+        email=user_in.email,
+        role=user_in.role,
+        tenant_id=user_in.tenant_id,
+        is_active=False,
+        setup_token=setup_token,
+        accessible_assets=["*"] # Default to all
+    )
+    db.add(new_user)
+    
+    # Audit Log
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="CREATE_USER",
+        details={"email": new_user.email, "role": new_user.role},
+        ip_address="127.0.0.1" # TODO: Extract from request
+    )
+    db.add(audit)
+    
+    await db.commit()
+    await db.refresh(new_user)
+    
+    # Send Invite Email (Mock for now, or use Resend if configured)
+    # background_tasks.add_task(send_invite_email, new_user.email, setup_token)
+    
+    return new_user
+
+@router.patch("/{user_id}", response_model=UserOut)
+async def update_user(
+    user_id: int, 
+    user_update: UserUpdate, 
+    current_user: User = Depends(require_admin), 
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user role or status"""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user_update.role is not None:
+        user.role = user_update.role
+    if user_update.is_active is not None:
+        user.is_active = user_update.is_active
+        
+    # Audit Log
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="UPDATE_USER",
+        details={"target_user_id": user_id, "changes": user_update.dict(exclude_unset=True)},
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+        
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int, 
+    current_user: User = Depends(require_admin), 
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a user"""
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+        
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    await db.delete(user)
+    
+    # Audit Log
+    audit = AuditLog(
+        user_id=current_user.id,
+        action="DELETE_USER",
+        details={"target_user_id": user_id, "email": user.email},
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+    
+    await db.commit()
+    return {"message": "User deleted"}

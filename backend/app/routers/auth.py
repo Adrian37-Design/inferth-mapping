@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
-from app.models import User, Tenant
+from app.models import User, Tenant, AuditLog
+from datetime import datetime
 from app.utils import hash_password, verify_password, create_access_token
 from app.auth_middleware import require_admin, get_current_user
 from pydantic import BaseModel, EmailStr
@@ -64,6 +65,19 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="Account not activated. Please complete setup first."
         )
     
+    # Update last_login
+    user.last_login = datetime.utcnow()
+    
+    # Audit Log
+    audit = AuditLog(
+        user_id=user.id,
+        action="LOGIN",
+        details={"email": user.email},
+        ip_address="127.0.0.1" # TODO: Extract from request
+    )
+    db.add(audit)
+    await db.commit()
+    
     token = create_access_token({
         "sub": user.email,
         "user_id": user.id,
@@ -80,7 +94,8 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             "email": user.email,
             "role": user.role,
             "is_admin": user.is_admin,
-            "tenant_id": user.tenant_id
+            "tenant_id": user.tenant_id,
+            "last_login": user.last_login # Added to response
         }
     }
 
