@@ -40,7 +40,22 @@ class User(Base):
     tenant_id = Column(Integer, ForeignKey("tenants.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    accessible_assets = Column(JSON, default=["*"]) # Default to all, or list of IDs
     tenant = relationship("Tenant")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Nullable for system actions
+    action = Column(String, index=True, nullable=False) # LOGIN, LOGOUT, CREATE, UPDATE, DELETE
+    details = Column(JSON, default={})
+    ip_address = Column(String, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User")
 
 
 class Device(Base):

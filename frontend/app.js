@@ -110,9 +110,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // If admin, show the button but don't auto-load
         if (user.role === 'admin') {
             // loadUsers() - moved to lazy load on tab click
+            const railAuditBtn = document.getElementById('rail-audit-btn');
+            if (railAuditBtn) railAuditBtn.classList.remove('hidden');
         } else {
             const railUsersBtn = document.getElementById('rail-users-btn');
             if (railUsersBtn) railUsersBtn.style.display = 'none';
+
+            const railAuditBtn = document.getElementById('rail-audit-btn');
+            if (railAuditBtn) railAuditBtn.classList.add('hidden');
         }
 
         // Initialize WebSocket
@@ -199,6 +204,11 @@ function setupTabs() {
             // Load Reports
             if (tabId === 'tab-reports') {
                 loadReports();
+            }
+
+            // Load Audit Logs (Lazy)
+            if (tabId === 'tab-audit') {
+                loadAuditLogs();
             }
 
 
@@ -395,55 +405,116 @@ function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// Users Management Logic
-async function loadUsers() {
-    const list = document.getElementById('users-list');
-    list.innerHTML = '<p class="loading">Loading users...</p>';
+// --- Audit Logs Logic ---
+async function loadAuditLogs() {
+    const tbody = document.getElementById('audit-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading logs...</td></tr>';
 
     try {
-        // Add cache buster
-        const response = await window.AuthManager.fetchAPI(`/auth/users?_t=${new Date().getTime()}`);
+        const response = await window.AuthManager.fetchAPI(`/audit-logs/?limit=50`);
+        // if (!response.ok) throw new Error('Failed to load logs'); // 403 or 401
+
+        if (response.status === 403) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Access Denied (Admin Only)</td></tr>';
+            return;
+        }
+
+        const logs = await response.json();
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(logs) || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No audit logs found</td></tr>';
+            return;
+        }
+
+        logs.forEach(log => {
+            const tr = document.createElement('tr');
+            const time = new Date(log.timestamp).toLocaleString();
+
+            let detailsStr = '';
+            try {
+                if (log.details && typeof log.details === 'object') {
+                    // Filter out nulls
+                    const clean = Object.entries(log.details)
+                        .filter(([_, v]) => v !== null && v !== undefined)
+                        .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                        .join(', ');
+                    detailsStr = clean;
+                } else if (log.details) {
+                    detailsStr = String(log.details);
+                }
+            } catch (e) { }
+
+            tr.innerHTML = `
+                <td class="text-muted" style="font-size:0.85rem">${time}</td>
+                <td>${log.user_email || 'System'}</td>
+                <td><span class="badge badge-neutral">${log.action}</span></td>
+                <td class="text-truncate" style="max-width:300px" title="${detailsStr}">${detailsStr}</td>
+                <td class="text-muted" style="font-size:0.85rem">${log.ip_address || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Error loading audit logs:', error);
+        tbody.innerHTML = '<tr><td colspan="5" class="error">Failed to load audit logs</td></tr>';
+    }
+}
+
+// Users Management Logic
+async function loadUsers() {
+    const tbody = document.getElementById('users-table-body');
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading users...</td></tr>';
+
+    try {
+        const response = await window.AuthManager.fetchAPI(`/users/?limit=100`);
 
         if (!response.ok) throw new Error('Failed to load users');
 
         const users = await response.json();
-        list.innerHTML = '';
+        tbody.innerHTML = '';
 
         users.forEach(user => {
-            const div = document.createElement('div');
-            div.className = 'user-item';
+            const tr = document.createElement('tr');
 
-            // Prevent editing self
+            // Prevent editing self (partial)
             const isSelf = user.id === window.AuthManager.user.id;
+            const lastLogin = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+            const scope = Array.isArray(user.accessible_assets) && user.accessible_assets.includes('*') ? 'All Assets' : 'Restricted';
 
-            div.innerHTML = `
-                <div class="user-info">
-                    <span class="user-email">${user.email}</span>
-                    <span class="user-role">
-                        ${user.role.toUpperCase()}
-                        ${user.is_admin ? '<i class="fas fa-crown" title="Admin"></i>' : ''}
-                    </span>
-                </div>
-                <div class="user-actions">
-                    <label class="switch" title="Enable/Disable Account">
-                        <input type="checkbox" ${user.is_active ? 'checked' : ''} 
-                               onchange="toggleUserStatus(${user.id}, this.checked)" ${isSelf ? 'disabled' : ''}>
-                        <span class="slider round"></span>
-                    </label>
-                    <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}')" ${isSelf ? 'disabled' : ''} title="Edit Role">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="icon-btn delete-btn" onclick="deleteUser(${user.id})" ${isSelf ? 'disabled' : ''} title="Delete User">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
+            tr.innerHTML = `
+                <td>
+                    <div class="user-info-cell">
+                        <div class="user-email">${user.email}</div>
+                        ${user.is_admin ? '<i class="fas fa-crown admin-icon" title="Admin"></i>' : ''}
+                    </div>
+                </td>
+                <td><span class="badge badge-${user.role}">${user.role.toUpperCase()}</span></td>
+                <td>${lastLogin}</td>
+                <td>${scope}</td>
+                <td>
+                    <div class="action-buttons">
+                        <label class="switch" title="Enable/Disable Account">
+                            <input type="checkbox" ${user.is_active ? 'checked' : ''} 
+                                   onchange="toggleUserStatus(${user.id}, this.checked)" ${isSelf ? 'disabled' : ''}>
+                            <span class="slider round"></span>
+                        </label>
+                        <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}')" ${isSelf ? 'disabled' : ''}>
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="icon-btn delete-btn" onclick="deleteUser(${user.id})" ${isSelf ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
             `;
-            list.appendChild(div);
+            tbody.appendChild(tr);
         });
 
     } catch (error) {
         console.error('Error loading users:', error);
-        list.innerHTML = '<p class="error">Failed to load users</p>';
+        tbody.innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
     }
 }
 
