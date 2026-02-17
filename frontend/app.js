@@ -514,7 +514,7 @@ async function loadUsers() {
 
     } catch (error) {
         console.error('Error loading users:', error);
-        tbody.innerHTML = '<tr><td colspan="5" class="error">Failed to load users</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" class="error">Failed to load users: ${error.message}</td></tr>`;
     }
 }
 
