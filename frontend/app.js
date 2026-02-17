@@ -468,7 +468,7 @@ async function loadUsers() {
     tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading users...</td></tr>';
 
     try {
-        const response = await window.AuthManager.fetchAPI(`/users/?limit=100`);
+        const response = await window.AuthManager.fetchAPI(`/users/?limit=100&_t=${new Date().getTime()}`);
 
         if (!response.ok) throw new Error('Failed to load users');
 
