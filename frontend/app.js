@@ -465,7 +465,7 @@ async function loadAuditLogs() {
 // Users Management Logic
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = '<tr><td colspan="5" class="loading">Loading users...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading users...</td></tr>';
 
     try {
         const response = await window.AuthManager.fetchAPI(`/users/?limit=100&_t=${new Date().getTime()}`);
@@ -493,13 +493,15 @@ async function loadUsers() {
                 <td><span class="badge badge-${user.role}">${user.role.toUpperCase()}</span></td>
                 <td>${lastLogin}</td>
                 <td>${scope}</td>
-                <td>
-                    <div class="action-buttons">
-                        <label class="switch" title="Enable/Disable Account">
-                            <input type="checkbox" ${user.is_active ? 'checked' : ''} 
-                                   onchange="toggleUserStatus(${user.id}, this.checked)" ${isSelf ? 'disabled' : ''}>
-                            <span class="slider round"></span>
-                        </label>
+                <td class="text-center">
+                    <label class="switch" title="Enable/Disable Account" style="margin:0;">
+                         <input type="checkbox" ${user.is_active ? 'checked' : ''} 
+                               onchange="toggleUserStatus(${user.id}, this.checked)" ${isSelf ? 'disabled' : ''}>
+                        <span class="slider round"></span>
+                    </label>
+                </td>
+                <td class="text-right">
+                    <div class="action-buttons" style="justify-content: flex-end;">
                         <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}')" ${isSelf ? 'disabled' : ''}>
                             <i class="fas fa-edit"></i>
                         </button>
@@ -514,7 +516,7 @@ async function loadUsers() {
 
     } catch (error) {
         console.error('Error loading users:', error);
-        tbody.innerHTML = `<tr><td colspan="5" class="error">Failed to load users: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="error">Failed to load users: ${error.message}</td></tr>`;
     }
 }
 
