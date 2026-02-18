@@ -82,45 +82,51 @@ async def startup_event():
                 await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
                 await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'"))
                 await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
+                
+                # Tenant Branding Migration
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL"))
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'"))
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"))
+                
                 await db.commit()
                 print("Schema migration: Columns checked/added.")
             except Exception as e:
                 print(f"Schema migration skipped or failed: {e}")
                 await db.rollback()
 
-            # 1. Ensure Tenant exists
-            res = await db.execute(select(Tenant).where(Tenant.id == 1))
+            # 1. Ensure Tenant 1 (Inferth Mapping) exists
+            res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
             tenant = res.scalars().first()
             if not tenant:
-                tenant = Tenant(id=1, name="Default Organization")
+                tenant = Tenant(name="Inferth Mapping")
                 db.add(tenant)
                 await db.commit()
-            
-            # 2. Ensure User exists or Update Password
-            res = await db.execute(select(User).where(User.email == "adriankwaramba@gmail.com"))
-            user = res.scalars().first()
-            
-            new_hash = hash_password("Kingcarter@1")
-            
-            if not user:
-                print("Creating admin user...")
-                user = User(
-                    email="adriankwaramba@gmail.com", 
-                    hashed_password=new_hash, 
-                    is_active=True, 
-                    is_admin=True, 
+             # 3. Ensure Admin User exists
+            res = await db.execute(select(User).where(User.email == "admin@inferth.com"))
+            admin = res.scalars().first()
+            if not admin:
+                # Get ID of Inferth Mapping
+                res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
+                inferth = res.scalars().first()
+                
+                admin = User(
+                    email="admin@inferth.com",
+                    hashed_password=hash_password("admin123"),
+                    is_active=True,
+                    is_admin=True,
                     role="admin",
-                    tenant_id=1
+                    tenant_id=inferth.id if inferth else 1
                 )
-                db.add(user)
+                db.add(admin)
+                await db.commit()               
             else:
                 print("Updating admin user password & role...")
-                user.hashed_password = new_hash
-                user.is_active = True
-                user.is_admin = True
-                user.role = "admin"
+                admin.hashed_password = hash_password("admin123")
+                admin.is_active = True
+                admin.is_admin = True
+                admin.role = "admin"
+                await db.commit()
             
-            await db.commit()
             # 3. Create/Update Test Users from User Request
             test_users = [
                 {"email": "adriantakudzwa7337@gmail.com", "role": "manager", "name": "Test Manager"},
