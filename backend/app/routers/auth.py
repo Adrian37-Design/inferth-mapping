@@ -62,14 +62,27 @@ async def create_tenant(
         raise HTTPException(status_code=400, detail="Company already exists")
 
     # 2. Save Logo
-    # Resolve frontend directory relative to backend/app/routers/auth.py
-    # backend/app/routers/auth.py -> backend/app/routers -> backend/app -> backend -> PROJ_ROOT
-    base_dir = Path(__file__).resolve().parent.parent.parent.parent
-    static_dir = base_dir / "frontend"
+    # Resolve frontend directory dynamically
+    current_file = Path(__file__).resolve()
     
-    if not static_dir.exists():
-        # Fallback if structure is different
-        static_dir = Path("frontend") # Start relative to CWD
+    # Potential paths
+    candidates = [
+        # Local: auth.py -> routers -> app -> backend -> Root -> frontend
+        current_file.parent.parent.parent.parent / "frontend",
+        # Docker: auth.py -> routers -> app -> /app -> frontend
+        current_file.parent.parent.parent / "frontend",
+        Path("/app/frontend")
+    ]
+    
+    static_dir = None
+    for path in candidates:
+        if path.exists() and path.is_dir():
+            static_dir = path
+            break
+            
+    if not static_dir:
+        # Fallback to local static if nothing found
+        static_dir = Path("static")
     
     static_dir.mkdir(exist_ok=True)
     
