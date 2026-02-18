@@ -134,6 +134,12 @@ async def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
+    # Nullify user_id in AuditLog before deleting user
+    from sqlalchemy import update
+    await db.execute(
+        update(AuditLog).where(AuditLog.user_id == user_id).values(user_id=None)
+    )
+    
     await db.delete(user)
     
     # Audit Log
