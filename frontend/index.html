@@ -433,6 +433,10 @@
                             onclick="document.getElementById('user-form-modal').classList.remove('hidden')"><i
                                 class="fas fa-user-plus"></i>
                             Invite</button>
+                        <button class="btn-small" id="add-company-btn" style="background: var(--secondary);"
+                            onclick="document.getElementById('company-form-modal').classList.remove('hidden')"><i
+                                class="fas fa-building"></i>
+                            Add Company</button>
                     </div>
                     <div id="users-list" class="users-list-container">
                         <table class="data-table">
@@ -593,6 +597,35 @@
                 <div id="trip-list" class="trip-list">
                     <p>Select a vehicle and load trips</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Form Modal -->
+    <div class="modal hidden" id="company-form-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-building"></i> Add Company</h3>
+                <button class="close-modal" id="close-company-form"
+                    onclick="document.getElementById('company-form-modal').classList.add('hidden')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-company-form">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <input type="text" id="company-name" placeholder="e.g. Console Telematics" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Company Logo (PNG/JPG)</label>
+                        <input type="file" id="company-logo" accept="image/*" required>
+                        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 5px;">
+                            We will automatically extract brand colors from this logo! 🎨
+                        </p>
+                    </div>
+                    <button type="submit" class="btn-primary">Create Company & Brand</button>
+                </form>
             </div>
         </div>
     </div>

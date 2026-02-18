@@ -43,6 +43,64 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+from fastapi import UploadFile, File, Form
+import shutil
+from pathlib import Path
+from app.utils.colors import extract_brand_colors
+
+@router.post("/tenants", status_code=201)
+async def create_tenant(
+    name: str = Form(...),
+    logo: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Create a new tenant with logo upload and auto-branding"""
+    # 1. Check if tenant exists
+    res = await db.execute(select(Tenant).where(Tenant.name == name))
+    if res.scalars().first():
+        raise HTTPException(status_code=400, detail="Company already exists")
+
+    # 2. Save Logo
+    # Resolve frontend directory relative to backend/app/routers/auth.py
+    # backend/app/routers/auth.py -> backend/app/routers -> backend/app -> backend -> PROJ_ROOT
+    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    static_dir = base_dir / "frontend"
+    
+    if not static_dir.exists():
+        # Fallback if structure is different
+        static_dir = Path("frontend") # Start relative to CWD
+    
+    static_dir.mkdir(exist_ok=True)
+    
+    filename = f"{name.lower().replace(' ', '_')}_logo.png"
+    file_path = static_dir / filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(logo.file, buffer)
+        
+    # 3. Extract Colors
+    primary, secondary = extract_brand_colors(file_path)
+    
+    # 4. Create Tenant
+    new_tenant = Tenant(
+        name=name,
+        logo_url=f"/static/{filename}",
+        primary_color=primary,
+        secondary_color=secondary
+    )
+    db.add(new_tenant)
+    await db.commit()
+    await db.refresh(new_tenant)
+    
+    return {
+        "id": new_tenant.id,
+        "name": new_tenant.name,
+        "logo": new_tenant.logo_url,
+        "primary": new_tenant.primary_color,
+        "secondary": new_tenant.secondary_color
+    }
+
 @router.get("/tenants")
 async def get_tenants(db: AsyncSession = Depends(get_db)):
     """List all available companies for login selector"""
