@@ -101,10 +101,13 @@ async def startup_event():
                 tenant = Tenant(name="Inferth Mapping")
                 db.add(tenant)
                 await db.commit()
-             # 3. Ensure Admin User exists
-            res = await db.execute(select(User).where(User.email == "admin@inferth.com"))
-            admin = res.scalars().first()
-            if not admin:
+            # 3. Ensure Admin User exists ONLY if no users exist at all (First Run)
+            # This prevents "Ghost Admin" from reappearing after deletion
+            res = await db.execute(select(User))
+            any_user = res.scalars().first()
+            
+            if not any_user:
+                print("First run detected: Creating initial admin user...")
                 # Get ID of Inferth Mapping
                 res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
                 inferth = res.scalars().first()
@@ -118,42 +121,10 @@ async def startup_event():
                     tenant_id=inferth.id if inferth else 1
                 )
                 db.add(admin)
-                await db.commit()               
-            else:
-                print("Updating admin user password & role...")
-                admin.hashed_password = hash_password("admin123")
-                admin.is_active = True
-                admin.is_admin = True
-                admin.role = "admin"
                 await db.commit()
-            
-            # 3. Create/Update Test Users from User Request
-            test_users = [
-                {"email": "adriantakudzwa7337@gmail.com", "role": "manager", "name": "Test Manager"},
-                {"email": "adriantakudzwa3773@gmail.com", "role": "viewer", "name": "Test Viewer"}
-            ]
-
-            for t_user in test_users:
-                res = await db.execute(select(User).where(User.email == t_user["email"]))
-                existing = res.scalars().first()
-                if not existing:
-                    print(f"Creating {t_user['role']} user: {t_user['email']}")
-                    new_user = User(
-                        email=t_user["email"],
-                        hashed_password=new_hash, # Same default password
-                        is_active=True,
-                        is_admin=False,
-                        role=t_user["role"],
-                        tenant_id=1
-                    )
-                    db.add(new_user)
-                else:
-                    print(f"Updating {t_user['role']} user role...")
-                    existing.role = t_user["role"]
-                    existing.hashed_password = new_hash
-            
-            await db.commit()
-            print("Admin user and test accounts initialized successfully")
+                print("Initial admin user created: admin@inferth.com")
+            else:
+                print("Users already exist. Skipping initial admin creation.")
         except Exception as e:
             print(f"Error initializing users: {e}")
     
