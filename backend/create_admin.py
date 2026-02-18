@@ -4,7 +4,7 @@ sys.path.insert(0, '/app')
 
 from app.db import AsyncSessionLocal
 from app.models import User, Tenant
-from app.utils import hash_password
+from app.security import hash_password
 from sqlalchemy import select
 
 async def create_admin():

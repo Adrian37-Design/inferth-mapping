@@ -1,7 +1,7 @@
 import asyncio
 from app.db import AsyncSessionLocal
 from app.models import User
-from app.utils import hash_password
+from app.security import hash_password
 from sqlalchemy import select
 
 async def fix_admin_password():
