@@ -22,3 +22,8 @@ htmlcov/
 .mypy_cache/
 *.db
 *.sqlite3
+    
+# Debug scripts
+debug_*.py
+test_*.py
+*check.py
