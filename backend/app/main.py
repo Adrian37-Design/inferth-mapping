@@ -76,7 +76,7 @@ async def startup_event():
     # Initialize/Reset Admin User (Auto-fix for Invalid Credentials)
     from app.db import AsyncSessionLocal
     from app.models import User, Tenant
-    from app.utils import hash_password
+    from app.security import hash_password
     from sqlalchemy.future import select
     from sqlalchemy import text
     

@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List, Optional
 import secrets
-from app.utils import hash_password
+from app.security import hash_password
 from app.services.email import send_email
 
 router = APIRouter(prefix="/users", tags=["Users"])
