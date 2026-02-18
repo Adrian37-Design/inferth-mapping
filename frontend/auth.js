@@ -11,13 +11,7 @@ class AuthManager {
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
     }
 
-    // Store authentication data
-    setAuth(token, user) {
-        this.token = token;
-        this.user = user;
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-    }
+
 
     // Clear authentication data
     clearAuth() {
@@ -127,48 +121,7 @@ class AuthManager {
         window.location.href = 'login.html';
     }
 
-    // Initialize login page
-    initLoginPage() {
-        const form = document.getElementById('login-form');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const errorMessage = document.getElementById('error-message');
-        const loginBtn = document.getElementById('login-btn');
-        const togglePassword = document.getElementById('toggle-password');
 
-        // Toggle password visibility
-        togglePassword.addEventListener('click', () => {
-            const type = passwordInput.type === 'password' ? 'text' : 'password';
-            passwordInput.type = type;
-            togglePassword.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-        });
-
-        // Handle form submission
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-
-            if (!email || !password) {
-                this.showError(errorMessage, 'Please enter both email and password');
-                return;
-            }
-
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
-
-            try {
-                await this.login(email, password);
-                // Redirect to dashboard
-                window.location.href = 'index.html';
-            } catch (error) {
-                this.showError(errorMessage, error.message);
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
-            }
-        });
-    }
 
     // Initialize signup page
     initSignupPage() {
@@ -369,6 +322,106 @@ class AuthManager {
         }
 
         return response;
+    }
+
+    // Initialize login page
+    async initLoginPage() {
+        const tokenToken = new URLSearchParams(window.location.search).get('token');
+        if (tokenToken) {
+            return;
+        }
+
+        // Load Tenants
+        await this.loadTenants();
+
+        const form = document.getElementById('login-form');
+        if (!form) return;
+
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const tenantSelect = document.getElementById('tenant-select');
+        const loginBtn = document.getElementById('login-btn');
+        const errorMessage = document.getElementById('error-message');
+        const togglePassword = document.getElementById('toggle-password');
+
+        // Toggle Password
+        if (togglePassword) {
+            togglePassword.addEventListener('click', () => {
+                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                passwordInput.type = type;
+                togglePassword.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+            });
+        }
+
+        // Submit
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const tenantId = tenantSelect ? tenantSelect.value : null;
+
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+            errorMessage.textContent = '';
+            errorMessage.classList.remove('show');
+
+            try {
+                await this.login(email, password, tenantId ? parseInt(tenantId) : null);
+                window.location.href = 'index.html';
+            } catch (error) {
+                this.showError(errorMessage, error.message);
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
+        });
+    }
+
+    // Load Tenants
+    async loadTenants() {
+        try {
+            const select = document.getElementById('tenant-select');
+            if (!select) return;
+
+            const response = await fetch(`${API_BASE}/auth/tenants`);
+            const tenants = await response.json();
+
+            select.innerHTML = '<option value="" disabled selected>Select your company</option>';
+            tenants.forEach(t => {
+                const option = document.createElement('option');
+                option.value = t.id;
+                option.textContent = t.name;
+                select.appendChild(option);
+            });
+        } catch (e) {
+            console.error("Failed to load tenants", e);
+        }
+    }
+
+    // Apply Theme
+    applyTheme(theme) {
+        if (!theme) return;
+        const root = document.documentElement;
+        if (theme.primary) root.style.setProperty('--primary', theme.primary);
+        if (theme.secondary) root.style.setProperty('--secondary', theme.secondary);
+
+        // Update Logo
+        if (theme.logo) {
+            const logos = document.querySelectorAll('.brand-logo, .auth-logo');
+            logos.forEach(img => img.src = theme.logo);
+        }
+    }
+
+    // Store authentication data
+    setAuth(token, user) {
+        this.token = token;
+        this.user = user;
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Apply theme immediately
+        if (user.theme) {
+            this.applyTheme(user.theme);
+        }
     }
 }
 

@@ -14,6 +14,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    tenant_id: int | None = None
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -41,6 +42,13 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+@router.get("/tenants")
+async def get_tenants(db: AsyncSession = Depends(get_db)):
+    """List all available companies for login selector"""
+    result = await db.execute(select(Tenant.id, Tenant.name))
+    tenants = result.all()
+    return [{"id": t.id, "name": t.name} for t in tenants]
+
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Login with email and password"""
@@ -51,6 +59,12 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
+        )
+        
+    if data.tenant_id and user.tenant_id != data.tenant_id:
+         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User does not belong to this company"
         )
     
     if not verify_password(data.password, user.hashed_password):
@@ -95,7 +109,12 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             "role": user.role,
             "is_admin": user.is_admin,
             "tenant_id": user.tenant_id,
-            "last_login": user.last_login # Added to response
+            "last_login": user.last_login,
+            "theme": {
+                "logo": user.tenant.logo_url if user.tenant else None,
+                "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
+                "secondary": user.tenant.secondary_color if user.tenant else "#EF4835"
+            }
         }
     }
 

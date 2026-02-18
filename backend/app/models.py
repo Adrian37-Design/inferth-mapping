@@ -24,6 +24,9 @@ class Tenant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
+    logo_url = Column(String, nullable=True)
+    primary_color = Column(String, default="#2D5F6D") # Default Inferth Teal
+    secondary_color = Column(String, default="#EF4835") # Default Inferth Orange
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
