@@ -523,7 +523,7 @@ async function loadUsers() {
 // Toggle User Status
 async function toggleUserStatus(userId, isActive) {
     try {
-        const response = await window.AuthManager.fetchAPI(`/auth/users/${userId}`, {
+        const response = await window.AuthManager.fetchAPI(`/users/${userId}`, {
             method: 'PUT',
             body: JSON.stringify({ is_active: isActive })
         });
@@ -549,7 +549,7 @@ async function deleteUser(userId) {
     }
 
     try {
-        const response = await window.AuthManager.fetchAPI(`/auth/users/${userId}`, {
+        const response = await window.AuthManager.fetchAPI(`/users/${userId}`, {
             method: 'DELETE'
         });
 
@@ -598,7 +598,7 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
     btn.disabled = true;
 
     try {
-        const response = await window.AuthManager.fetchAPI(`/auth/users/${id}`, {
+        const response = await window.AuthManager.fetchAPI(`/users/${id}`, {
             method: 'PUT',
             body: JSON.stringify({ role: role })
         });
