@@ -7,6 +7,7 @@ from app.utils import hash_password, verify_password, create_access_token
 from app.auth_middleware import require_admin, get_current_user
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 import secrets
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -45,14 +46,18 @@ class UserResponse(BaseModel):
 @router.get("/tenants")
 async def get_tenants(db: AsyncSession = Depends(get_db)):
     """List all available companies for login selector"""
-    result = await db.execute(select(Tenant.id, Tenant.name))
+    result = await db.execute(select(Tenant.id, Tenant.name, Tenant.logo_url))
     tenants = result.all()
-    return [{"id": t.id, "name": t.name} for t in tenants]
+    return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
+
+from sqlalchemy.orm import joinedload
 
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Login with email and password"""
-    result = await db.execute(select(User).where(User.email == data.email))
+    result = await db.execute(
+        select(User).options(joinedload(User.tenant)).where(User.email == data.email)
+    )
     user = result.scalars().first()
     
     if not user or not user.hashed_password:
