@@ -15,9 +15,13 @@
 
     /* Base Colors */
     --dark-bg: #0f172a;
+    --darker-bg: #020617;
     --card-bg: #1e293b;
+    --glass-bg: rgba(15, 23, 42, 0.7);
     --text-light: #f8fafc;
-    --text-muted: #94a3b8;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -1145,6 +1149,81 @@ body {
     transform: translateY(-2px);
 }
 
+/* Custom Dropdown */
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+}
+
+.custom-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 15px;
+    background: var(--card-bg);
+    border: 1px solid rgba(45, 95, 109, 0.3);
+    border-radius: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.custom-select-trigger:hover {
+    border-color: var(--primary);
+    background: rgba(45, 95, 109, 0.1);
+}
+
+.custom-options {
+    position: absolute;
+    top: 110%;
+    left: 0;
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid rgba(45, 95, 109, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.custom-select-wrapper.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.custom-option {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: var(--text-light);
+}
+
+.custom-option:hover {
+    background: rgba(45, 95, 109, 0.3);
+}
+
+.custom-option img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.custom-option.selected {
+    background: var(--primary);
+    color: white;
+}
+
 /* Trip List */
 .trip-list {
     display: flex;
@@ -1667,9 +1746,7 @@ body {
     color: var(--warning);
 }
 
-@media (max-width: 1024px) {
-    .reports-grid {}
-}
+
 
 /* --- Rules Builder (Alerts) --- */
 .rules-builder-card {
