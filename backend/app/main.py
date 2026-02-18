@@ -23,9 +23,15 @@ async def debug_exception_handler(request: Request, exc: Exception):
     )
 
 # Mount static files (frontend)
-frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+# Resolve project root from backend/app/main.py
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+frontend_path = os.path.join(project_root, "frontend")
+
 if os.path.exists(frontend_path):
     app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
+    print(f"Mounted static files from: {frontend_path}")
+else:
+    print(f"Warning: Frontend not found at {frontend_path}")
 
 from fastapi.responses import RedirectResponse
 

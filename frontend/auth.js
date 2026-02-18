@@ -102,6 +102,26 @@ class AuthManager {
         return await response.json();
     }
 
+    // Create Tenant (Admin Only)
+    async createTenant(name, logoFile) {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('logo', logoFile);
+
+        const response = await fetch(`${API_BASE}/auth/tenants`, {
+            method: 'POST',
+            headers: this.getAuthHeader(), // Content-Type is auto-set for FormData
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create company');
+        }
+
+        return await response.json();
+    }
+
     // Get current user
     async getCurrentUser() {
         const response = await fetch(`${API_BASE}/auth/me`, {
@@ -379,21 +399,65 @@ class AuthManager {
     // Load Tenants
     async loadTenants() {
         try {
-            const select = document.getElementById('tenant-select');
-            if (!select) return;
+            const wrapper = document.querySelector('.custom-select-wrapper');
+            const trigger = document.getElementById('tenant-trigger');
+            const optionsContainer = document.getElementById('tenant-options');
+            const hiddenInput = document.getElementById('tenant-select');
+            const selectedText = document.getElementById('selected-tenant-text');
 
+            if (!wrapper || !trigger || !optionsContainer) return;
+
+            // Toggle Dropdown
+            trigger.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent closing immediately
+                wrapper.classList.toggle('open');
+            });
+
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) {
+                    wrapper.classList.remove('open');
+                }
+            });
+
+            // Fetch Data
             const response = await fetch(`${API_BASE}/auth/tenants`);
             const tenants = await response.json();
 
-            select.innerHTML = '<option value="" disabled selected>Select your company</option>';
+            // Clear loading state
+            optionsContainer.innerHTML = '';
+
+            // Add Options
             tenants.forEach(t => {
-                const option = document.createElement('option');
-                option.value = t.id;
-                option.textContent = t.name;
-                select.appendChild(option);
+                const option = document.createElement('div');
+                option.className = 'custom-option';
+                option.dataset.value = t.id;
+
+                // Logo or Default Icon
+                const logoHtml = t.logo
+                    ? `<img src="${t.logo}" alt="${t.name}">`
+                    : `<i class="fas fa-building"></i>`;
+
+                option.innerHTML = `${logoHtml} <span>${t.name}</span>`;
+
+                // Handle Selection
+                option.addEventListener('click', () => {
+                    hiddenInput.value = t.id;
+                    selectedText.innerHTML = `${logoHtml} ${t.name}`;
+                    wrapper.classList.remove('open');
+
+                    // Mark selected visually
+                    document.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                });
+
+                optionsContainer.appendChild(option);
             });
+
         } catch (e) {
             console.error("Failed to load tenants", e);
+            const optionsContainer = document.getElementById('tenant-options');
+            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option">Failed to load companies</div>';
         }
     }
 
