@@ -7,13 +7,13 @@
     --success-color: #10b981;
     --error-color: #ef4444;
     --warning-color: #f59e0b;
-    
+
     --bg-dark: #0f172a;
     --bg-card: rgba(30, 41, 59, 0.8);
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
     --border-color: rgba(148, 163, 184, 0.2);
-    
+
     --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -90,12 +90,16 @@ body {
 }
 
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translate(0, 0) scale(1);
     }
+
     33% {
         transform: translate(30px, -30px) scale(1.1);
     }
+
     66% {
         transform: translate(-20px, 20px) scale(0.9);
     }
@@ -121,6 +125,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -142,9 +147,12 @@ body {
 }
 
 @keyframes bounce {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-10px);
     }
@@ -289,10 +297,21 @@ body {
     min-width: 60px;
 }
 
-.strength-text.weak { color: var(--error-color); }
-.strength-text.fair { color: var(--warning-color); }
-.strength-text.good { color: #3b82f6; }
-.strength-text.strong { color: var(--success-color); }
+.strength-text.weak {
+    color: var(--error-color);
+}
+
+.strength-text.fair {
+    color: var(--warning-color);
+}
+
+.strength-text.good {
+    color: #3b82f6;
+}
+
+.strength-text.strong {
+    color: var(--success-color);
+}
 
 /* Password Requirements */
 .password-requirements {
@@ -382,9 +401,12 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -447,9 +469,19 @@ body {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-10px);
+    }
+
+    75% {
+        transform: translateX(10px);
+    }
 }
 
 /* Footer */
@@ -525,24 +557,6 @@ body {
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
-    .auth-container {
-        padding: 1rem;
-    }
-
-    .auth-card {
-        padding: 2rem 1.5rem;
-    }
-
-    .auth-info {
-        display: none;
-    }
-
-    .gradient-orb {
-        filter: blur(60px);
-    }
-}
-
 @media (max-width: 480px) {
     .auth-header h1 {
         font-size: 1.5rem;
@@ -557,4 +571,90 @@ body {
         padding: 0.75rem;
         font-size: 0.9rem;
     }
+}
+
+/* Custom Select Dropdown Styles (Added) */
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    background: rgba(15, 23, 42, 0.6);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.custom-select-wrapper.open .custom-select-trigger {
+    border-color: var(--primary-color);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.custom-options {
+    position: absolute;
+    display: block;
+    top: 100%;
+    left: 0;
+    right: 0;
+    border: 2px solid var(--border-color);
+    border-top: 0;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    background: var(--bg-card);
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 20;
+    max-height: 200px;
+    overflow-y: auto;
+    backdrop-filter: blur(20px);
+}
+
+.custom-select-wrapper.open .custom-options {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+    border-color: var(--primary-color);
+}
+
+.custom-option {
+    position: relative;
+    display: block;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.custom-option:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary-light);
+}
+
+.custom-option.selected {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.custom-arrow {
+    transition: transform 0.3s ease;
+}
+
+.custom-select-wrapper.open .custom-arrow {
+    transform: rotate(180deg);
 }
