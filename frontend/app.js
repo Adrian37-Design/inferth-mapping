@@ -999,19 +999,56 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
     // 1. Update Map Marker
     const icon = L.divIcon({
         html: `<div class="vehicle-marker">
-                <i class="fas fa-car"></i>
+                <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
         className: 'custom-marker',
         iconSize: [40, 40]
     });
 
-    if (markers[id]) {
-        markers[id].setLatLng([lat, lng]);
-        markers[id].setIcon(icon);
-        // Update Popup Content...
+    let marker = markers[id];
+
+    if (marker) {
+        marker.setLatLng([lat, lng]);
+        marker.setIcon(icon);
+        // Update Metadata
+        marker.vehicleIMEI = imei;
+        marker.vehicleId = id;
+
+        // Update Popup Content
+        const popupContent = `
+            <div style="text-align:center;">
+                <strong>${name}</strong><br>
+                <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
+                <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
+                Speed: ${Math.round(speed || 0)} km/h<br>
+                Status: ${speed > 3 ? 'Moving' : 'Idle'}
+            </div>
+        `;
+        marker.setPopupContent(popupContent);
     } else {
-        const marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+        marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+        marker.vehicleIMEI = imei;
+        marker.vehicleId = id;
+
+        const popupContent = `
+            <div style="text-align:center;">
+                <strong>${name}</strong><br>
+                <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
+                <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
+                Speed: ${Math.round(speed || 0)} km/h<br>
+                Status: ${speed > 3 ? 'Moving' : 'Idle'}
+            </div>
+        `;
+        marker.bindPopup(popupContent);
+
+        // Click listener to select vehicle
+        marker.on('click', () => {
+            // Find vehicle object efficiently or reconstruct
+            const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
+            selectVehicle(vehicleObj); // Trigger selection
+        });
+
         markers[id] = marker;
     }
 
@@ -1020,6 +1057,12 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
 
     // Update Detail View if open
     if (selectedVehicle && selectedVehicle.id === id) {
+        // Also update the header status
+        const statusEl = document.getElementById('detail-status');
+        if (statusEl) {
+            statusEl.textContent = speed > 3 ? 'Moving' : 'Idle';
+            statusEl.className = `status-badge status-${speed > 3 ? 'moving' : 'idle'}`;
+        }
         updateAssetDetailUI(id);
     }
 
@@ -1069,6 +1112,18 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     if (locSpan) {
         // Mocking address for now (or strictly showing lat/lng)
         locSpan.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+}
+
+// Select Vehicle Helper
+function selectVehicle(vehicle) {
+    selectedVehicle = vehicle;
+    openAssetDetail(vehicle);
+
+    // Pan map if marker exists
+    if (markers[vehicle.id]) {
+        map.flyTo(markers[vehicle.id].getLatLng(), 16);
+        markers[vehicle.id].openPopup();
     }
 }
 
@@ -1472,7 +1527,7 @@ function connectWebSocket() {
                 // Find device and update
                 const deviceId = Object.keys(markers).find(id => {
                     const marker = markers[id];
-                    return marker._popup._content.includes(data.imei);
+                    return marker.vehicleIMEI === data.imei;
                 });
 
                 if (deviceId) {
