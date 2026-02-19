@@ -146,7 +146,31 @@ async def startup_event():
                 await db.commit()
                 print("Initial admin user created: admin@inferth.com")
             else:
-                print("Users already exist. Skipping initial admin creation.")
+                print("Users already exist. Checking for adriankwaramba@gmail.com...")
+            
+            # 4. ALWAYS Ensure Adrian exists (Fix for login issue)
+            res = await db.execute(select(User).where(User.email == "adriankwaramba@gmail.com"))
+            adrian = res.scalars().first()
+            if not adrian:
+                print("Creating user: adriankwaramba@gmail.com")
+                # Get Tenant
+                res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
+                inferth = res.scalars().first()
+                
+                new_admin = User(
+                    email="adriankwaramba@gmail.com",
+                    hashed_password=hash_password("Kingcarter@1"),
+                    is_active=True,
+                    is_admin=True,
+                    role="admin",
+                    tenant_id=inferth.id if inferth else 1
+                )
+                db.add(new_admin)
+                await db.commit()
+                print("✅ User created: adriankwaramba@gmail.com")
+            else:
+                print("User adriankwaramba@gmail.com already exists.")
+
         except Exception as e:
             print(f"Error initializing users: {e}")
     
