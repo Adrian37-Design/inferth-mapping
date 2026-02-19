@@ -123,54 +123,6 @@ async def startup_event():
                 tenant = Tenant(name="Inferth Mapping")
                 db.add(tenant)
                 await db.commit()
-            # 3. Ensure Admin User exists ONLY if no users exist at all (First Run)
-            # This prevents "Ghost Admin" from reappearing after deletion
-            res = await db.execute(select(User))
-            any_user = res.scalars().first()
-            
-            if not any_user:
-                print("First run detected: Creating initial admin user...")
-                # Get ID of Inferth Mapping
-                res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-                inferth = res.scalars().first()
-                
-                admin = User(
-                    email="admin@inferth.com",
-                    hashed_password=hash_password("admin123"),
-                    is_active=True,
-                    is_admin=True,
-                    role="admin",
-                    tenant_id=inferth.id if inferth else 1
-                )
-                db.add(admin)
-                await db.commit()
-                print("Initial admin user created: admin@inferth.com")
-            else:
-                print("Users already exist. Checking for ***REMOVED***...")
-            
-            # 4. ALWAYS Ensure Adrian exists (Fix for login issue)
-            res = await db.execute(select(User).where(User.email == "***REMOVED***"))
-            adrian = res.scalars().first()
-            if not adrian:
-                print("Creating user: ***REMOVED***")
-                # Get Tenant
-                res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-                inferth = res.scalars().first()
-                
-                new_admin = User(
-                    email="***REMOVED***",
-                    hashed_password=hash_password("***REMOVED***"),
-                    is_active=True,
-                    is_admin=True,
-                    role="admin",
-                    tenant_id=inferth.id if inferth else 1
-                )
-                db.add(new_admin)
-                await db.commit()
-                print("✅ User created: ***REMOVED***")
-            else:
-                print("User ***REMOVED*** already exists.")
-
         except Exception as e:
             print(f"Error initializing users: {e}")
     
