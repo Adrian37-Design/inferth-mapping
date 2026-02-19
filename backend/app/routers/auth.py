@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import User, Tenant, AuditLog
@@ -8,7 +8,11 @@ from app.auth_middleware import require_admin, get_current_user
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
+from typing import Optional
 import secrets
+import shutil
+from pathlib import Path
+from app.utils.colors import extract_brand_colors
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -43,17 +47,12 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
-from fastapi import UploadFile, File, Form
-import shutil
-from pathlib import Path
-from app.utils.colors import extract_brand_colors
-
 @router.post("/tenants", status_code=201)
 async def create_tenant(
     name: str = Form(...),
-    logo: UploadFile = File(None), # Made optional
-    user_email: str = Form(None),
-    user_password: str = Form(None),
+    logo: Optional[UploadFile] = File(None), 
+    user_email: Optional[str] = Form(None),
+    user_password: Optional[str] = Form(None),
     user_role: str = Form("admin"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
