@@ -51,67 +51,99 @@ from app.utils.colors import extract_brand_colors
 @router.post("/tenants", status_code=201)
 async def create_tenant(
     name: str = Form(...),
-    logo: UploadFile = File(...),
+    logo: UploadFile = File(None), # Made optional
+    user_email: str = Form(None),
+    user_password: str = Form(None),
+    user_role: str = Form("admin"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Create a new tenant with logo upload and auto-branding"""
+    """Create a new tenant, optionally with an initial admin user"""
     # 1. Check if tenant exists
     res = await db.execute(select(Tenant).where(Tenant.name == name))
     if res.scalars().first():
         raise HTTPException(status_code=400, detail="Company already exists")
+    
+    # 1b. Check if user exists (if provided)
+    if user_email:
+        res = await db.execute(select(User).where(User.email == user_email))
+        if res.scalars().first():
+             raise HTTPException(status_code=400, detail="User email already exists")
 
-    # 2. Save Logo
-    # Resolve frontend directory dynamically
-    current_file = Path(__file__).resolve()
-    
-    # Potential paths
-    candidates = [
-        # Local: auth.py -> routers -> app -> backend -> Root -> frontend
-        current_file.parent.parent.parent.parent / "frontend",
-        # Docker: auth.py -> routers -> app -> /app -> frontend
-        current_file.parent.parent.parent / "frontend",
-        Path("/app/frontend")
-    ]
-    
-    static_dir = None
-    for path in candidates:
-        if path.exists() and path.is_dir():
-            static_dir = path
-            break
-            
-    if not static_dir:
-        # Fallback to local static if nothing found
-        static_dir = Path("static")
-    
-    static_dir.mkdir(exist_ok=True)
-    
-    filename = f"{name.lower().replace(' ', '_')}_logo.png"
-    file_path = static_dir / filename
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(logo.file, buffer)
+    # 2. Save Logo (If provided)
+    logo_url = None
+    primary_color = "#2D5F6D"
+    secondary_color = "#EF4835"
+
+    if logo:
+        # Resolve frontend directory dynamically
+        current_file = Path(__file__).resolve()
         
-    # 3. Extract Colors
-    primary, secondary = extract_brand_colors(file_path)
+        # Potential paths
+        candidates = [
+            # Local: auth.py -> routers -> app -> backend -> Root -> frontend
+            current_file.parent.parent.parent.parent / "frontend",
+            # Docker: auth.py -> routers -> app -> /app -> frontend
+            current_file.parent.parent.parent / "frontend",
+            Path("/app/frontend")
+        ]
+        
+        static_dir = None
+        for path in candidates:
+            if path.exists() and path.is_dir():
+                static_dir = path
+                break
+                
+        if not static_dir:
+            # Fallback to local static if nothing found
+            static_dir = Path("static")
+        
+        static_dir.mkdir(exist_ok=True)
+        
+        filename = f"{name.lower().replace(' ', '_')}_logo.png"
+        file_path = static_dir / filename
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(logo.file, buffer)
+            
+        # 3. Extract Colors
+        primary_color, secondary_color = extract_brand_colors(file_path)
+        logo_url = f"/static/{filename}"
     
     # 4. Create Tenant
     new_tenant = Tenant(
         name=name,
-        logo_url=f"/static/{filename}",
-        primary_color=primary,
-        secondary_color=secondary
+        logo_url=logo_url,
+        primary_color=primary_color,
+        secondary_color=secondary_color
     )
     db.add(new_tenant)
     await db.commit()
     await db.refresh(new_tenant)
     
+    # 5. Create Initial User (If details provided)
+    created_user = None
+    if user_email and user_password:
+        new_user = User(
+            email=user_email,
+            hashed_password=hash_password(user_password),
+            role=user_role,
+            is_admin=(user_role == 'admin'),
+            is_active=True,
+            tenant_id=new_tenant.id
+        )
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        created_user = {"email": new_user.email, "role": new_user.role}
+
     return {
         "id": new_tenant.id,
         "name": new_tenant.name,
         "logo": new_tenant.logo_url,
         "primary": new_tenant.primary_color,
-        "secondary": new_tenant.secondary_color
+        "secondary": new_tenant.secondary_color,
+        "created_user": created_user
     }
 
 @router.get("/tenants")

@@ -612,19 +612,46 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form id="add-company-form">
+                <form id="add-tenant-form">
                     <div class="form-group">
-                        <label>Company Name</label>
-                        <input type="text" id="company-name" placeholder="e.g. Console Telematics" required>
+                        <label for="tenant-name">Company Name</label>
+                        <input type="text" id="tenant-name" placeholder="e.g., Acme Logistics" required>
                     </div>
                     <div class="form-group">
-                        <label>Company Logo (PNG/JPG)</label>
-                        <input type="file" id="company-logo" accept="image/*" required>
-                        <p style="font-size: 0.8em; color: var(--text-muted); margin-top: 5px;">
-                            We will automatically extract brand colors from this logo! 🎨
-                        </p>
+                        <label for="tenant-logo">Company Logo (PNG/JPG)</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="tenant-logo" accept="image/*">
+                            <label for="tenant-logo" class="file-label">
+                                <i class="fas fa-cloud-upload-alt"></i> <span>Choose file</span>
+                            </label>
+                        </div>
+                        <small>We will automatically extract brand colors from this logo! 🎨</small>
                     </div>
-                    <button type="submit" class="btn-primary">Create Company & Brand</button>
+
+                    <div class="separator" style="margin: 15px 0; border-top: 1px solid #eee; position: relative;">
+                        <span
+                            style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: white; padding: 0 10px; color: #777; font-size: 0.8em;">Initial
+                            Admin User (Optional)</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tenant-admin-email">Admin Email</label>
+                        <input type="email" id="tenant-admin-email" placeholder="admin@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="tenant-admin-password">Initial Password</label>
+                        <input type="password" id="tenant-admin-password" placeholder="********">
+                    </div>
+                    <div class="form-group">
+                        <label for="tenant-admin-role">Role</label>
+                        <select id="tenant-admin-role">
+                            <option value="admin">Admin (Full Access)</option>
+                            <option value="manager">Manager (Limited Access)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="width: 100%; margin-top: 10px;">Create Company &
+                        Brand</button>
                 </form>
             </div>
         </div>

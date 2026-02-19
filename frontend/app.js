@@ -1916,40 +1916,50 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Add Company Form Handler
-    const companyForm = document.getElementById('add-company-form');
-    if (companyForm) {
-        companyForm.addEventListener('submit', async (e) => {
+    // Add Tenant (Admin Only)
+    const addTenantForm = document.getElementById('add-tenant-form'); // Updated ID
+    if (addTenantForm) {
+        addTenantForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const name = document.getElementById('company-name').value;
-            const logoInput = document.getElementById('company-logo');
-            const file = logoInput.files[0];
-            const btn = companyForm.querySelector('button');
+            const name = document.getElementById('tenant-name').value;
+            const logoInput = document.getElementById('tenant-logo');
+            const logoFile = logoInput.files[0];
 
-            if (!file) {
-                alert("Please select a logo file");
-                return;
+            // New User Fields
+            const userEmail = document.getElementById('tenant-admin-email').value;
+            const userPassword = document.getElementById('tenant-admin-password').value;
+            const userRole = document.getElementById('tenant-admin-role').value;
+
+            const btn = e.target.querySelector('button[type="submit"]');
+
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+                btn.disabled = true;
             }
 
             try {
-                btn.textContent = 'Creating & Branding...';
-                btn.disabled = true;
+                const result = await window.AuthManager.createTenant(name, logoFile, userEmail, userPassword, userRole);
 
-                const result = await window.AuthManager.createTenant(name, file);
+                let msg = `Company "${result.name}" created successfully!`;
+                if (result.created_user) {
+                    msg += `\n\nAdmin User Created:\nEmail: ${result.created_user.email}\nRole: ${result.created_user.role}`;
+                }
 
-                alert(`Company "${result.name}" created! \nColors Extracted: Primary=${result.primary}, Secondary=${result.secondary}`);
-                document.getElementById('company-form-modal').classList.add('hidden');
-                companyForm.reset();
+                alert(msg);
 
-            } catch (err) {
-                alert("Error: " + err.message);
+                document.getElementById('add-company-modal').classList.add('hidden');
+                // Refresh tenants list if applicable (reload page for now as it affects login)
+                // location.reload(); 
+            } catch (error) {
+                alert(error.message);
             } finally {
-                btn.textContent = 'Create Company & Brand';
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerHTML = 'Create Company & Brand';
+                    btn.disabled = false;
+                }
             }
         });
-    }
-});
+    });
 
 // --- Geofencing Logic (Phase 8 - Permanent Mini Map) ---
 let activeGeofences = [];
