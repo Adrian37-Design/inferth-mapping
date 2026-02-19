@@ -1924,7 +1924,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 let msg = `Company "${result.name}" created successfully!`;
                 alert(msg);
 
-                document.getElementById('add-company-modal').classList.add('hidden');
+                document.getElementById('company-form-modal').classList.add('hidden');
                 // Refresh tenants list if applicable (reload page for now as it affects login)
                 // location.reload(); 
             } catch (error) {
