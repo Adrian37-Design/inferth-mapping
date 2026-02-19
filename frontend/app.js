@@ -2156,5 +2156,4 @@ window.addEventListener('DOMContentLoaded', () => {
             setupGeofencing();
         }, 1000);
     });
-});
-});
+
