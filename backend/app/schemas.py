@@ -18,7 +18,7 @@ class PositionOut(BaseModel):
     longitude: float
     speed: Optional[float]
     course: Optional[float]
-    timestamp: datetime
+    timestamp: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -47,7 +47,7 @@ class DeviceCreate(DeviceBase):
 class DeviceOut(DeviceBase):
     id: int
     tenant_id: int | None = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     class Config:
         orm_mode = True
