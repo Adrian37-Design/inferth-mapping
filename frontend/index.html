@@ -479,6 +479,32 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Tab: Companies -->
+                <div id="tab-companies" class="tab-content">
+                    <div class="panel-header" style="justify-content: space-between;">
+                        <h2><i class="fas fa-building"></i> Company Management</h2>
+                        <button class="btn-primary"
+                            onclick="document.getElementById('company-form-modal').classList.remove('hidden')">
+                            <i class="fas fa-plus"></i> New Company
+                        </button>
+                    </div>
+                    <div class="users-list-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Logo</th>
+                                    <th>Company Name</th>
+                                    <th>ID</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="companies-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </aside>
 
