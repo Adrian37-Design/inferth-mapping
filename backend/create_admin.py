@@ -21,10 +21,13 @@ async def create_admin():
         
         print(f"Tenant ID: {tenant.id}")
         
+        import os
+        admin_password = os.getenv("ADMIN_PASSWORD", "changeme")
+        
         # Create admin user
         admin = User(
             email="***REMOVED***",
-            hashed_password=hash_password("***REMOVED***"),
+            hashed_password=hash_password(admin_password),
             is_admin=True,
             is_active=True,
             tenant_id=tenant.id

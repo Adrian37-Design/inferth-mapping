@@ -16,29 +16,6 @@ if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
 elif DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
-# --- DEBUGGING: Print the URL (Redacted) ---
-import sys
-try:
-    if DATABASE_URL:
-        # Basic redaction to hide password
-        safe_url = DATABASE_URL
-        if "@" in safe_url and ":" in safe_url.split("@")[0]:
-            # Split into credentials and host
-            creds, host = safe_url.split("@", 1)
-            # Split credentials into proto://user and password
-            # Find the LAST colon in the credentials part (separator between user and pass)
-            if ":" in creds:
-                prefix, _ = creds.rsplit(":", 1)
-                safe_url = f"{prefix}:******@{host}"
-        
-        print(f"\n[DEBUG] ------------------------------------------------")
-        print(f"[DEBUG] DB CONNECTION ATTEMPT: {safe_url}")
-        print(f"[DEBUG] ------------------------------------------------\n")
-        sys.stdout.flush()
-except Exception as e:
-    print(f"[DEBUG] Error printing URL: {e}")
-# -------------------------------------------
-
 # Create async engine with robust connection pooling
 engine = create_async_engine(
     DATABASE_URL,
