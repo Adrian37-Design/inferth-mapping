@@ -159,11 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // Logout button handled via inline onclick in index.html for robustness
-
-    // Alerts Logic
-    setupAlerts();
 });
 
 // --- UI Logic ---
@@ -173,45 +168,52 @@ let usersLoaded = false;
 
 function setupTabs() {
     const railItems = document.querySelectorAll('.rail-item');
-    const panels = document.querySelectorAll('.tab-content');
-    const panelTitle = document.getElementById('panel-title');
-
     railItems.forEach(item => {
         item.addEventListener('click', () => {
-            // Remove active class from all
+            // 1. Activate Rail Item
             railItems.forEach(i => i.classList.remove('active'));
-            panels.forEach(p => p.classList.remove('active'));
-
-            // Add active to clicked
             item.classList.add('active');
 
-            // Show content
-            const tabId = item.getAttribute('data-tab');
-            document.getElementById(tabId).classList.add('active');
+            // 2. Show Sidebar Content
+            const targetId = item.getAttribute('data-tab');
 
-            // Update Header Title
-            panelTitle.textContent = item.getAttribute('title');
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = '';
+            });
 
-            // Ensure sidebar is open
-            document.querySelector('.sidebar-container').classList.remove('collapsed');
+            // Show target
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+
+            // 3. Update Header Title
+            const title = item.getAttribute('title');
+            const headerTitle = document.getElementById('panel-title');
+            if (headerTitle) headerTitle.innerText = title;
+
+            // 4. Mobile Handling
+            const sidebar = document.querySelector('.sidebar-container');
+            if (window.innerWidth < 768 && sidebar) {
+                sidebar.classList.remove('collapsed');
+            }
+            if (sidebar) sidebar.classList.remove('collapsed');
 
             // Lazy Load Users
-            if (tabId === 'tab-users' && !usersLoaded && window.AuthManager.isAdmin()) {
+            if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isAdmin()) {
                 loadUsers();
                 usersLoaded = true;
             }
 
-            // Load Reports
-            if (tabId === 'tab-reports') {
+            if (targetId === 'tab-reports') {
                 loadReports();
             }
 
-            // Load Audit Logs (Lazy)
-            if (tabId === 'tab-audit') {
+            if (targetId === 'tab-audit') {
                 loadAuditLogs();
             }
-
-
         });
     });
 }
@@ -1895,26 +1897,10 @@ window.addEventListener('DOMContentLoaded', () => {
             // We must clear those inline styles AND manage classes to ensure clean switching.
             document.querySelectorAll('.tab-content').forEach(t => {
                 t.style.display = ''; // Clear inline styles (let CSS handle it)
-                t.classList.remove('active');
             });
-
-            const fleetTab = document.getElementById('tab-fleet');
-            if (fleetTab) {
-                fleetTab.classList.add('active');
-                // Ensure it's not hidden by inline style left over from elsewhere
-                fleetTab.style.display = '';
-            }
-
-            // Update sidebar rail icons
-            document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
-            const fleetIcon = document.querySelector('.rail-item[data-tab="tab-fleet"]');
-            if (fleetIcon) fleetIcon.classList.add('active');
-
-            // Update Header Title
-            const title = document.getElementById('panel-title');
-            if (title) title.innerText = "Fleet";
         }
     });
+
 
     // Add Tenant (Admin Only)
     const addTenantForm = document.getElementById('add-tenant-form'); // Updated ID
@@ -1959,151 +1945,151 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-    });
-
-// --- Geofencing Logic (Phase 8 - Permanent Mini Map) ---
-let activeGeofences = [];
-let miniMap = null;
-let miniDrawControl = null;
-let miniDrawnItems = null; // Storing this globally now
-let currentMiniLayer = null;
-
-// Main FeatureGroup on the MAIN map (for showing active zones)
-let mainMapGeofenceGroup;
-
-function setupGeofencing() {
-    // Initialize Mini Map Immediately if elements exist
-    const miniMapEl = document.getElementById('geo-mini-map');
-    if (miniMapEl && !miniMap) {
-        miniMap = L.map('geo-mini-map').setView([-17.824858, 31.053028], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OpenStreetMap'
-        }).addTo(miniMap);
-
-        miniDrawnItems = new L.FeatureGroup();
-        miniMap.addLayer(miniDrawnItems);
-
-        miniDrawControl = new L.Control.Draw({
-            edit: {
-                featureGroup: miniDrawnItems,
-                remove: true,
-                edit: true
-            },
-            draw: {
-                polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00d4ff' } },
-                circle: { shapeOptions: { color: '#00d4ff' } },
-                rectangle: { shapeOptions: { color: '#00d4ff' } },
-                marker: false,
-                polyline: false,
-                circlemarker: false
-            }
-        });
-        miniMap.addControl(miniDrawControl);
-
-        // Handle Drawn Event
-        miniMap.on(L.Draw.Event.CREATED, function (e) {
-            // Keep existing saved layers? No, this is for NEW content.
-            // But we display SAVED content too.
-            // Distinguish: creation vs view. 
-            // For now, let's allow adding new shapes.
-            const layer = e.layer;
-            miniDrawnItems.addLayer(layer);
-            currentMiniLayer = layer;
-
-            // Auto-open form if not open
-            document.getElementById('new-geofence-form').classList.remove('hidden');
-            document.getElementById('geofence-list').classList.add('hidden');
-        });
     }
 
-    // "Create New  Zone" Button removed from UI
-    // Drawing on map automatically opens form via L.Draw.Event.CREATED
+    // --- Geofencing Logic (Phase 8 - Permanent Mini Map) ---
+    let activeGeofences = [];
+    let miniMap = null;
+    let miniDrawControl = null;
+    let miniDrawnItems = null; // Storing this globally now
+    let currentMiniLayer = null;
 
-    // "Exit" Button (Geofence Manager) - MOVED TO GLOBAL SCOPE FOR RELIABILITY
+    // Main FeatureGroup on the MAIN map (for showing active zones)
+    let mainMapGeofenceGroup;
+
+    function setupGeofencing() {
+        // Initialize Mini Map Immediately if elements exist
+        const miniMapEl = document.getElementById('geo-mini-map');
+        if (miniMapEl && !miniMap) {
+            miniMap = L.map('geo-mini-map').setView([-17.824858, 31.053028], 12);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '©OpenStreetMap'
+            }).addTo(miniMap);
+
+            miniDrawnItems = new L.FeatureGroup();
+            miniMap.addLayer(miniDrawnItems);
+
+            miniDrawControl = new L.Control.Draw({
+                edit: {
+                    featureGroup: miniDrawnItems,
+                    remove: true,
+                    edit: true
+                },
+                draw: {
+                    polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00d4ff' } },
+                    circle: { shapeOptions: { color: '#00d4ff' } },
+                    rectangle: { shapeOptions: { color: '#00d4ff' } },
+                    marker: false,
+                    polyline: false,
+                    circlemarker: false
+                }
+            });
+            miniMap.addControl(miniDrawControl);
+
+            // Handle Drawn Event
+            miniMap.on(L.Draw.Event.CREATED, function (e) {
+                // Keep existing saved layers? No, this is for NEW content.
+                // But we display SAVED content too.
+                // Distinguish: creation vs view. 
+                // For now, let's allow adding new shapes.
+                const layer = e.layer;
+                miniDrawnItems.addLayer(layer);
+                currentMiniLayer = layer;
+
+                // Auto-open form if not open
+                document.getElementById('new-geofence-form').classList.remove('hidden');
+                document.getElementById('geofence-list').classList.add('hidden');
+            });
+        }
+
+        // "Create New  Zone" Button removed from UI
+        // Drawing on map automatically opens form via L.Draw.Event.CREATED
+
+        // "Exit" Button (Geofence Manager) - MOVED TO GLOBAL SCOPE FOR RELIABILITY
 
 
-    // "Save Zone" Button
-    const saveGeoBtn = document.getElementById('save-geo-btn');
-    if (saveGeoBtn) {
-        saveGeoBtn.onclick = function () {
-            const nameInput = document.getElementById('geo-name');
-            const name = nameInput ? nameInput.value : "Unnamed";
+        // "Save Zone" Button
+        const saveGeoBtn = document.getElementById('save-geo-btn');
+        if (saveGeoBtn) {
+            saveGeoBtn.onclick = function () {
+                const nameInput = document.getElementById('geo-name');
+                const name = nameInput ? nameInput.value : "Unnamed";
 
-            if (!name) { alert("Please enter a name."); return; }
-            if (!currentMiniLayer) { alert("Please draw a zone first."); return; }
+                if (!name) { alert("Please enter a name."); return; }
+                if (!currentMiniLayer) { alert("Please draw a zone first."); return; }
 
-            // Save
-            const newZone = {
-                id: Date.now(),
-                name: name,
-                geoJSON: currentMiniLayer.toGeoJSON(),
-                layerId: L.stamp(currentMiniLayer)
-            };
-            activeGeofences.push(newZone);
+                // Save
+                const newZone = {
+                    id: Date.now(),
+                    name: name,
+                    geoJSON: currentMiniLayer.toGeoJSON(),
+                    layerId: L.stamp(currentMiniLayer)
+                };
+                activeGeofences.push(newZone);
 
-            // Cleanup current drawing reference (it is now "saved")
-            currentMiniLayer = null;
-
-            closeGeofenceForm(); // Resets inputs, shows list
-            renderGeofences(); // Re-draws list AND map items
-        };
-    }
-
-    // "Cancel" Button
-    const cancelGeoBtn = document.getElementById('cancel-geo-btn');
-    if (cancelGeoBtn) {
-        cancelGeoBtn.onclick = function () {
-            // If user drew something but didn't save, remove it
-            if (currentMiniLayer) {
-                miniDrawnItems.removeLayer(currentMiniLayer);
+                // Cleanup current drawing reference (it is now "saved")
                 currentMiniLayer = null;
-            }
-            closeGeofenceForm();
-        };
+
+                closeGeofenceForm(); // Resets inputs, shows list
+                renderGeofences(); // Re-draws list AND map items
+            };
+        }
+
+        // "Cancel" Button
+        const cancelGeoBtn = document.getElementById('cancel-geo-btn');
+        if (cancelGeoBtn) {
+            cancelGeoBtn.onclick = function () {
+                // If user drew something but didn't save, remove it
+                if (currentMiniLayer) {
+                    miniDrawnItems.removeLayer(currentMiniLayer);
+                    currentMiniLayer = null;
+                }
+                closeGeofenceForm();
+            };
+        }
+
+        // Helper to Channel Select
+        const channel = document.getElementById('geo-channel');
+        const contact = document.getElementById('geo-contact');
+        if (channel && contact) {
+            channel.onchange = () => {
+                if (channel.value === 'system') contact.classList.add('hidden');
+                else contact.classList.remove('hidden');
+            };
+        }
     }
 
-    // Helper to Channel Select
-    const channel = document.getElementById('geo-channel');
-    const contact = document.getElementById('geo-contact');
-    if (channel && contact) {
-        channel.onchange = () => {
-            if (channel.value === 'system') contact.classList.add('hidden');
-            else contact.classList.remove('hidden');
-        };
+    function closeGeofenceForm() {
+        // Clear Inputs
+        const nameInput = document.getElementById('geo-name');
+        if (nameInput) nameInput.value = '';
+
+        const contactInput = document.getElementById('geo-contact');
+        if (contactInput) {
+            contactInput.value = '';
+            contactInput.classList.add('hidden');
+        }
+
+        const channelSelect = document.getElementById('geo-channel');
+        if (channelSelect) channelSelect.value = 'system';
+
+        const checkboxes = document.querySelectorAll('#new-geofence-form input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        if (document.getElementById('geo-rule-entry')) document.getElementById('geo-rule-entry').checked = true; // Default
+
+        // Toggle UI
+        document.getElementById('new-geofence-form').classList.add('hidden');
+        document.getElementById('geofence-list').classList.remove('hidden');
     }
-}
 
-function closeGeofenceForm() {
-    // Clear Inputs
-    const nameInput = document.getElementById('geo-name');
-    if (nameInput) nameInput.value = '';
+    function renderGeofences() {
+        const container = document.getElementById('active-zones-container');
+        if (!container) return;
 
-    const contactInput = document.getElementById('geo-contact');
-    if (contactInput) {
-        contactInput.value = '';
-        contactInput.classList.add('hidden');
-    }
-
-    const channelSelect = document.getElementById('geo-channel');
-    if (channelSelect) channelSelect.value = 'system';
-
-    const checkboxes = document.querySelectorAll('#new-geofence-form input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    if (document.getElementById('geo-rule-entry')) document.getElementById('geo-rule-entry').checked = true; // Default
-
-    // Toggle UI
-    document.getElementById('new-geofence-form').classList.add('hidden');
-    document.getElementById('geofence-list').classList.remove('hidden');
-}
-
-function renderGeofences() {
-    const container = document.getElementById('active-zones-container');
-    if (!container) return;
-
-    if (activeGeofences.length === 0) {
-        container.innerHTML = '<p class="empty-state">No geofences active.</p>';
-    } else {
-        container.innerHTML = activeGeofences.map(zone => `
+        if (activeGeofences.length === 0) {
+            container.innerHTML = '<p class="empty-state">No geofences active.</p>';
+        } else {
+            container.innerHTML = activeGeofences.map(zone => `
             <div class="rule-item" style="border-left-color: var(--primary);">
                 <div class="rule-text"><i class="fas fa-vector-square"></i> ${zone.name}</div>
                 <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">
@@ -2111,65 +2097,64 @@ function renderGeofences() {
                 </button>
             </div>
         `).join('');
-    }
-
-    // Update Map Visualization (Mini Map ONLY)
-    if (miniDrawnItems) {
-        // Clear all and re-add from source of truth
-        miniDrawnItems.clearLayers();
-        activeGeofences.forEach(z => {
-            const ly = L.geoJSON(z.geoJSON, {
-                style: { color: '#00d4ff', weight: 2, fillOpacity: 0.2 }
-            });
-            // Bind tooltips or popups if needed
-            ly.bindTooltip(z.name);
-            miniDrawnItems.addLayer(ly);
-        });
-    }
-}
-
-window.deleteGeofence = function (id) {
-    activeGeofences = activeGeofences.filter(z => z.id !== id);
-    renderGeofences();
-};
-
-function renderMockViolations() {
-    const list = document.getElementById('geo-violations-list');
-    if (!list) return;
-
-    // Mock data removed. Real data integration pending.
-    list.innerHTML = '<p class="text-muted" style="padding:10px; text-align:center;">No recent violations</p>';
-}
-
-// Global Action Trigger
-window.triggerGeofenceAction = function () {
-    // Standardize: Use classes, but also force display block if needed to override previous inline logic
-    // actually better to just clean up inline styles first
-    document.querySelectorAll('.tab-content').forEach(t => {
-        t.style.display = '';
-        t.classList.remove('active');
-    });
-
-    const geoTab = document.getElementById('tab-geofence');
-    if (geoTab) geoTab.classList.add('active');
-
-    document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
-
-    setTimeout(() => {
-        const drawBtn = document.getElementById('start-draw-btn');
-        if (drawBtn) {
-            drawBtn.click();
         }
-    }, 100);
-}
 
-window.addEventListener('load', () => {
-    // Slight delay to ensure map is ready
-    setTimeout(() => {
-        renderMockViolations();
-        setupGeofencing();
-    }, 1000);
+        // Update Map Visualization (Mini Map ONLY)
+        if (miniDrawnItems) {
+            // Clear all and re-add from source of truth
+            miniDrawnItems.clearLayers();
+            activeGeofences.forEach(z => {
+                const ly = L.geoJSON(z.geoJSON, {
+                    style: { color: '#00d4ff', weight: 2, fillOpacity: 0.2 }
+                });
+                // Bind tooltips or popups if needed
+                ly.bindTooltip(z.name);
+                miniDrawnItems.addLayer(ly);
+            });
+        }
+    }
+
+    window.deleteGeofence = function (id) {
+        activeGeofences = activeGeofences.filter(z => z.id !== id);
+        renderGeofences();
+    };
+
+    function renderMockViolations() {
+        const list = document.getElementById('geo-violations-list');
+        if (!list) return;
+
+        // Mock data removed. Real data integration pending.
+        list.innerHTML = '<p class="text-muted" style="padding:10px; text-align:center;">No recent violations</p>';
+    }
+
+    // Global Action Trigger
+    window.triggerGeofenceAction = function () {
+        // Standardize: Use classes, but also force display block if needed to override previous inline logic
+        // actually better to just clean up inline styles first
+        document.querySelectorAll('.tab-content').forEach(t => {
+            t.style.display = '';
+            t.classList.remove('active');
+        });
+
+        const geoTab = document.getElementById('tab-geofence');
+        if (geoTab) geoTab.classList.add('active');
+
+        document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
+
+        setTimeout(() => {
+            const drawBtn = document.getElementById('start-draw-btn');
+            if (drawBtn) {
+                drawBtn.click();
+            }
+        }, 100);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Slight delay to ensure map is ready
+        setTimeout(() => {
+            renderMockViolations();
+            setupGeofencing();
+        }, 1000);
+    });
 });
-
-
-
+});
