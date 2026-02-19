@@ -1911,11 +1911,6 @@ window.addEventListener('DOMContentLoaded', () => {
             const logoInput = document.getElementById('tenant-logo');
             const logoFile = logoInput.files[0];
 
-            // New User Fields
-            const userEmail = document.getElementById('tenant-admin-email').value;
-            const userPassword = document.getElementById('tenant-admin-password').value;
-            const userRole = document.getElementById('tenant-admin-role').value;
-
             const btn = e.target.querySelector('button[type="submit"]');
 
             if (btn) {
@@ -1924,13 +1919,9 @@ window.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const result = await window.AuthManager.createTenant(name, logoFile, userEmail, userPassword, userRole);
+                const result = await window.AuthManager.createTenant(name, logoFile);
 
                 let msg = `Company "${result.name}" created successfully!`;
-                if (result.created_user) {
-                    msg += `\n\nAdmin User Created:\nEmail: ${result.created_user.email}\nRole: ${result.created_user.role}`;
-                }
-
                 alert(msg);
 
                 document.getElementById('add-company-modal').classList.add('hidden');

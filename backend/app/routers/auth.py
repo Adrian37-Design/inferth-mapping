@@ -51,24 +51,15 @@ class UserResponse(BaseModel):
 async def create_tenant(
     name: str = Form(...),
     logo: Optional[UploadFile] = File(None), 
-    user_email: Optional[str] = Form(None),
-    user_password: Optional[str] = Form(None),
-    user_role: str = Form("admin"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Create a new tenant, optionally with an initial admin user"""
+    """Create a new tenant"""
     # 1. Check if tenant exists
     res = await db.execute(select(Tenant).where(Tenant.name == name))
     if res.scalars().first():
         raise HTTPException(status_code=400, detail="Company already exists")
     
-    # 1b. Check if user exists (if provided)
-    if user_email:
-        res = await db.execute(select(User).where(User.email == user_email))
-        if res.scalars().first():
-             raise HTTPException(status_code=400, detail="User email already exists")
-
     # 2. Save Logo (If provided)
     logo_url = None
     primary_color = "#2D5F6D"
@@ -120,29 +111,12 @@ async def create_tenant(
     await db.commit()
     await db.refresh(new_tenant)
     
-    # 5. Create Initial User (If details provided)
-    created_user = None
-    if user_email and user_password:
-        new_user = User(
-            email=user_email,
-            hashed_password=hash_password(user_password),
-            role=user_role,
-            is_admin=(user_role == 'admin'),
-            is_active=True,
-            tenant_id=new_tenant.id
-        )
-        db.add(new_user)
-        await db.commit()
-        await db.refresh(new_user)
-        created_user = {"email": new_user.email, "role": new_user.role}
-
     return {
         "id": new_tenant.id,
         "name": new_tenant.name,
         "logo": new_tenant.logo_url,
         "primary": new_tenant.primary_color,
-        "secondary": new_tenant.secondary_color,
-        "created_user": created_user
+        "secondary": new_tenant.secondary_color
     }
 
 @router.get("/tenants")
