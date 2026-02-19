@@ -7,10 +7,20 @@ from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
 from app.services.tcp_server import TCPTrackerProtocol
+from app.services.tcp_server import TCPTrackerProtocol
 from app.realtime import ws_listener
+from app.branding import init_branding
 import os
 
 app = FastAPI(title="Inferth Mapping")
+
+@app.on_event("startup")
+async def startup_event():
+    # Initialize Branding (Logos)
+    try:
+        await init_branding()
+    except Exception as e:
+        print(f"Branding Init Failed: {e}")
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
