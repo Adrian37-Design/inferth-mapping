@@ -214,6 +214,10 @@ function setupTabs() {
             if (targetId === 'tab-audit') {
                 loadAuditLogs();
             }
+
+            if (targetId === 'tab-companies') {
+                loadCompanies();
+            }
         });
     });
 }
@@ -1881,10 +1885,52 @@ window.deleteRule = function (id) {
     renderRules();
 }
 
+// --- Company Management ---
+async function loadCompanies() {
+    const tableBody = document.getElementById('companies-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+
+    try {
+        const response = await window.AuthManager.fetchAPI('/auth/tenants');
+        const companies = await response.json();
+
+        if (companies.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No companies found.</td></tr>';
+            return;
+        }
+
+        tableBody.innerHTML = companies.map(c => `
+            <tr>
+                <td>
+                    <div class="user-avatar" style="width: 30px; height: 30px; background: #eee;">
+                        ${c.logo ? `<img src="${c.logo}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : '<i class="fas fa-building" style="color:#555; line-height:30px;"></i>'}
+                    </div>
+                </td>
+                <td>${c.name}</td>
+                <td class="text-muted"><small>#${c.id}</small></td>
+                <td class="text-right">
+                    <button class="btn-icon" title="View Details" onclick="alert('Company details implementation pending for ID: ${c.id}')">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error("Failed to load companies:", error);
+        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${error.message}</td></tr>`;
+    }
+}
+
+
+
 // Initialize Rules Engine on Load
 window.addEventListener('DOMContentLoaded', () => {
     // ... existing init ...
     setupRulesEngine();
+    setupTabs();
 
     // "Exit" Button (Geofence Manager) - Global Handler via Delegation
     // We use delegation on document.body to ensure we catch it even if DOM is tricky
