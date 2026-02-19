@@ -103,18 +103,11 @@ class AuthManager {
     }
 
     // Create Tenant (Admin Only)
-    async createTenant(name, logoFile, userEmail, userPassword, userRole) {
+    async createTenant(name, logoFile) {
         const formData = new FormData();
         formData.append('name', name);
         if (logoFile) {
             formData.append('logo', logoFile);
-        }
-
-        // Optional User Details
-        if (userEmail && userPassword) {
-            formData.append('user_email', userEmail);
-            formData.append('user_password', userPassword);
-            formData.append('user_role', userRole || 'admin');
         }
 
         const response = await fetch(`${API_BASE}/auth/tenants`, {
