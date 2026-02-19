@@ -29,7 +29,7 @@ class UserOut(BaseModel):
     is_active: bool
     last_login: Optional[datetime] = None
     accessible_assets: Optional[List[str]] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
