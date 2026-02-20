@@ -46,10 +46,15 @@ async def get_users(
 ):
     """List all users (Admin only)"""
     # Join with Tenant to get names
+    from sqlalchemy import and_
     from sqlalchemy.orm import joinedload
-    result = await db.execute(
-        select(User).options(joinedload(User.tenant)).offset(skip).limit(limit)
-    )
+    
+    # Filter by tenant unless it's a Tenant 1 Admin
+    stmt = select(User).options(joinedload(User.tenant))
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(User.tenant_id == current_user.tenant_id)
+        
+    result = await db.execute(stmt.offset(skip).limit(limit))
     users = result.scalars().all()
     
     # Map tenant name to property for Pydantic
@@ -88,11 +93,18 @@ async def create_user(
         setup_token=setup_token,
         accessible_assets=["*"] # Default to all
     )
+    
+    # Enforce tenant isolation: Can only create users in your same tenant 
+    # (unless global admin)
+    if current_user.tenant_id != 1 and new_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Cannot create users for other companies")
+
     db.add(new_user)
     
     # Audit Log
     audit = AuditLog(
         user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
         action="CREATE_USER",
         details={"email": new_user.email, "role": new_user.role},
         ip_address="127.0.0.1" # TODO: Extract from request
@@ -130,6 +142,10 @@ async def update_user(
             detail="Admin role is only available for Inferth Mapping"
         )
         
+    # Enforce tenant isolation
+    if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update users in other companies")
+        
     if user_update.role is not None:
         user.role = user_update.role
     if user_update.is_active is not None:
@@ -140,6 +156,7 @@ async def update_user(
     # Audit Log
     audit = AuditLog(
         user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
         action="UPDATE_USER",
         details={"target_user_id": user_id, "changes": user_update.dict(exclude_unset=True)},
         ip_address="127.0.0.1"
@@ -176,6 +193,7 @@ async def delete_user(
     # Audit Log
     audit = AuditLog(
         user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
         action="DELETE_USER",
         details={"target_user_id": user_id, "email": user.email},
         ip_address="127.0.0.1"

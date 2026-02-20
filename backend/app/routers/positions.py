@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
-from app.models import Position, Device
+from app.models import Position, Device, User
 from app.schemas import PositionCreate, PositionOut
+from app.auth_middleware import get_current_user
 from sqlalchemy.future import select
 from datetime import datetime
 
@@ -83,17 +84,28 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
     return {"status": "ignored", "reason": "no_gps_data"}
 
 @router.get("/latest/{imei}", response_model=PositionOut)
-async def latest_position(imei: str, db: AsyncSession = Depends(get_db)):
-    q = await db.execute(
-        select(Position).join(Device).where(Device.imei == imei).order_by(Position.timestamp.desc()).limit(1)
-    )
+async def latest_position(
+    imei: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    stmt = select(Position).join(Device).where(Device.imei == imei)
+    
+    # Filter by tenant unless global admin
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+        
+    q = await db.execute(stmt.order_by(Position.timestamp.desc()).limit(1))
     pos = q.scalars().first()
     if not pos:
         raise HTTPException(404, "No positions")
     return pos
 
 @router.get("/snapshot")
-async def get_fleet_snapshot(db: AsyncSession = Depends(get_db)):
+async def get_fleet_snapshot(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get the latest position for ALL devices in one query"""
     from sqlalchemy import func
     
@@ -105,10 +117,14 @@ async def get_fleet_snapshot(db: AsyncSession = Depends(get_db)):
     )
     
     # Join to get full position details
-    query = select(Position).join(
+    query = select(Position).join(Device).join(
         subq, 
         (Position.device_id == subq.c.device_id) & (Position.timestamp == subq.c.max_ts)
     )
+    
+    # Filter by tenant unless global admin
+    if current_user.tenant_id != 1:
+        query = query.where(Device.tenant_id == current_user.tenant_id)
     
     result = await db.execute(query)
     positions = result.scalars().all()
@@ -128,8 +144,17 @@ async def get_fleet_snapshot(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.get("/")
-async def list_positions(device_id: int = None, limit: int = 10, db: AsyncSession = Depends(get_db)):
-    query = select(Position)
+async def list_positions(
+    device_id: int = None, 
+    limit: int = 10, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = select(Position).join(Device)
+    
+    # Filter by tenant unless global admin
+    if current_user.tenant_id != 1:
+        query = query.where(Device.tenant_id == current_user.tenant_id)
     
     if device_id:
         query = query.where(Position.device_id == device_id)
@@ -157,9 +182,19 @@ async def get_device_route(
     device_id: int,
     start_date: str = None,
     end_date: str = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get route data for a device with optional date filtering"""
+    # Verify access to device
+    device_q = await db.execute(select(Device).where(Device.id == device_id))
+    device = device_q.scalars().first()
+    if not device:
+        raise HTTPException(404, "Device not found")
+        
+    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+        raise HTTPException(403, "Not authorized to view this device's route")
+
     from datetime import datetime
     
     query = select(Position).where(Position.device_id == device_id)
@@ -217,9 +252,19 @@ async def get_device_route(
 async def get_device_trips(
     device_id: int,
     days: int = 7,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get trip summary for last N days"""
+    # Verify access to device
+    device_q = await db.execute(select(Device).where(Device.id == device_id))
+    device = device_q.scalars().first()
+    if not device:
+        raise HTTPException(404, "Device not found")
+        
+    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+        raise HTTPException(403, "Not authorized to view this device's trips")
+
     from datetime import datetime, timedelta
     
     start_date = datetime.utcnow() - timedelta(days=days)
