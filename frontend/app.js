@@ -597,6 +597,9 @@ window.openEditUser = async function (id, email, role, tenantId) {
     await populateTenantSelects();
     document.getElementById('edit-user-tenant').value = tenantId;
 
+    // Trigger role restriction check
+    updateRoleOptions(tenantId, 'edit-user-role');
+
     document.getElementById('edit-user-modal').classList.remove('hidden');
 }
 
@@ -703,8 +706,44 @@ async function populateTenantSelects() {
 }
 
 // Ensure selects are populated when opening the "Add User" modal
-document.getElementById('invite-user-sidebar')?.addEventListener('click', () => {
-    populateTenantSelects();
+document.getElementById('invite-user-sidebar')?.addEventListener('click', async () => {
+    await populateTenantSelects();
+    // Default to first company and check roles
+    const tenantId = document.getElementById('invite-tenant').value;
+    updateRoleOptions(tenantId, 'invite-role');
+});
+
+// Helper to filter Admin role based on tenant
+function updateRoleOptions(tenantId, roleSelectId) {
+    const roleSelect = document.getElementById(roleSelectId);
+    if (!roleSelect) return;
+
+    // We assume ID 1 is Inferth Mapping
+    const isAdminAvailable = parseInt(tenantId) === 1;
+    const adminOption = roleSelect.querySelector('option[value="admin"]');
+
+    if (adminOption) {
+        if (isAdminAvailable) {
+            adminOption.style.display = '';
+            adminOption.disabled = false;
+        } else {
+            adminOption.style.display = 'none';
+            adminOption.disabled = true;
+            // If currently selected is admin, Downgrade to manager
+            if (roleSelect.value === 'admin') {
+                roleSelect.value = 'manager';
+            }
+        }
+    }
+}
+
+// Add change listeners for tenant dropdowns
+document.getElementById('invite-tenant')?.addEventListener('change', (e) => {
+    updateRoleOptions(e.target.value, 'invite-role');
+});
+
+document.getElementById('edit-user-tenant')?.addEventListener('change', (e) => {
+    updateRoleOptions(e.target.value, 'edit-user-role');
 });
 
 // Helper for Invite Success Modal
