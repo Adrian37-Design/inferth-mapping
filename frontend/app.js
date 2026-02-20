@@ -1959,16 +1959,23 @@ async function loadCompanies() {
         tableBody.innerHTML = companies.map(c => `
             <tr>
                 <td>
-                    <div class="user-avatar" style="width: 30px; height: 30px; background: #eee;">
-                        ${c.logo ? `<img src="${c.logo}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : '<i class="fas fa-building" style="color:#555; line-height:30px;"></i>'}
+                    <div class="user-avatar" style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        ${c.logo
+                ? `<img src="${c.logo}" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\\'fas fa-building\\' style=\\'color:#888;\\'></i>'">`
+                : '<i class="fas fa-building" style="color:#888;"></i>'}
                     </div>
                 </td>
-                <td>${c.name}</td>
+                <td><strong>${c.name}</strong></td>
                 <td class="text-muted"><small>#${c.id}</small></td>
                 <td class="text-right">
-                    <button class="btn-icon" title="View Details" onclick="alert('Company details implementation pending for ID: ${c.id}')">
-                        <i class="fas fa-info-circle"></i>
-                    </button>
+                    <div class="action-buttons" style="justify-content:flex-end; gap:8px;">
+                        <button class="icon-btn edit-btn" title="Edit Company" onclick="editCompany(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="icon-btn delete-btn" title="Delete Company" onclick="deleteCompany(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -1980,6 +1987,43 @@ async function loadCompanies() {
 }
 
 
+
+// Edit Company (rename)
+window.editCompany = async function(id, currentName) {
+    const newName = prompt(`Rename company "${currentName}" to:`, currentName);
+    if (!newName || newName.trim() === currentName) return;
+
+    try {
+        const response = await window.AuthManager.fetchAPI(`/auth/tenants/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ name: newName.trim() })
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to update company');
+        }
+        loadCompanies();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+};
+
+// Delete Company
+window.deleteCompany = async function(id, name) {
+    if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(`/auth/tenants/${id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || 'Failed to delete company');
+        }
+        loadCompanies();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+};
 
 // Initialize Rules Engine on Load
 window.addEventListener('DOMContentLoaded', () => {
