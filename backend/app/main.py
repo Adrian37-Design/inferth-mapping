@@ -151,38 +151,5 @@ async def startup_event():
     except Exception as e:
         print(f"Warning: TCP server not available: {e}")
     
-# === ONE-TIME FIX: Reassign Console Telematics from ID #4 → #2 ===
-# Remove this endpoint after running it once on production
-from app.db import AsyncSessionLocal
-from sqlalchemy import text as sql_text
-
-@app.get("/admin/fix-tenant-ids")
-async def fix_tenant_ids(secret: str = ""):
-    if secret != "inferth-fix-2024":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Forbidden")
-    async with AsyncSessionLocal() as db:
-        try:
-            # Check current state
-            rows = await db.execute(sql_text("SELECT id, name FROM tenants ORDER BY id"))
-            before = [dict(r) for r in rows.mappings()]
-
-            # Update users pointing to old id
-            await db.execute(sql_text("UPDATE users SET tenant_id = 2 WHERE tenant_id = 4"))
-            # Rename Console Telematics id
-            await db.execute(sql_text("UPDATE tenants SET id = 2 WHERE id = 4"))
-            # Reset sequence
-            await db.execute(sql_text("SELECT setval('tenants_id_seq', 2, true)"))
-            await db.commit()
-
-            rows = await db.execute(sql_text("SELECT id, name FROM tenants ORDER BY id"))
-            after = [dict(r) for r in rows.mappings()]
-            return {"status": "done", "before": before, "after": after}
-        except Exception as e:
-            await db.rollback()
-            return {"status": "error", "detail": str(e)}
-# === END ONE-TIME FIX ===
-
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
-
