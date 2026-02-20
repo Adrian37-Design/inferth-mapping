@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import desc
 from app.db import get_db
 from app.models import User, AuditLog
-from app.auth_middleware import require_admin
+from app.auth_middleware import require_admin, get_current_user
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional, Any
