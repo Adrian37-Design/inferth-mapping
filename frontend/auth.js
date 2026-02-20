@@ -52,13 +52,16 @@ class AuthManager {
     }
 
     // Login
-    async login(email, password) {
+    async login(email, password, tenantId = null) {
+        const body = { email, password };
+        if (tenantId) body.tenant_id = tenantId;
+
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify(body)
         });
 
         if (!response.ok) {
@@ -338,8 +341,14 @@ class AuthManager {
             headers
         });
 
+        // Only auto-logout on 401 if we are on the main app (not login page)
         if (response.status === 401) {
-            this.logout();
+            const isLoginPage = window.location.pathname.includes('login.html');
+            if (!isLoginPage) {
+                // Clear auth silently — user must manually re-login
+                // Don't redirect immediately; let caller handle the error
+                console.warn('fetchAPI: 401 received for', url);
+            }
             throw new Error('Unauthorized');
         }
 
