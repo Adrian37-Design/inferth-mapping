@@ -128,10 +128,8 @@ async def get_tenants(
     result = await db.execute(select(Tenant.id, Tenant.name, Tenant.logo_url))
     tenants = result.all()
     
-    # If not logged in or not a global admin, hide the IDs to prevent enumeration
-    if not current_user or (current_user.role != "admin" or current_user.tenant_id != 1):
-        return [{"name": t.name, "logo": t.logo_url} for t in tenants]
-        
+    # IDs are needed for login, so we must return them. 
+    # Protection is handled at the UI/Role level for management features.
     return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
 
 class UpdateTenantRequest(BaseModel):
