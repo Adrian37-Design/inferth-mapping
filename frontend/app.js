@@ -1941,6 +1941,41 @@ window.deleteRule = function (id) {
 }
 
 // --- Company Management ---
+
+// Wire up the New Company form
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('add-tenant-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('tenant-name');
+        const logoInput = document.getElementById('tenant-logo');
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        const name = nameInput.value.trim();
+        if (!name) { alert('Company name is required.'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+        try {
+            await window.AuthManager.createTenant(name, logoInput.files[0] || null);
+            // Close modal & reset
+            document.getElementById('company-form-modal').classList.add('hidden');
+            form.reset();
+            // Refresh list
+            loadCompanies();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Create Company &amp; Brand';
+        }
+    });
+});
+
+
 async function loadCompanies() {
     const tableBody = document.getElementById('companies-table-body');
     if (!tableBody) return;
@@ -1989,7 +2024,7 @@ async function loadCompanies() {
 
 
 // Edit Company (rename)
-window.editCompany = async function(id, currentName) {
+window.editCompany = async function (id, currentName) {
     const newName = prompt(`Rename company "${currentName}" to:`, currentName);
     if (!newName || newName.trim() === currentName) return;
 
@@ -2009,7 +2044,7 @@ window.editCompany = async function(id, currentName) {
 };
 
 // Delete Company
-window.deleteCompany = async function(id, name) {
+window.deleteCompany = async function (id, name) {
     if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
     try {
         const response = await window.AuthManager.fetchAPI(`/auth/tenants/${id}`, {
