@@ -10,9 +10,13 @@ class AuthManager {
         this.token = localStorage.getItem('auth_token');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
 
-        // Apply theme immediately if user exists
+        // Apply theme when DOM is ready
         if (this.user && this.user.theme) {
-            this.applyTheme(this.user.theme);
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.applyTheme(this.user.theme));
+            } else {
+                this.applyTheme(this.user.theme);
+            }
         }
     }
 
