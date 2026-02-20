@@ -471,7 +471,7 @@ async function loadAuditLogs() {
 // Users Management Logic
 async function loadUsers() {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="loading">Loading users...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading users...</td></tr>';
 
     try {
         const response = await window.AuthManager.fetchAPI(`/users/?limit=100&_t=${new Date().getTime()}`);
@@ -497,6 +497,7 @@ async function loadUsers() {
                     </div>
                 </td>
                 <td><span class="badge badge-${user.role}">${user.role.toUpperCase()}</span></td>
+                <td>${user.tenant_name || 'N/A'}</td>
                 <td>${lastLogin}</td>
                 <td>${scope}</td>
                 <td class="text-center">
@@ -508,7 +509,7 @@ async function loadUsers() {
                 </td>
                 <td class="text-right">
                     <div class="action-buttons" style="justify-content: flex-end;">
-                        <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}')" ${isSelf ? 'disabled' : ''}>
+                        <button class="icon-btn edit-btn" onclick="openEditUser(${user.id}, '${user.email}', '${user.role}', ${user.tenant_id})" ${isSelf ? 'disabled' : ''}>
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="icon-btn delete-btn" onclick="deleteUser(${user.id})" ${isSelf ? 'disabled' : ''}>
@@ -522,7 +523,7 @@ async function loadUsers() {
 
     } catch (error) {
         console.error('Error loading users:', error);
-        tbody.innerHTML = `<tr><td colspan="6" class="error">Failed to load users: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="error">Failed to load users: ${error.message}</td></tr>`;
     }
 }
 
@@ -587,10 +588,15 @@ async function deleteUser(userId) {
 }
 
 // Edit User
-window.openEditUser = function (id, email, role) {
+window.openEditUser = async function (id, email, role, tenantId) {
     document.getElementById('edit-user-id').value = id;
     document.getElementById('edit-user-email').value = email;
     document.getElementById('edit-user-role').value = role;
+
+    // Ensure selects are populated for the current session
+    await populateTenantSelects();
+    document.getElementById('edit-user-tenant').value = tenantId;
+
     document.getElementById('users-modal').classList.add('hidden'); // temp hide list
     document.getElementById('edit-user-modal').classList.remove('hidden');
 }
@@ -599,14 +605,18 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
     e.preventDefault();
     const id = document.getElementById('edit-user-id').value;
     const role = document.getElementById('edit-user-role').value;
+    const tenantId = document.getElementById('edit-user-tenant').value;
     const btn = e.target.querySelector('button[type="submit"]');
 
     btn.disabled = true;
 
     try {
         const response = await window.AuthManager.fetchAPI(`/users/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ role: role })
+            method: 'PATCH',
+            body: JSON.stringify({
+                role: role,
+                tenant_id: parseInt(tenantId)
+            })
         });
 
         if (!response.ok) throw new Error('Failed to update user');
@@ -637,6 +647,7 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
     e.preventDefault();
     const email = document.getElementById('invite-email').value;
     const role = document.getElementById('invite-role').value;
+    const tenantId = document.getElementById('invite-tenant').value;
     const btn = e.target.querySelector('button');
 
     btn.disabled = true;
@@ -649,7 +660,7 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
                 email,
                 role,
                 is_admin: role === 'admin',
-                tenant_id: window.AuthManager.user.tenant_id || 1
+                tenant_id: parseInt(tenantId)
             })
         });
 
@@ -673,8 +684,32 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
         alert(error.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Invite';
+        btn.textContent = 'Add User';
     }
+});
+
+// Populate Tenant Dropdowns
+async function populateTenantSelects() {
+    const inviteSelect = document.getElementById('invite-tenant');
+    const editSelect = document.getElementById('edit-user-tenant');
+    if (!inviteSelect && !editSelect) return;
+
+    try {
+        const response = await window.AuthManager.fetchAPI('/auth/tenants');
+        const tenants = await response.json();
+
+        const options = tenants.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+        if (inviteSelect) inviteSelect.innerHTML = options;
+        if (editSelect) editSelect.innerHTML = options;
+    } catch (e) {
+        console.error("Failed to populate tenant selects:", e);
+    }
+}
+
+// Ensure selects are populated when opening the "Add User" modal
+document.getElementById('invite-user-sidebar')?.addEventListener('click', () => {
+    populateTenantSelects();
 });
 
 // Helper for Invite Success Modal

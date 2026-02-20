@@ -21,15 +21,18 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
+    tenant_id: Optional[int] = None
 
 class UserOut(BaseModel):
     id: int
     email: str
     role: str
     is_active: bool
+    tenant_id: int
     last_login: Optional[datetime] = None
     accessible_assets: Optional[List[str]] = None
     created_at: Optional[datetime] = None
+    tenant_name: Optional[str] = None # Added via property or select_from
 
     class Config:
         orm_mode = True
@@ -42,8 +45,17 @@ async def get_users(
     db: AsyncSession = Depends(get_db)
 ):
     """List all users (Admin only)"""
-    result = await db.execute(select(User).offset(skip).limit(limit))
+    # Join with Tenant to get names
+    from sqlalchemy.orm import joinedload
+    result = await db.execute(
+        select(User).options(joinedload(User.tenant)).offset(skip).limit(limit)
+    )
     users = result.scalars().all()
+    
+    # Map tenant name to property for Pydantic
+    for u in users:
+        u.tenant_name = u.tenant.name if u.tenant else "No Company"
+        
     return users
 
 @router.post("/", response_model=UserOut)
@@ -105,6 +117,8 @@ async def update_user(
         user.role = user_update.role
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
+    if user_update.tenant_id is not None:
+        user.tenant_id = user_update.tenant_id
         
     # Audit Log
     audit = AuditLog(
