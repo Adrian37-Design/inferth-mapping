@@ -29,6 +29,10 @@
     /* Layout */
     --nav-width: 260px;
     --header-height: 70px;
+
+    /* Theme Overrides */
+    --nav-bg: linear-gradient(to right, #1a1c23, #2d3139);
+    --nav-text-color: var(--primary);
 }
 
 body {
@@ -41,7 +45,7 @@ body {
 
 /* Navbar */
 .navbar {
-    background: linear-gradient(to right, #1a1c23, #2d3139);
+    background: var(--nav-bg);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding: 15px 30px;
@@ -51,6 +55,7 @@ body {
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
     z-index: 1000;
     height: 70px;
+    transition: background 0.3s ease;
 }
 
 .nav-brand {
@@ -70,10 +75,7 @@ body {
 }
 
 .nav-brand span {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--nav-text-color);
 }
 
 .nav-stats {

@@ -494,6 +494,16 @@ class AuthManager {
             root.style.setProperty('--secondary-color', theme.secondary);
         }
 
+        // Apply Navbar Theme
+        if (theme.navbar_bg) {
+            root.style.setProperty('--nav-bg', theme.navbar_bg);
+        }
+        if (theme.navbar_text) {
+            root.style.setProperty('--nav-text-color', theme.navbar_text);
+        } else if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
+            root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
+        }
+
         // Update Brand Name
         if (this.user && this.user.company_name) {
             const brandName = document.getElementById('nav-brand-name');

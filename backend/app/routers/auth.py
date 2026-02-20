@@ -238,7 +238,9 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             "theme": {
                 "logo": user.tenant.logo_url if user.tenant else None,
                 "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
-                "secondary": user.tenant.secondary_color if user.tenant else "#EF4835"
+                "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
+                "navbar_bg": "#ffffff" if user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)",
+                "navbar_text": user.tenant.primary_color if user.tenant_id == 1 else "#f8fafc"
             }
         }
     }
