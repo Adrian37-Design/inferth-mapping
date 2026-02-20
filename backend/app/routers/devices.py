@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Device, Tenant, User
-from app.auth_middleware import require_admin, require_manager
+from app.auth_middleware import require_admin, require_manager, get_current_user
 from pydantic import BaseModel
 from sqlalchemy.future import select
 
