@@ -9,6 +9,11 @@ class AuthManager {
     constructor() {
         this.token = localStorage.getItem('auth_token');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
+
+        // Apply theme immediately if user exists
+        if (this.user && this.user.theme) {
+            this.applyTheme(this.user.theme);
+        }
     }
 
 
@@ -489,7 +494,20 @@ class AuthManager {
         // Update Logo
         if (theme.logo) {
             const logos = document.querySelectorAll('.brand-logo, .auth-logo');
-            logos.forEach(img => img.src = theme.logo);
+            logos.forEach(img => {
+                img.src = theme.logo;
+            });
+
+            // Handle Favicon
+            let favicon = document.querySelector('link[rel="icon"]');
+            if (favicon) {
+                favicon.href = theme.logo;
+            } else {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                favicon.href = theme.logo;
+                document.head.appendChild(favicon);
+            }
         }
     }
 

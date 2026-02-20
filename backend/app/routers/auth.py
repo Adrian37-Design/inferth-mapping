@@ -4,7 +4,7 @@ from app.db import get_db
 from app.models import User, Tenant, AuditLog
 from datetime import datetime
 from app.security import hash_password, verify_password, create_access_token
-from app.auth_middleware import require_admin, get_current_user
+from app.auth_middleware import require_admin, get_current_user, get_current_user_optional
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
@@ -120,10 +120,18 @@ async def create_tenant(
     }
 
 @router.get("/tenants")
-async def get_tenants(db: AsyncSession = Depends(get_db)):
-    """List all available companies for login selector"""
+async def get_tenants(
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """List all available companies (Public for login, Admin for ID view)"""
     result = await db.execute(select(Tenant.id, Tenant.name, Tenant.logo_url))
     tenants = result.all()
+    
+    # If not logged in or not a global admin, hide the IDs to prevent enumeration
+    if not current_user or (current_user.role != "admin" or current_user.tenant_id != 1):
+        return [{"name": t.name, "logo": t.logo_url} for t in tenants]
+        
     return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
 
 class UpdateTenantRequest(BaseModel):

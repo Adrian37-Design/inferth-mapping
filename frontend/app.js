@@ -118,6 +118,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const railAuditBtn = document.getElementById('rail-audit-btn');
             if (railAuditBtn) railAuditBtn.classList.add('hidden');
+
+            const railCompaniesBtn = document.getElementById('rail-companies');
+            if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
+        }
+
+        // Global Admin Only: Companies Tab
+        if (user.role === 'admin' && user.tenant_id === 1) {
+            const railCompaniesBtn = document.getElementById('rail-companies');
+            if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
+        } else {
+            const railCompaniesBtn = document.getElementById('rail-companies');
+            if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
         }
 
         // Initialize WebSocket

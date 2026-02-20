@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, status
+from typing import Optional
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +41,20 @@ async def get_current_user(
         raise credentials_exception
     
     return user
+
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """Verify JWT token if provided, but don't fail if missing"""
+    if not credentials:
+        return None
+        
+    try:
+        user = await get_current_user(credentials, db)
+        return user
+    except HTTPException:
+        return None
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Require that the current user is an admin"""
