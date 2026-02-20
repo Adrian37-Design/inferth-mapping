@@ -496,6 +496,15 @@ class AuthManager {
             if (brandName) brandName.textContent = this.user.company_name;
         }
 
+        // Update User Identity Display
+        if (this.user) {
+            const userDisplay = document.getElementById('user-role-display');
+            if (userDisplay) {
+                userDisplay.textContent = `${this.user.email} (${this.user.role.toUpperCase()})`;
+                userDisplay.classList.add('show');
+            }
+        }
+
         // Update Logo
         if (theme.logo) {
             const logos = document.querySelectorAll('.brand-logo, .auth-logo');
