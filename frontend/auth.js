@@ -437,7 +437,7 @@ class AuthManager {
 
                 // Logo or Default Icon
                 const logoHtml = t.logo
-                    ? `<img src="${t.logo}" alt="${t.name}">`
+                    ? `<img src="${API_BASE}${t.logo}" alt="${t.name}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">`
                     : `<i class="fas fa-building"></i>`;
 
                 option.innerHTML = `${logoHtml} <span>${t.name}</span>`;
@@ -445,7 +445,10 @@ class AuthManager {
                 // Handle Selection
                 option.addEventListener('click', () => {
                     hiddenInput.value = t.id;
-                    selectedText.innerHTML = `${logoHtml} ${t.name}`;
+                    const triggerLogoHtml = t.logo
+                        ? `<img src="${API_BASE}${t.logo}" alt="${t.name}" style="width:22px;height:22px;object-fit:contain;border-radius:4px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
+                        : `<i class="fas fa-building" style="margin-right:6px;"></i>`;
+                    selectedText.innerHTML = `${triggerLogoHtml} ${t.name}`;
                     wrapper.classList.remove('open');
 
                     // Mark selected visually
