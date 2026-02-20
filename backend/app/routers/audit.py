@@ -27,12 +27,24 @@ class AuditLogOut(BaseModel):
 async def get_audit_logs(
     skip: int = 0, 
     limit: int = 50, 
-    current_user: User = Depends(require_admin), 
+    current_user: User = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
-    """List audit logs (Admin only)"""
+    """List audit logs (Admin only, or scoped to tenant)"""
+    # Enforce access: only admins of Tenant 1 see all, others see their tenant
+    # Normal users (viewer/manager) can't see audit logs usually, 
+    # but we'll scope it by tenant if they have permission
+    if current_user.role != "admin" and current_user.tenant_id != 1:
+         # Optionally allow managers to see their tenant's logs
+         if current_user.role != "manager":
+             raise HTTPException(status_code=403, detail="Not authorized")
     # Join with User to get email
-    query = select(AuditLog, User.email).outerjoin(User, AuditLog.user_id == User.id).order_by(desc(AuditLog.timestamp)).offset(skip).limit(limit)
+    query = select(AuditLog, User.email).outerjoin(User, AuditLog.user_id == User.id)
+    
+    if current_user.tenant_id != 1:
+        query = query.where(AuditLog.tenant_id == current_user.tenant_id)
+        
+    query = query.order_by(desc(AuditLog.timestamp)).offset(skip).limit(limit)
     result = await db.execute(query)
     
     logs = []

@@ -48,17 +48,19 @@ class User(Base):
     tenant = relationship("Tenant")
 
 
-class AuditLog(Base):
+class AuditLog(Base) :
     __tablename__ = "audit_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Nullable for system actions
-    action = Column(String, index=True, nullable=False) # LOGIN, LOGOUT, CREATE, UPDATE, DELETE
-    details = Column(JSON, default={})
-    ip_address = Column(String, nullable=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    id = Column(Integer, primary_key=True, index = True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable = True)  # Nullable for system actions
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable = True) # Context for the action
+    action = Column(String, index = True, nullable = False)  # LOGIN, LOGOUT, CREATE, UPDATE, DELETE
+    details = Column(JSON, default = {})
+    ip_address = Column(String, nullable = True)
+    timestamp = Column(DateTime(timezone = True), server_default = func.now())
 
     user = relationship("User")
+    tenant = relationship("Tenant")
 
 
 class Device(Base):
