@@ -153,22 +153,3 @@ async def startup_event():
     
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
-
-# ONE-TIME: Fix Console Telematics logo_url to logo.png
-from app.db import AsyncSessionLocal as _ASL
-from sqlalchemy import text as _txt
-
-@app.get("/admin/fix-ct-logo-final")
-async def fix_ct_logo_final(secret: str = ""):
-    if secret != "inferth-fix-2024":
-        from fastapi import HTTPException
-        raise HTTPException(status_code=403, detail="Forbidden")
-    async with _ASL() as db:
-        try:
-            await db.execute(_txt("UPDATE tenants SET logo_url = '/static/logo.png' WHERE name = 'Console Telematics'"))
-            await db.commit()
-            rows = await db.execute(_txt("SELECT id, name, logo_url FROM tenants ORDER BY id"))
-            return {"status": "done", "tenants": [dict(r) for r in rows.mappings()]}
-        except Exception as e:
-            await db.rollback()
-            return {"status": "error", "detail": str(e)}
