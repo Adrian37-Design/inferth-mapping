@@ -421,68 +421,57 @@ class AuthManager {
             const wrapper = document.querySelector('.custom-select-wrapper');
             const selectedText = document.getElementById('selected-tenant-text');
 
-            // Fetch Data
+            if (!wrapper || !trigger || !optionsContainer) return;
+
+            // 1. Setup Interactivity Immediately (even before fetch)
+            trigger.onclick = (e) => {
+                e.stopPropagation();
+                wrapper.classList.toggle('active');
+            };
+
+            const closeDrop = (e) => {
+                if (!wrapper.contains(e.target)) wrapper.classList.remove('active');
+            };
+            document.removeEventListener('click', closeDrop);
+            document.addEventListener('click', closeDrop);
+
+            // 2. Fetch Data
+            optionsContainer.innerHTML = '<div class="custom-option">Loading...</div>';
             const response = await fetch(`${API_BASE}/auth/tenants`);
-            if (!response.ok) throw new Error('Failed to fetch companies');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
             const tenants = await response.json();
 
             if (!Array.isArray(tenants) || tenants.length === 0) {
-                if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option">No companies found</div>';
+                optionsContainer.innerHTML = '<div class="custom-option">No companies found</div>';
                 return;
             }
 
-            // 1. Setup Custom Dropdown Interactivity (Always active as baseline)
-            if (trigger && optionsContainer && wrapper) {
-                // Toggle
-                trigger.onclick = (e) => {
-                    e.stopPropagation();
-                    wrapper.classList.toggle('active');
-                };
+            // 3. Populate Options
+            optionsContainer.innerHTML = tenants.map(t => `
+                <div class="custom-option" data-value="${t.id}" data-name="${t.name}">
+                    ${t.logo ? `<img src="${t.logo}" alt="">` : '<i class="fas fa-building"></i>'}
+                    <span>${t.name}</span>
+                </div>
+            `).join('');
 
-                // Close on outside click
-                const closeDrop = (e) => {
-                    if (!wrapper.contains(e.target)) {
-                        wrapper.classList.remove('active');
-                    }
-                };
-                document.removeEventListener('click', closeDrop);
-                document.addEventListener('click', closeDrop);
-
-                // Populate Custom Options
-                optionsContainer.innerHTML = tenants.map(t => `
-                    <div class="custom-option" data-value="${t.id}" data-name="${t.name}">
-                        ${t.logo ? `<img src="${t.logo}" alt="">` : '<i class="fas fa-building"></i>'}
-                        <span>${t.name}</span>
-                    </div>
-                `).join('');
-
-                // Selection Logic
-                optionsContainer.querySelectorAll('.custom-option').forEach(opt => {
-                    opt.onclick = () => {
-                        const val = opt.getAttribute('data-value');
-                        const name = opt.getAttribute('data-name');
-                        if (hiddenInput) hiddenInput.value = val;
+            // 4. Selection Logic
+            optionsContainer.querySelectorAll('.custom-option').forEach(opt => {
+                opt.onclick = () => {
+                    const val = opt.getAttribute('data-value');
+                    const name = opt.getAttribute('data-name');
+                    if (hiddenInput && val) {
+                        hiddenInput.value = val;
                         if (selectedText) selectedText.textContent = name;
-                        wrapper.classList.remove('active');
-                    };
-                });
-            }
-
-            // 2. Optional: Replace with native select if user preference or for mobile?
-            // For now, let's KEEP the custom UI as primarly since it's premium, 
-            // but we can add a flag or detector if we wanted.
-            // I'll comment out the replacement logic to keep the custom feel.
-            /*
-            if (wrapper) {
-                // ... native select logic ...
-            }
-            */
+                    }
+                    wrapper.classList.remove('active');
+                };
+            });
 
         } catch (e) {
             console.error('Failed to load tenants', e);
-            // Leave original custom dropdown in place if fetch fails
             const optionsContainer = document.getElementById('tenant-options');
-            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option">Failed to load companies</div>';
+            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option text-error">Failed to load. Click to retry.</div>';
         }
     }
 
