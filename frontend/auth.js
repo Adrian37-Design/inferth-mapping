@@ -401,66 +401,70 @@ class AuthManager {
     // Load Tenants
     async loadTenants() {
         try {
-            const wrapper = document.querySelector('.custom-select-wrapper');
-            const trigger = document.getElementById('tenant-trigger');
-            const optionsContainer = document.getElementById('tenant-options');
             const hiddenInput = document.getElementById('tenant-select');
+            const optionsContainer = document.getElementById('tenant-options');
+            const trigger = document.getElementById('tenant-trigger');
+            const wrapper = document.querySelector('.custom-select-wrapper');
             const selectedText = document.getElementById('selected-tenant-text');
-
-            if (!wrapper || !trigger || !optionsContainer) return;
-
-            // Toggle Dropdown
-            trigger.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent closing immediately
-                wrapper.classList.toggle('open');
-            });
-
-            // Close on outside click
-            document.addEventListener('click', (e) => {
-                if (!wrapper.contains(e.target)) {
-                    wrapper.classList.remove('open');
-                }
-            });
 
             // Fetch Data
             const response = await fetch(`${API_BASE}/auth/tenants`);
+            if (!response.ok) throw new Error('Failed to fetch companies');
             const tenants = await response.json();
 
-            // Clear loading state
-            optionsContainer.innerHTML = '';
+            if (!Array.isArray(tenants) || tenants.length === 0) {
+                if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option">No companies found</div>';
+                return;
+            }
 
-            // Add Options
-            tenants.forEach(t => {
-                const option = document.createElement('div');
-                option.className = 'custom-option';
-                option.dataset.value = t.id;
+            // Replace the custom dropdown with a native <select> for reliability
+            if (wrapper) {
+                const selectEl = document.createElement('select');
+                selectEl.id = 'tenant-select';
+                selectEl.name = 'tenant';
+                selectEl.style.cssText = `
+                    width: 100%;
+                    padding: 0.875rem 1rem;
+                    font-size: 0.95rem;
+                    font-weight: 400;
+                    color: #f1f5f9;
+                    background: rgba(15, 23, 42, 0.8);
+                    border: 2px solid rgba(148, 163, 184, 0.2);
+                    border-radius: 12px;
+                    cursor: pointer;
+                    outline: none;
+                    appearance: none;
+                    -webkit-appearance: none;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: right 1rem center;
+                    transition: border-color 0.3s ease;
+                `;
 
-                // Logo or Default Icon
-                const logoHtml = t.logo
-                    ? `<img src="${API_BASE}${t.logo}" alt="${t.name}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;flex-shrink:0;" onerror="this.style.display='none'">`
-                    : `<i class="fas fa-building"></i>`;
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Select your company';
+                defaultOpt.disabled = true;
+                defaultOpt.selected = true;
+                selectEl.appendChild(defaultOpt);
 
-                option.innerHTML = `${logoHtml} <span>${t.name}</span>`;
-
-                // Handle Selection
-                option.addEventListener('click', () => {
-                    hiddenInput.value = t.id;
-                    const triggerLogoHtml = t.logo
-                        ? `<img src="${API_BASE}${t.logo}" alt="${t.name}" style="width:22px;height:22px;object-fit:contain;border-radius:4px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">`
-                        : `<i class="fas fa-building" style="margin-right:6px;"></i>`;
-                    selectedText.innerHTML = `${triggerLogoHtml} ${t.name}`;
-                    wrapper.classList.remove('open');
-
-                    // Mark selected visually
-                    document.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
-                    option.classList.add('selected');
+                tenants.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name;
+                    selectEl.appendChild(opt);
                 });
 
-                optionsContainer.appendChild(option);
-            });
+                selectEl.addEventListener('focus', () => selectEl.style.borderColor = 'var(--primary-color, #3b82f6)');
+                selectEl.addEventListener('blur', () => selectEl.style.borderColor = 'rgba(148, 163, 184, 0.2)');
+
+                // Replace the wrapper with the native select
+                wrapper.replaceWith(selectEl);
+            }
 
         } catch (e) {
-            console.error("Failed to load tenants", e);
+            console.error('Failed to load tenants', e);
+            // Leave original custom dropdown in place if fetch fails
             const optionsContainer = document.getElementById('tenant-options');
             if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option">Failed to load companies</div>';
         }
