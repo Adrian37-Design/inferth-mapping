@@ -6,7 +6,7 @@ async def init_branding():
     async with AsyncSessionLocal() as db:
         print("Initializing Branding...")
         
-        # 1. Inferth Mapping (Default)
+        # 1. Inferth Mapping (Default) — only create if missing
         result = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
         inferth = result.scalars().first()
         
@@ -15,27 +15,26 @@ async def init_branding():
             inferth = Tenant(name="Inferth Mapping")
             db.add(inferth)
         
-        inferth.primary_color = "#2D5F6D"
-        inferth.secondary_color = "#EF4835"
-        # Only set logo if not already set (don't overwrite uploaded logos)
+        # Only set defaults if not already set — never overwrite user-uploaded values
+        if not inferth.primary_color:
+            inferth.primary_color = "#2D5F6D"
+        if not inferth.secondary_color:
+            inferth.secondary_color = "#EF4835"
         if not inferth.logo_url:
             inferth.logo_url = "/static/Inferth_Mapping_Logo.png"
         
-        # 2. Console Telematics
-        result = await db.execute(select(Tenant).where(Tenant.name == "Console Telematics"))
-        console = result.scalars().first()
-        
-        if not console:
-            print("Creating Console Telematics tenant...")
-            console = Tenant(name="Console Telematics")
-            db.add(console)
-            
-        console.primary_color = "#10b981" # Green
-        console.secondary_color = "#94a3b8" # Silver
-        # Console Telematics always uses logo.png
-        console.logo_url = "/static/logo.png"
+        # 2. For ALL other tenants: only fill in missing color defaults
+        #    NEVER touch logo_url — it was set when the company was created via the UI
+        result = await db.execute(select(Tenant).where(Tenant.name != "Inferth Mapping"))
+        other_tenants = result.scalars().all()
+        for tenant in other_tenants:
+            if not tenant.primary_color:
+                tenant.primary_color = "#2D5F6D"
+            if not tenant.secondary_color:
+                tenant.secondary_color = "#EF4835"
+            # logo_url is intentionally never touched here
         
         await db.commit()
         print("Branding initialization complete!")
-        if inferth: print(f"Inferth Mapping: ID={inferth.id}")
-        if console: print(f"Console Telematics: ID={console.id}")
+        if inferth:
+            print(f"Inferth Mapping: ID={inferth.id}")
