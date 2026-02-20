@@ -1879,3 +1879,8 @@ body {
     z-index: 1;
     /* Ensure controls are clickable */
 }
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
