@@ -21,7 +21,7 @@ class AuditLogOut(BaseModel):
     user_email: Optional[str] = None # Computed field
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.get("/", response_model=List[AuditLogOut])
 async def get_audit_logs(

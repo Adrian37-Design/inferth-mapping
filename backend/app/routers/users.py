@@ -35,7 +35,7 @@ class UserOut(BaseModel):
     tenant_name: Optional[str] = None # Added via property or select_from
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.get("/", response_model=List[UserOut])
 async def get_users(
