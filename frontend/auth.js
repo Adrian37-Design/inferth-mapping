@@ -426,11 +426,11 @@ class AuthManager {
             // 1. Setup Interactivity Immediately (even before fetch)
             trigger.onclick = (e) => {
                 e.stopPropagation();
-                wrapper.classList.toggle('active');
+                wrapper.classList.toggle('open');
             };
 
             const closeDrop = (e) => {
-                if (!wrapper.contains(e.target)) wrapper.classList.remove('active');
+                if (!wrapper.contains(e.target)) wrapper.classList.remove('open');
             };
             document.removeEventListener('click', closeDrop);
             document.addEventListener('click', closeDrop);
@@ -464,7 +464,7 @@ class AuthManager {
                         hiddenInput.value = val;
                         if (selectedText) selectedText.textContent = name;
                     }
-                    wrapper.classList.remove('active');
+                    wrapper.classList.remove('open');
                 };
             });
 
