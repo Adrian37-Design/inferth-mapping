@@ -15,6 +15,11 @@ class DeviceCreate(BaseModel):
     tenant_name: str | None = None
 
 @router.post("/")
+async def create_device(
+    payload: DeviceCreate, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
     # Enforce tenant isolation on creation
     target_tenant_id = None
     if current_user.tenant_id == 1 and payload.tenant_name:
