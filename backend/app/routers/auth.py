@@ -126,7 +126,41 @@ async def get_tenants(db: AsyncSession = Depends(get_db)):
     tenants = result.all()
     return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
 
-from sqlalchemy.orm import joinedload
+class UpdateTenantRequest(BaseModel):
+    name: Optional[str] = None
+
+@router.patch("/tenants/{tenant_id}")
+async def update_tenant(
+    tenant_id: int,
+    data: UpdateTenantRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Update a tenant (admin only)"""
+    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = result.scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Company not found")
+    if data.name:
+        tenant.name = data.name
+    await db.commit()
+    return {"id": tenant.id, "name": tenant.name, "logo": tenant.logo_url}
+
+@router.delete("/tenants/{tenant_id}", status_code=204)
+async def delete_tenant(
+    tenant_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Delete a tenant (admin only)"""
+    result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    tenant = result.scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Company not found")
+    await db.delete(tenant)
+    await db.commit()
+
+
 
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):

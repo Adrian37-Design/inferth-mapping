@@ -17,7 +17,9 @@ async def init_branding():
         
         inferth.primary_color = "#2D5F6D"
         inferth.secondary_color = "#EF4835"
-        inferth.logo_url = "/static/Inferth_Mapping_Logo.png"
+        # Only set logo if not already set (don't overwrite uploaded logos)
+        if not inferth.logo_url:
+            inferth.logo_url = "/static/Inferth_Mapping_Logo.png"
         
         # 2. Console Telematics
         result = await db.execute(select(Tenant).where(Tenant.name == "Console Telematics"))
@@ -30,7 +32,9 @@ async def init_branding():
             
         console.primary_color = "#10b981" # Green
         console.secondary_color = "#94a3b8" # Silver
-        console.logo_url = "/static/logo.png"
+        # Only set logo if not already set (don't overwrite uploaded logos)
+        if not console.logo_url:
+            console.logo_url = "/static/logo.png"
         
         await db.commit()
         print("Branding initialization complete!")
