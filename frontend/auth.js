@@ -479,8 +479,22 @@ class AuthManager {
     applyTheme(theme) {
         if (!theme) return;
         const root = document.documentElement;
-        if (theme.primary) root.style.setProperty('--primary', theme.primary);
-        if (theme.secondary) root.style.setProperty('--secondary', theme.secondary);
+
+        // Support both --primary (app.css) and --primary-color (auth.css)
+        if (theme.primary) {
+            root.style.setProperty('--primary', theme.primary);
+            root.style.setProperty('--primary-color', theme.primary);
+        }
+        if (theme.secondary) {
+            root.style.setProperty('--secondary', theme.secondary);
+            root.style.setProperty('--secondary-color', theme.secondary);
+        }
+
+        // Update Brand Name
+        if (this.user && this.user.company_name) {
+            const brandName = document.getElementById('nav-brand-name');
+            if (brandName) brandName.textContent = this.user.company_name;
+        }
 
         // Update Logo
         if (theme.logo) {

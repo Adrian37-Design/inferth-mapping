@@ -230,6 +230,7 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             "role": user.role,
             "is_admin": user.is_admin,
             "tenant_id": user.tenant_id,
+            "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
             "last_login": user.last_login,
             "theme": {
                 "logo": user.tenant.logo_url if user.tenant else None,
