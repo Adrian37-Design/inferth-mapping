@@ -597,7 +597,6 @@ window.openEditUser = async function (id, email, role, tenantId) {
     await populateTenantSelects();
     document.getElementById('edit-user-tenant').value = tenantId;
 
-    document.getElementById('users-modal').classList.add('hidden'); // temp hide list
     document.getElementById('edit-user-modal').classList.remove('hidden');
 }
 
@@ -622,7 +621,6 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
         if (!response.ok) throw new Error('Failed to update user');
 
         document.getElementById('edit-user-modal').classList.add('hidden');
-        document.getElementById('users-modal').classList.remove('hidden');
         loadUsers();
         alert('User updated successfully');
     } catch (error) {
@@ -632,15 +630,12 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
     }
 });
 
-// Cancel Edit
 document.getElementById('cancel-edit-user').addEventListener('click', () => {
     document.getElementById('edit-user-modal').classList.add('hidden');
-    document.getElementById('users-modal').classList.remove('hidden');
 });
 
 document.getElementById('close-edit-user').addEventListener('click', () => {
     document.getElementById('edit-user-modal').classList.add('hidden');
-    document.getElementById('users-modal').classList.remove('hidden');
 });
 
 document.getElementById('invite-user-form').addEventListener('submit', async (e) => {
