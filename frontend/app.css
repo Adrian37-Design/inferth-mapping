@@ -41,14 +41,14 @@ body {
 
 /* Navbar */
 .navbar {
-    background: var(--glass-bg);
+    background: linear-gradient(to right, #1a1c23, #2d3139);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding: 15px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
     z-index: 1000;
     height: 70px;
 }
