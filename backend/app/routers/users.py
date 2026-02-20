@@ -73,6 +73,13 @@ async def create_user(
     # Generate setup token
     setup_token = secrets.token_urlsafe(32)
     
+    # Enforce role restriction: Admin only for Tenant 1 (Inferth Mapping)
+    if user_in.role == "admin" and user_in.tenant_id != 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Admin role is only available for Inferth Mapping"
+        )
+    
     new_user = User(
         email=user_in.email,
         role=user_in.role,
@@ -112,6 +119,16 @@ async def update_user(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # Enforce role restriction
+    target_role = user_update.role if user_update.role is not None else user.role
+    target_tenant = user_update.tenant_id if user_update.tenant_id is not None else user.tenant_id
+    
+    if target_role == "admin" and target_tenant != 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Admin role is only available for Inferth Mapping"
+        )
         
     if user_update.role is not None:
         user.role = user_update.role
