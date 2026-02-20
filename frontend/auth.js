@@ -431,50 +431,52 @@ class AuthManager {
                 return;
             }
 
-            // Replace the custom dropdown with a native <select> for reliability
-            if (wrapper) {
-                const selectEl = document.createElement('select');
-                selectEl.id = 'tenant-select';
-                selectEl.name = 'tenant';
-                selectEl.style.cssText = `
-                    width: 100%;
-                    padding: 0.875rem 1rem;
-                    font-size: 0.95rem;
-                    font-weight: 400;
-                    color: #f1f5f9;
-                    background: rgba(15, 23, 42, 0.8);
-                    border: 2px solid rgba(148, 163, 184, 0.2);
-                    border-radius: 12px;
-                    cursor: pointer;
-                    outline: none;
-                    appearance: none;
-                    -webkit-appearance: none;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-                    background-repeat: no-repeat;
-                    background-position: right 1rem center;
-                    transition: border-color 0.3s ease;
-                `;
+            // 1. Setup Custom Dropdown Interactivity (Always active as baseline)
+            if (trigger && optionsContainer && wrapper) {
+                // Toggle
+                trigger.onclick = (e) => {
+                    e.stopPropagation();
+                    wrapper.classList.toggle('active');
+                };
 
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = '';
-                defaultOpt.textContent = 'Select your company';
-                defaultOpt.disabled = true;
-                defaultOpt.selected = true;
-                selectEl.appendChild(defaultOpt);
+                // Close on outside click
+                const closeDrop = (e) => {
+                    if (!wrapper.contains(e.target)) {
+                        wrapper.classList.remove('active');
+                    }
+                };
+                document.removeEventListener('click', closeDrop);
+                document.addEventListener('click', closeDrop);
 
-                tenants.forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.id;
-                    opt.textContent = t.name;
-                    selectEl.appendChild(opt);
+                // Populate Custom Options
+                optionsContainer.innerHTML = tenants.map(t => `
+                    <div class="custom-option" data-value="${t.id}" data-name="${t.name}">
+                        ${t.logo ? `<img src="${t.logo}" alt="">` : '<i class="fas fa-building"></i>'}
+                        <span>${t.name}</span>
+                    </div>
+                `).join('');
+
+                // Selection Logic
+                optionsContainer.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.onclick = () => {
+                        const val = opt.getAttribute('data-value');
+                        const name = opt.getAttribute('data-name');
+                        if (hiddenInput) hiddenInput.value = val;
+                        if (selectedText) selectedText.textContent = name;
+                        wrapper.classList.remove('active');
+                    };
                 });
-
-                selectEl.addEventListener('focus', () => selectEl.style.borderColor = 'var(--primary-color, #3b82f6)');
-                selectEl.addEventListener('blur', () => selectEl.style.borderColor = 'rgba(148, 163, 184, 0.2)');
-
-                // Replace the wrapper with the native select
-                wrapper.replaceWith(selectEl);
             }
+
+            // 2. Optional: Replace with native select if user preference or for mobile?
+            // For now, let's KEEP the custom UI as primarly since it's premium, 
+            // but we can add a flag or detector if we wanted.
+            // I'll comment out the replacement logic to keep the custom feel.
+            /*
+            if (wrapper) {
+                // ... native select logic ...
+            }
+            */
 
         } catch (e) {
             console.error('Failed to load tenants', e);
