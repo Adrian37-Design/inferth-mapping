@@ -34,7 +34,7 @@ async def init_branding():
         console.secondary_color = "#94a3b8" # Silver
         # Only set logo if not already set (don't overwrite uploaded logos)
         if not console.logo_url:
-            console.logo_url = "/static/logo.png"
+            console.logo_url = "/static/console_telematics_logo.png"
         
         await db.commit()
         print("Branding initialization complete!")
