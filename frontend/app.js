@@ -124,11 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Global Admin Only: Companies Tab
+        const railCompaniesBtn = document.getElementById('rail-companies');
         if (user.role === 'admin' && user.tenant_id === 1) {
-            const railCompaniesBtn = document.getElementById('rail-companies');
             if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
         } else {
-            const railCompaniesBtn = document.getElementById('rail-companies');
             if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
         }
 
