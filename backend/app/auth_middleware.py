@@ -8,7 +8,7 @@ from app.config import settings
 from app.db import get_db
 from app.models import User
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
