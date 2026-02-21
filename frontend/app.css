@@ -75,13 +75,12 @@ body {
 }
 
 .nav-brand span {
-    background: linear-gradient(90deg, #F09433 0%, #E6683C 25%, #DC2743 50%, #CC2366 75%, #BC1888 100%);
-    background: linear-gradient(135deg, #ff8c00 0%, #ef4835 100%);
-    /* Orange to Logo Red */
+    background: linear-gradient(135deg, var(--primary, #ff8c00) 0%, var(--secondary, #ef4835) 100%);
+    /* Dynamic Theme Mapping */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 850;
-    filter: drop-shadow(0 0 10px rgba(239, 72, 53, 0.4));
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.15));
     transition: filter 0.3s ease;
 }
 

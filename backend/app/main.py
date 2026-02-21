@@ -230,15 +230,15 @@ async def repair_production_state():
     async with AsyncSessionLocal() as db:
         # 1. Fix Logos
         try:
-            # Point all Console Telematics variations to logo.png
+            # Point all Console Telematics variations to logo.png and set colors
             await db.execute(
-                text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/logo.png", "name": "Console Telematics"}
+                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/logo.png", "p": "#00B4D8", "s": "#90E0EF", "name": "Console Telematics"}
             )
             # Ensure Inferth Mapping is correct
             await db.execute(
-                text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/inferth_mapping_logo.png", "name": "Inferth Mapping"}
+                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/inferth_mapping_logo.png", "p": "#ff8c00", "s": "#ef4835", "name": "Inferth Mapping"}
             )
             await db.commit()
             results["steps"].append("Standardized all organization logo paths in DB")
