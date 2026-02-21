@@ -76,14 +76,16 @@ body {
 
 .nav-brand span {
     color: var(--primary, #05FFA1) !important;
-    background: linear-gradient(135deg, var(--primary, #05FFA1) 0%, var(--secondary, #00E5FF) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
     font-weight: 850;
-    filter: drop-shadow(0 0 12px rgba(5, 255, 161, 0.4));
-    text-shadow: 0 0 20px rgba(5, 255, 161, 0.2);
-    /* Enhanced shine fallback */
+    text-shadow: 0 0 10px var(--primary, #05FFA1),
+        0 0 20px rgba(5, 255, 161, 0.4);
     transition: all 0.3s ease;
+}
+
+transition: all 0.3s ease;
 }
 
 .nav-brand:hover span {
