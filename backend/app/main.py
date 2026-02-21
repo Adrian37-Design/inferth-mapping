@@ -277,7 +277,6 @@ async def repair_production_state():
 
     return results
 
-@app.get("/admin/repair-branding")
 
 # Add CORS middleware for frontend
 app.add_middleware(
