@@ -2074,8 +2074,11 @@ async function loadCompanies() {
         tableBody.innerHTML = companies.map(c => {
             // Sanitize logo path for spaces and casing
             let logoPath = c.logo;
-            if (logoPath && logoPath.includes('/static/')) {
+            if (logoPath && typeof logoPath === 'string') {
                 logoPath = logoPath.toLowerCase().replace(/ /g, '_');
+                if (!logoPath.startsWith('/static/') && !logoPath.startsWith('http')) {
+                    logoPath = '/static/' + logoPath;
+                }
             }
 
             return `
