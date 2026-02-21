@@ -75,13 +75,13 @@ body {
 }
 
 .nav-brand span {
-    color: var(--primary, #05FFA1) !important;
+    color: var(--primary, #00FF00) !important;
     background: none !important;
-    -webkit-background-clip: initial !important;
-    -webkit-text-fill-color: initial !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: var(--primary, #00FF00) !important;
     font-weight: 850;
-    text-shadow: 0 0 10px var(--primary, #05FFA1),
-        0 0 20px rgba(5, 255, 161, 0.4);
+    text-shadow: 0 0 10px var(--primary, #00FF00),
+        0 0 20px rgba(0, 255, 0, 0.4);
     transition: all 0.3s ease;
 }
 
