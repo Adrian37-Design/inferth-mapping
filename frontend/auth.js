@@ -1,7 +1,7 @@
 // Authentication Manager
-let API_BASE = '';
+window.API_BASE = window.API_BASE || '';
 if (window.location.hostname.includes('vercel.app')) {
-    API_BASE = 'https://inferth-mapping.up.railway.app';
+    window.API_BASE = 'https://inferth-mapping.up.railway.app';
 }
 
 class AuthManager {

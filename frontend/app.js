@@ -6,13 +6,13 @@ if (!window.AuthManager || !window.AuthManager.checkAuth()) {
 }
 
 // Use relative path for same-origin requests (Monolithic deployment)
-let API_URL = '';
-let WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/positions';
+window.API_URL = window.API_URL || '';
+window.WS_URL = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + window.location.host + '/ws/positions';
 
 // Only override if we are on Vercel (external frontend)
 if (window.location.hostname.includes('vercel.app')) {
-    API_URL = 'https://inferth-mapping.up.railway.app';
-    WS_URL = 'wss://inferth-mapping.up.railway.app/ws/positions';
+    window.API_URL = 'https://inferth-mapping.up.railway.app';
+    window.WS_URL = 'wss://inferth-mapping.up.railway.app/ws/positions';
 }
 
 // State
