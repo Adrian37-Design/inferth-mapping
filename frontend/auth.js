@@ -10,8 +10,12 @@ class AuthManager {
         this.token = localStorage.getItem('auth_token');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
 
-        // Apply theme when DOM is ready
-        if (this.user && this.user.theme) {
+        const isAuthPage = window.location.pathname.includes('login.html') ||
+            window.location.pathname.includes('signup.html') ||
+            window.location.pathname.includes('setup.html');
+
+        // Apply theme when DOM is ready, but skip for auth pages to keep system branding
+        if (this.user && this.user.theme && !isAuthPage) {
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', () => this.applyTheme(this.user.theme));
             } else {
