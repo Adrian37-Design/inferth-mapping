@@ -481,7 +481,7 @@ class AuthManager {
                 // FALLBACK: Show default Inferth Mapping if fetch fails during warm-up
                 optionsContainer.innerHTML = `
                     <div class="custom-option" data-value="1" data-name="Inferth Mapping">
-                        <i class="fas fa-building"></i>
+                        <img src="/static/inferth_mapping_logo.png" alt="" style="width: 24px; height: 24px;">
                         <span>Inferth Mapping (Default)</span>
                     </div>
                     <div class="custom-option text-error" style="pointer-events: none; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8em; padding-top: 5px;">
@@ -497,7 +497,12 @@ class AuthManager {
                         const name = fallbackOpt.getAttribute('data-name');
                         if (hiddenInput && val) {
                             hiddenInput.value = val;
-                            if (selectedText) selectedText.textContent = name;
+                            if (selectedText) {
+                                selectedText.innerHTML = `
+                                    <img src="/static/inferth_mapping_logo.png" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
+                                    <span>${name}</span>
+                                `;
+                            }
                         }
                         wrapper.classList.remove('open');
                     };
