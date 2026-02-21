@@ -230,15 +230,15 @@ async def repair_production_state():
     async with AsyncSessionLocal() as db:
         # 1. Fix Logos
         try:
-            # Point all Console Telematics variations to logo.png and set colors (Pure Neon Green #00FF00)
+            # Point all Console Telematics variations to logo.png and set colors (Pure Neon Green #00FF00 / Dark Navbar)
             await db.execute(
-                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/logo.png", "p": "#00FF00", "s": "#ADFF2F", "name": "Console Telematics"}
+                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s, navbar_bg = :nb, navbar_text_color = :nt WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/logo.png", "p": "#00FF00", "s": "#ADFF2F", "nb": "linear-gradient(to right, #1a1c23, #2d3139)", "nt": "#00FF00", "name": "Console Telematics"}
             )
-            # Ensure Inferth Mapping is correct
+            # Ensure Inferth Mapping is correct (White Navbar)
             await db.execute(
-                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/inferth_mapping_logo.png", "p": "#ff8c00", "s": "#ef4835", "name": "Inferth Mapping"}
+                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s, navbar_bg = :nb, navbar_text_color = :nt WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/inferth_mapping_logo.png", "p": "#ff8c00", "s": "#ef4835", "nb": "#ffffff", "nt": "#ff8c00", "name": "Inferth Mapping"}
             )
             await db.commit()
             results["steps"].append("Standardized all organization logo paths and colors in DB")

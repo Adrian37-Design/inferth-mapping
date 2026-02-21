@@ -413,8 +413,8 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "logo": (current_user.tenant.logo_url.lower().replace(" ", "_") if current_user.tenant.logo_url else None) if current_user.tenant_id == 1 else (current_user.tenant.logo_url if current_user.tenant else None),
             "primary": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D",
             "secondary": current_user.tenant.secondary_color if current_user.tenant else "#EF4835",
-            "navbar_bg": "#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)",
-            "navbar_text": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D"
+            "navbar_bg": current_user.tenant.navbar_bg if current_user.tenant and current_user.tenant.navbar_bg else ("#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)"),
+            "navbar_text": current_user.tenant.navbar_text_color if current_user.tenant and current_user.tenant.navbar_text_color else (current_user.tenant.primary_color if current_user.tenant else "#2D5F6D")
         }
     }
 

@@ -27,6 +27,8 @@ class Tenant(Base):
     logo_url = Column(String, nullable=True)
     primary_color = Column(String, default="#2D5F6D") # Default Inferth Teal
     secondary_color = Column(String, default="#EF4835") # Default Inferth Orange
+    navbar_bg = Column(String, nullable=True) # Will match logo background
+    navbar_text_color = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
