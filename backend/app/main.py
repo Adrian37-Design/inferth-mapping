@@ -16,11 +16,103 @@ app = FastAPI(title="Inferth Mapping")
 
 @app.on_event("startup")
 async def startup_event():
-    # Initialize Branding (Logos)
+    print("\n" + "="*50)
+    print("APPLICATION STARTUP SEQUENCE")
+    print("="*50)
+
+    # 1. Database Connection & Table Creation (with Retries)
+    from app.db import engine, Base, AsyncSessionLocal
+    from app.models import User, Tenant
+    from app.security import hash_password
+    from sqlalchemy.future import select
+    from sqlalchemy import text
+    import time
+
+    connection_ready = False
+    max_retries = 5
+    retry_delay = 5 # seconds
+
+    # Masked URL for logging
+    masked_url = str(settings.DATABASE_URL)
+    if "@" in masked_url:
+        masked_url = masked_url.split("//")[0] + "//" + masked_url.split("//")[1].split("@")[0].split(":")[0] + ":***@" + masked_url.split("@")[1]
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"Connecting to Database (Attempt {attempt}/{max_retries})...")
+            # We use a short timeout for the connection attempt to avoid hanging the lifespan
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("Successfully connected to database and verified tables.")
+            connection_ready = True
+            break
+        except Exception as e:
+            print(f"Database connection failed: {e}")
+            if attempt < max_retries:
+                print(f"Waiting {retry_delay}s before next attempt...")
+                await asyncio.sleep(retry_delay)
+            else:
+                print("CRITICAL: Failed to connect to database after maximum retries.")
+
+    if not connection_ready:
+        print("Starting app in DEGRADED mode (DB unavailable).")
+    else:
+        # 2. Schema Migration & Admin Setup
+        async with AsyncSessionLocal() as db:
+            try:
+                # 2a. Auto-Migration: Ensure columns exist
+                print("Checking schema integrity...")
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
+                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'"))
+                await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
+                
+                # Tenant Branding Migration
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL"))
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'"))
+                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"))
+                
+                await db.commit()
+                print("Schema migration: Columns checked/added.")
+
+                # 2b. Initialize Branding
+                try:
+                    await init_branding()
+                except Exception as e:
+                    print(f"Branding Init Failed: {e}")
+
+                # 2c. Ensure Tenant 1 (Inferth Mapping) exists
+                res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
+                tenant = res.scalars().first()
+                if not tenant:
+                    print("Creating default organization...")
+                    tenant = Tenant(name="Inferth Mapping")
+                    db.add(tenant)
+                    await db.commit()
+            except Exception as e:
+                print(f"Error during database initialization: {e}")
+
+    # 3. Start Optional Services
+    print("Starting background services...")
+    
+    # 3a. MQTT Client
     try:
-        await init_branding()
+        start_mqtt()
+        print("MQTT client started successfully")
     except Exception as e:
-        print(f"Branding Init Failed: {e}")
+        print(f"Warning: MQTT client not available: {e}")
+    
+    # 3b. TCP Tracker Server
+    try:
+        loop = asyncio.get_running_loop()
+        server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
+        print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+    except Exception as e:
+        print(f"Warning: TCP server not available: {e}")
+
+    print("="*50)
+    print("STARTUP SEQUENCE COMPLETE")
+    print("="*50 + "\n")
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -84,72 +176,11 @@ async def add_cors_headers(request, call_next):
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
-
 app.include_router(auth.router)
 app.include_router(devices.router)
 app.include_router(positions.router)
 app.include_router(users.router)
 app.include_router(audit.router)
-
-from app.db import engine, Base
-
-@app.on_event("startup")
-async def startup_event():
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Initialize/Reset Admin User (Auto-fix for Invalid Credentials)
-    from app.db import AsyncSessionLocal
-    from app.models import User, Tenant
-    from app.security import hash_password
-    from sqlalchemy.future import select
-    from sqlalchemy import text
-    
-    async with AsyncSessionLocal() as db:
-        try:
-            # 0. Auto-Migration: Ensure 'role' and 'driver_name' columns exist
-            try:
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'"))
-                await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
-                
-                # Tenant Branding Migration
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL"))
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'"))
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"))
-                
-                await db.commit()
-                print("Schema migration: Columns checked/added.")
-            except Exception as e:
-                print(f"Schema migration skipped or failed: {e}")
-                await db.rollback()
-
-            # 1. Ensure Tenant 1 (Inferth Mapping) exists
-            res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-            tenant = res.scalars().first()
-            if not tenant:
-                tenant = Tenant(name="Inferth Mapping")
-                db.add(tenant)
-                await db.commit()
-        except Exception as e:
-            print(f"Error initializing users: {e}")
-    
-    # start MQTT client (optional - for device tracking)
-    try:
-        start_mqtt()
-        print("MQTT client started successfully")
-    except Exception as e:
-        print(f"Warning: MQTT client not available: {e}")
-    
-    # start TCP server for tracker devices (optional)
-    try:
-        loop = asyncio.get_running_loop()
-        server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
-        print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
-    except Exception as e:
-        print(f"Warning: TCP server not available: {e}")
     
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

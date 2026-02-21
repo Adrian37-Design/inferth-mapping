@@ -45,7 +45,7 @@ class UserResponse(BaseModel):
     setup_token: str | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 @router.post("/tenants", status_code=201)
 async def create_tenant(

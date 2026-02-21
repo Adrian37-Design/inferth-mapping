@@ -21,7 +21,7 @@ class PositionOut(BaseModel):
     timestamp: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -34,7 +34,7 @@ class UserOut(UserBase):
     tenant_id: int | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DeviceBase(BaseModel):
     imei: str
@@ -50,4 +50,4 @@ class DeviceOut(DeviceBase):
     created_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
