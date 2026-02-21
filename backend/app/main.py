@@ -82,12 +82,36 @@ async def run_migrations_and_branding():
                 except Exception as e:
                     print(f"Branding Init Warning: {e}")
 
-                # Ensure Default Tenant
+                # 3. Ensure Default Tenant & First Admin
+                from app.models import User
+                from app.security import hash_password
+                
                 res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-                if not res.scalars().first():
-                    print("Creating default Injecting 'Inferth Mapping' tenant...")
-                    db.add(Tenant(name="Inferth Mapping"))
+                tenant = res.scalars().first()
+                if not tenant:
+                    print("Seeding 'Inferth Mapping' tenant...")
+                    tenant = Tenant(name="Inferth Mapping")
+                    db.add(tenant)
                     await db.commit()
+                    await db.refresh(tenant)
+
+                # Check if any users exist
+                user_res = await db.execute(select(User))
+                if not user_res.scalars().first():
+                    print("No users found. Seeding first administrator...")
+                    admin_pwd = os.getenv("ADMIN_PASSWORD", "changeme")
+                    new_admin = User(
+                        email="adriankwaramba@gmail.com",
+                        hashed_password=hash_password(admin_pwd),
+                        role="admin",
+                        is_admin=True,
+                        is_active=True,
+                        tenant_id=tenant.id
+                    )
+                    db.add(new_admin)
+                    await db.commit()
+                    print(f"SUCCESS: Created admin adriankwaramba@gmail.com (Tenant: {tenant.name})")
+
             except Exception as e:
                 print(f"Initialization task error: {e}")
 
