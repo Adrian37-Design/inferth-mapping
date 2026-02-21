@@ -192,48 +192,49 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         raise HTTPException(status_code=503, detail="Database is initializing. Please try again in a few seconds.")
 
     try:
-        async with asyncio.timeout(10):
-            result = await db.execute(
-                select(User).options(joinedload(User.tenant)).where(User.email == data.email)
+        # Python 3.10: Use wait_for instead of timeout context manager
+        result = await asyncio.wait_for(
+            db.execute(select(User).options(joinedload(User.tenant)).where(User.email == data.email)),
+            timeout=10
+        )
+        user = result.scalars().first()
+            
+        if not user or not user.hashed_password:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
             )
-            user = result.scalars().first()
             
-            if not user or not user.hashed_password:
+        if data.tenant_id and user.tenant_id != data.tenant_id:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid credentials"
-                )
-                
-            if data.tenant_id and user.tenant_id != data.tenant_id:
-                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User does not belong to this company"
-                )
-            
-            if not verify_password(data.password, user.hashed_password):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid credentials"
-                )
-            
-            if not user.is_active:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Account not activated. Please complete setup first."
-                )
-            
-            # Update last_login
-            user.last_login = datetime.utcnow()
-            
-            # Audit Log
-            audit = AuditLog(
-                user_id=user.id,
-                action="LOGIN",
-                details={"email": user.email},
-                ip_address="127.0.0.1" 
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User does not belong to this company"
             )
-            db.add(audit)
-            await db.commit()
+        
+        if not verify_password(data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account not activated. Please complete setup first."
+            )
+        
+        # Update last_login
+        user.last_login = datetime.utcnow()
+        
+        # Audit Log
+        audit = AuditLog(
+            user_id=user.id,
+            action="LOGIN",
+            details={"email": user.email},
+            ip_address="127.0.0.1" 
+        )
+        db.add(audit)
+        await db.commit()
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Database connection timed out")
     except Exception as e:
@@ -325,7 +326,11 @@ async def create_user(
 ):
     """Create a new user (admin only). User must complete setup via token."""
     # Check if user already exists
-    result = await db.execute(select(User).where(User.email == data.email))
+    # Python 3.10: Use wait_for instead of timeout context manager
+    result = await asyncio.wait_for(
+        db.execute(select(User).where(User.email == data.email)),
+        timeout=10
+    )
     existing_user = result.scalars().first()
     
     if existing_user:
