@@ -71,7 +71,18 @@ async def list_devices(
         
     result = await db.execute(stmt)
     devices = result.scalars().all()
-    return [{"id": d.id, "imei": d.imei, "name": d.name or f"Device {d.imei}", "driver_name": d.driver_name, "tenant_id": d.tenant_id} for d in devices]
+    
+    # Robust serialization
+    output = []
+    for d in devices:
+        output.append({
+            "id": getattr(d, 'id', None),
+            "imei": getattr(d, 'imei', 'N/A'),
+            "name": getattr(d, 'name', None) or f"Device {getattr(d, 'imei', 'Unknown')}",
+            "driver_name": getattr(d, 'driver_name', None),
+            "tenant_id": getattr(d, 'tenant_id', None)
+        })
+    return output
 
 @router.delete("/{device_id}")
 async def delete_device(
