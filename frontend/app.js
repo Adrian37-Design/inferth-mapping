@@ -2064,7 +2064,17 @@ async function loadCompanies() {
 
     try {
         const response = await window.AuthManager.fetchAPI('/auth/tenants');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP ${response.status}`);
+        }
+
         const companies = await response.json();
+
+        if (!Array.isArray(companies)) {
+            console.error("Expected array for companies, got:", companies);
+            throw new Error("Invalid data format received from server");
+        }
 
         if (companies.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No companies found.</td></tr>';
