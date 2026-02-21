@@ -126,19 +126,22 @@ async def get_tenants(
 ):
     """List all available companies (Public for login, Admin for ID view)"""
     try:
-        # Fetch full Tenant objects to ensure attribute access works correctly
-        result = await db.execute(select(Tenant))
-        tenants = result.scalars().all()
+        # Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
+        async with asyncio.timeout(5):
+            query = text("SELECT id, name, logo_url FROM tenants")
+            result = await db.execute(query)
+            # result.mappings() allows us to access by column name reliably
+            tenants = result.mappings().all()
         
         # If logged in, but not a global admin, only show their own tenant
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
-            return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants if t.id == current_user.tenant_id]
+            return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants if t["id"] == current_user.tenant_id]
             
         # Public view or Global Admin view
-        return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
+        return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants]
     except Exception as e:
-        # If DB is not ready (e.g. table not created yet), return empty list instead of 500
-        print(f"Tenants fetch fallback (DB warming up): {e}")
+        # If DB is not ready or query times out, return empty list instead of 500/502
+        print(f"Tenants list fetch bypassed (DB warm-up/timeout): {e}")
         return []
 
 class UpdateTenantRequest(BaseModel):

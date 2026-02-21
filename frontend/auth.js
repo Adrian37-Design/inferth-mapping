@@ -477,20 +477,37 @@ class AuthManager {
             console.error('Failed to load tenants', e);
             const optionsContainer = document.getElementById('tenant-options');
             if (optionsContainer) {
-                optionsContainer.innerHTML = '<div class="custom-option text-error">Database warming up... retrying...</div>';
+                // FALLBACK: Show default Inferth Mapping if fetch fails during warm-up
+                optionsContainer.innerHTML = `
+                    <div class="custom-option" data-value="1" data-name="Inferth Mapping">
+                        <i class="fas fa-building"></i>
+                        <span>Inferth Mapping (Default)</span>
+                    </div>
+                    <div class="custom-option text-error" style="pointer-events: none; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8em; padding-top: 5px;">
+                        Loading other companies...
+                    </div>
+                `;
 
-                // Auto-retry after 5 seconds (up to 5 times)
+                // Re-bind click for the fallback option
+                const fallbackOpt = optionsContainer.querySelector('.custom-option');
+                if (fallbackOpt) {
+                    fallbackOpt.onclick = () => {
+                        const val = fallbackOpt.getAttribute('data-value');
+                        const name = fallbackOpt.getAttribute('data-name');
+                        if (hiddenInput && val) {
+                            hiddenInput.value = val;
+                            if (selectedText) selectedText.textContent = name;
+                        }
+                        wrapper.classList.remove('open');
+                    };
+                }
+
+                // Auto-retry after 3 seconds (up to 10 times) for the full list
                 if (!window._tenantRetryCount) window._tenantRetryCount = 0;
                 window._tenantRetryCount++;
 
-                if (window._tenantRetryCount <= 5) {
-                    setTimeout(() => this.loadTenants(), 5000);
-                } else {
-                    optionsContainer.innerHTML = '<div class="custom-option text-error">Failed to load. Click to retry manually.</div>';
-                    optionsContainer.onclick = () => {
-                        window._tenantRetryCount = 0;
-                        this.loadTenants();
-                    };
+                if (window._tenantRetryCount <= 10) {
+                    setTimeout(() => this.loadTenants(), 3000);
                 }
             }
         }
