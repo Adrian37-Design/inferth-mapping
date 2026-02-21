@@ -121,27 +121,30 @@ async def create_tenant(
 
 @router.get("/tenants")
 async def get_tenants(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """List all available companies (Public for login, Admin for ID view)"""
+    # 1. Immediate Fail-Fast if DB not ready
+    if not getattr(request.app.state, "db_ready", False):
+        print("Tenants list requested but DB not ready. Returning empty list.")
+        return []
+
     try:
-        # Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
+        # 2. Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
         async with asyncio.timeout(5):
             query = text("SELECT id, name, logo_url FROM tenants")
             result = await db.execute(query)
-            # result.mappings() allows us to access by column name reliably
             tenants = result.mappings().all()
         
-        # If logged in, but not a global admin, only show their own tenant
+        # 3. Filter and return
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
             return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants if t["id"] == current_user.tenant_id]
             
-        # Public view or Global Admin view
         return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants]
     except Exception as e:
-        # If DB is not ready or query times out, return empty list instead of 500/502
-        print(f"Tenants list fetch bypassed (DB warm-up/timeout): {e}")
+        print(f"Tenants list fetch bypassed (DB busy/timeout): {e}")
         return []
 
 class UpdateTenantRequest(BaseModel):
@@ -181,49 +184,59 @@ async def delete_tenant(
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Login with email and password"""
-    result = await db.execute(
-        select(User).options(joinedload(User.tenant)).where(User.email == data.email)
-    )
-    user = result.scalars().first()
-    
-    if not user or not user.hashed_password:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
-        
-    if data.tenant_id and user.tenant_id != data.tenant_id:
-         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User does not belong to this company"
-        )
-    
-    if not verify_password(data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account not activated. Please complete setup first."
-        )
-    
-    # Update last_login
-    user.last_login = datetime.utcnow()
-    
-    # Audit Log
-    audit = AuditLog(
-        user_id=user.id,
-        action="LOGIN",
-        details={"email": user.email},
-        ip_address="127.0.0.1" # TODO: Extract from request
-    )
-    db.add(audit)
-    await db.commit()
+    if not getattr(request.app.state, "db_ready", False):
+        raise HTTPException(status_code=503, detail="Database is initializing. Please try again in a few seconds.")
+
+    try:
+        async with asyncio.timeout(10):
+            result = await db.execute(
+                select(User).options(joinedload(User.tenant)).where(User.email == data.email)
+            )
+            user = result.scalars().first()
+            
+            if not user or not user.hashed_password:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid credentials"
+                )
+                
+            if data.tenant_id and user.tenant_id != data.tenant_id:
+                 raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User does not belong to this company"
+                )
+            
+            if not verify_password(data.password, user.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid credentials"
+                )
+            
+            if not user.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Account not activated. Please complete setup first."
+                )
+            
+            # Update last_login
+            user.last_login = datetime.utcnow()
+            
+            # Audit Log
+            audit = AuditLog(
+                user_id=user.id,
+                action="LOGIN",
+                details={"email": user.email},
+                ip_address="127.0.0.1" 
+            )
+            db.add(audit)
+            await db.commit()
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Database connection timed out")
+    except Exception as e:
+        print(f"Login error: {e}")
+        raise HTTPException(status_code=500, detail="An internal error occurred during login")
     
     token = create_access_token({
         "sub": user.email,

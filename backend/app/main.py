@@ -13,6 +13,7 @@ from app.branding import init_branding
 import os
 
 app = FastAPI(title="Inferth Mapping")
+app.state.db_ready = False
 
 async def run_migrations_and_branding():
     print("\n" + "="*50)
@@ -38,6 +39,7 @@ async def run_migrations_and_branding():
                     await conn.run_sync(Base.metadata.create_all)
             print("SUCCESS: Database connected and tables verified.")
             connection_ready = True
+            app.state.db_ready = True
             break
         except Exception as e:
             print(f"FAILED: Database attempt {attempt} failed: {e}")
