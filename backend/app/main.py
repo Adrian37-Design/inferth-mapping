@@ -217,28 +217,67 @@ async def health_check():
         
     return status
 
+@app.get("/admin/repair-production")
+async def repair_production_state():
+    """Diagnostic and Repair endpoint to fix DB state remotely"""
+    from app.db import AsyncSessionLocal
+    from app.models import Tenant, User
+    from sqlalchemy import select, update, text
+    import os
+    
+    results = {"steps": [], "diagnostics": {}}
+    
+    async with AsyncSessionLocal() as db:
+        # 1. Fix Logos
+        try:
+            # Point all Console Telematics variations to logo.png
+            await db.execute(
+                text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/logo.png", "name": "Console Telematics"}
+            )
+            # Ensure Inferth Mapping is correct
+            await db.execute(
+                text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/inferth_mapping_logo.png", "name": "Inferth Mapping"}
+            )
+            await db.commit()
+            results["steps"].append("Standardized all organization logo paths in DB")
+        except Exception as e:
+            results["steps"].append(f"Logo repair failed: {str(e)}")
+
+        # 2. Fix Admin User Tenant Assignment
+        try:
+            await db.execute(
+                text("UPDATE users SET tenant_id = 1 WHERE email = :email"),
+                {"email": "adriankwaramba@gmail.com"}
+            )
+            await db.commit()
+            results["steps"].append("Ensured adriankwaramba@gmail.com is assigned to Tenant #1")
+        except Exception as e:
+            results["steps"].append(f"Admin assignment repair failed: {str(e)}")
+
+        # 3. Diagnostics
+        try:
+            t_res = await db.execute(select(Tenant))
+            tenants = t_res.scalars().all()
+            results["diagnostics"]["tenants"] = [
+                {"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants
+            ]
+            
+            # Check static files
+            check_paths = ["frontend/logo.png", "/app/frontend/logo.png", "static/logo.png"]
+            found_files = []
+            for p in check_paths:
+                if os.path.exists(p):
+                    found_files.append(p)
+            results["diagnostics"]["files_found"] = found_files
+            
+        except Exception as e:
+            results["diagnostics"]["error"] = str(e)
+
+    return results
+
 @app.get("/admin/repair-branding")
-async def repair_branding_endpoint():
-    """Force repair branding in DB to fix case-sensitivity and paths"""
-    try:
-        from app.branding import init_branding
-        from app.db import AsyncSessionLocal
-        from app.models import Tenant
-        from sqlalchemy import select
-        
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-            tenant = result.scalars().first()
-            if tenant:
-                tenant.logo_url = "/static/inferth_mapping_logo.png"
-                tenant.primary_color = "#2D5F6D"
-                tenant.secondary_color = "#EF4835"
-                await db.commit()
-                return {"status": "success", "message": "Branding forced to correct values"}
-            else:
-                return {"status": "error", "message": "Tenant not found"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 # Add CORS middleware for frontend
 app.add_middleware(
