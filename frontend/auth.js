@@ -418,14 +418,15 @@ class AuthManager {
 
     // Load Tenants
     async loadTenants() {
-        try {
-            const hiddenInput = document.getElementById('tenant-select');
-            const optionsContainer = document.getElementById('tenant-options');
-            const trigger = document.getElementById('tenant-trigger');
-            const wrapper = document.querySelector('.custom-select-wrapper');
-            const selectedText = document.getElementById('selected-tenant-text');
+        const hiddenInput = document.getElementById('tenant-select');
+        const optionsContainer = document.getElementById('tenant-options');
+        const trigger = document.getElementById('tenant-trigger');
+        const wrapper = document.querySelector('.custom-select-wrapper');
+        const selectedText = document.getElementById('selected-tenant-text');
 
-            if (!wrapper || !trigger || !optionsContainer) return;
+        if (!wrapper || !trigger || !optionsContainer) return;
+
+        try {
 
             // 1. Setup Interactivity Immediately (even before fetch)
             trigger.onclick = (e) => {
