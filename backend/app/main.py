@@ -230,10 +230,10 @@ async def repair_production_state():
     async with AsyncSessionLocal() as db:
         # 1. Fix Logos
         try:
-            # Point all Console Telematics variations to logo.png and set colors
+            # Point all Console Telematics variations to logo.png and set colors (Vibrant Green)
             await db.execute(
                 text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/logo.png", "p": "#00B4D8", "s": "#90E0EF", "name": "Console Telematics"}
+                {"url": "/static/logo.png", "p": "#00df82", "s": "#00ffaf", "name": "Console Telematics"}
             )
             # Ensure Inferth Mapping is correct
             await db.execute(

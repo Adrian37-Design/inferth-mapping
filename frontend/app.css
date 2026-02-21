@@ -76,11 +76,10 @@ body {
 
 .nav-brand span {
     background: linear-gradient(135deg, var(--primary, #ff8c00) 0%, var(--secondary, #ef4835) 100%);
-    /* Dynamic Theme Mapping */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 850;
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.15));
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.3));
     transition: filter 0.3s ease;
 }
 
