@@ -228,6 +228,16 @@ async def repair_production_state():
     results = {"steps": [], "diagnostics": {}}
     
     async with AsyncSessionLocal() as db:
+        # 0. Structural Migration (Auto-add new columns)
+        try:
+            await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_bg VARCHAR"))
+            await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_text_color VARCHAR"))
+            await db.commit()
+            results["steps"].append("Database structural migration complete (Navbar columns added)")
+        except Exception as e:
+            results["errors"].append(f"Migration error: {str(e)}")
+            await db.rollback()
+
         # 1. Fix Logos
         try:
             # Point all Console Telematics variations to logo.png and set colors (Pure Neon Green #00FF00 / Dark Navbar)
