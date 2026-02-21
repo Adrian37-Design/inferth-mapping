@@ -135,10 +135,9 @@ async def get_tenants(
 
     try:
         # 2. Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
-        async with asyncio.timeout(5):
-            query = text("SELECT id, name, logo_url FROM tenants")
-            result = await db.execute(query)
-            tenants = result.mappings().all()
+        query = text("SELECT id, name, logo_url FROM tenants")
+        result = await asyncio.wait_for(db.execute(query), timeout=5)
+        tenants = result.mappings().all()
         
         # 3. Filter and return
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
