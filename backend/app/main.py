@@ -14,105 +14,106 @@ import os
 
 app = FastAPI(title="Inferth Mapping")
 
-@app.on_event("startup")
-async def startup_event():
+async def run_migrations_and_branding():
     print("\n" + "="*50)
-    print("APPLICATION STARTUP SEQUENCE")
+    print("BACKGROUND INITIALIZATION STARTED")
     print("="*50)
 
-    # 1. Database Connection & Table Creation (with Retries)
     from app.db import engine, Base, AsyncSessionLocal
-    from app.models import User, Tenant
-    from app.security import hash_password
+    from app.models import Tenant
     from sqlalchemy.future import select
     from sqlalchemy import text
     import time
 
     connection_ready = False
-    max_retries = 5
+    max_retries = 10
     retry_delay = 5 # seconds
-
-    # Masked URL for logging
-    masked_url = str(settings.DATABASE_URL)
-    if "@" in masked_url:
-        masked_url = masked_url.split("//")[0] + "//" + masked_url.split("//")[1].split("@")[0].split(":")[0] + ":***@" + masked_url.split("@")[1]
 
     for attempt in range(1, max_retries + 1):
         try:
             print(f"Connecting to Database (Attempt {attempt}/{max_retries})...")
-            # We use a short timeout for the connection attempt to avoid hanging the lifespan
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            print("Successfully connected to database and verified tables.")
+            # Set a timeout for the actual connection attempt
+            async with asyncio.timeout(30):
+                async with engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.create_all)
+            print("SUCCESS: Database connected and tables verified.")
             connection_ready = True
             break
         except Exception as e:
-            print(f"Database connection failed: {e}")
+            print(f"FAILED: Database attempt {attempt} failed: {e}")
             if attempt < max_retries:
-                print(f"Waiting {retry_delay}s before next attempt...")
+                print(f"Retrying in {retry_delay}s...")
                 await asyncio.sleep(retry_delay)
             else:
-                print("CRITICAL: Failed to connect to database after maximum retries.")
+                print("CRITICAL ERROR: Database unreachable after maximum retries.")
 
-    if not connection_ready:
-        print("Starting app in DEGRADED mode (DB unavailable).")
-    else:
-        # 2. Schema Migration & Admin Setup
+    if connection_ready:
         async with AsyncSessionLocal() as db:
             try:
-                # 2a. Auto-Migration: Ensure columns exist
-                print("Checking schema integrity...")
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'"))
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL"))
-                await db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'"))
-                await db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL"))
+                print("Checking schema integrity & performing auto-migrations...")
+                # Run these sequentially and commit each to avoid lock issues
+                migration_statements = [
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR DEFAULT 'admin'",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE DEFAULT NULL",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS accessible_assets JSON DEFAULT '[\"*\"]'",
+                    "ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"
+                ]
                 
-                # Tenant Branding Migration
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL"))
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'"))
-                await db.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"))
+                for stmt in migration_statements:
+                    try:
+                        await db.execute(text(stmt))
+                        await db.commit()
+                    except Exception as inner_e:
+                        print(f"Skipping migration step: {inner_e}")
+                        await db.rollback()
                 
-                await db.commit()
-                print("Schema migration: Columns checked/added.")
+                print("Schema migrations complete.")
 
-                # 2b. Initialize Branding
+                # Initialize Branding
                 try:
                     await init_branding()
+                    print("Branding initialization complete.")
                 except Exception as e:
-                    print(f"Branding Init Failed: {e}")
+                    print(f"Branding Init Warning: {e}")
 
-                # 2c. Ensure Tenant 1 (Inferth Mapping) exists
+                # Ensure Default Tenant
                 res = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
-                tenant = res.scalars().first()
-                if not tenant:
-                    print("Creating default organization...")
-                    tenant = Tenant(name="Inferth Mapping")
-                    db.add(tenant)
+                if not res.scalars().first():
+                    print("Creating default Injecting 'Inferth Mapping' tenant...")
+                    db.add(Tenant(name="Inferth Mapping"))
                     await db.commit()
             except Exception as e:
-                print(f"Error during database initialization: {e}")
+                print(f"Initialization task error: {e}")
 
-    # 3. Start Optional Services
+    print("="*50)
+    print("BACKGROUND INITIALIZATION FINISHED")
+    print("="*50 + "\n")
+
+@app.on_event("startup")
+async def startup_event():
+    # 1. Start Heavy Logic in Background to avoid 502 Gateway Timeouts during boot
+    asyncio.create_task(run_migrations_and_branding())
+
+    # 2. Start Immediate Services
     print("Starting background services...")
     
-    # 3a. MQTT Client
+    # MQTT Client
     try:
         start_mqtt()
         print("MQTT client started successfully")
     except Exception as e:
         print(f"Warning: MQTT client not available: {e}")
     
-    # 3b. TCP Tracker Server
+    # TCP Tracker Server
     try:
         loop = asyncio.get_running_loop()
         server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
         print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
     except Exception as e:
         print(f"Warning: TCP server not available: {e}")
-
-    print("="*50)
-    print("STARTUP SEQUENCE COMPLETE")
-    print("="*50 + "\n")
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
