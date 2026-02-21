@@ -246,8 +246,8 @@ class AuthManager {
 
             try {
                 await this.setupAccount(token, password);
-                // Redirect to dashboard
-                window.location.href = 'index.html';
+                // Redirect to login page with success message instead of dashboard
+                window.location.href = 'login.html?setup_success=true';
             } catch (error) {
                 this.showError(errorMessage, error.message);
                 signupBtn.disabled = false;
@@ -370,7 +370,22 @@ class AuthManager {
 
     // Initialize login page
     async initLoginPage() {
-        const tokenToken = new URLSearchParams(window.location.search).get('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const setupSuccess = urlParams.get('setup_success');
+
+        // Show success message if redirected from signup
+        if (setupSuccess) {
+            const errorMsg = document.getElementById('error-message');
+            if (errorMsg) {
+                errorMsg.textContent = 'Account setup complete! Please sign in.';
+                errorMsg.style.background = 'rgba(16, 185, 129, 0.1)';
+                errorMsg.style.color = '#10b981';
+                errorMsg.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                errorMsg.classList.add('show');
+            }
+        }
+
+        const tokenToken = urlParams.get('token');
         if (tokenToken) {
             return;
         }
