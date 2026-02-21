@@ -40,7 +40,6 @@ async def run_migrations_and_branding():
                     await conn.run_sync(Base.metadata.create_all)
             print("SUCCESS: Database connected and tables verified.")
             connection_ready = True
-            app.state.db_ready = True
             break
         except Exception as e:
             print(f"FAILED: Database attempt {attempt} failed: {e}")
@@ -112,8 +111,12 @@ async def run_migrations_and_branding():
                     await db.commit()
                     print(f"SUCCESS: Created admin adriankwaramba@gmail.com (Tenant: {tenant.name})")
 
+                # SET READY ONLY NOW
+                app.state.db_ready = True
             except Exception as e:
                 print(f"Initialization task error: {e}")
+                # Even if some seed fails, if we got this far, the core is likely ready
+                app.state.db_ready = True
 
     print("="*50)
     print("BACKGROUND INITIALIZATION FINISHED")
