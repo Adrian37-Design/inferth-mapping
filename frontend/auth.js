@@ -545,6 +545,12 @@ class AuthManager {
             root.style.setProperty('--secondary', theme.secondary);
             root.style.setProperty('--secondary-color', theme.secondary);
         }
+        if (theme.navbar_bg) {
+            root.style.setProperty('--nav-bg', theme.navbar_bg);
+        }
+        if (theme.navbar_text) {
+            root.style.setProperty('--nav-text-color', theme.navbar_text);
+        }
 
         // Apply Navbar Theme
         if (theme.navbar_bg) {

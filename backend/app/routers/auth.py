@@ -263,8 +263,8 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
                 "logo": (user.tenant.logo_url.lower().replace(" ", "_") if user.tenant.logo_url else None) if user.tenant_id == 1 else (user.tenant.logo_url if user.tenant else None),
                 "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
                 "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
-                "navbar_bg": "#ffffff" if user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)",
-                "navbar_text": user.tenant.primary_color if user.tenant else "#2D5F6D"
+                "navbar_bg": "#ffffff" if user.tenant_id == 1 else (user.tenant.primary_color if user.tenant else "#1a1c23"),
+                "navbar_text": user.tenant.primary_color if user.tenant_id == 1 else "#ffffff"
             }
         }
     }
