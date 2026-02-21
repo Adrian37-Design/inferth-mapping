@@ -261,7 +261,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
             "last_login": user.last_login,
             "theme": {
-                "logo": user.tenant.logo_url if user.tenant else None,
+                "logo": (user.tenant.logo_url.lower().replace(" ", "_") if user.tenant.logo_url else None) if user.tenant_id == 1 else (user.tenant.logo_url if user.tenant else None),
                 "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
                 "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
                 "navbar_bg": "#ffffff" if user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)",
@@ -406,8 +406,17 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return {
         "id": current_user.id,
         "email": current_user.email,
+        "role": current_user.role,
         "is_admin": current_user.is_admin,
-        "tenant_id": current_user.tenant_id
+        "tenant_id": current_user.tenant_id,
+        "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
+        "theme": {
+            "logo": (current_user.tenant.logo_url.lower().replace(" ", "_") if current_user.tenant.logo_url else None) if current_user.tenant_id == 1 else (current_user.tenant.logo_url if current_user.tenant else None),
+            "primary": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D",
+            "secondary": current_user.tenant.secondary_color if current_user.tenant else "#EF4835",
+            "navbar_bg": "#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)",
+            "navbar_text": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D"
+        }
     }
 
 @router.get("/verify-token/{token}")
