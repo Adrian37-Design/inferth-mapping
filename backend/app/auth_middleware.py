@@ -10,11 +10,22 @@ from app.models import User
 
 security = HTTPBearer(auto_error=False)
 
+from fastapi import Depends, HTTPException, status, Request
+import asyncio
+
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """Verify JWT token and return current user"""
+    # 1. Proactive DB check (Fail fast to avoid 502)
+    if not getattr(request.app.state, "db_ready", False):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="System is initializing. Please wait."
+        )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -33,9 +44,16 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
     
-    # Get user from database
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalars().first()
+    # 2. Get user from database with strict timeout
+    try:
+        async with asyncio.timeout(5):
+            result = await db.execute(select(User).where(User.id == user_id))
+            user = result.scalars().first()
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Identity verification timed out")
+    except Exception as e:
+        print(f"Auth DB error: {e}")
+        raise HTTPException(status_code=500, detail="Authentication server busy")
     
     if user is None or not user.is_active:
         raise credentials_exception
