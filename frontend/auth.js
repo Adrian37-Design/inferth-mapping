@@ -447,8 +447,9 @@ class AuthManager {
             const tenants = await response.json();
 
             if (!Array.isArray(tenants) || tenants.length === 0) {
-                optionsContainer.innerHTML = '<div class="custom-option">No companies found</div>';
-                return;
+                // If the list is empty, it might be that the DB is still warming up
+                // Trigger the same retry logic as a failure
+                throw new Error("Empty tenants list (DB warming up)");
             }
 
             // 3. Populate Options
@@ -475,7 +476,23 @@ class AuthManager {
         } catch (e) {
             console.error('Failed to load tenants', e);
             const optionsContainer = document.getElementById('tenant-options');
-            if (optionsContainer) optionsContainer.innerHTML = '<div class="custom-option text-error">Failed to load. Click to retry.</div>';
+            if (optionsContainer) {
+                optionsContainer.innerHTML = '<div class="custom-option text-error">Database warming up... retrying...</div>';
+
+                // Auto-retry after 5 seconds (up to 5 times)
+                if (!window._tenantRetryCount) window._tenantRetryCount = 0;
+                window._tenantRetryCount++;
+
+                if (window._tenantRetryCount <= 5) {
+                    setTimeout(() => this.loadTenants(), 5000);
+                } else {
+                    optionsContainer.innerHTML = '<div class="custom-option text-error">Failed to load. Click to retry manually.</div>';
+                    optionsContainer.onclick = () => {
+                        window._tenantRetryCount = 0;
+                        this.loadTenants();
+                    };
+                }
+            }
         }
     }
 
