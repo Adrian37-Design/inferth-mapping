@@ -96,35 +96,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = window.AuthManager.user; // Use property directly
 
         // Show/Hide Role Specific Items
-        if (user.role !== 'admin' && user.role !== 'manager') {
-            // Viewer stuff
+        const railUsersBtn = document.getElementById('rail-users-btn');
+        const railAuditBtn = document.getElementById('rail-audit-btn');
+        const railCompaniesBtn = document.getElementById('rail-companies');
+
+        // 1. Management Tab (Users) - Admin or Manager
+        if (user.role === 'admin' || user.role === 'manager') {
+            if (railUsersBtn) railUsersBtn.classList.remove('hidden');
+        } else {
+            if (railUsersBtn) railUsersBtn.classList.add('hidden');
         }
 
-        // Load Data
-        try {
-            // loadVehicles(); // Called automatically above
-        } catch (e) {
-            console.error("Auto-load failed", e);
-        }
-
-        // If admin, show the button but don't auto-load
+        // 2. Audit Logs Tab - Admin only
         if (user.role === 'admin') {
-            // loadUsers() - moved to lazy load on tab click
-            const railAuditBtn = document.getElementById('rail-audit-btn');
             if (railAuditBtn) railAuditBtn.classList.remove('hidden');
         } else {
-            const railUsersBtn = document.getElementById('rail-users-btn');
-            if (railUsersBtn) railUsersBtn.style.display = 'none';
-
-            const railAuditBtn = document.getElementById('rail-audit-btn');
             if (railAuditBtn) railAuditBtn.classList.add('hidden');
-
-            const railCompaniesBtn = document.getElementById('rail-companies');
-            if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
         }
 
-        // Global Admin Only: Companies Tab
-        const railCompaniesBtn = document.getElementById('rail-companies');
+        // 3. Global Companies Tab - Tenant 1 Admin only
         if (user.role === 'admin' && user.tenant_id === 1) {
             if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
         } else {
