@@ -217,6 +217,29 @@ async def health_check():
         
     return status
 
+@app.get("/admin/repair-branding")
+async def repair_branding_endpoint():
+    """Force repair branding in DB to fix case-sensitivity and paths"""
+    try:
+        from app.branding import init_branding
+        from app.db import AsyncSessionLocal
+        from app.models import Tenant
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Tenant).where(Tenant.name == "Inferth Mapping"))
+            tenant = result.scalars().first()
+            if tenant:
+                tenant.logo_url = "/static/inferth_mapping_logo.png"
+                tenant.primary_color = "#2D5F6D"
+                tenant.secondary_color = "#EF4835"
+                await db.commit()
+                return {"status": "success", "message": "Branding forced to correct values"}
+            else:
+                return {"status": "error", "message": "Tenant not found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
