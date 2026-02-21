@@ -2071,13 +2071,20 @@ async function loadCompanies() {
             return;
         }
 
-        tableBody.innerHTML = companies.map(c => `
+        tableBody.innerHTML = companies.map(c => {
+            // Sanitize logo path for spaces and casing
+            let logoPath = c.logo;
+            if (logoPath && logoPath.includes('/static/')) {
+                logoPath = logoPath.toLowerCase().replace(/ /g, '_');
+            }
+
+            return `
             <tr>
                 <td>
                     <div class="user-avatar" style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        ${c.logo
-                ? `<img src="${c.logo}" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\\'fas fa-building\\' style=\\'color:#888;\\'></i>'">`
-                : '<i class="fas fa-building" style="color:#888;"></i>'}
+                        ${logoPath
+                    ? `<img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\\'fas fa-building\\' style=\\'color:#888;\\'></i>'">`
+                    : '<i class="fas fa-building" style="color:#888;"></i>'}
                     </div>
                 </td>
                 <td><strong>${c.name}</strong></td>
@@ -2093,7 +2100,8 @@ async function loadCompanies() {
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
     } catch (error) {
         console.error("Failed to load companies:", error);
