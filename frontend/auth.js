@@ -522,6 +522,18 @@ class AuthManager {
     // Apply Theme
     applyTheme(theme) {
         if (!theme) return;
+
+        // 1. Sanitize logo path for case-sensitivity issues
+        if (theme.logo && typeof theme.logo === 'string') {
+            if (theme.logo.includes('/static/') && theme.logo.includes(' ')) {
+                // Production fix: Force standard lowercase name if space/case is suspicious
+                theme.logo = theme.logo.toLowerCase().replace(/ /g, '_');
+                console.log('Sanitized branding logo path to:', theme.logo);
+            } else if (theme.logo.includes('Inferth%20Mapping%20Logo.png')) {
+                theme.logo = '/static/inferth_mapping_logo.png';
+            }
+        }
+
         const root = document.documentElement;
 
         // Support both --primary (app.css) and --primary-color (auth.css)
