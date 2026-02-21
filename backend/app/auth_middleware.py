@@ -61,6 +61,7 @@ async def get_current_user(
     return user
 
 async def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
@@ -69,7 +70,7 @@ async def get_current_user_optional(
         return None
         
     try:
-        user = await get_current_user(credentials, db)
+        user = await get_current_user(request, credentials, db)
         return user
     except HTTPException:
         return None
