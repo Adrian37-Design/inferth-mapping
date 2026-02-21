@@ -75,8 +75,18 @@ body {
 }
 
 .nav-brand span {
-    color: var(--nav-text-color);
-    transition: color 0.3s ease;
+    background: linear-gradient(90deg, #F09433 0%, #E6683C 25%, #DC2743 50%, #CC2366 75%, #BC1888 100%);
+    background: linear-gradient(135deg, #ff8c00 0%, #ef4835 100%);
+    /* Orange to Logo Red */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 850;
+    filter: drop-shadow(0 0 10px rgba(239, 72, 53, 0.4));
+    transition: filter 0.3s ease;
+}
+
+.nav-brand:hover span {
+    filter: drop-shadow(0 0 15px rgba(239, 72, 53, 0.6));
 }
 
 .nav-stats {
@@ -96,14 +106,7 @@ body {
     font-weight: 600;
 }
 
-.stat-item i {
-    color: var(--nav-text-color);
-    opacity: 0.8;
-}
-
-#status-dot {
-    animation: pulse 2s infinite;
-}
+.stat-item i {}
 
 #status-dot.connected {
     color: var(--success);

@@ -21,7 +21,7 @@ async def init_branding():
         if not inferth.secondary_color:
             inferth.secondary_color = "#EF4835"
         if not inferth.logo_url:
-            inferth.logo_url = "/static/Inferth_Mapping_Logo.png"
+            inferth.logo_url = "/static/inferth_mapping_logo.png"
         
         # 2. For ALL other tenants: only fill in missing color defaults
         #    NEVER touch logo_url — it was set when the company was created via the UI
