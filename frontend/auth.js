@@ -538,59 +538,60 @@ class AuthManager {
     }
 
     // Apply Theme
+    // Apply corporate branding dynamically
     applyTheme(theme) {
         if (!theme) return;
 
-        // 1. Sanitize logo path for case-sensitivity issues
-        if (theme.logo && typeof theme.logo === 'string') {
-            if (theme.logo.includes('/static/') && theme.logo.includes(' ')) {
-                // Production fix: Force standard lowercase name if space/case is suspicious
-                theme.logo = theme.logo.toLowerCase().replace(/ /g, '_');
-                console.log('Sanitized branding logo path to:', theme.logo);
-            } else if (theme.logo.includes('Inferth%20Mapping%20Logo.png')) {
-                theme.logo = '/static/inferth_mapping_logo.png';
+        console.log("Applying theme:", theme);
+        const root = document.documentElement;
+
+        // Solid Pure Neon Green for branding elements
+        const primary = (theme.primary === '#00FF00' || theme.primary === '#05FFA1' || (this.user && this.user.company_name === 'Console Telematics')) ? '#00FF00' : (theme.primary || '#00FF00');
+        const secondary = theme.secondary || '#ADFF2F';
+
+        root.style.setProperty('--primary', primary);
+        root.style.setProperty('--secondary', secondary);
+
+        // Update Brand Name Text (Isolating color here)
+        const brandName = document.getElementById('nav-brand-name');
+        if (brandName) {
+            brandName.textContent = this.user.company_name || 'Console Telematics';
+            brandName.style.color = primary;
+        }
+
+        // Update Logo & Favicon
+        if (theme.logo) {
+            const logos = document.querySelectorAll('.brand-logo, .auth-logo');
+            logos.forEach(img => img.src = theme.logo);
+
+            let favicon = document.querySelector('link[rel="icon"]');
+            if (favicon) {
+                favicon.href = theme.logo;
+            } else {
+                favicon = document.createElement('link');
+                favicon.rel = 'icon';
+                favicon.href = theme.logo;
+                document.head.appendChild(favicon);
             }
         }
 
-        // Apply corporate branding dynamically
-        applyTheme(theme) {
-            if (!theme) return;
-
-            console.log("Applying theme:", theme);
-            const root = document.documentElement;
-
-            // Solid Pure Neon Green for branding elements
-            const primary = (theme.primary === '#00FF00' || theme.primary === '#05FFA1' || (this.user && this.user.company_name === 'Console Telematics')) ? '#00FF00' : (theme.primary || '#00FF00');
-            const secondary = theme.secondary || '#ADFF2F';
-
-            root.style.setProperty('--primary', primary);
-            root.style.setProperty('--secondary', secondary);
-
-            // Update Brand Name Text (Isolating color here)
-            const brandName = document.getElementById('nav-brand-name');
-            if (brandName) {
-                brandName.textContent = this.user.company_name || 'Console Telematics';
-                brandName.style.color = primary;
+        // Update User Identity Display
+        if (this.user) {
+            const userDisplay = document.getElementById('user-role-display');
+            if (userDisplay) {
+                userDisplay.textContent = `${this.user.email} (${this.user.role.toUpperCase()})`;
+                userDisplay.classList.add('show');
             }
+        }
 
-            // Update Logo & Favicon
-            if (theme.logo) {
-                const logos = document.querySelectorAll('.brand-logo, .auth-logo');
-                logos.forEach(img => img.src = theme.logo);
-
-                let favicon = document.querySelector('link[rel="icon"]');
-                if (favicon) favicon.href = theme.logo;
-            }
-
-            // Apply Navbar BG only if explicitly white (Inferth default)
-            if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
-                root.style.setProperty('--nav-bg', '#ffffff');
-                root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
-            } else {
-                // Force dark grey for corporate tenants
-                root.style.setProperty('--nav-bg', 'linear-gradient(to right, #1a1c23, #2d3139)');
-                root.style.setProperty('--nav-text-color', primary);
-            }
+        // Apply Navbar BG only if explicitly white (Inferth default)
+        if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
+            root.style.setProperty('--nav-bg', '#ffffff');
+            root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
+        } else {
+            // Force dark grey for corporate tenants
+            root.style.setProperty('--nav-bg', 'linear-gradient(to right, #1a1c23, #2d3139)');
+            root.style.setProperty('--nav-text-color', primary);
         }
     }
 
