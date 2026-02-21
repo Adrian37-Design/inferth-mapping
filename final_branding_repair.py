@@ -17,16 +17,16 @@ async def final_repair():
     
     async with async_session() as session:
         # 1. Update BOTH Console Telematics to use the correct logo.png
-        # The user confirmed they uploaded it and I see it in frontend/logo.png
-        print("Standardizing Console Telematics logo to /static/logo.png...")
+        # Use LIKE with ILIKE equivalent logic (case-insensitive and stripping whitespace)
+        print("Standardizing all variations of 'Console Telematics' logo to /static/logo.png...")
         await session.execute(
-            text("UPDATE tenants SET logo_url = :url WHERE name = :name"),
+            text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
             {"url": "/static/logo.png", "name": "Console Telematics"}
         )
         
         # 2. Fix Inferth Mapping logo path
         await session.execute(
-            text("UPDATE tenants SET logo_url = :url WHERE name = :name"),
+            text("UPDATE tenants SET logo_url = :url WHERE TRIM(LOWER(name)) = LOWER(:name)"),
             {"url": "/static/inferth_mapping_logo.png", "name": "Inferth Mapping"}
         )
         
