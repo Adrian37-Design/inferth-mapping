@@ -75,12 +75,14 @@ body {
 }
 
 .nav-brand span {
-    color: var(--primary, #00ff88);
-    background: linear-gradient(135deg, var(--primary, #00ff88) 0%, var(--secondary, #00ffcc) 100%);
+    color: var(--primary, #05FFA1) !important;
+    background: linear-gradient(135deg, var(--primary, #05FFA1) 0%, var(--secondary, #00E5FF) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 850;
-    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+    filter: drop-shadow(0 0 12px rgba(5, 255, 161, 0.4));
+    text-shadow: 0 0 20px rgba(5, 255, 161, 0.2);
+    /* Enhanced shine fallback */
     transition: all 0.3s ease;
 }
 
