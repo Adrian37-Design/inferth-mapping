@@ -233,7 +233,7 @@ async def repair_production_state():
             # Point all Console Telematics variations to logo.png and set colors (Electric Shining Green)
             await db.execute(
                 text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/logo.png", "p": "#00ff88", "s": "#00ffcc", "name": "Console Telematics"}
+                {"url": "/static/logo.png", "p": "#05FFA1", "s": "#00E5FF", "name": "Console Telematics"}
             )
             # Ensure Inferth Mapping is correct
             await db.execute(
@@ -241,18 +241,24 @@ async def repair_production_state():
                 {"url": "/static/inferth_mapping_logo.png", "p": "#ff8c00", "s": "#ef4835", "name": "Inferth Mapping"}
             )
             await db.commit()
-            results["steps"].append("Standardized all organization logo paths in DB")
+            results["steps"].append("Standardized all organization logo paths and colors in DB")
         except Exception as e:
             results["steps"].append(f"Logo repair failed: {str(e)}")
 
-        # 2. Fix Admin User Tenant Assignment
+        # 2. Fix User Tenant Assignments
         try:
+            # Fix Admin
             await db.execute(
                 text("UPDATE users SET tenant_id = 1 WHERE email = :email"),
                 {"email": "adriankwaramba@gmail.com"}
             )
+            # Fix Manager (from screenshot)
+            await db.execute(
+                text("UPDATE users SET tenant_id = (SELECT id FROM tenants WHERE name = 'Console Telematics' LIMIT 1) WHERE email = :email"),
+                {"email": "inferth2026@gmail.com"}
+            )
             await db.commit()
-            results["steps"].append("Ensured adriankwaramba@gmail.com is assigned to Tenant #1")
+            results["steps"].append("Ensured users are assigned to correct Tenants")
         except Exception as e:
             results["steps"].append(f"Admin assignment repair failed: {str(e)}")
 
