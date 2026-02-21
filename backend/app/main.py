@@ -13,6 +13,7 @@ from app.branding import init_branding
 import os
 
 app = FastAPI(title="Inferth Mapping")
+# Production Stability: db_ready flag tracks successful background initialization
 app.state.db_ready = False
 
 async def run_migrations_and_branding():
