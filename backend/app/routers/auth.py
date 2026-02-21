@@ -125,16 +125,21 @@ async def get_tenants(
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """List all available companies (Public for login, Admin for ID view)"""
-    # Fix: Fetch full Tenant objects to ensure attribute access works correctly
-    result = await db.execute(select(Tenant))
-    tenants = result.scalars().all()
-    
-    # If logged in, but not a global admin, only show their own tenant
-    if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
-        return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants if t.id == current_user.tenant_id]
+    try:
+        # Fetch full Tenant objects to ensure attribute access works correctly
+        result = await db.execute(select(Tenant))
+        tenants = result.scalars().all()
         
-    # Public view or Global Admin view
-    return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
+        # If logged in, but not a global admin, only show their own tenant
+        if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
+            return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants if t.id == current_user.tenant_id]
+            
+        # Public view or Global Admin view
+        return [{"id": t.id, "name": t.name, "logo": t.logo_url} for t in tenants]
+    except Exception as e:
+        # If DB is not ready (e.g. table not created yet), return empty list instead of 500
+        print(f"Tenants fetch fallback (DB warming up): {e}")
+        return []
 
 class UpdateTenantRequest(BaseModel):
     name: Optional[str] = None
