@@ -125,8 +125,9 @@ async def get_tenants(
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """List all available companies (Public for login, Admin for ID view)"""
-    result = await db.execute(select(Tenant.id, Tenant.name, Tenant.logo_url))
-    tenants = result.all()
+    # Fix: Fetch full Tenant objects to ensure attribute access works correctly
+    result = await db.execute(select(Tenant))
+    tenants = result.scalars().all()
     
     # If logged in, but not a global admin, only show their own tenant
     if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
