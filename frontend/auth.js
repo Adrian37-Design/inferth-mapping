@@ -552,65 +552,44 @@ class AuthManager {
             }
         }
 
-        const root = document.documentElement;
+        // Apply corporate branding dynamically
+        applyTheme(theme) {
+            if (!theme) return;
 
-        // Support both --primary (app.css) and --primary-color (auth.css)
-        if (theme.primary) {
-            root.style.setProperty('--primary', theme.primary);
-            root.style.setProperty('--primary-color', theme.primary);
-        }
-        if (theme.secondary) {
-            root.style.setProperty('--secondary', theme.secondary);
-            root.style.setProperty('--secondary-color', theme.secondary);
-        }
-        if (theme.navbar_bg) {
-            root.style.setProperty('--nav-bg', theme.navbar_bg);
-        }
-        if (theme.navbar_text) {
-            root.style.setProperty('--nav-text-color', theme.navbar_text);
-        }
+            console.log("Applying theme:", theme);
+            const root = document.documentElement;
 
-        // Apply Navbar Theme
-        if (theme.navbar_bg) {
-            root.style.setProperty('--nav-bg', theme.navbar_bg);
-        }
-        if (theme.navbar_text) {
-            root.style.setProperty('--nav-text-color', theme.navbar_text);
-        } else if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
-            root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
-        }
+            // Solid Pure Neon Green for branding elements
+            const primary = (theme.primary === '#00FF00' || theme.primary === '#05FFA1' || (this.user && this.user.company_name === 'Console Telematics')) ? '#00FF00' : (theme.primary || '#00FF00');
+            const secondary = theme.secondary || '#ADFF2F';
 
-        // Update Brand Name
-        if (this.user && this.user.company_name) {
+            root.style.setProperty('--primary', primary);
+            root.style.setProperty('--secondary', secondary);
+
+            // Update Brand Name Text (Isolating color here)
             const brandName = document.getElementById('nav-brand-name');
-            if (brandName) brandName.textContent = this.user.company_name;
-        }
-
-        // Update User Identity Display
-        if (this.user) {
-            const userDisplay = document.getElementById('user-role-display');
-            if (userDisplay) {
-                userDisplay.textContent = `${this.user.email} (${this.user.role.toUpperCase()})`;
-                userDisplay.classList.add('show');
+            if (brandName) {
+                brandName.textContent = this.user.company_name || 'Console Telematics';
+                brandName.style.color = primary;
             }
-        }
 
-        // Update Logo
-        if (theme.logo) {
-            const logos = document.querySelectorAll('.brand-logo, .auth-logo');
-            logos.forEach(img => {
-                img.src = theme.logo;
-            });
+            // Update Logo & Favicon
+            if (theme.logo) {
+                const logos = document.querySelectorAll('.brand-logo, .auth-logo');
+                logos.forEach(img => img.src = theme.logo);
 
-            // Handle Favicon
-            let favicon = document.querySelector('link[rel="icon"]');
-            if (favicon) {
-                favicon.href = theme.logo;
+                let favicon = document.querySelector('link[rel="icon"]');
+                if (favicon) favicon.href = theme.logo;
+            }
+
+            // Apply Navbar BG only if explicitly white (Inferth default)
+            if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
+                root.style.setProperty('--nav-bg', '#ffffff');
+                root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
             } else {
-                favicon = document.createElement('link');
-                favicon.rel = 'icon';
-                favicon.href = theme.logo;
-                document.head.appendChild(favicon);
+                // Force dark grey for corporate tenants
+                root.style.setProperty('--nav-bg', 'linear-gradient(to right, #1a1c23, #2d3139)');
+                root.style.setProperty('--nav-text-color', primary);
             }
         }
     }

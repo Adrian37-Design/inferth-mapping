@@ -45,7 +45,7 @@ body {
 
 /* Navbar */
 .navbar {
-    background: var(--nav-bg);
+    background: linear-gradient(to right, #1a1c23, #2d3139) !important;
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding: 15px 30px;
