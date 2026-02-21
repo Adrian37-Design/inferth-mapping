@@ -34,10 +34,11 @@ async def run_migrations_and_branding():
     for attempt in range(1, max_retries + 1):
         try:
             print(f"Connecting to Database (Attempt {attempt}/{max_retries})...")
-            # Set a timeout for the actual connection attempt
-            async with asyncio.timeout(30):
+            # Python 3.10 compatibility: use wait_for instead of timeout context manager
+            async def do_db_init():
                 async with engine.begin() as conn:
                     await conn.run_sync(Base.metadata.create_all)
+            await asyncio.wait_for(do_db_init(), timeout=30)
             print("SUCCESS: Database connected and tables verified.")
             connection_ready = True
             # Set ready immediately after connection/tables are verified

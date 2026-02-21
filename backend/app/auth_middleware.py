@@ -46,9 +46,9 @@ async def get_current_user(
     
     # 2. Get user from database with strict timeout
     try:
-        async with asyncio.timeout(5):
-            result = await db.execute(select(User).where(User.id == user_id))
-            user = result.scalars().first()
+        # Python 3.10: Use wait_for instead of timeout context manager
+        result = await asyncio.wait_for(db.execute(select(User).where(User.id == user_id)), timeout=5)
+        user = result.scalars().first()
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Identity verification timed out")
     except Exception as e:
