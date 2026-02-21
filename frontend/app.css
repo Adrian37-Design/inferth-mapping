@@ -61,10 +61,10 @@ body {
 .nav-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 1.4em;
-    font-weight: 700;
-    color: var(--primary);
+    gap: 15px;
+    font-size: 1.5em;
+    font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .brand-logo {
@@ -76,6 +76,7 @@ body {
 
 .nav-brand span {
     color: var(--nav-text-color);
+    transition: color 0.3s ease;
 }
 
 .nav-stats {
@@ -86,15 +87,18 @@ body {
 .stat-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: var(--card-bg);
-    padding: 8px 16px;
-    border-radius: 20px;
-    border: 1px solid rgba(45, 95, 109, 0.2);
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.95em;
+    font-weight: 600;
 }
 
 .stat-item i {
-    color: var(--primary);
+    color: var(--nav-text-color);
+    opacity: 0.8;
 }
 
 #status-dot {
