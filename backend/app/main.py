@@ -241,6 +241,10 @@ app.include_router(devices.router)
 app.include_router(positions.router)
 app.include_router(users.router)
 app.include_router(audit.router)
+
+@app.websocket("/ws/positions")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_listener(websocket)
     
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
