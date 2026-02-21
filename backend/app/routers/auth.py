@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import User, Tenant, AuditLog
@@ -8,6 +8,7 @@ from app.auth_middleware import require_admin, get_current_user, get_current_use
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
+from sqlalchemy import text
 from typing import Optional
 import secrets
 import shutil
