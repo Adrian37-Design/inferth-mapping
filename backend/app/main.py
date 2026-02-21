@@ -190,6 +190,32 @@ from fastapi.responses import RedirectResponse
 async def root():
     return RedirectResponse(url="/static/login.html")
 
+@app.get("/health")
+async def health_check():
+    from app.db import AsyncSessionLocal
+    from app.models import Tenant, User
+    from sqlalchemy import func
+    
+    status = {
+        "db_ready": getattr(app.state, "db_ready", False),
+        "tenants_count": 0,
+        "users_count": 0,
+        "database_connected": False
+    }
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            # Simple count to verify connection and data
+            t_count = await db.execute(select(func.count()).select_from(Tenant))
+            u_count = await db.execute(select(func.count()).select_from(User))
+            status["tenants_count"] = t_count.scalar()
+            status["users_count"] = u_count.scalar()
+            status["database_connected"] = True
+    except Exception as e:
+        status["error"] = str(e)
+        
+    return status
+
 # Add CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
