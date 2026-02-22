@@ -41,7 +41,7 @@ class UserOut(BaseModel):
 async def get_users(
     skip: int = 0, 
     limit: int = 100, 
-    current_user: User = Depends(require_admin), 
+    current_user: User = Depends(require_manager), 
     db: AsyncSession = Depends(get_db)
 ):
     """List all users (Admin only)"""
@@ -66,7 +66,7 @@ async def get_users(
 @router.post("/", response_model=UserOut)
 async def create_user(
     user_in: UserCreate, 
-    current_user: User = Depends(require_admin), 
+    current_user: User = Depends(require_manager), 
     db: AsyncSession = Depends(get_db)
 ):
     """Invite a new user"""
@@ -79,10 +79,11 @@ async def create_user(
     setup_token = secrets.token_urlsafe(32)
     
     # Enforce role restriction: Admin only for Tenant 1 (Inferth Mapping)
-    if user_in.role == "admin" and user_in.tenant_id != 1:
+    # AND: Managers cannot create Administrators
+    if user_in.role == "admin" and (user_in.tenant_id != 1 or current_user.role != "admin"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Admin role is only available for Inferth Mapping"
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You do not have permission to create Administrator accounts"
         )
     
     new_user = User(
@@ -123,7 +124,7 @@ async def create_user(
 async def update_user(
     user_id: int, 
     user_update: UserUpdate, 
-    current_user: User = Depends(require_admin), 
+    current_user: User = Depends(require_manager), 
     db: AsyncSession = Depends(get_db)
 ):
     """Update user role or status"""
@@ -145,6 +146,10 @@ async def update_user(
     # Enforce tenant isolation
     if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to update users in other companies")
+        
+    # Protection: Managers cannot edit Admin users
+    if current_user.role == "manager" and user.role == "admin":
+        raise HTTPException(status_code=403, detail="Managers cannot modify Administrator accounts")
         
     if user_update.role is not None:
         user.role = user_update.role
@@ -170,7 +175,7 @@ async def update_user(
 @router.delete("/{user_id}")
 async def delete_user(
     user_id: int, 
-    current_user: User = Depends(require_admin), 
+    current_user: User = Depends(require_manager), 
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a user"""
@@ -181,6 +186,14 @@ async def delete_user(
     user = result.scalars().first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    # Protection: Managers cannot delete Admin users
+    if current_user.role == "manager" and user.role == "admin":
+        raise HTTPException(status_code=403, detail="Managers cannot delete Administrator accounts")
+        
+    # Enforce tenant isolation
+    if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete users in other companies")
         
     # Nullify user_id in AuditLog before deleting user
     from sqlalchemy import update
