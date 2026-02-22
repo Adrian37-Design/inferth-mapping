@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
 from app.models import User, Tenant, AuditLog
-from app.auth_middleware import require_admin, get_current_user
+from app.auth_middleware import require_admin, require_manager, get_current_user
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List, Optional
