@@ -29,6 +29,14 @@ class Tenant(Base):
     secondary_color = Column(String, default="#EF4835") # Default Inferth Orange
     navbar_bg = Column(String, nullable=True) # Will match logo background
     navbar_text_color = Column(String, nullable=True)
+    
+    # Subscription & Billing (Step 10)
+    plan = Column(String, default="Basic") # Basic, Pro, Enterprise
+    subscription_status = Column(String, default="active") # active, past_due, canceled
+    billing_cycle = Column(String, default="Monthly")
+    next_billing_date = Column(DateTime(timezone=True), nullable=True)
+    features = Column(JSON, default={"reports": False, "advanced_rules": False, "geofencing": True})
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

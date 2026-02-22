@@ -265,6 +265,13 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
                 "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
                 "navbar_bg": "#ffffff" if user.tenant_id == 1 else (user.tenant.primary_color if user.tenant else "#1a1c23"),
                 "navbar_text": user.tenant.primary_color if user.tenant_id == 1 else "#ffffff"
+            },
+            "subscription": {
+                "plan": user.tenant.plan if user.tenant else "Basic",
+                "status": user.tenant.subscription_status if user.tenant else "active",
+                "cycle": user.tenant.billing_cycle if user.tenant else "Monthly",
+                "next_billing": user.tenant.next_billing_date.isoformat() if user.tenant and user.tenant.next_billing_date else None,
+                "features": user.tenant.features if user.tenant else {"reports": False, "advanced_rules": False, "geofencing": True}
             }
         }
     }
@@ -341,6 +348,13 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "secondary": current_user.tenant.secondary_color if current_user.tenant else "#EF4835",
             "navbar_bg": current_user.tenant.navbar_bg if current_user.tenant and current_user.tenant.navbar_bg else ("#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)"),
             "navbar_text": current_user.tenant.navbar_text_color if current_user.tenant and current_user.tenant.navbar_text_color else (current_user.tenant.primary_color if current_user.tenant else "#2D5F6D")
+        },
+        "subscription": {
+            "plan": current_user.tenant.plan if current_user.tenant else "Basic",
+            "status": current_user.tenant.subscription_status if current_user.tenant else "active",
+            "cycle": current_user.tenant.billing_cycle if current_user.tenant else "Monthly",
+            "next_billing": current_user.tenant.next_billing_date.isoformat() if current_user.tenant and current_user.tenant.next_billing_date else None,
+            "features": current_user.tenant.features if current_user.tenant else {"reports": False, "advanced_rules": False, "geofencing": True}
         }
     }
 

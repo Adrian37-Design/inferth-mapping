@@ -23,6 +23,12 @@ async def init_branding():
         if not inferth.logo_url:
             inferth.logo_url = "/static/inferth_mapping_logo.png"
         
+        # Subscription Initialization
+        if not inferth.plan or inferth.plan == "Basic":
+            inferth.plan = "Pro" # Core brand is Pro
+        if not inferth.features:
+            inferth.features = {"reports": True, "advanced_rules": True, "geofencing": True}
+        
         if not inferth.navbar_bg:
             inferth.navbar_bg = "#ffffff"
         if not inferth.navbar_text_color:
@@ -41,6 +47,10 @@ async def init_branding():
                 tenant.navbar_bg = "linear-gradient(to right, #1a1c23, #2d3139)"
             if not tenant.navbar_text_color:
                 tenant.navbar_text_color = "#ffffff"
+            if not tenant.plan:
+                tenant.plan = "Basic"
+            if not tenant.features:
+                tenant.features = {"reports": False, "advanced_rules": False, "geofencing": True}
             # logo_url is intentionally never touched here
         
         await db.commit()
