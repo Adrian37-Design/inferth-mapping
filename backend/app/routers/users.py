@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     is_active: bool
+    setup_token: Optional[str] = None
     tenant_id: int
     last_login: Optional[datetime] = None
     accessible_assets: Optional[List[str]] = None
@@ -67,7 +68,8 @@ async def get_users(
 async def create_user(
     user_in: UserCreate, 
     current_user: User = Depends(require_manager), 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    background_tasks: BackgroundTasks = None
 ):
     """Invite a new user"""
     # Check if user exists
@@ -108,15 +110,31 @@ async def create_user(
         tenant_id=current_user.tenant_id,
         action="CREATE_USER",
         details={"email": new_user.email, "role": new_user.role},
-        ip_address="127.0.0.1" # TODO: Extract from request
+        ip_address="127.0.0.1" 
     )
     db.add(audit)
     
     await db.commit()
     await db.refresh(new_user)
     
-    # Send Invite Email (Mock for now, or use Resend if configured)
-    # background_tasks.add_task(send_invite_email, new_user.email, setup_token)
+    # Send Invite Email
+    if background_tasks:
+        base_url = "https://inferth-mapping.up.railway.app" 
+        link = f"{base_url}/static/signup.html?token={setup_token}"
+        
+        subject = "Welcome to Console Telematics - Setup Your Account"
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #00FF00; text-shadow: 0 0 10px rgba(0,255,0,0.3);">Welcome to Console Telematics!</h2>
+            <p>You have been invited to join the platform as a <strong>{user_in.role}</strong>.</p>
+            <p>Please click the button below to set up your password and access your account:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{link}" style="background-color: #00FF00; color: #1a1c23; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Set Up Account</a>
+            </div>
+            <p style="font-size: 12px; color: #888;">If the button doesn't work, copy this link:<br>{link}</p>
+        </div>
+        """
+        background_tasks.add_task(send_email, new_user.email, subject, html_content)
     
     return new_user
 

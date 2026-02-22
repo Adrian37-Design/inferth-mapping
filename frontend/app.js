@@ -653,12 +653,11 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
     btn.textContent = 'Inviting...';
 
     try {
-        const response = await window.AuthManager.fetchAPI('/auth/create-user', {
+        const response = await window.AuthManager.fetchAPI('/users/', {
             method: 'POST',
             body: JSON.stringify({
                 email,
                 role,
-                is_admin: role === 'admin',
                 tenant_id: parseInt(tenantId)
             })
         });
