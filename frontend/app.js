@@ -203,7 +203,7 @@ function setupTabs() {
             if (sidebar) sidebar.classList.remove('collapsed');
 
             // Lazy Load Users
-            if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isAdmin()) {
+            if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isManager()) {
                 loadUsers();
                 usersLoaded = true;
             }
