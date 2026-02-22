@@ -23,6 +23,11 @@ async def init_branding():
         if not inferth.logo_url:
             inferth.logo_url = "/static/inferth_mapping_logo.png"
         
+        if not inferth.navbar_bg:
+            inferth.navbar_bg = "#ffffff"
+        if not inferth.navbar_text_color:
+            inferth.navbar_text_color = "#ff8c00"
+        
         # 2. For ALL other tenants: only fill in missing color defaults
         #    NEVER touch logo_url — it was set when the company was created via the UI
         result = await db.execute(select(Tenant).where(Tenant.name != "Inferth Mapping"))
@@ -32,6 +37,10 @@ async def init_branding():
                 tenant.primary_color = "#2D5F6D"
             if not tenant.secondary_color:
                 tenant.secondary_color = "#EF4835"
+            if not tenant.navbar_bg:
+                tenant.navbar_bg = "linear-gradient(to right, #1a1c23, #2d3139)"
+            if not tenant.navbar_text_color:
+                tenant.navbar_text_color = "#ffffff"
             # logo_url is intentionally never touched here
         
         await db.commit()
