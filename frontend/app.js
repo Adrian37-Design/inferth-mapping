@@ -535,7 +535,6 @@ async function toggleUserStatus(userId, isActive) {
             method: 'PATCH',
             body: JSON.stringify({ is_active: isActive })
         });
-        Broadway
         if (!response.ok) throw new Error('Failed to update status');
         // Silent success
     } catch (error) {
