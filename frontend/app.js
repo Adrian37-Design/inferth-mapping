@@ -532,10 +532,10 @@ async function loadUsers() {
 async function toggleUserStatus(userId, isActive) {
     try {
         const response = await window.AuthManager.fetchAPI(`/users/${userId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             body: JSON.stringify({ is_active: isActive })
         });
-
+        Broadway
         if (!response.ok) throw new Error('Failed to update status');
         // Silent success
     } catch (error) {
