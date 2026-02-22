@@ -219,8 +219,115 @@ function setupTabs() {
             if (targetId === 'tab-companies') {
                 loadCompanies();
             }
+
+            if (targetId === 'tab-billing') {
+                loadBillingData();
+            }
         });
     });
+}
+
+// --- Billing & Subscription Logic (Step 10) ---
+function loadBillingData() {
+    const user = window.AuthManager.user;
+    if (!user || !user.subscription) return;
+
+    const sub = user.subscription;
+
+    // 1. Populate Plan Details
+    const planName = document.getElementById('billing-plan-name');
+    const statusText = document.getElementById('billing-status');
+    const cycleText = document.getElementById('billing-cycle');
+    const nextDate = document.getElementById('billing-next-date');
+
+    if (planName) planName.textContent = sub.plan + ' Plan';
+    if (statusText) {
+        statusText.textContent = sub.status.charAt(0).toUpperCase() + sub.status.slice(1);
+        statusText.style.color = sub.status === 'active' ? 'var(--success)' : 'var(--danger)';
+    }
+    if (cycleText) cycleText.textContent = sub.cycle;
+    if (nextDate) {
+        if (sub.next_billing) {
+            const date = new Date(sub.next_billing);
+            nextDate.textContent = date.toLocaleDateString();
+        } else {
+            nextDate.textContent = '---';
+        }
+    }
+
+    // 2. Populate Usage (Active Assets)
+    // We count the markers on the map or the vehiclePositions keys
+    const activeCount = Object.keys(vehiclePositions).length;
+    const limit = sub.plan === 'Basic' ? 5 : sub.plan === 'Pro' ? 25 : 100;
+
+    const usageText = document.getElementById('billing-usage-text');
+    const usageBar = document.getElementById('billing-usage-bar');
+
+    if (usageText) usageText.textContent = `${activeCount} / ${limit}`;
+    if (usageBar) {
+        const percent = Math.min((activeCount / limit) * 100, 100);
+        usageBar.style.width = percent + '%';
+        usageBar.style.background = percent > 90 ? 'var(--danger)' : 'var(--primary)';
+    }
+
+    // 3. Populate Feature Access List
+    renderFeatureAccess(sub.features);
+
+    // 4. Global UI Locks
+    applyPremiumLocks(sub.features);
+}
+
+function renderFeatureAccess(features) {
+    const list = document.getElementById('billing-features-list');
+    if (!list) return;
+
+    const featureDefinitions = [
+        { key: 'tracking', label: 'Real-time Tracking', icon: 'fa-check-circle', alwaysOn: true },
+        { key: 'geofencing', label: 'Geofencing & Zones', icon: 'fa-draw-polygon' },
+        { key: 'reports', label: 'Intelligence Reports', icon: 'fa-chart-pie' },
+        { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bell' }
+    ];
+
+    list.innerHTML = featureDefinitions.map(f => {
+        const isEnabled = f.alwaysOn || features[f.key];
+        return `
+            <div class="feature-item ${isEnabled ? '' : 'locked'}">
+                <i class="fas ${isEnabled ? 'fa-check-circle' : 'fa-lock'}"></i>
+                <span>${f.label}</span>
+                ${!isEnabled ? '<span class="badge-premium">PRO</span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function applyPremiumLocks(features) {
+    // A. Reports Export Button
+    const exportBtn = document.querySelector('button[onclick="exportReport()"]');
+    if (exportBtn) {
+        if (!features.reports) {
+            exportBtn.classList.add('premium-locked', 'premium-locked-dim');
+            exportBtn.title = 'Upgrade to PRO to export reports';
+        } else {
+            exportBtn.classList.remove('premium-locked', 'premium-locked-dim');
+        }
+    }
+
+    // B. Advanced Rule Triggers (e.g., Harsh Braking)
+    const eventSelect = document.getElementById('rule-event');
+    if (eventSelect) {
+        const premiumOptions = ['harsh_braking', 'geofence_exit']; // Example premium events
+        Array.from(eventSelect.options).forEach(opt => {
+            if (premiumOptions.includes(opt.value)) {
+                if (!features.advanced_rules) {
+                    opt.disabled = true;
+                    opt.text = opt.text + ' (PRO)';
+                } else {
+                    opt.disabled = false;
+                    opt.text = opt.text.replace(' (PRO)', '');
+                }
+            }
+        });
+    }
 }
 
 function setupSidebarToggle() {

@@ -67,7 +67,12 @@ async def run_migrations_and_branding():
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_bg VARCHAR DEFAULT NULL",
-                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_text_color VARCHAR DEFAULT NULL"
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_text_color VARCHAR DEFAULT NULL",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan VARCHAR DEFAULT 'Basic'",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_status VARCHAR DEFAULT 'active'",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR DEFAULT 'Monthly'",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS features JSON DEFAULT '{\"reports\": false, \"advanced_rules\": false, \"geofencing\": true}'"
                 ]
                 
                 for stmt in migration_statements:
