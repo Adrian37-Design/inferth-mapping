@@ -65,7 +65,9 @@ async def run_migrations_and_branding():
                     "ALTER TABLE devices ADD COLUMN IF NOT EXISTS driver_name VARCHAR DEFAULT NULL",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS logo_url VARCHAR DEFAULT NULL",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS primary_color VARCHAR DEFAULT '#2D5F6D'",
-                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'"
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS secondary_color VARCHAR DEFAULT '#EF4835'",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_bg VARCHAR DEFAULT NULL",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS navbar_text_color VARCHAR DEFAULT NULL"
                 ]
                 
                 for stmt in migration_statements:
