@@ -169,6 +169,10 @@ async def update_user(
     if current_user.role == "manager" and user.role == "admin":
         raise HTTPException(status_code=403, detail="Managers cannot modify Administrator accounts")
         
+    # Hard Lock: Prevent managers from editing the core account
+    if current_user.role == "manager" and user.email.lower() == "inferth2026@gmail.com":
+        raise HTTPException(status_code=403, detail="The core account 'inferth2026@gmail.com' is protected and cannot be modified by Managers.")
+        
     if user_update.role is not None:
         user.role = user_update.role
     if user_update.is_active is not None:
@@ -208,6 +212,10 @@ async def delete_user(
     # Protection: Managers cannot delete Admin users
     if current_user.role == "manager" and user.role == "admin":
         raise HTTPException(status_code=403, detail="Managers cannot delete Administrator accounts")
+        
+    # Hard Lock: Prevent managers from deleting the core account
+    if current_user.role == "manager" and user.email.lower() == "inferth2026@gmail.com":
+        raise HTTPException(status_code=403, detail="The core account 'inferth2026@gmail.com' is protected and cannot be deleted by Managers.")
         
     # Enforce tenant isolation
     if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
