@@ -121,13 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
         }
 
-        // 3. Global Companies Tab - Tenant 1 Admin only
-        if (user.role === 'admin' && user.tenant_id === 1) {
-            if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
-        } else {
-            if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
-        }
-
         // Initialize WebSocket
         connectWebSocket();
     }
