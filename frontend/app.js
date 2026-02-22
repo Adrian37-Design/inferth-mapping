@@ -107,11 +107,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (railUsersBtn) railUsersBtn.classList.add('hidden');
         }
 
-        // 2. Audit Logs Tab - Admin only
-        if (user.role === 'admin') {
+        // 2. Audit Logs Tab - Admin or Manager
+        if (user.role === 'admin' || user.role === 'manager') {
             if (railAuditBtn) railAuditBtn.classList.remove('hidden');
         } else {
             if (railAuditBtn) railAuditBtn.classList.add('hidden');
+        }
+
+        // 3. Companies Tab - Global Admin Only (Tenant 1)
+        if (user.role === 'admin' && user.tenant_id === 1) {
+            if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
+        } else {
+            if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
         }
 
         // 3. Global Companies Tab - Tenant 1 Admin only
