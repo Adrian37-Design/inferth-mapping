@@ -317,12 +317,23 @@ function renderFeatureAccess(features, plan) {
         { key: 'users', label: plan === 'Basic' ? '1 User' : (plan === 'Professional' ? '5 Users' : 'Unlimited Users'), icon: 'fa-users', alwaysOn: true },
         { key: 'health', label: 'Device Health Status', icon: 'fa-heartbeat', alwaysOn: true },
         { key: 'geofencing', label: 'Geofencing & Zones', icon: 'fa-draw-polygon' },
-        { key: 'reports', label: 'Intelligence Reports', icon: 'fa-chart-pie' },
-        { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bolt' }
+        { key: 'reports', label: 'Mileage & Violation Reports', icon: 'fa-file-alt' },
+        { key: 'analytics', label: 'Full Fleet Analytics', icon: 'fa-chart-line' },
+        { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bolt' },
+        { key: 'support', label: 'Priority Support', icon: 'fa-headset' }
     ];
 
     list.innerHTML = featureDefinitions.map(f => {
-        const isEnabled = f.alwaysOn || features[f.key];
+        // Feature is enabled if hardcoded 'alwaysOn', matched in 'features' JSON, 
+        // or explicitly included in the Professional/Enterprise tiers
+        const isProfessionalTier = (plan === 'Professional' || plan === 'Enterprise');
+        let isEnabled = f.alwaysOn || features[f.key];
+
+        // Explicit Tier Overrides
+        if (f.key === 'reports' || f.key === 'analytics' || f.key === 'geofencing' || f.key === 'support') {
+            if (isProfessionalTier) isEnabled = true;
+        }
+
         return `
             <div class="feature-item ${isEnabled ? '' : 'locked'}">
                 <i class="fas ${isEnabled ? (f.icon || 'fa-check-circle') : 'fa-lock'}"></i>
