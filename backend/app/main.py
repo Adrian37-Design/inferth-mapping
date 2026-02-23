@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences
+from app.routers import auth, devices, positions, users, audit, geofences, payments, admin
 from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
@@ -188,6 +188,7 @@ for path in possible_paths:
         break
 
 if frontend_path:
+    # Static Files (UI and Uploads)
     app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
     print(f"Mounted static files from: {frontend_path}")
 else:
@@ -327,6 +328,8 @@ app.include_router(positions.router)
 app.include_router(users.router)
 app.include_router(audit.router)
 app.include_router(geofences.router)
+app.include_router(payments.router)
+app.include_router(admin.router)
 
 @app.websocket("/ws/positions")
 async def websocket_endpoint(websocket: WebSocket):

@@ -511,7 +511,10 @@
                         </div>
 
                         <div class="billing-footer">
-                            <button class="btn-primary"
+                            <button class="btn-primary" id="pay-now-btn">
+                                <i class="fas fa-credit-card"></i> Pay Now
+                            </button>
+                            <button class="btn-outline hidden" id="upgrade-tier-btn"
                                 onclick="alert('Contact sales@inferth.com to upgrade your plan.')">
                                 <i class="fas fa-arrow-circle-up"></i> Upgrade to Enterprise
                             </button>
@@ -802,6 +805,43 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=128"></script>
     <script src="/static/app.js?v=128"></script>
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal-overlay hidden">
+        <div class="modal-content payment-modal-content">
+            <div class="modal-header">
+                <h3>Select Payment Method</h3>
+                <button class="close-modal" onclick="closeModal('payment-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-options">
+                    <div class="payment-method-card" id="pay-paynow">
+                        <i class="fas fa-bolt"></i>
+                        <div class="method-text">
+                            <strong>Pay via Paynow</strong>
+                            <small>Instant activation (USD)</small>
+                        </div>
+                    </div>
+                    <div class="payment-method-card" id="pay-manual">
+                        <i class="fas fa-university"></i>
+                        <div class="method-text">
+                            <strong>Bank / Mobile Transfer</strong>
+                            <small>Manual approval required (USD)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="manual-payment-form" class="hidden">
+                    <hr>
+                    <h4>Upload Proof of Payment (POP)</h4>
+                    <p class="helper-text">Please upload a screenshot of your transfer receipt.</p>
+                    <input type="file" id="pop-upload-input" accept="image/*" class="file-input-neon">
+                    <button class="btn-primary full-width" id="submit-pop-btn">
+                        <i class="fas fa-upload"></i> Submit POP
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
