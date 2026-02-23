@@ -2420,7 +2420,7 @@ function setupGeofencing() {
     // "Save Zone" Button
     const saveGeoBtn = document.getElementById('save-geo-btn');
     if (saveGeoBtn) {
-        saveGeoBtn.onclick = function () {
+        saveGeoBtn.onclick = async function () {
             const nameInput = document.getElementById('geo-name');
             const name = nameInput ? nameInput.value : "Unnamed";
 
