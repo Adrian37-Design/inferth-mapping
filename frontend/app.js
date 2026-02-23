@@ -2444,24 +2444,35 @@ function setupGeofencing() {
             const channel = document.getElementById('geo-channel').value;
             const contact = document.getElementById('geo-contact').value;
 
-            // Save
+            // Save to Backend
             const newZone = {
-                id: Date.now(),
                 name: name,
                 color: color,
                 assets: selectedAssets,
                 alertRules: alerts,
                 notification: { channel, contact },
-                geoJSON: currentMiniLayer.toGeoJSON(),
-                layerId: L.stamp(currentMiniLayer)
+                geoJSON: currentMiniLayer.toGeoJSON()
             };
-            activeGeofences.push(newZone);
 
-            // Cleanup current drawing reference (it is now "saved")
-            currentMiniLayer = null;
+            try {
+                const response = await window.AuthManager.fetchAPI('/geofences/', {
+                    method: 'POST',
+                    body: JSON.stringify(newZone)
+                });
+                if (!response.ok) throw new Error('Failed to save geofence');
 
-            closeGeofenceForm(); // Resets inputs, shows list
-            renderGeofences(); // Re-draws list AND map items
+                const result = await response.json();
+                newZone.id = result.id; // Correct ID from backend
+                activeGeofences.push(newZone);
+
+                // Cleanup current drawing reference (it is now "saved")
+                currentMiniLayer = null;
+
+                closeGeofenceForm(); // Resets inputs, shows list
+                renderGeofences(); // Re-draws list AND map items
+            } catch (err) {
+                alert("Error saving: " + err.message);
+            }
         };
     }
 
@@ -2555,10 +2566,30 @@ function renderGeofences() {
     }
 }
 
-window.deleteGeofence = function (id) {
-    activeGeofences = activeGeofences.filter(z => z.id !== id);
-    renderGeofences();
+window.deleteGeofence = async function (id) {
+    if (!confirm("Are you sure you want to delete this zone?")) return;
+
+    try {
+        const response = await window.AuthManager.fetchAPI(`/geofences/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete');
+
+        activeGeofences = activeGeofences.filter(z => z.id !== id);
+        renderGeofences();
+    } catch (err) {
+        alert("Error deleting: " + err.message);
+    }
 };
+
+async function loadGeofences() {
+    try {
+        const response = await window.AuthManager.fetchAPI('/geofences/');
+        if (!response.ok) return;
+        activeGeofences = await response.json();
+        renderGeofences();
+    } catch (e) {
+        console.error("Failed to load geofences:", e);
+    }
+}
 
 function renderMockViolations() {
     const list = document.getElementById('geo-violations-list');
@@ -2595,6 +2626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         renderMockViolations();
         setupGeofencing();
+        loadGeofences();
     }, 1000);
 });
 

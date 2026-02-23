@@ -99,3 +99,19 @@ class Position(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     raw = Column(JSON, nullable=True)
     device = relationship("Device")
+
+
+class Geofence(Base):
+    __tablename__ = "geofences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    color = Column(String, default="#2D5F6D")
+    assets = Column(JSON, default=[]) # List of device IDs
+    alert_rules = Column(JSON, default={"entry": True, "exit": False})
+    notification = Column(JSON, default={"channel": "system", "contact": ""})
+    geojson = Column(JSON, nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    tenant = relationship("Tenant")
