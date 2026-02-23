@@ -27,6 +27,7 @@ let playbackIndex = 0;
 let playbackRoute = null;
 let playbackMarker = null;
 let editingVehicleId = null;
+let allVehicles = [];
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -983,6 +984,7 @@ async function loadVehicles() {
         if (!response.ok) throw new Error('Failed to load vehicles');
 
         const vehicles = await response.json();
+        allVehicles = vehicles; // Store globally for geofence assignment
 
         // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
@@ -2341,8 +2343,25 @@ let miniDrawControl = null;
 let miniDrawnItems = null; // Storing this globally now
 let currentMiniLayer = null;
 
-// Main FeatureGroup on the MAIN map (for showing active zones)
+// Main Map FeatureGroups
 let mainMapGeofenceGroup;
+
+function populateGeoAssetList() {
+    const list = document.getElementById('geo-asset-list');
+    if (!list) return;
+
+    if (allVehicles.length === 0) {
+        list.innerHTML = '<p class="helper-text">No vehicles available.</p>';
+        return;
+    }
+
+    list.innerHTML = allVehicles.map(v => `
+        <label class="checkbox-label">
+            <input type="checkbox" name="geo-assets" value="${v.id}">
+            <span>${v.name || v.imei}</span>
+        </label>
+    `).join('');
+}
 
 function setupGeofencing() {
     // Initialize Mini Map Immediately if elements exist
@@ -2386,6 +2405,9 @@ function setupGeofencing() {
             // Auto-open form if not open
             document.getElementById('new-geofence-form').classList.remove('hidden');
             document.getElementById('geofence-list').classList.add('hidden');
+
+            // Populate asset list
+            populateGeoAssetList();
         });
     }
 
@@ -2405,10 +2427,31 @@ function setupGeofencing() {
             if (!name) { alert("Please enter a name."); return; }
             if (!currentMiniLayer) { alert("Please draw a zone first."); return; }
 
+            // Get Color
+            const color = document.getElementById('geo-color').value || '#00d4ff';
+
+            // Get Selected Assets
+            const selectedAssets = Array.from(document.querySelectorAll('input[name="geo-assets"]:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // Get Alert Rules
+            const alerts = {
+                entry: document.getElementById('geo-rule-entry').checked,
+                exit: document.getElementById('geo-rule-exit').checked
+            };
+
+            // Notification Info
+            const channel = document.getElementById('geo-channel').value;
+            const contact = document.getElementById('geo-contact').value;
+
             // Save
             const newZone = {
                 id: Date.now(),
                 name: name,
+                color: color,
+                assets: selectedAssets,
+                alertRules: alerts,
+                notification: { channel, contact },
                 geoJSON: currentMiniLayer.toGeoJSON(),
                 layerId: L.stamp(currentMiniLayer)
             };
@@ -2462,7 +2505,15 @@ function closeGeofenceForm() {
 
     const checkboxes = document.querySelectorAll('#new-geofence-form input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
+
+    const colorInput = document.getElementById('geo-color');
+    if (colorInput) colorInput.value = '#2D5F6D';
+
     if (document.getElementById('geo-rule-entry')) document.getElementById('geo-rule-entry').checked = true; // Default
+
+    // Clear Asset List
+    const assetList = document.getElementById('geo-asset-list');
+    if (assetList) assetList.innerHTML = '<p class="helper-text">Loading vehicles...</p>';
 
     // Toggle UI
     document.getElementById('new-geofence-form').classList.add('hidden');
@@ -2477,8 +2528,11 @@ function renderGeofences() {
         container.innerHTML = '<p class="empty-state">No geofences active.</p>';
     } else {
         container.innerHTML = activeGeofences.map(zone => `
-            <div class="rule-item" style="border-left-color: var(--primary);">
-                <div class="rule-text"><i class="fas fa-vector-square"></i> ${zone.name}</div>
+            <div class="rule-item" style="border-left: 4px solid ${zone.color || 'var(--primary)'};">
+                <div class="rule-text">
+                    <strong>${zone.name}</strong><br>
+                    <small style="color:var(--text-muted)">${zone.assets.length} Assets Attached</small>
+                </div>
                 <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -2492,7 +2546,7 @@ function renderGeofences() {
         miniDrawnItems.clearLayers();
         activeGeofences.forEach(z => {
             const ly = L.geoJSON(z.geoJSON, {
-                style: { color: '#00d4ff', weight: 2, fillOpacity: 0.2 }
+                style: { color: z.color || '#00d4ff', weight: 3, fillOpacity: 0.25 }
             });
             // Bind tooltips or popups if needed
             ly.bindTooltip(z.name);

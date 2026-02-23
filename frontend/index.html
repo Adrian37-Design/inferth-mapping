@@ -387,7 +387,20 @@
                             <input type="text" id="geo-name" class="glass-input" placeholder="e.g. HQ Perimeter">
                         </div>
 
-                        <!-- Removed Assign Assets as requested -->
+                        <div class="form-group" style="margin-top:10px;">
+                            <label>Zone Color</label>
+                            <input type="color" id="geo-color" class="glass-input" value="#2D5F6D"
+                                style="height: 40px; cursor: pointer;">
+                        </div>
+
+                        <div class="form-group" style="margin-top:10px;">
+                            <label>Assign Assets</label>
+                            <div id="geo-asset-list" class="checkbox-group-scrollable">
+                                <!-- Populated by JS -->
+                                <p class="helper-text">Loading vehicles...</p>
+                            </div>
+                            <small class="helper-text">Selected vehicles will be monitored for this zone.</small>
+                        </div>
 
                         <div class="form-group" style="margin-top:10px;">
                             <label style="margin-bottom: 5px; display: block;">Alert Triggers</label>
@@ -406,7 +419,8 @@
                         <div class="form-group" style="margin-top:10px;">
                             <label>Notification Channel</label>
                             <div class="sentence-builder-row2" style="margin-top: 5px; justify-content: flex-start;">
-                                <select id="geo-channel" class="inline-select" style="width: auto;">
+                                <select id="geo-channel" class="inline-select" style="width: auto;"
+                                    onchange="document.getElementById('geo-contact').classList.toggle('hidden', this.value === 'system')">
                                     <option value="system">System Only</option>
                                     <option value="email">Email</option>
                                     <option value="sms">SMS</option>
