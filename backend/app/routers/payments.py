@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from app.db import get_db
-from app.models import Tenant, Transaction
-from app.auth import get_current_user
+from app.models import Tenant, Transaction, User
+from app.auth_middleware import get_current_user
 from paynow import Paynow
 import os
 import uuid
@@ -17,11 +18,11 @@ paynow = Paynow(
     PAYNOW_ID,
     PAYNOW_KEY,
     "https://inferth-mapping.up.railway.app/payments/paynow/webhook",
-    "https://inferth-mapping.up.railway.app/static/billing.html"
+    "https://inferth-mapping.up.railway.app/"
 )
 
 @router.post("/paynow/initiate")
-async def initiate_paynow(plan_name: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+async def initiate_paynow(plan_name: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Calculate Price
     price_map = {"Basic": 12, "Professional": 17, "Enterprise": 100} # Enterprise placeholder
     amount = price_map.get(plan_name, 12)
@@ -34,30 +35,30 @@ async def initiate_paynow(plan_name: str, db: Session = Depends(get_db), current
         status="pending"
     )
     db.add(txn)
-    db.commit()
-    db.refresh(txn)
+    await db.commit()
+    await db.refresh(txn)
 
     # Initiate Paynow
-    payment = paynow.create_payment(f"INV-{txn.id}", "adriankwaramba@gmail.com")
+    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email)
     payment.add(f"Inferth {plan_name} Subscription", amount)
     
     response = paynow.send(payment)
     
     if response.success:
         txn.paynow_reference = response.poll_url
-        db.commit()
+        await db.commit()
         return {"redirect_url": response.redirect_url, "txn_id": txn.id}
     else:
         txn.status = "failed"
-        db.commit()
+        await db.commit()
         raise HTTPException(status_code=500, detail="Failed to initiate Paynow")
 
 @router.post("/manual/upload-pop")
 async def upload_pop(
     file: UploadFile = File(...), 
     txn_id: int = None,
-    db: Session = Depends(get_db), 
-    current_user = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
 ):
     # 1. Identify or Create Transaction
     if not txn_id:
@@ -69,7 +70,8 @@ async def upload_pop(
         )
         db.add(txn)
     else:
-        txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
+        result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
+        txn = result.scalars().first()
         if not txn or txn.tenant_id != current_user.tenant_id:
             raise HTTPException(status_code=404, detail="Transaction not found")
         txn.status = "approval_pending"
@@ -89,13 +91,14 @@ async def upload_pop(
         f.write(await file.read())
     
     txn.proof_url = f"/static/uploads/{file_name}"
-    db.commit()
+    await db.commit()
     
     return {"message": "POP uploaded. Waiting for manual approval.", "txn_id": txn.id}
 
 @router.get("/status/{txn_id}")
-async def get_payment_status(txn_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
-    txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
+async def get_payment_status(txn_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
+    txn = result.scalars().first()
     if not txn or txn.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
@@ -105,8 +108,10 @@ async def get_payment_status(txn_id: int, db: Session = Depends(get_db), current
         if status.paid:
             txn.status = "paid"
             # Unlock Plan Logic
-            tenant = db.query(Tenant).filter(Tenant.id == txn.tenant_id).first()
-            tenant.subscription_status = "active"
-            db.commit()
+            result = await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
+            tenant = result.scalars().first()
+            if tenant:
+                tenant.subscription_status = "active"
+            await db.commit()
             
     return {"status": txn.status, "method": txn.payment_method, "created_at": txn.created_at}
