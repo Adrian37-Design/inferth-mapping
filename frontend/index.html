@@ -438,8 +438,14 @@
                         <!-- Plan Overview Card -->
                         <div class="billing-card plan-card">
                             <div class="plan-info">
-                                <span class="plan-badge" id="billing-plan-name">Basic Plan</span>
-                                <h2 class="subscription-status" id="billing-status">Active</h2>
+                                <div class="plan-main">
+                                    <span class="plan-badge" id="billing-plan-name">Basic Plan</span>
+                                    <h2 class="subscription-status" id="billing-status">Active</h2>
+                                </div>
+                                <div class="plan-pricing">
+                                    <span class="price">$12</span>
+                                    <span class="period">/vehicle/mo</span>
+                                </div>
                             </div>
                             <div class="billing-meta">
                                 <div class="meta-row">
@@ -464,13 +470,13 @@
                                 <div class="usage-bar-container">
                                     <div class="usage-bar" id="billing-usage-bar" style="width: 0%"></div>
                                 </div>
-                                <p class="usage-helper">Managed vehicles currently tracked in real-time.</p>
+                                <p class="usage-helper">Managed vehicles (Max 5 assets on Basic Plan).</p>
                             </div>
                         </div>
 
                         <!-- Feature Access List -->
                         <div class="billing-section">
-                            <h4 class="section-title">Feature Access</h4>
+                            <h4 class="section-title">Included in Your Plan</h4>
                             <div class="feature-access-list" id="billing-features-list">
                                 <!-- Populated by JS -->
                                 <div class="feature-item locked">
@@ -492,7 +498,7 @@
                         <div class="billing-footer">
                             <button class="btn-primary"
                                 onclick="alert('Contact sales@inferth.com to upgrade your plan.')">
-                                <i class="fas fa-arrow-circle-up"></i> Upgrade Plan
+                                <i class="fas fa-arrow-circle-up"></i> Upgrade to Enterprise
                             </button>
                         </div>
                     </div>
