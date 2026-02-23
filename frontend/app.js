@@ -265,24 +265,35 @@ function loadBillingData() {
                 <span class="period">/vehicle/mo</span>
             `;
             pricingDisplay.classList.remove('hidden');
+        } else if (sub.plan === 'Professional') {
+            pricingDisplay.innerHTML = `
+                <span class="price">$17</span>
+                <span class="period">/vehicle/mo</span>
+            `;
+            pricingDisplay.classList.remove('hidden');
         } else {
-            pricingDisplay.classList.add('hidden'); // Hide or show custom for Enterprise
+            pricingDisplay.classList.add('hidden'); // Enterprise or other
         }
     }
 
     // 2. Populate Usage (Active Assets)
-    // We count the markers on the map or the vehiclePositions keys
     const activeCount = Object.keys(vehiclePositions).length;
-    const limit = sub.plan === 'Basic' ? 5 : sub.plan === 'Pro' ? 25 : 100;
+    let limit = 5;
+    if (sub.plan === 'Professional') limit = 50;
+    else if (sub.plan === 'Enterprise') limit = 1000;
 
     const usageText = document.getElementById('billing-usage-text');
     const usageBar = document.getElementById('billing-usage-bar');
+    const usageHelper = document.getElementById('billing-usage-helper');
 
     if (usageText) usageText.textContent = `${activeCount} / ${limit}`;
     if (usageBar) {
         const percent = Math.min((activeCount / limit) * 100, 100);
         usageBar.style.width = percent + '%';
         usageBar.style.background = percent > 90 ? 'var(--danger)' : 'var(--primary)';
+    }
+    if (usageHelper) {
+        usageHelper.textContent = `Managed vehicles (Max ${limit} assets on ${sub.plan} Plan).`;
     }
 
     // 3. Populate Feature Access List
@@ -300,8 +311,8 @@ function renderFeatureAccess(features, plan) {
     const featureDefinitions = [
         { key: 'tracking', label: 'Live Tracking', icon: 'fa-map-marked-alt', alwaysOn: true },
         { key: 'alerts', label: 'Basic Alerts', icon: 'fa-bell', alwaysOn: true },
-        { key: 'history', label: plan === 'Basic' ? '7-14 Day History' : 'Unlimited History', icon: 'fa-history', alwaysOn: true },
-        { key: 'users', label: plan === 'Basic' ? '1 User' : 'Unlimited Users', icon: 'fa-users', alwaysOn: true },
+        { key: 'history', label: plan === 'Basic' ? '7-14 Day History' : (plan === 'Professional' ? '90-Day History' : 'Unlimited History'), icon: 'fa-history', alwaysOn: true },
+        { key: 'users', label: plan === 'Basic' ? '1 User' : (plan === 'Professional' ? '5 Users' : 'Unlimited Users'), icon: 'fa-users', alwaysOn: true },
         { key: 'health', label: 'Device Health Status', icon: 'fa-heartbeat', alwaysOn: true },
         { key: 'geofencing', label: 'Geofencing & Zones', icon: 'fa-draw-polygon' },
         { key: 'reports', label: 'Intelligence Reports', icon: 'fa-chart-pie' },
@@ -314,7 +325,7 @@ function renderFeatureAccess(features, plan) {
             <div class="feature-item ${isEnabled ? '' : 'locked'}">
                 <i class="fas ${isEnabled ? (f.icon || 'fa-check-circle') : 'fa-lock'}"></i>
                 <span>${f.label}</span>
-                ${!isEnabled ? '<span class="badge-premium">PRO</span>' : ''}
+                ${!isEnabled ? `<span class="badge-premium">${(plan === 'Basic' || (plan === 'Professional' && f.key === 'advanced_rules')) ? 'PRO' : 'ENT'}</span>` : ''}
             </div>
         `;
     }).join('');
@@ -329,6 +340,7 @@ function applyPremiumLocks(features) {
             exportBtn.title = 'Upgrade to PRO to export reports';
         } else {
             exportBtn.classList.remove('premium-locked', 'premium-locked-dim');
+            exportBtn.title = 'Export Fleet Intelligence';
         }
     }
 
@@ -340,7 +352,7 @@ function applyPremiumLocks(features) {
             if (premiumOptions.includes(opt.value)) {
                 if (!features.advanced_rules) {
                     opt.disabled = true;
-                    opt.text = opt.text + ' (PRO)';
+                    if (!opt.text.endsWith('(PRO)')) opt.text = opt.text + ' (PRO)';
                 } else {
                     opt.disabled = false;
                     opt.text = opt.text.replace(' (PRO)', '');
