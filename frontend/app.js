@@ -239,6 +239,7 @@ function loadBillingData() {
     const statusText = document.getElementById('billing-status');
     const cycleText = document.getElementById('billing-cycle');
     const nextDate = document.getElementById('billing-next-date');
+    const pricingDisplay = document.querySelector('.plan-pricing');
 
     if (planName) planName.textContent = sub.plan + ' Plan';
     if (statusText) {
@@ -252,6 +253,19 @@ function loadBillingData() {
             nextDate.textContent = date.toLocaleDateString();
         } else {
             nextDate.textContent = '---';
+        }
+    }
+
+    // Dynamic Pricing Update
+    if (pricingDisplay) {
+        if (sub.plan === 'Basic') {
+            pricingDisplay.innerHTML = `
+                <span class="price">$12</span>
+                <span class="period">/vehicle/mo</span>
+            `;
+            pricingDisplay.classList.remove('hidden');
+        } else {
+            pricingDisplay.classList.add('hidden'); // Hide or show custom for Enterprise
         }
     }
 
@@ -271,28 +285,33 @@ function loadBillingData() {
     }
 
     // 3. Populate Feature Access List
-    renderFeatureAccess(sub.features);
+    renderFeatureAccess(sub.features, sub.plan);
 
     // 4. Global UI Locks
     applyPremiumLocks(sub.features);
 }
 
-function renderFeatureAccess(features) {
+function renderFeatureAccess(features, plan) {
     const list = document.getElementById('billing-features-list');
     if (!list) return;
 
+    // Plan Specific Features (Basic requested: live tracking, basic alerts, 7-14 day history, 1 user, device health)
     const featureDefinitions = [
-        { key: 'tracking', label: 'Real-time Tracking', icon: 'fa-check-circle', alwaysOn: true },
+        { key: 'tracking', label: 'Live Tracking', icon: 'fa-map-marked-alt', alwaysOn: true },
+        { key: 'alerts', label: 'Basic Alerts', icon: 'fa-bell', alwaysOn: true },
+        { key: 'history', label: plan === 'Basic' ? '7-14 Day History' : 'Unlimited History', icon: 'fa-history', alwaysOn: true },
+        { key: 'users', label: plan === 'Basic' ? '1 User' : 'Unlimited Users', icon: 'fa-users', alwaysOn: true },
+        { key: 'health', label: 'Device Health Status', icon: 'fa-heartbeat', alwaysOn: true },
         { key: 'geofencing', label: 'Geofencing & Zones', icon: 'fa-draw-polygon' },
         { key: 'reports', label: 'Intelligence Reports', icon: 'fa-chart-pie' },
-        { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bell' }
+        { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bolt' }
     ];
 
     list.innerHTML = featureDefinitions.map(f => {
         const isEnabled = f.alwaysOn || features[f.key];
         return `
             <div class="feature-item ${isEnabled ? '' : 'locked'}">
-                <i class="fas ${isEnabled ? 'fa-check-circle' : 'fa-lock'}"></i>
+                <i class="fas ${isEnabled ? (f.icon || 'fa-check-circle') : 'fa-lock'}"></i>
                 <span>${f.label}</span>
                 ${!isEnabled ? '<span class="badge-premium">PRO</span>' : ''}
             </div>

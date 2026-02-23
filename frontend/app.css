@@ -801,6 +801,30 @@ body {
     margin-bottom: 20px;
 }
 
+.plan-main {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.plan-pricing {
+    text-align: right;
+}
+
+.plan-pricing .price {
+    font-size: 1.8em;
+    font-weight: 800;
+    color: var(--text-primary);
+    display: block;
+}
+
+.plan-pricing .period {
+    font-size: 0.7em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
 .plan-badge {
     background: rgba(45, 95, 109, 0.2);
     color: var(--primary);
