@@ -273,8 +273,14 @@ function loadBillingData() {
                 <span class="period">/vehicle/mo</span>
             `;
             pricingDisplay.classList.remove('hidden');
+        } else if (normalizedPlan === 'Enterprise') {
+            pricingDisplay.innerHTML = `
+                <span class="price">Custom</span>
+                <span class="period">Pricing & Scope</span>
+            `;
+            pricingDisplay.classList.remove('hidden');
         } else {
-            pricingDisplay.classList.add('hidden'); // Enterprise or other
+            pricingDisplay.classList.add('hidden'); // Other
         }
     }
 
@@ -282,20 +288,27 @@ function loadBillingData() {
     const activeCount = Object.keys(vehiclePositions).length;
     let limit = 5;
     if (normalizedPlan === 'Professional') limit = 50;
-    else if (normalizedPlan === 'Enterprise') limit = 1000;
+    else if (normalizedPlan === 'Enterprise') limit = 1000; // Scope cap
 
     const usageText = document.getElementById('billing-usage-text');
     const usageBar = document.getElementById('billing-usage-bar');
     const usageHelper = document.getElementById('billing-usage-helper');
 
-    if (usageText) usageText.textContent = `${activeCount} / ${limit}`;
+    if (usageText) {
+        if (normalizedPlan === 'Enterprise') usageText.textContent = `${activeCount} / ∞`;
+        else usageText.textContent = `${activeCount} / ${limit}`;
+    }
     if (usageBar) {
         const percent = Math.min((activeCount / limit) * 100, 100);
         usageBar.style.width = percent + '%';
         usageBar.style.background = percent > 90 ? 'var(--danger)' : 'var(--primary)';
     }
     if (usageHelper) {
-        usageHelper.textContent = `Managed vehicles (Max ${limit} assets on ${normalizedPlan} Plan).`;
+        if (normalizedPlan === 'Enterprise') {
+            usageHelper.textContent = `Managed vehicles (Unlimited within contract scope).`;
+        } else {
+            usageHelper.textContent = `Managed vehicles (Max ${limit} assets on ${normalizedPlan} Plan).`;
+        }
     }
 
     // 3. Populate Feature Access List
@@ -303,6 +316,16 @@ function loadBillingData() {
 
     // 4. Global UI Locks
     applyPremiumLocks(sub.features, normalizedPlan);
+
+    // 5. Upgrade Button State
+    const upgradeBtn = document.querySelector('.billing-footer .btn-primary');
+    if (upgradeBtn) {
+        if (normalizedPlan === 'Enterprise') {
+            upgradeBtn.classList.add('hidden');
+        } else {
+            upgradeBtn.classList.remove('hidden');
+        }
+    }
 }
 
 function renderFeatureAccess(features, plan) {
@@ -320,7 +343,11 @@ function renderFeatureAccess(features, plan) {
         { key: 'reports', label: 'Mileage & Violation Reports', icon: 'fa-file-alt' },
         { key: 'analytics', label: 'Full Fleet Analytics', icon: 'fa-chart-line' },
         { key: 'advanced_rules', label: 'Advanced Rule Engine', icon: 'fa-bolt' },
-        { key: 'support', label: 'Priority Support', icon: 'fa-headset' }
+        { key: 'api', label: 'Full API Access', icon: 'fa-code' },
+        { key: 'audit', label: 'Advanced Audit Logs', icon: 'fa-shield-alt' },
+        { key: 'integrations', label: 'Custom Integrations', icon: 'fa-plug' },
+        { key: 'storage', label: plan === 'Enterprise' ? '1-3 Year Storage' : '90-Day History', icon: 'fa-database', alwaysOn: plan === 'Enterprise' },
+        { key: 'support', label: plan === 'Enterprise' ? 'Dedicated SLA Support' : 'Priority Support', icon: 'fa-headset' }
     ];
 
     list.innerHTML = featureDefinitions.map(f => {
@@ -330,8 +357,14 @@ function renderFeatureAccess(features, plan) {
         let isEnabled = f.alwaysOn || features[f.key];
 
         // Explicit Tier Overrides
-        if (f.key === 'reports' || f.key === 'analytics' || f.key === 'geofencing' || f.key === 'support' || f.key === 'advanced_rules') {
-            if (isProfessionalTier) isEnabled = true;
+        if (f.key === 'reports' || f.key === 'analytics' || f.key === 'geofencing' || f.key === 'support' || f.key === 'advanced_rules' || f.key === 'api' || f.key === 'audit' || f.key === 'integrations') {
+            if (isProfessionalTier) {
+                // Professional gets common analytics/reports/rules/geofencing
+                // Enterprise gets EVERYTHING including API/Audit/Integrations
+                const enterpriseOnly = ['api', 'audit', 'integrations'];
+                if (plan === 'Enterprise') isEnabled = true;
+                else if (!enterpriseOnly.includes(f.key)) isEnabled = true;
+            }
         }
 
         return `
