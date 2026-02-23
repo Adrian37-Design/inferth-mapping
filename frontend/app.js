@@ -336,7 +336,7 @@ function renderFeatureAccess(features, plan) {
     const featureDefinitions = [
         { key: 'tracking', label: 'Live Tracking', icon: 'fa-map-marked-alt', alwaysOn: true },
         { key: 'alerts', label: 'Basic Alerts', icon: 'fa-bell', alwaysOn: true },
-        { key: 'history', label: plan === 'Basic' ? '7-14 Day History' : (plan === 'Professional' ? '90-Day History' : 'Unlimited History'), icon: 'fa-history', alwaysOn: true },
+        { key: 'history', label: plan === 'Basic' ? '7-14 Day History' : (plan === 'Professional' ? '90-Day History' : '1-3 Year History'), icon: 'fa-history', alwaysOn: true },
         { key: 'users', label: plan === 'Basic' ? '1 User' : (plan === 'Professional' ? '5 Users' : 'Unlimited Users'), icon: 'fa-users', alwaysOn: true },
         { key: 'health', label: 'Device Health Status', icon: 'fa-heartbeat', alwaysOn: true },
         { key: 'geofencing', label: 'Geofencing & Zones', icon: 'fa-draw-polygon' },
@@ -346,7 +346,6 @@ function renderFeatureAccess(features, plan) {
         { key: 'api', label: 'Full API Access', icon: 'fa-code' },
         { key: 'audit', label: 'Advanced Audit Logs', icon: 'fa-shield-alt' },
         { key: 'integrations', label: 'Custom Integrations', icon: 'fa-plug' },
-        { key: 'storage', label: plan === 'Enterprise' ? '1-3 Year Storage' : '90-Day History', icon: 'fa-database', alwaysOn: plan === 'Enterprise' },
         { key: 'support', label: plan === 'Enterprise' ? 'Dedicated SLA Support' : 'Priority Support', icon: 'fa-headset' }
     ];
 
