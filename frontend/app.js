@@ -317,13 +317,24 @@ function loadBillingData() {
     // 4. Global UI Locks
     applyPremiumLocks(sub.features, normalizedPlan);
 
-    // 5. Upgrade Button State
-    const upgradeBtn = document.querySelector('.billing-footer .btn-primary');
-    if (upgradeBtn) {
-        if (normalizedPlan === 'Enterprise') {
-            upgradeBtn.classList.add('hidden');
+    // 5. Button States (Pay Now vs Upgrade)
+    const payBtn = document.getElementById('pay-now-btn');
+    const upgradeTierBtn = document.getElementById('upgrade-tier-btn');
+
+    if (payBtn) {
+        // Show Pay Now if they are not Enterprise (Enterprise handled by custom quote)
+        if (normalizedPlan !== 'Enterprise') {
+            payBtn.classList.remove('hidden');
         } else {
-            upgradeBtn.classList.remove('hidden');
+            payBtn.classList.add('hidden');
+        }
+    }
+
+    if (upgradeTierBtn) {
+        if (normalizedPlan === 'Enterprise') {
+            upgradeTierBtn.classList.add('hidden');
+        } else {
+            upgradeTierBtn.classList.remove('hidden');
         }
     }
 }
@@ -2685,11 +2696,81 @@ window.triggerGeofenceAction = function () {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Slight delay to ensure map is ready
     setTimeout(() => {
         renderMockViolations();
         setupGeofencing();
         loadGeofences();
+        setupPaymentListeners();
     }, 1000);
 });
+
+function setupPaymentListeners() {
+    const payBtn = document.getElementById('pay-now-btn');
+    const paynowCard = document.getElementById('pay-paynow');
+    const manualCard = document.getElementById('pay-manual');
+    const manualForm = document.getElementById('manual-payment-form');
+    const popInput = document.getElementById('pop-upload-input');
+    const submitPopBtn = document.getElementById('submit-pop-btn');
+
+    if (payBtn) {
+        payBtn.onclick = () => {
+            const plan = window.AuthManager.user.subscription.plan;
+            openModal('payment-modal');
+        };
+    }
+
+    if (paynowCard) {
+        paynowCard.onclick = async () => {
+            const plan = window.AuthManager.user.subscription.plan;
+            try {
+                const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=${plan}`, {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error('Failed to initiate Paynow');
+                const result = await response.json();
+                window.location.href = result.redirect_url;
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        };
+    }
+
+    if (manualCard) {
+        manualCard.onclick = () => {
+            manualForm.classList.toggle('hidden');
+            manualCard.classList.toggle('selected');
+        };
+    }
+
+    if (submitPopBtn) {
+        submitPopBtn.onclick = async () => {
+            if (!popInput.files[0]) return alert("Please select a file first");
+
+            const formData = new FormData();
+            formData.append('file', popInput.files[0]);
+
+            submitPopBtn.disabled = true;
+            submitPopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+            try {
+                const response = await fetch(`${window.AuthManager.API_BASE}/payments/manual/upload-pop`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${window.AuthManager.getToken()}` },
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+
+                alert("Proof of Payment uploaded successfully! An admin will review it shortly.");
+                closeModal('payment-modal');
+                manualForm.classList.add('hidden');
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                submitPopBtn.disabled = false;
+                submitPopBtn.innerHTML = '<i class="fas fa-upload"></i> Submit POP';
+            }
+        };
+    }
+}
 

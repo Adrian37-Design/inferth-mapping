@@ -115,3 +115,25 @@ class Geofence(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     tenant = relationship("Tenant")
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"))
+    amount_usd = Column(Float, nullable=False)
+    
+    payment_method = Column(String) # paynow, mobile_money, bank_transfer
+    status = Column(String, default="pending") # pending, paid, failed, approval_pending, rejected
+    
+    # Paynow specific
+    paynow_reference = Column(String, nullable=True) # Poll URL or merchant reference
+    paynow_status = Column(String, nullable=True) # RAW status from Paynow
+    
+    # Manual Fallback
+    proof_url = Column(String, nullable=True) # Path to uploaded screnshot
+    rejection_reason = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    tenant = relationship("Tenant", backref="transactions")
