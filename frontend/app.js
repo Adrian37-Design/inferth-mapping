@@ -302,7 +302,7 @@ function loadBillingData() {
     renderFeatureAccess(sub.features, normalizedPlan);
 
     // 4. Global UI Locks
-    applyPremiumLocks(sub.features);
+    applyPremiumLocks(sub.features, normalizedPlan);
 }
 
 function renderFeatureAccess(features, plan) {
@@ -330,7 +330,7 @@ function renderFeatureAccess(features, plan) {
         let isEnabled = f.alwaysOn || features[f.key];
 
         // Explicit Tier Overrides
-        if (f.key === 'reports' || f.key === 'analytics' || f.key === 'geofencing' || f.key === 'support') {
+        if (f.key === 'reports' || f.key === 'analytics' || f.key === 'geofencing' || f.key === 'support' || f.key === 'advanced_rules') {
             if (isProfessionalTier) isEnabled = true;
         }
 
@@ -344,11 +344,17 @@ function renderFeatureAccess(features, plan) {
     }).join('');
 }
 
-function applyPremiumLocks(features) {
+function applyPremiumLocks(features, plan) {
+    const isProfessionalTier = (plan === 'Professional' || plan === 'Enterprise');
+
+    // Feature enablement with tier overrides
+    const hasReports = features.reports || isProfessionalTier;
+    const hasAdvancedRules = features.advanced_rules || isProfessionalTier;
+
     // A. Reports Export Button
     const exportBtn = document.querySelector('button[onclick="exportReport()"]');
     if (exportBtn) {
-        if (!features.reports) {
+        if (!hasReports) {
             exportBtn.classList.add('premium-locked', 'premium-locked-dim');
             exportBtn.title = 'Upgrade to PRO to export reports';
         } else {
@@ -363,7 +369,7 @@ function applyPremiumLocks(features) {
         const premiumOptions = ['harsh_braking', 'geofence_exit']; // Example premium events
         Array.from(eventSelect.options).forEach(opt => {
             if (premiumOptions.includes(opt.value)) {
-                if (!features.advanced_rules) {
+                if (!hasAdvancedRules) {
                     opt.disabled = true;
                     if (!opt.text.endsWith('(PRO)')) opt.text = opt.text + ' (PRO)';
                 } else {
