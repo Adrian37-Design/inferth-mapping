@@ -234,6 +234,8 @@ function loadBillingData() {
     if (!user || !user.subscription) return;
 
     const sub = user.subscription;
+    // Normalize plan naming (support both "Pro" and "Professional")
+    const normalizedPlan = (sub.plan === 'Pro' || sub.plan === 'Professional') ? 'Professional' : sub.plan;
 
     // 1. Populate Plan Details
     const planName = document.getElementById('billing-plan-name');
@@ -242,7 +244,7 @@ function loadBillingData() {
     const nextDate = document.getElementById('billing-next-date');
     const pricingDisplay = document.querySelector('.plan-pricing');
 
-    if (planName) planName.textContent = sub.plan + ' Plan';
+    if (planName) planName.textContent = normalizedPlan + ' Plan';
     if (statusText) {
         statusText.textContent = sub.status.charAt(0).toUpperCase() + sub.status.slice(1);
         statusText.style.color = sub.status === 'active' ? 'var(--success)' : 'var(--danger)';
@@ -259,13 +261,13 @@ function loadBillingData() {
 
     // Dynamic Pricing Update
     if (pricingDisplay) {
-        if (sub.plan === 'Basic') {
+        if (normalizedPlan === 'Basic') {
             pricingDisplay.innerHTML = `
                 <span class="price">$12</span>
                 <span class="period">/vehicle/mo</span>
             `;
             pricingDisplay.classList.remove('hidden');
-        } else if (sub.plan === 'Professional') {
+        } else if (normalizedPlan === 'Professional') {
             pricingDisplay.innerHTML = `
                 <span class="price">$17</span>
                 <span class="period">/vehicle/mo</span>
@@ -279,8 +281,8 @@ function loadBillingData() {
     // 2. Populate Usage (Active Assets)
     const activeCount = Object.keys(vehiclePositions).length;
     let limit = 5;
-    if (sub.plan === 'Professional') limit = 50;
-    else if (sub.plan === 'Enterprise') limit = 1000;
+    if (normalizedPlan === 'Professional') limit = 50;
+    else if (normalizedPlan === 'Enterprise') limit = 1000;
 
     const usageText = document.getElementById('billing-usage-text');
     const usageBar = document.getElementById('billing-usage-bar');
@@ -293,11 +295,11 @@ function loadBillingData() {
         usageBar.style.background = percent > 90 ? 'var(--danger)' : 'var(--primary)';
     }
     if (usageHelper) {
-        usageHelper.textContent = `Managed vehicles (Max ${limit} assets on ${sub.plan} Plan).`;
+        usageHelper.textContent = `Managed vehicles (Max ${limit} assets on ${normalizedPlan} Plan).`;
     }
 
     // 3. Populate Feature Access List
-    renderFeatureAccess(sub.features, sub.plan);
+    renderFeatureAccess(sub.features, normalizedPlan);
 
     // 4. Global UI Locks
     applyPremiumLocks(sub.features);
