@@ -125,15 +125,57 @@ async def handle_tracker(reader, writer):
         for client in upstream_clients:
             await client.close()
 
+async def health_server(reader, writer):
+    """Minimal HTTP health endpoint so Railway considers the service healthy."""
+    try:
+        await reader.read(1024)  # consume the request
+        response = (
+            b"HTTP/1.1 200 OK\r\n"
+            b"Content-Type: text/plain\r\n"
+            b"Content-Length: 2\r\n"
+            b"\r\n"
+            b"OK"
+        )
+        writer.write(response)
+        await writer.drain()
+    except Exception:
+        pass
+    finally:
+        writer.close()
+
+async def keep_alive_ping():
+    """Pings the health endpoint every 4 minutes to prevent Railway sleep."""
+    health_url = os.getenv('HEALTH_PING_URL', 'http://localhost:8080/health')
+    while True:
+        await asyncio.sleep(240)  # 4 minutes
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.get(health_url, timeout=5.0)
+                logger.info("Keep-alive ping sent successfully")
+        except Exception as e:
+            logger.warning(f"Keep-alive ping failed: {e}")
+
 async def main():
-    server = await asyncio.start_server(
+    # Start TCP tracker server
+    tcp_server = await asyncio.start_server(
         handle_tracker, LISTEN_HOST, LISTEN_PORT
     )
     logger.info(f"Universal Gateway Listening on {LISTEN_HOST}:{LISTEN_PORT}")
     logger.info(f"Primary Destination: {PRIMARY_DESTINATION}")
 
-    async with server:
-        await server.serve_forever()
+    # Start HTTP health server on port 8080 so Railway sees it as healthy
+    http_port = int(os.getenv('HEALTH_PORT', 8080))
+    http_server = await asyncio.start_server(health_server, '0.0.0.0', http_port)
+    logger.info(f"Health server listening on 0.0.0.0:{http_port}")
+
+    # Start keep-alive background task
+    asyncio.create_task(keep_alive_ping())
+
+    async with tcp_server, http_server:
+        await asyncio.gather(
+            tcp_server.serve_forever(),
+            http_server.serve_forever()
+        )
 
 if __name__ == '__main__':
     try:
