@@ -1,6 +1,7 @@
 import asyncio
 from app.config import settings
 from app.services.decoders.gps103 import GPS103Decoder
+from app.services.decoders.sinotrack import SinotrackDecoder
 from app.routers.positions import create_position
 import json
 from datetime import datetime
@@ -9,7 +10,11 @@ from app.models import Position, Device
 from sqlalchemy import select
 import sys
 
-decoder = GPS103Decoder()
+# Initialize multiple decoders for broad compatibility
+decoders = [
+    SinotrackDecoder(),
+    GPS103Decoder()
+]
 
 class TCPTrackerProtocol(asyncio.Protocol):
     def __init__(self, app_state):
@@ -39,8 +44,13 @@ class TCPTrackerProtocol(asyncio.Protocol):
         with open("/app/debug.log", "a") as f:
             f.write("DEBUG: Inside handle\n")
         try:
-            # decode using pluggable decoder
-            decoded = await decoder.decode(data)
+            # Try each decoder in sequence; use the first one that returns a full result
+            decoded = {"raw_text": data.decode(errors="ignore").strip()}
+            for dec in decoders:
+                result = await dec.decode(data)
+                if result.get("imei") and result.get("latitude") and result.get("longitude"):
+                    decoded = result
+                    break
             with open("/app/debug.log", "a") as f:
                 f.write(f"DEBUG: Decoded data: {decoded}\n")
             
