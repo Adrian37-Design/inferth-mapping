@@ -1,4 +1,10 @@
 import asyncio
+import os
+import sys
+
+# Add the backend directory to sys.path
+sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
+
 from sqlalchemy.future import select
 from app.db import AsyncSessionLocal
 from app.models import Device, Tenant
