@@ -65,9 +65,11 @@ async def list_devices(
     current_user: User = Depends(get_current_user)
 ):
     stmt = select(Device)
-    # Filter by tenant unless global admin
+    # Global admin (tenant 1) sees ALL devices including unassigned ones (NULL tenant_id)
+    # Everyone else only sees their own tenant's devices
     if current_user.tenant_id != 1:
         stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+    # For admin, no filter — see everything including NULL tenant_id devices
         
     result = await db.execute(stmt)
     devices = result.scalars().all()

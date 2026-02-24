@@ -28,9 +28,9 @@ async def ws_listener(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Just keep the connection open and wait for disconnect
-            # We don't expect client messages for now, but we await receive to keep socket alive
-            await websocket.receive_text()
+            # Use receive() (not receive_text()) so binary browser ping frames
+            # don't raise an exception and close the connection.
+            await websocket.receive()
     except Exception:
         manager.disconnect(websocket)
 
