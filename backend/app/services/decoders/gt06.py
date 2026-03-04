@@ -102,15 +102,24 @@ class GT06Decoder(BaseDecoder):
                 obd_data = raw[4:-6]
                 serial_num = raw[-6:-4]
                 
-                # Common GT06 0x8A Mapping (Simplified)
-                # Fuel: Offset 0 (4 bytes)
-                # RPM: Offset 4 (2 bytes)
-                # Coolant: Offset 11 (1 byte) - varies by vendor
+                # Common GT06 0x8A Mapping (Standard OBD block length ~15-20 bytes)
+                # Offset 0 (4 bytes): Accumulated Fuel Consumption
+                # Offset 4 (2 bytes): Engine RPM
+                # Offset 6 (1 byte): Coolant Temperature (often offset by 40, though sometimes raw)
+                # Offset 7 (1 byte): Battery Voltage (often x 0.1V)
+                # Offset 8 (1 byte): Throttle Position (%)
+                # Offset 9 (1 byte): Engine Load (%)
+                # Offset 10 (4 bytes): Mileage (Accumulative)
                 
                 res = {
                     "type": "obd",
                     "fuel_consumption": struct.unpack('!I', obd_data[0:4])[0] if len(obd_data) >= 4 else 0,
                     "rpm": struct.unpack('!H', obd_data[4:6])[0] if len(obd_data) >= 6 else 0,
+                    "coolant": obd_data[6] if len(obd_data) > 6 else 0,
+                    "battery": obd_data[7] * 0.1 if len(obd_data) > 7 else 0.0,
+                    "throttle": obd_data[8] if len(obd_data) > 8 else 0,
+                    "engine_load": obd_data[9] if len(obd_data) > 9 else 0,
+                    "mileage": struct.unpack('!I', obd_data[10:14])[0] if len(obd_data) >= 14 else 0,
                     "raw_text": raw.hex()
                 }
                 
