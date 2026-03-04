@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # TCP Server Settings with defaults
     TCP_LISTEN_ADDR: str = "0.0.0.0"
-    TCP_PORT: int = 9000
+    TCP_PORT: int = 9001
     
     JWT_SECRET: str = "change_this_secret_key_in_production"
     JWT_ALGORITHM: str = "HS256"

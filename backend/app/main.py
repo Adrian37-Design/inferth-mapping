@@ -148,13 +148,21 @@ async def startup_event():
     except Exception as e:
         print(f"Warning: MQTT client not available: {e}")
     
-    # TCP Tracker Server
+    # TCP Tracker Server (GPS)
     try:
         loop = asyncio.get_running_loop()
-        server = await loop.create_server(lambda: TCPTrackerProtocol(app), host=settings.TCP_LISTEN_ADDR, port=settings.TCP_PORT)
-        print(f"TCP server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+        # Use reuse_address=True and reuse_port=True to resolve "Address already in use" (Errno 98)
+        # reuse_port=True allows multiple processes to bind to the same port (available on most modern Linux kernels)
+        server = await loop.create_server(
+            lambda: TCPTrackerProtocol(app), 
+            host=settings.TCP_LISTEN_ADDR, 
+            port=settings.TCP_PORT,
+            reuse_address=True,
+            reuse_port=True if hasattr(asyncio, 'SO_REUSEPORT') or os.name != 'nt' else False
+        )
+        print(f"SUCCESS: TCP tracker server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
     except Exception as e:
-        print(f"Warning: TCP server not available: {e}")
+        print(f"CRITICAL WARNING: TCP tracker server failed to start on {settings.TCP_PORT}: {e}")
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
