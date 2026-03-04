@@ -65,22 +65,15 @@ class TCPTrackerProtocol(asyncio.Protocol):
                 if not result.get("imei") and self.imei:
                     result["imei"] = self.imei
 
-                if result.get("imei") and (result.get("latitude") or result.get("type") == "login"):
+                if result.get("imei") and (result.get("latitude") or result.get("type") in ["login", "obd"]):
                     decoded = result
                     break
             
             with open("tracker_debug.log", "a") as f:
                 f.write(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')} ({decoded.get('latitude')}, {decoded.get('longitude')})\n")
             
-            # if we find coordinates and imei: create a position
-            if decoded.get("imei") and decoded.get("latitude") and decoded.get("longitude"):
-                payload = {
-                    "imei": decoded["imei"],
-                    "latitude": decoded["latitude"],
-                    "longitude": decoded["longitude"],
-                    "raw": {"text": decoded.get("raw_text")}
-                }
-                
+            # if we have an imei: create a position (coords might be null for pure OBD)
+            if decoded.get("imei"):
                 async with AsyncSessionLocal() as db:
                     try:
                         # Find or create device
@@ -98,16 +91,16 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         # Create position
                         position = Position(
                             device_id=device.id,
-                            latitude=decoded["latitude"],
-                            longitude=decoded["longitude"],
-                            speed=0.0, # Default or extract if available
+                            latitude=decoded.get("latitude"),
+                            longitude=decoded.get("longitude"),
+                            speed=decoded.get("speed", 0.0),
                             timestamp=datetime.utcnow(),
-                            raw=payload["raw"]
+                            raw=decoded
                         )
                         db.add(position)
                         await db.commit()
                         with open("debug.log", "a") as f:
-                            f.write(f"SUCCESS: Saved position for device {device.imei}\n")
+                            f.write(f"SUCCESS: Saved data for device {device.imei}\n")
                     except Exception as e:
                         with open("tracker_debug.log", "a") as f:
                             f.write(f"[{datetime.now()}] ERROR saving position: {e}\n")
@@ -115,5 +108,5 @@ class TCPTrackerProtocol(asyncio.Protocol):
                 pass # Already logged missing fields in DECODED line
 
         except Exception as e:
-             with open("tracker_debug.log", "a") as f:
+            with open("tracker_debug.log", "a") as f:
                 f.write(f"[{datetime.now()}] ERROR in handle: {e}\n")

@@ -189,6 +189,14 @@ function setupTabs() {
             const targetContent = document.getElementById(targetId);
             if (targetContent) {
                 targetContent.classList.add('active');
+
+                // UI FIX: If switching to Geofence tab, force map to recalculate size
+                if (targetId === 'tab-geofence' && miniMap) {
+                    // Try immediately and again after transition
+                    miniMap.invalidateSize();
+                    setTimeout(() => miniMap.invalidateSize(), 300);
+                    setTimeout(() => miniMap.invalidateSize(), 600);
+                }
             }
 
             // 3. Update Header Title
@@ -1265,7 +1273,7 @@ async function loadAllPositions(vehicles) {
 }
 
 // Add or update marker and update Control Panel Card
-function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
+function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData = null) {
     // 1. Update Map Marker
     const icon = L.divIcon({
         html: `<div class="vehicle-marker">
@@ -1277,6 +1285,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
     });
 
     let marker = markers[id];
+    let diagnosticHtml = '';
+    if (obdData) {
+        if (obdData.rpm) diagnosticHtml += `<div style="font-size:0.85em; color:#00ff88;"><i class="fas fa-tachometer-alt"></i> RPM: ${obdData.rpm}</div>`;
+        if (obdData.fuel_consumption) diagnosticHtml += `<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${obdData.fuel_consumption}L</div>`;
+    }
 
     if (marker) {
         marker.setLatLng([lat, lng]);
@@ -1293,6 +1306,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
                 <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${speed > 3 ? 'Moving' : 'Idle'}
+                ${diagnosticHtml}
             </div>
         `;
         marker.setPopupContent(popupContent);
@@ -1308,6 +1322,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp) {
                 <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${speed > 3 ? 'Moving' : 'Idle'}
+                ${diagnosticHtml}
             </div>
         `;
         marker.bindPopup(popupContent);
@@ -1801,7 +1816,9 @@ function connectWebSocket() {
                 });
 
                 if (deviceId) {
-                    addOrUpdateMarker(deviceId, '', data.imei, data.latitude, data.longitude, data.speed, data.timestamp);
+                    // Extract OBD data if present in metadata/raw
+                    const obdData = data.raw || {};
+                    addOrUpdateMarker(deviceId, '', data.imei, data.latitude, data.longitude, data.speed, data.timestamp, obdData);
                 }
             }
         } catch (error) {
@@ -1941,9 +1958,14 @@ async function loadAssetHistory(id, dateStr) {
         // If the backend only supports `days`, we are limited.
         // Let's try sending `start_date` and `end_date` query params which are standard.
 
-        const start = new Date(dateStr);
+        let targetDate = new Date(); // default to today
+        if (dateStr && dateStr !== 'today') {
+            targetDate = new Date(dateStr);
+        }
+
+        const start = new Date(targetDate);
         start.setHours(0, 0, 0, 0);
-        const end = new Date(dateStr);
+        const end = new Date(targetDate);
         end.setHours(23, 59, 59, 999);
 
         const response = await fetch(`${API_URL}/positions/trips/${id}?start_date=${start.toISOString()}&end_date=${end.toISOString()}`);

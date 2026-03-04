@@ -95,6 +95,33 @@ class GT06Decoder(BaseDecoder):
                     "raw_text": raw.hex()
                 }
 
+            # 0x8A: OBD Data
+            if protocol_number == 0x8A:
+                # Packet: Header(2) | Len(1) | Prot(1) | Data(...) | Serial(2) | CRC(2) | Stop(2)
+                # OBD Body often starts after offset 4
+                obd_data = raw[4:-6]
+                serial_num = raw[-6:-4]
+                
+                # Common GT06 0x8A Mapping (Simplified)
+                # Fuel: Offset 0 (4 bytes)
+                # RPM: Offset 4 (2 bytes)
+                # Coolant: Offset 11 (1 byte) - varies by vendor
+                
+                res = {
+                    "type": "obd",
+                    "fuel_consumption": struct.unpack('!I', obd_data[0:4])[0] if len(obd_data) >= 4 else 0,
+                    "rpm": struct.unpack('!H', obd_data[4:6])[0] if len(obd_data) >= 6 else 0,
+                    "raw_text": raw.hex()
+                }
+                
+                # Add ACK for 0x8A
+                ack_payload = struct.pack('!BB', 0x05, 0x8A) + serial_num
+                ack_crc = crc16_itu_t(ack_payload)
+                ack = b'\x78\x78' + ack_payload + struct.pack('!H', ack_crc) + b'\x0d\x0a'
+                res["response"] = ack
+                
+                return res
+
             return {"raw_text": raw.hex(), "protocol_number": hex(protocol_number)}
 
         except Exception as e:
