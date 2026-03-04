@@ -1208,28 +1208,25 @@ function updateDashboardKPIs(vehicles) {
     let offline = 0;
     let alertsCount = alerts.filter(a => !a.read).length; // Count unread alerts
 
-    // Calculate status based on markers (latest data)
+    // Calculate status based on positions table (using 5-hour cutoff logic to match Detail View)
     vehicles.forEach(v => {
-        const marker = markers[v.id];
-        if (marker) {
-            // We need to store speed in the marker options or access content?
-            // Parsing popup content is messy. Let's rely on a global state if possible,
-            // or just assume if it has a marker it's online for now (Simulated).
-            // Better: Check the speed printed in the marker HTML?
-            // "speed-label">X km/h</span>
+        const pos = vehiclePositions[v.id];
 
-            // For this implementation, let's look at the HTML content of the icon
-            const html = marker.getIcon().options.html;
-            try {
-                const speedMatch = html.match(/(\d+)\s*km\/h/);
-                const speed = speedMatch ? parseInt(speedMatch[1]) : 0;
+        if (pos && pos.timestamp) {
+            const timeDiff = new Date() - new Date(pos.timestamp);
+            const hoursOffline = timeDiff / (1000 * 60 * 60);
 
-                if (speed > 0) active++;
-                else idle++;
-            } catch (e) {
-                idle++;
+            if (hoursOffline < 5) {
+                if (pos.speed > 3) {
+                    active++;
+                } else {
+                    idle++;
+                }
+            } else {
+                offline++;
             }
         } else {
+            // No position data yet
             offline++;
         }
     });
@@ -1332,9 +1329,17 @@ async function loadAllPositions(vehicles) {
 
 // Add or update marker and update Control Panel Card
 function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData = null) {
+    // Determine Offline Status
+    const timeDiff = new Date() - new Date(timestamp);
+    const hoursOffline = timeDiff / (1000 * 60 * 60);
+    let assetStatus = 'Offline';
+    if (hoursOffline < 5) {
+        assetStatus = speed > 3 ? 'Moving' : 'Idle';
+    }
+
     // 1. Update Map Marker
     const icon = L.divIcon({
-        html: `<div class="vehicle-marker">
+        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker">
                 <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
@@ -1345,9 +1350,25 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData =
     let marker = markers[id];
     let diagnosticHtml = '';
     if (obdData) {
-        if (obdData.rpm) diagnosticHtml += `<div style="font-size:0.85em; color:#00ff88;"><i class="fas fa-tachometer-alt"></i> RPM: ${obdData.rpm}</div>`;
-        if (obdData.fuel_consumption) diagnosticHtml += `<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${obdData.fuel_consumption}L</div>`;
+        if (obdData.rpm !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00ff88;"><i class="fas fa-tachometer-alt"></i> RPM: ${obdData.rpm}</div>`;
+        if (obdData.fuel_consumption !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${obdData.fuel_consumption}L</div>`;
+        if (obdData.coolant !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff5722;"><i class="fas fa-thermometer-half"></i> Coolant: ${obdData.coolant}°C</div>`;
+        if (obdData.battery !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-car-battery"></i> Battery: ${obdData.battery.toFixed(1)}V</div>`;
+        if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
+        if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
+        if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Mileage: ${obdData.mileage}km</div>`;
     }
+
+    const popupContentStr = `
+        <div style="text-align:center;">
+            <strong>${name}</strong><br>
+            <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
+            <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
+            Speed: ${Math.round(speed || 0)} km/h<br>
+            Status: ${assetStatus}
+            ${diagnosticHtml}
+        </div>
+    `;
 
     if (marker) {
         marker.setLatLng([lat, lng]);
@@ -1355,35 +1376,17 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData =
         // Update Metadata
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
+        marker.isOffline = assetStatus === 'Offline';
 
         // Update Popup Content
-        const popupContent = `
-            <div style="text-align:center;">
-                <strong>${name}</strong><br>
-                <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
-                <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-                Speed: ${Math.round(speed || 0)} km/h<br>
-                Status: ${speed > 3 ? 'Moving' : 'Idle'}
-                ${diagnosticHtml}
-            </div>
-        `;
-        marker.setPopupContent(popupContent);
+        marker.setPopupContent(popupContentStr);
     } else {
         marker = L.marker([lat, lng], { icon: icon }).addTo(map);
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
+        marker.isOffline = assetStatus === 'Offline';
 
-        const popupContent = `
-            <div style="text-align:center;">
-                <strong>${name}</strong><br>
-                <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
-                <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-                Speed: ${Math.round(speed || 0)} km/h<br>
-                Status: ${speed > 3 ? 'Moving' : 'Idle'}
-                ${diagnosticHtml}
-            </div>
-        `;
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popupContentStr);
 
         // Click listener to select vehicle
         marker.on('click', () => {
