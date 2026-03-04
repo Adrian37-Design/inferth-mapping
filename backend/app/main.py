@@ -148,21 +148,41 @@ async def startup_event():
     except Exception as e:
         print(f"Warning: MQTT client not available: {e}")
     
-    # TCP Tracker Server (GPS)
-    try:
-        loop = asyncio.get_running_loop()
-        # Use reuse_address=True and reuse_port=True to resolve "Address already in use" (Errno 98)
-        # reuse_port=True allows multiple processes to bind to the same port (available on most modern Linux kernels)
-        server = await loop.create_server(
-            lambda: TCPTrackerProtocol(app), 
-            host=settings.TCP_LISTEN_ADDR, 
-            port=settings.TCP_PORT,
-            reuse_address=True,
-            reuse_port=True if hasattr(asyncio, 'SO_REUSEPORT') or os.name != 'nt' else False
-        )
-        print(f"SUCCESS: TCP tracker server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
-    except Exception as e:
-        print(f"CRITICAL WARNING: TCP tracker server failed to start on {settings.TCP_PORT}: {e}")
+    # TCP Tracker Server (GPS) - Started in background with retry logic
+    async def start_tcp_server():
+        # Defensive check: Ensure we don't bind to the same port as the web server
+        # Railway assigns PORT for the web server. 
+        main_port = int(os.getenv("PORT", 8000))
+        if settings.TCP_PORT == main_port:
+             print(f"ERROR: TCP_PORT ({settings.TCP_PORT}) matches web PORT. Changing to {settings.TCP_PORT + 1}")
+             settings.TCP_PORT += 1
+
+        retry_count = 0
+        max_retries = 5
+        while retry_count < max_retries:
+            try:
+                loop = asyncio.get_running_loop()
+                # reuse_port=True allows multiple workers to share the port on many Linux systems
+                # reuse_address=True helps with lingering sockets in TIME_WAIT state
+                server = await loop.create_server(
+                    lambda: TCPTrackerProtocol(app), 
+                    host=settings.TCP_LISTEN_ADDR, 
+                    port=settings.TCP_PORT,
+                    reuse_address=True,
+                    reuse_port=True if hasattr(asyncio, 'SO_REUSEPORT') or os.name != 'nt' else False
+                )
+                print(f"SUCCESS: TCP tracker server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+                return # Successfully started
+            except Exception as e:
+                retry_count += 1
+                print(f"Warning: TCP bind attempt {retry_count}/{max_retries} failed on {settings.TCP_PORT}: {e}")
+                if retry_count < max_retries:
+                    await asyncio.sleep(5) # Wait for port to clear
+        
+        print(f"CRITICAL: Failed to start TCP tracker server after {max_retries} attempts.")
+
+    # Run the TCP server startup in the background
+    asyncio.create_task(start_tcp_server())
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
