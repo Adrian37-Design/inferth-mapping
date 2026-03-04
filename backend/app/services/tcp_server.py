@@ -70,7 +70,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                     break
             
             with open("tracker_debug.log", "a") as f:
-                f.write(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')}\n")
+                f.write(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')} ({decoded.get('latitude')}, {decoded.get('longitude')})\n")
             
             # if we find coordinates and imei: create a position
             if decoded.get("imei") and decoded.get("latitude") and decoded.get("longitude"):
