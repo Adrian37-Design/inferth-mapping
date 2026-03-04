@@ -603,6 +603,64 @@ function loadReports() {
         </div>
     `;
     updateChart('chart-fuel', fuelHTML);
+
+    // OBD Diagnostics
+    let totalRPM = 0;
+    let totalFuel = 0;
+    let obdVehicleCount = 0;
+
+    // Scan markers for recent OBD data
+    if (typeof markers !== 'undefined') {
+        Object.values(markers).forEach(marker => {
+            if (marker.obdData && !marker.isOffline) {
+                // Assuming obdData contains rpm and fuel
+                const rpm = parseFloat(marker.obdData.rpm);
+                const fuel = parseFloat(marker.obdData.fuel);
+
+                if (!isNaN(rpm)) { totalRPM += rpm; obdVehicleCount++; }
+                // Use the highest fuel accumulated across fleet or sum for total (depending on use case, here we sum total active consumption)
+                if (!isNaN(fuel)) totalFuel += fuel;
+            }
+        });
+    }
+
+    const avgRPM = obdVehicleCount > 0 ? Math.round(totalRPM / obdVehicleCount) : 0;
+    const avgFuelText = totalFuel > 0 ? `${totalFuel.toFixed(1)} L` : 'N/A';
+
+    const obdSummaryEl = document.getElementById('report-obd-summary');
+    if (obdSummaryEl) {
+        if (obdVehicleCount > 0) {
+            obdSummaryEl.innerHTML = `Analyzing <span style="color:var(--success); font-weight:bold;">${obdVehicleCount}</span> live engines.`;
+        } else {
+            obdSummaryEl.innerHTML = `No live engines detected.`;
+        }
+    }
+
+    // Dynamic RPM bar (Max 5000 RPM for visual scale)
+    let rpmPercent = Math.min((avgRPM / 5000) * 100, 100);
+    // Dynamic Fuel bar
+    let fuelPercent = totalFuel > 0 ? 60 : 0; // Visual placeholder to show activity
+
+    const obdHTML = `
+        <div style="padding: 15px; color: var(--text-primary); font-size: 0.95rem;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span style="color:var(--text-secondary);"><i class="fas fa-tachometer-alt"></i> Fleet Avg RPM</span> 
+                <span style="font-weight:bold; ${avgRPM > 3000 ? 'color:var(--danger)' : 'color:var(--success)'}">${avgRPM} RPM</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+                <div style="width:${rpmPercent}%; background:var(--${avgRPM > 3000 ? 'danger' : 'success'}); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span style="color:var(--text-secondary);"><i class="fas fa-gas-pump"></i> Active Consumption</span> 
+                <span style="font-weight:bold;">${avgFuelText}</span>
+            </div>
+             <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
+                <div style="width:${fuelPercent}%; background:var(--secondary); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
+            </div>
+        </div>
+    `;
+    updateChart('chart-obd', obdHTML);
 }
 
 function updateChart(id, html) {
@@ -1819,6 +1877,12 @@ function connectWebSocket() {
                     // Extract OBD data if present in metadata/raw
                     const obdData = data.raw || {};
                     addOrUpdateMarker(deviceId, '', data.imei, data.latitude, data.longitude, data.speed, data.timestamp, obdData);
+
+                    // Live update intelligence reports if that tab is active
+                    const activeTab = document.querySelector('.rail-item.active');
+                    if (activeTab && activeTab.dataset.tab === 'tab-reports') {
+                        loadReports();
+                    }
                 }
             }
         } catch (error) {
