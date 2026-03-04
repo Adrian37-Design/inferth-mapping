@@ -10,10 +10,13 @@ from app.models import Position, Device
 from sqlalchemy import select
 import sys
 
+from app.services.decoders.gt06 import GT06Decoder
+
 # Initialize multiple decoders for broad compatibility
 decoders = [
     SinotrackDecoder(),
-    GPS103Decoder()
+    GPS103Decoder(),
+    GT06Decoder()
 ]
 
 class TCPTrackerProtocol(asyncio.Protocol):
@@ -25,34 +28,39 @@ class TCPTrackerProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         self.peer = transport.get_extra_info('peername')
-        with open("/app/debug.log", "a") as f:
-            f.write(f"DEBUG: Connection made from {self.peer}\n")
+        # Robust Logging to a local file for the USER to see
+        with open("tracker_debug.log", "a") as f:
+            f.write(f"\n[{datetime.now()}] --- NEW CONNECTION: {self.peer} ---\n")
 
     def data_received(self, data):
-        with open("/app/debug.log", "a") as f:
-            f.write(f"DEBUG: Data received: {data}\n")
+        with open("tracker_debug.log", "a") as f:
+            f.write(f"[{datetime.now()}] RECV hex: {data.hex()}\n")
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self.handle(data))
-            with open("/app/debug.log", "a") as f:
-                f.write("DEBUG: Task created\n")
         except Exception as e:
-            with open("/app/debug.log", "a") as f:
-                f.write(f"ERROR creating task: {e}\n")
+            with open("tracker_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] ERROR creating task: {e}\n")
 
     async def handle(self, data: bytes):
-        with open("/app/debug.log", "a") as f:
-            f.write("DEBUG: Inside handle\n")
         try:
             # Try each decoder in sequence; use the first one that returns a full result
             decoded = {"raw_text": data.decode(errors="ignore").strip()}
             for dec in decoders:
                 result = await dec.decode(data)
-                if result.get("imei") and result.get("latitude") and result.get("longitude"):
+                
+                # If decoder produced a RESPONSE (ACK), send it back IMMEDIATELY
+                if result.get("response"):
+                    self.transport.write(result["response"])
+                    with open("tracker_debug.log", "a") as f:
+                        f.write(f"[{datetime.now()}] SENT hex: {result['response'].hex()}\n")
+
+                if result.get("imei") and (result.get("latitude") or result.get("type") == "login"):
                     decoded = result
                     break
-            with open("/app/debug.log", "a") as f:
-                f.write(f"DEBUG: Decoded data: {decoded}\n")
+            
+            with open("tracker_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')}\n")
             
             # if we find coordinates and imei: create a position
             if decoded.get("imei") and decoded.get("latitude") and decoded.get("longitude"):
@@ -70,9 +78,9 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         device = result.scalars().first()
                         
                         if not device:
-                            with open("/app/debug.log", "a") as f:
-                                f.write(f"DEBUG: Creating new device {decoded['imei']}\n")
-                            device = Device(imei=decoded['imei'], name=f"Tracker {decoded['imei']}")
+                            with open("tracker_debug.log", "a") as f:
+                                f.write(f"[{datetime.now()}] AUTO-CREATING device {decoded['imei']} for Tenant 1\n")
+                            device = Device(imei=decoded['imei'], name=f"Tracker {decoded['imei']}", tenant_id=1)
                             db.add(device)
                             await db.commit()
                             await db.refresh(device)
@@ -91,12 +99,11 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         with open("/app/debug.log", "a") as f:
                             f.write(f"SUCCESS: Saved position for device {device.imei}\n")
                     except Exception as e:
-                        with open("/app/debug.log", "a") as f:
-                            f.write(f"ERROR saving position: {e}\n")
+                        with open("tracker_debug.log", "a") as f:
+                            f.write(f"[{datetime.now()}] ERROR saving position: {e}\n")
             else:
-                with open("/app/debug.log", "a") as f:
-                    f.write(f"DEBUG: Missing required fields in decoded data: {decoded}\n")
+                pass # Already logged missing fields in DECODED line
 
         except Exception as e:
-             with open("/app/debug.log", "a") as f:
-                f.write(f"ERROR in handle: {e}\n")
+             with open("tracker_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] ERROR in handle: {e}\n")

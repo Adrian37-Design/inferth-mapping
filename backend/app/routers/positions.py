@@ -52,10 +52,27 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
     except:
         raise HTTPException(400, "Invalid hex")
         
-    # Attempt Decode (Simple MVP: Try GPS103)
-    decoder = GPS103Decoder() # In future, factory pattern based on protocol
-    data = await decoder.decode(raw_bytes)
+    # Attempt Decode (Multi-Protocol support)
+    from app.services.decoders.sinotrack import SinotrackDecoder
+    from app.services.decoders.gt06 import GT06Decoder
     
+    decoders = [SinotrackDecoder(), GPS103Decoder(), GT06Decoder()]
+    data = {"raw_text": raw_hex} # default
+    
+    for dec in decoders:
+        try:
+            result = await dec.decode(raw_bytes)
+            if "imei" in result and ("latitude" in result or result.get("type") == "login"):
+                data = result
+                break
+        except:
+            continue
+    
+    # Handle Login packets (GT06)
+    if data.get("type") == "login" and "imei" in data:
+        print(f"Login received for device: {data['imei']}")
+        return {"status": "login_ok", "imei": data["imei"]}
+
     if "imei" in data and "latitude" in data:
         # Save to DB
         # Find Device
@@ -63,10 +80,12 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
         device = device_q.scalars().first()
         
         if not device:
-            # Auto-create? Or Log Warning?
-            # For Safety: Log Warning and return 200 (so Gateway doesn't retry)
-            print(f"Unknown Device Ingested: {data['imei']}")
-            return {"status": "unknown_device", "imei": data["imei"]}
+            # Auto-create for Tenant 1
+            print(f"AUTO-CREATING device {data['imei']} for Tenant 1")
+            device = Device(imei=data["imei"], name=f"Tracker {data['imei']}", tenant_id=1)
+            db.add(device)
+            await db.commit()
+            await db.refresh(device)
             
         pos = Position(
             device_id=device.id,
