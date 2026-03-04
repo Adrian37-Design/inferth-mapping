@@ -33,12 +33,37 @@ class TCPTrackerProtocol(asyncio.Protocol):
         with open("tracker_debug.log", "a") as f:
             f.write(f"\n[{datetime.now()}] --- NEW CONNECTION: {self.peer} ---\n")
 
+    async def _forward_data(self, data: bytes):
+        """Asynchronously forward data to secondary destination (Sinotrack)."""
+        if not settings.SECONDARY_DESTINATION:
+            return
+            
+        try:
+            host, port = settings.SECONDARY_DESTINATION.split(":")
+            # Use a short timeout to avoid hanging if Sinotrack is slow/down
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, int(port)), 
+                timeout=3.0
+            )
+            writer.write(data)
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+        except Exception as e:
+            with open("tracker_debug.log", "a") as f:
+                f.write(f"[{datetime.now()}] FORWARDING ERROR: {e}\n")
+
     def data_received(self, data):
         with open("tracker_debug.log", "a") as f:
             f.write(f"[{datetime.now()}] RECV hex: {data.hex()}\n")
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self.handle(data))
+            
+            # Mirror data to secondary destination (Sinotrack)
+            if settings.SECONDARY_DESTINATION:
+                loop.create_task(self._forward_data(data))
+                
         except Exception as e:
             with open("tracker_debug.log", "a") as f:
                 f.write(f"[{datetime.now()}] ERROR creating task: {e}\n")

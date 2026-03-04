@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change_this_secret_key_in_production"
     JWT_ALGORITHM: str = "HS256"
 
+    SECONDARY_DESTINATION: str | None = None
+
     # Email Settings
     RESEND_API_KEY: str | None = None
     SMTP_HOST: str | None = None
