@@ -1,4 +1,5 @@
 import uvicorn
+from sqlalchemy import select
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
