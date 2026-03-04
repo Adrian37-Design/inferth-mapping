@@ -607,6 +607,8 @@ function loadReports() {
     // OBD Diagnostics
     let totalRPM = 0;
     let totalFuel = 0;
+    let totalCoolant = 0;
+    let totalLoad = 0;
     let obdVehicleCount = 0;
 
     // Scan markers for recent OBD data
@@ -615,16 +617,22 @@ function loadReports() {
             if (marker.obdData && !marker.isOffline) {
                 // Assuming obdData contains rpm and fuel
                 const rpm = parseFloat(marker.obdData.rpm);
-                const fuel = parseFloat(marker.obdData.fuel);
+                const fuel = parseFloat(marker.obdData.fuel_consumption || marker.obdData.fuel);
+                const coolant = parseFloat(marker.obdData.coolant);
+                const load = parseFloat(marker.obdData.engine_load);
 
                 if (!isNaN(rpm)) { totalRPM += rpm; obdVehicleCount++; }
                 // Use the highest fuel accumulated across fleet or sum for total (depending on use case, here we sum total active consumption)
                 if (!isNaN(fuel)) totalFuel += fuel;
+                if (!isNaN(coolant)) totalCoolant += coolant;
+                if (!isNaN(load)) totalLoad += load;
             }
         });
     }
 
     const avgRPM = obdVehicleCount > 0 ? Math.round(totalRPM / obdVehicleCount) : 0;
+    const avgCoolant = obdVehicleCount > 0 ? Math.round(totalCoolant / obdVehicleCount) : 0;
+    const avgLoad = obdVehicleCount > 0 ? Math.round(totalLoad / obdVehicleCount) : 0;
     const avgFuelText = totalFuel > 0 ? `${totalFuel.toFixed(1)} L` : 'N/A';
 
     const obdSummaryEl = document.getElementById('report-obd-summary');
@@ -640,6 +648,10 @@ function loadReports() {
     let rpmPercent = Math.min((avgRPM / 5000) * 100, 100);
     // Dynamic Fuel bar
     let fuelPercent = totalFuel > 0 ? 60 : 0; // Visual placeholder to show activity
+    // Dynamic Coolant bar (Max 120 C)
+    let coolantPercent = Math.min((avgCoolant / 120) * 100, 100);
+    // Dynamic Load bar (Max 100 %)
+    let loadPercent = Math.min(avgLoad, 100);
 
     const obdHTML = `
         <div style="padding: 15px; color: var(--text-primary); font-size: 0.95rem;">
@@ -651,6 +663,22 @@ function loadReports() {
                 <div style="width:${rpmPercent}%; background:var(--${avgRPM > 3000 ? 'danger' : 'success'}); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
             </div>
             
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span style="color:var(--text-secondary);"><i class="fas fa-thermometer-half"></i> Avg Coolant Temp</span> 
+                <span style="font-weight:bold; ${avgCoolant > 100 ? 'color:var(--danger)' : 'color:var(--warning)'}">${avgCoolant}°C</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+                <div style="width:${coolantPercent}%; background:var(--${avgCoolant > 100 ? 'danger' : 'warning'}); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                <span style="color:var(--text-secondary);"><i class="fas fa-cogs"></i> Avg Engine Load</span> 
+                <span style="font-weight:bold; color:#e040fb;">${avgLoad}%</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+                <div style="width:${loadPercent}%; background:#e040fb; height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
+            </div>
+
             <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
                 <span style="color:var(--text-secondary);"><i class="fas fa-gas-pump"></i> Active Consumption</span> 
                 <span style="font-weight:bold;">${avgFuelText}</span>
