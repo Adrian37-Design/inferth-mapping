@@ -25,6 +25,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
         self.transport = None
         self.peer = None
         self.imei = None # Session IMEI persistence
+        self.is_sinotrack = False # Identification flag
 
     def connection_made(self, transport):
         self.transport = transport
@@ -60,8 +61,8 @@ class TCPTrackerProtocol(asyncio.Protocol):
             loop = asyncio.get_running_loop()
             loop.create_task(self.handle(data))
             
-            # Mirror data to secondary destination (Sinotrack)
-            if settings.SECONDARY_DESTINATION:
+            # Mirror data ONLY if this session is identified as Sinotrack
+            if self.is_sinotrack and settings.SECONDARY_DESTINATION:
                 loop.create_task(self._forward_data(data))
                 
         except Exception as e:
@@ -92,6 +93,13 @@ class TCPTrackerProtocol(asyncio.Protocol):
 
                 if result.get("imei") and (result.get("latitude") or result.get("type") in ["login", "obd"]):
                     decoded = result
+                    # Identify session type for selective mirroring
+                    if isinstance(dec, SinotrackDecoder):
+                        if not self.is_sinotrack:
+                            self.is_sinotrack = True
+                            # Forward the identifying packet (login or first location)
+                            if settings.SECONDARY_DESTINATION:
+                                asyncio.create_task(self._forward_data(data))
                     break
             
             with open("tracker_debug.log", "a") as f:
