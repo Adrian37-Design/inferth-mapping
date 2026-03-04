@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import os
 from sqlalchemy.future import select
 from app.db import get_db
 from app.models import Tenant, Transaction, User
@@ -43,3 +45,17 @@ async def list_pending_payments(
 ):
     result = await db.execute(select(Transaction).where(Transaction.status == "approval_pending"))
     return result.scalars().all()
+
+@router.get("/debug-logs", response_class=PlainTextResponse)
+async def get_tracker_debug_logs():
+    """Returns the last 100 lines of the tracker debug log."""
+    log_path = "tracker_debug.log"
+    if not os.path.exists(log_path):
+        return f"Log file '{log_path}' not found at {os.getcwd()}. No tracker has connected yet."
+    
+    try:
+        with open(log_path, "r") as f:
+            lines = f.readlines()
+            return "".join(lines[-100:])
+    except Exception as e:
+        return f"Error reading logs: {str(e)}"
