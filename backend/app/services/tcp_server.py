@@ -24,6 +24,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
         self.app_state = app_state
         self.transport = None
         self.peer = None
+        self.imei = None # Session IMEI persistence
 
     def connection_made(self, transport):
         self.transport = transport
@@ -54,6 +55,15 @@ class TCPTrackerProtocol(asyncio.Protocol):
                     self.transport.write(result["response"])
                     with open("tracker_debug.log", "a") as f:
                         f.write(f"[{datetime.now()}] SENT hex: {result['response'].hex()}\n")
+
+                # Persistence Logic:
+                # 1. If decoder found a NEW IMEI, update session
+                if result.get("imei"):
+                    self.imei = result["imei"]
+                
+                # 2. If decoder didn't find IMEI but we HAVE ONE in session, inject it
+                if not result.get("imei") and self.imei:
+                    result["imei"] = self.imei
 
                 if result.get("imei") and (result.get("latitude") or result.get("type") == "login"):
                     decoded = result
