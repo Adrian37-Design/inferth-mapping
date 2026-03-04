@@ -171,6 +171,7 @@ async def startup_event():
                     reuse_port=True if hasattr(asyncio, 'SO_REUSEPORT') or os.name != 'nt' else False
                 )
                 print(f"SUCCESS: TCP tracker server listening on {settings.TCP_LISTEN_ADDR}:{settings.TCP_PORT}")
+                app.state.tcp_server_ready = True
                 return # Successfully started
             except Exception as e:
                 retry_count += 1
@@ -235,6 +236,8 @@ async def health_check():
     
     status = {
         "db_ready": getattr(app.state, "db_ready", False),
+        "tcp_server_active": getattr(app.state, "tcp_server_ready", False),
+        "tcp_port": settings.TCP_PORT,
         "tenants_count": 0,
         "users_count": 0,
         "database_connected": False
