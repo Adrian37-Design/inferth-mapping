@@ -77,16 +77,15 @@ class GT06Decoder(BaseDecoder):
                 lon = lon_int / 1800000.0
                 
                 # Course/Status byte (offset 16 from raw[4:])
-                # Bit 2: Latitude (0=South, 1=North)
-                # Bit 3: Longitude (0=East, 1=West)
+                # Bit 2 of the high byte (bit 10): Latitude (0=South, 1=North)
+                # Bit 3 of the high byte (bit 11): Longitude (0=East, 1=West)
                 course_status = struct.unpack('!H', data[16:18])[0]
                 
-                # Basic bitwise check for signs (simplified GT06 logic)
-                is_north = (course_status & 0x0400) == 0 # Some variants: 0=South
-                is_west = (course_status & 0x0800) != 0 # Some variants: 1=West
-                
-                # Note: GT06 spec varies by vendor; common default is positive for NE
-                # We'll stick to positive for now but return standard location type
+                # Apply signs
+                if not (course_status & 0x0400): # 0 = South
+                    lat = -lat
+                if (course_status & 0x0800): # 1 = West
+                    lon = -lon
                 
                 return {
                     "latitude": lat,
