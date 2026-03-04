@@ -96,7 +96,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         )
                         db.add(position)
                         await db.commit()
-                        with open("/app/debug.log", "a") as f:
+                        with open("debug.log", "a") as f:
                             f.write(f"SUCCESS: Saved position for device {device.imei}\n")
                     except Exception as e:
                         with open("tracker_debug.log", "a") as f:

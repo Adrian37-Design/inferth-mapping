@@ -48,14 +48,22 @@ async def list_pending_payments(
 
 @router.get("/debug-logs", response_class=PlainTextResponse)
 async def get_tracker_debug_logs():
-    """Returns the last 100 lines of the tracker debug log."""
+    """Returns the last 16KB of the tracker debug log efficiently."""
     log_path = "tracker_debug.log"
     if not os.path.exists(log_path):
-        return f"Log file '{log_path}' not found at {os.getcwd()}. No tracker has connected yet."
+        return f"Log file '{log_path}' not found. No tracker has connected yet."
     
     try:
-        with open(log_path, "r") as f:
-            lines = f.readlines()
-            return "".join(lines[-100:])
+        # Memory-efficient read of the end of the file
+        file_size = os.path.getsize(log_path)
+        read_size = 16384 # 16KB is enough for a quick debug view
+        
+        with open(log_path, "rb") as f:
+            if file_size > read_size:
+                f.seek(file_size - read_size)
+            content = f.read().decode(errors="ignore")
+            # If we skipped part of the file, add a header
+            prefix = f"--- Showing last {read_size/1024}KB of {file_size/1024:.2f}KB log ---\n\n" if file_size > read_size else ""
+            return prefix + content
     except Exception as e:
         return f"Error reading logs: {str(e)}"
