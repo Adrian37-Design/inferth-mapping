@@ -1330,7 +1330,8 @@ async function loadAllPositions(vehicles) {
             vehicles.forEach(vehicle => {
                 const pos = posMap[vehicle.id];
                 if (pos) {
-                    addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp);
+                    const rawData = pos.raw || {};
+                    addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
                 }
             });
             return;
@@ -1347,7 +1348,8 @@ async function loadAllPositions(vehicles) {
 
             if (positions.length > 0) {
                 const pos = positions[0];
-                addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp);
+                const rawData = pos.raw || {};
+                addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
             }
         } catch (error) {
             console.error(`Error loading position for ${vehicle.imei}:`, error);
@@ -1356,7 +1358,8 @@ async function loadAllPositions(vehicles) {
 }
 
 // Add or update marker and update Control Panel Card
-function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData = null) {
+function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData = null) {
+    const obdData = rawData; // alias
     // Determine Offline Status
     const timeDiff = new Date() - new Date(timestamp);
     const hoursOffline = timeDiff / (1000 * 60 * 60);
@@ -1364,6 +1367,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData =
     if (hoursOffline < 5) {
         assetStatus = speed > 3 ? 'Moving' : 'Idle';
     }
+
+    // Extract ignition from raw packet
+    const ignitionOn = rawData && rawData.ignition === true;
+    const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
+    const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
 
     // 1. Update Map Marker
     const icon = L.divIcon({
@@ -1393,7 +1401,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData =
             <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
             <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
             Speed: ${Math.round(speed || 0)} km/h<br>
-            Status: ${assetStatus}
+            Status: ${assetStatus}<br>
+            <span style="color:${ignitionColor}; font-size:0.9em;"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
             ${diagnosticHtml}
         </div>
     `;
@@ -1426,16 +1435,21 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, obdData =
         markers[id] = marker;
     }
 
-    // Store latest data
-    vehiclePositions[id] = { lat, lng, speed, timestamp };
+    // Store latest data (including ignition)
+    vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn };
 
     // Update Detail View if open
     if (selectedVehicle && selectedVehicle.id === id) {
-        // Also update the header status
         const statusEl = document.getElementById('detail-status');
         if (statusEl) {
-            statusEl.textContent = speed > 3 ? 'Moving' : 'Idle';
-            statusEl.className = `status-badge status-${speed > 3 ? 'moving' : 'idle'}`;
+            statusEl.textContent = assetStatus;
+            statusEl.className = `status-badge status-${assetStatus.toLowerCase()}`;
+        }
+        // Update the ignition field in the detail view
+        const ignEl = document.getElementById('detail-ignition');
+        if (ignEl) {
+            ignEl.textContent = ignitionOn ? 'On' : 'Off';
+            ignEl.style.color = ignitionOn ? '#00ff88' : '#aaa';
         }
         updateAssetDetailUI(id);
     }
