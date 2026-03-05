@@ -77,8 +77,10 @@ class GT06Decoder(BaseDecoder):
                 lon = lon_int / 1800000.0
                 
                 # Course/Status byte (offset 16 from raw[4:])
-                # Bit 2 of the high byte (bit 10): Latitude (0=South, 1=North)
-                # Bit 3 of the high byte (bit 11): Longitude (0=East, 1=West)
+                # Bit 10 (0x0400): Latitude N/S (1=North, 0=South)
+                # Bit 11 (0x0800): Longitude E/W (0=East, 1=West)
+                # Bit 12 (0x1000): ACC/Ignition (1=On, 0=Off)
+                # Bit 13 (0x2000): Vehicle motion (1=Moving, 0=Stationary)
                 course_status = struct.unpack('!H', data[16:18])[0]
                 
                 # Apply signs
@@ -87,10 +89,15 @@ class GT06Decoder(BaseDecoder):
                 if (course_status & 0x0800): # 1 = West
                     lon = -lon
                 
+                ignition = bool(course_status & 0x1000)  # ACC bit
+                in_motion = bool(course_status & 0x2000)  # Motion bit
+                
                 return {
                     "latitude": lat,
                     "longitude": lon,
                     "speed": data[15],
+                    "ignition": ignition,
+                    "in_motion": in_motion,
                     "type": "location",
                     "raw_text": raw.hex()
                 }
