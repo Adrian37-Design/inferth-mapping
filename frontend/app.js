@@ -83,6 +83,35 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
 
+    // Silent background auto-refresh every 30 seconds
+    // Keeps KPIs, status badges and "Last Seen" timers accurate without a page reload
+    setInterval(async () => {
+        try {
+            const resp = await window.AuthManager.fetchAPI('/positions/snapshot');
+            if (!resp.ok) return;
+            const positions = await resp.json();
+            const posMap = {};
+            positions.forEach(p => posMap[p.device_id] = p);
+
+            // Update each marker in place
+            Object.values(posMap).forEach(pos => {
+                const rawData = pos.raw || {};
+                // Find vehicle name and imei from existing marker
+                const m = markers[pos.device_id];
+                const vImei = m ? m.vehicleIMEI : (rawData.imei || '');
+                addOrUpdateMarker(pos.device_id, '', vImei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
+            });
+
+            // Collect current vehicle list and refresh KPIs
+            const vehicleIds = Object.keys(vehiclePositions).map(id => ({ id }));
+            if (vehicleIds.length > 0) updateDashboardKPIs(vehicleIds);
+
+            // Update detail panel if open
+            if (selectedVehicle) updateAssetDetailUI(selectedVehicle.id);
+
+        } catch (e) { /* silent — don't disrupt user if network blips */ }
+    }, 30000);
+
     // Tab Switching Logic
     setupTabs();
 
@@ -1236,15 +1265,15 @@ function updateDashboardKPIs(vehicles) {
     let offline = 0;
     let alertsCount = alerts.filter(a => !a.read).length; // Count unread alerts
 
-    // Calculate status based on positions table (using 5-hour cutoff logic to match Detail View)
+    // Offline = no data for 10+ minutes (tracker sends every ~10s when active)
+    const OFFLINE_MINS = 10;
     vehicles.forEach(v => {
         const pos = vehiclePositions[v.id];
 
         if (pos && pos.timestamp) {
-            const timeDiff = new Date() - new Date(pos.timestamp);
-            const hoursOffline = timeDiff / (1000 * 60 * 60);
+            const minsAgo = (Date.now() - new Date(pos.timestamp).getTime()) / 60000;
 
-            if (hoursOffline < 5) {
+            if (minsAgo < OFFLINE_MINS) {
                 if (pos.speed > 3) {
                     active++;
                 } else {
@@ -1363,8 +1392,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Determine Offline Status
     const timeDiff = new Date() - new Date(timestamp);
     const hoursOffline = timeDiff / (1000 * 60 * 60);
+    // Offline = no data for 10+ minutes
+    const minsOffline = timeDiff / (1000 * 60);
     let assetStatus = 'Offline';
-    if (hoursOffline < 5) {
+    if (minsOffline < 10) {
         assetStatus = speed > 3 ? 'Moving' : 'Idle';
     }
 
@@ -1462,14 +1493,15 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     const card = document.querySelector(`.vehicle-card[data-id="${id}"]`);
     if (!card) return;
 
-    // Determine Status
-    // Simple logic: Speed > 3 = Moving, Speed <=3 = Idle (if recent).
-    // For now, assume data is "recent" if we are receiving it.
-    let status = 'idle';
-    let label = 'Idle';
-    if (speed > 3) {
-        status = 'moving';
-        label = 'Moving';
+    // Determine Status using timestamp (10-minute offline threshold)
+    const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
+    let status, label;
+    if (minsAgo >= 10) {
+        status = 'offline'; label = 'Offline';
+    } else if (speed > 3) {
+        status = 'moving'; label = 'Moving';
+    } else {
+        status = 'idle'; label = 'Idle';
     }
 
     // Update Classes
@@ -1555,29 +1587,53 @@ function updateAssetDetailUI(id) {
     const data = vehiclePositions[id];
     if (!data) return;
 
+    const minsAgo = (Date.now() - new Date(data.timestamp).getTime()) / 60000;
+    const isOffline = minsAgo >= 10;
+
     // Status Badge
     const statusBadge = document.getElementById('detail-status');
-    let status = 'Idle';
-    let statusClass = 'badge-idle';
-
-    if (data.speed > 3) {
-        status = 'Moving';
-        statusClass = 'badge-moving';
-    } else if ((Date.now() - new Date(data.timestamp).getTime()) > 300000) { // > 5 mins
-        status = 'Offline';
-        statusClass = 'badge-offline';
+    let status, statusClass;
+    if (isOffline) {
+        status = 'Offline'; statusClass = 'badge-offline';
+    } else if (data.speed > 3) {
+        status = 'Moving'; statusClass = 'badge-moving';
+    } else {
+        status = 'Idle'; statusClass = 'badge-idle';
+    }
+    if (statusBadge) {
+        statusBadge.textContent = status;
+        statusBadge.className = `status-badge ${statusClass}`;
     }
 
-    statusBadge.textContent = status;
-    statusBadge.className = `status-badge ${statusClass}`; // Needs CSS for this
+    // Grid Items — grey out stale values when offline
+    const greyStyle = isOffline ? 'color:#888' : '';
+    const speedEl = document.getElementById('detail-speed');
+    if (speedEl) {
+        speedEl.textContent = isOffline ? '--' : `${Math.round(data.speed)} km/h`;
+        speedEl.style = greyStyle;
+    }
 
-    // Grid Items
-    document.getElementById('detail-speed').textContent = `${Math.round(data.speed)} km/h`;
-    document.getElementById('detail-ignition').textContent = data.speed > 0 ? 'On' : 'Off'; // Simple logic
-    document.getElementById('detail-coords').textContent = `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
+    // Ignition: read from stored raw ignition flag, not from speed
+    const ignEl = document.getElementById('detail-ignition');
+    if (ignEl) {
+        if (isOffline) {
+            ignEl.textContent = 'Off';
+            ignEl.style = 'color:#888';
+        } else {
+            ignEl.textContent = data.ignition ? 'On' : 'Off';
+            ignEl.style = data.ignition ? 'color:#00ff88' : '';
+        }
+    }
 
-    const timeDiff = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
-    document.getElementById('detail-last-seen').textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
+    const coordsEl = document.getElementById('detail-coords');
+    if (coordsEl && data.lat && data.lng) {
+        coordsEl.textContent = `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`;
+        coordsEl.style = greyStyle;
+    }
+
+    const timeDiff = Math.floor(minsAgo);
+    const lastSeenEl = document.getElementById('detail-last-seen');
+    if (lastSeenEl) lastSeenEl.textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
 }
 
 // Select vehicle (Entry Point)
