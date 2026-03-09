@@ -1190,17 +1190,22 @@ async function loadVehicles() {
 
         vehicles.forEach(vehicle => {
             const card = document.createElement('div');
-            card.className = 'vehicle-card';
+            card.className = 'vehicle-card status-offline';
             card.dataset.id = vehicle.id;
             card.dataset.imei = vehicle.imei;
 
             card.innerHTML = `
                 <div class="vehicle-header">
                     <div class="vehicle-name">${vehicle.name}</div>
-                    <div class="vehicle-status">Active</div>
+                    <div class="vehicle-status-badge badge-offline">Offline</div>
                 </div>
                 <div class="vehicle-details">
                     <div>IMEI: ${vehicle.imei}</div>
+                    <div class="vehicle-meta-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; color: var(--text-muted); margin-top: 5px;">
+                        <div><i class="fas fa-clock"></i> <span class="meta-time">--:--</span></div>
+                        <div><i class="fas fa-tachometer-alt"></i> <span class="meta-speed">0 km/h</span></div>
+                        <div style="grid-column: span 2;"><i class="fas fa-map-marker-alt"></i> <span class="meta-location">Waiting for data...</span></div>
+                    </div>
                 </div>
                 <div class="action-buttons">
                     ${window.AuthManager.canEdit() ? `
