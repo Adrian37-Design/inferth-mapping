@@ -2106,34 +2106,34 @@ if (addVehicleBtn) {
 
 
 // Load Asset History
-async function loadAssetHistory(id, dateStr) {
+async function loadAssetHistory(id, startDateStr, endDateStr) {
     const timeline = document.getElementById('detail-timeline');
     if (!timeline) return;
 
     timeline.innerHTML = '<p class="loading">Loading history...</p>';
 
-    // Default to today if no date provided
-    if (!dateStr) {
-        dateStr = new Date().toISOString().split('T')[0];
+    // Default to today if no dates provided
+    if (!startDateStr || !endDateStr) {
+        const today = new Date().toISOString().split('T')[0];
+        startDateStr = startDateStr || today;
+        endDateStr = endDateStr || today;
+
         // Update picker visual
-        const picker = document.getElementById('history-date-picker');
-        if (picker) picker.value = dateStr;
+        const startPicker = document.getElementById('history-start-date');
+        const endPicker = document.getElementById('history-end-date');
+        if (startPicker) startPicker.value = startDateStr;
+        if (endPicker) endPicker.value = endDateStr;
     }
 
     try {
-        let targetDate = new Date(); // default to today
-        if (dateStr && dateStr !== 'today') {
-            targetDate = new Date(dateStr);
-        }
-
-        const start = new Date(targetDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(targetDate);
-        end.setHours(23, 59, 59, 999);
+        let sd = new Date(startDateStr);
+        sd.setHours(0, 0, 0, 0);
+        let ed = new Date(endDateStr);
+        ed.setHours(23, 59, 59, 999);
 
         // Fetch using the routes endpoint which cleanly supports start/end dates
-        const response = await fetch(`${API_URL}/positions/routes/${id}?start_date=${start.toISOString()}&end_date=${end.toISOString()}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        const response = await fetch(`${API_URL}/positions/routes/${id}?start_date=${sd.toISOString()}&end_date=${ed.toISOString()}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
         });
 
         if (!response.ok) {
@@ -2145,7 +2145,7 @@ async function loadAssetHistory(id, dateStr) {
         timeline.innerHTML = '';
 
         if (!data.points || data.points.length === 0) {
-            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date</p>';
+            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date range</p>';
             return;
         }
 
@@ -2174,7 +2174,7 @@ async function loadAssetHistory(id, dateStr) {
 
         // Render the processed trips
         if (trips.length === 0) {
-            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date</p>';
+            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date range</p>';
             return;
         }
 
@@ -2194,7 +2194,7 @@ async function loadAssetHistory(id, dateStr) {
             item.innerHTML = `
                 <div class="timeline-icon"><i class="fas fa-route"></i></div>
                 <div class="timeline-content">
-                    <div class="timeline-time">${new Date(startP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${new Date(endP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="timeline-time">${new Date(startP.timestamp).toLocaleDateString()} ${new Date(startP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${new Date(endP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     <div class="timeline-title">Trip Recorded (${tripPoints.length} updates)</div>
                     <div class="timeline-desc">Duration: ${duration} min</div>
                 </div>
@@ -2210,23 +2210,33 @@ async function loadAssetHistory(id, dateStr) {
 
 // ... inside document ready ...
 // History Filter Listener (Date Picker)
-const historyPicker = document.getElementById('history-date-picker');
-if (historyPicker) {
-    // Set default to today
-    historyPicker.valueAsDate = new Date();
+const historyStartPicker = document.getElementById('history-start-date');
+const historyEndPicker = document.getElementById('history-end-date');
 
-    historyPicker.addEventListener('change', (e) => {
+if (historyStartPicker && historyEndPicker) {
+    // Set default to today
+    const today = new Date();
+    historyStartPicker.valueAsDate = today;
+    historyEndPicker.valueAsDate = today;
+
+    const historyOnChange = () => {
         if (selectedVehicle) {
-            loadAssetHistory(selectedVehicle.id, e.target.value);
+            loadAssetHistory(selectedVehicle.id, historyStartPicker.value, historyEndPicker.value);
         }
-    });
+    };
+
+    // Auto load when dates change
+    historyStartPicker.addEventListener('change', historyOnChange);
+    historyEndPicker.addEventListener('change', historyOnChange);
 }
+
 const loadHistoryBtn = document.getElementById('load-history-btn');
 if (loadHistoryBtn) {
     loadHistoryBtn.addEventListener('click', () => {
         if (selectedVehicle) {
-            const dateStr = document.getElementById('history-date-picker').value;
-            loadAssetHistory(selectedVehicle.id, dateStr);
+            const startDateStr = document.getElementById('history-start-date').value;
+            const endDateStr = document.getElementById('history-end-date').value;
+            loadAssetHistory(selectedVehicle.id, startDateStr, endDateStr);
         }
     });
 }
