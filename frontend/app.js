@@ -2121,13 +2121,6 @@ async function loadAssetHistory(id, dateStr) {
     }
 
     try {
-        // We need an endpoint that accepts a specific date.
-        // Assuming /positions/trips/{id}?date=YYYY-MM-DD
-        // Note: The previous logic used 'days=1'. We might need to adjust the backend or 
-        // rely on the existing params. Let's assume we can pass start/end timestamps or a date.
-        // If the backend only supports `days`, we are limited.
-        // Let's try sending `start_date` and `end_date` query params which are standard.
-
         let targetDate = new Date(); // default to today
         if (dateStr && dateStr !== 'today') {
             targetDate = new Date(dateStr);
@@ -2138,36 +2131,80 @@ async function loadAssetHistory(id, dateStr) {
         const end = new Date(targetDate);
         end.setHours(23, 59, 59, 999);
 
-        const response = await fetch(`${API_URL}/positions/trips/${id}?start_date=${start.toISOString()}&end_date=${end.toISOString()}`);
+        // Fetch using the routes endpoint which cleanly supports start/end dates
+        const response = await fetch(`${API_URL}/positions/routes/${id}?start_date=${start.toISOString()}&end_date=${end.toISOString()}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
 
-        // If the backend assumes "days" logic, we might need a fallback.
-        // But let's try the standard date range first.
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
 
         timeline.innerHTML = '';
 
-        if (!data.trips || data.trips.length === 0) {
+        if (!data.points || data.points.length === 0) {
             timeline.innerHTML = '<p class="empty-state">No activity recorded for this date</p>';
             return;
         }
 
-        data.trips.forEach(trip => {
+        // Group route points into logical "trips" on the frontend
+        // Assuming > 30 mins gap = new trip
+        const trips = [];
+        let currentTrip = [];
+
+        for (let i = 0; i < data.points.length; i++) {
+            const p = data.points[i];
+            if (i === 0) {
+                currentTrip.push(p);
+            } else {
+                const prev = data.points[i - 1];
+                const timeGap = (new Date(p.timestamp) - new Date(prev.timestamp)) / 60000; // minutes
+
+                if (timeGap > 30) {
+                    if (currentTrip.length > 0) trips.push(currentTrip);
+                    currentTrip = [p];
+                } else {
+                    currentTrip.push(p);
+                }
+            }
+        }
+        if (currentTrip.length > 0) trips.push(currentTrip);
+
+        // Render the processed trips
+        if (trips.length === 0) {
+            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date</p>';
+            return;
+        }
+
+        trips.forEach(tripPoints => {
+            if (tripPoints.length < 2) return;
+
+            const startP = tripPoints[0];
+            const endP = tripPoints[tripPoints.length - 1];
+            const duration = ((new Date(endP.timestamp) - new Date(startP.timestamp)) / 60000).toFixed(1);
+
+            // Re-calc distance manually or just estimate
+            // We have total distance from API but not per sub-trip, estimating...
+            // Or roughly display points count
+
             const item = document.createElement('div');
             item.className = 'timeline-item';
             item.innerHTML = `
                 <div class="timeline-icon"><i class="fas fa-route"></i></div>
                 <div class="timeline-content">
-                    <div class="timeline-time">${new Date(trip.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div class="timeline-title">Trip: ${trip.distance_km.toFixed(2)} km</div>
-                    <div class="timeline-desc">Duration: ${trip.duration_minutes} min</div>
+                    <div class="timeline-time">${new Date(startP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${new Date(endP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div class="timeline-title">Trip Recorded (${tripPoints.length} updates)</div>
+                    <div class="timeline-desc">Duration: ${duration} min</div>
                 </div>
             `;
             timeline.appendChild(item);
         });
+
     } catch (e) {
         console.error("History load error", e);
-        timeline.innerHTML = '<p class="empty-state">Failed to load history</p>';
+        timeline.innerHTML = '<p class="empty-state">Failed to load history endpoints</p>';
     }
 }
 
