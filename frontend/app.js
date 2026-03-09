@@ -1567,7 +1567,7 @@ function openAssetDetail(vehicle) {
     updateAssetDetailUI(vehicle.id);
 
     // Load History (Default: Today)
-    loadAssetHistory(vehicle.id, 'today');
+    loadAssetHistory(vehicle.id, null, null);
 }
 
 // Close Asset Detail View
@@ -2113,17 +2113,15 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
     timeline.innerHTML = '<p class="loading">Loading history...</p>';
 
     // Default to today if no dates provided
-    if (!startDateStr || !endDateStr) {
-        const today = new Date().toISOString().split('T')[0];
-        startDateStr = startDateStr || today;
-        endDateStr = endDateStr || today;
+    const today = new Date().toISOString().split('T')[0];
+    if (!startDateStr || startDateStr === 'today') startDateStr = today;
+    if (!endDateStr || endDateStr === 'today') endDateStr = today;
 
-        // Update picker visual
-        const startPicker = document.getElementById('history-start-date');
-        const endPicker = document.getElementById('history-end-date');
-        if (startPicker) startPicker.value = startDateStr;
-        if (endPicker) endPicker.value = endDateStr;
-    }
+    // Update picker visual
+    const startPicker = document.getElementById('history-start-date');
+    const endPicker = document.getElementById('history-end-date');
+    if (startPicker) startPicker.value = startDateStr;
+    if (endPicker) endPicker.value = endDateStr;
 
     try {
         let sd = new Date(startDateStr);
