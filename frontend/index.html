@@ -127,8 +127,11 @@
                         <!-- Section 2: Timeline & History -->
                         <div class="detail-section">
                             <h4 class="section-title">History & Timeline</h4>
-                            <div class="history-controls">
-                                <input type="date" id="history-date-picker" class="form-select-small">
+                            <div class="history-controls"
+                                style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+                                <input type="date" id="history-start-date" class="form-select-small">
+                                <span style="color:#888; font-size: 0.8rem;">to</span>
+                                <input type="date" id="history-end-date" class="form-select-small">
                                 <button class="btn-small" id="load-history-btn">Load</button>
                             </div>
                             <div class="timeline-view" id="detail-timeline">
