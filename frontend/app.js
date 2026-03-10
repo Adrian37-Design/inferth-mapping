@@ -2028,17 +2028,24 @@ function connectWebSocket() {
 
                     // If this is an OBD packet, try to inherit last known coordinates
                     if (!lat && m) {
-                        if (typeof m.getLatLng === 'function') {
-                            const ll = m.getLatLng();
-                            lat = ll.lat;
-                            lng = ll.lng;
-                        } else if (m.lat) {
-                            lat = m.lat;
-                            lng = m.lng;
+                        try {
+                            if (typeof m.getLatLng === 'function') {
+                                const ll = m.getLatLng();
+                                lat = ll.lat;
+                                lng = ll.lng;
+                            } else if (m._latlng) {
+                                lat = m._latlng.lat;
+                                lng = m._latlng.lng;
+                            }
+                        } catch (e) {
+                            console.warn("Could not get LatLng for marker", e);
                         }
                     }
 
-                    const obdData = data.raw || {};
+                    // CRITICAL: Preserve old OBD data if this is just a location update
+                    const existingObd = (m && m.obdData) ? m.obdData : {};
+                    const obdData = isObd ? (data.raw || {}) : existingObd;
+
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
 
                     // Live update intelligence reports if that tab is active

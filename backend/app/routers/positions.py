@@ -235,7 +235,11 @@ async def get_device_route(
 
     from datetime import datetime
     
-    query = select(Position).where(Position.device_id == device_id)
+    query = select(Position).where(
+        Position.device_id == device_id,
+        Position.latitude.is_not(None),
+        Position.longitude.is_not(None)
+    )
     
     # Add date filtering
     if start_date:

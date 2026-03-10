@@ -156,6 +156,25 @@ class GT06Decoder(BaseDecoder):
                     return res
                 return {"type": "info", "info_type": hex(info_type), "raw_text": raw.hex()}
 
+            # 0x27: External Power / OBD Status
+            if protocol_number == 0x27:
+                obd_data = raw[4:-6]
+                return {
+                    "type": "obd",
+                    "voltage": struct.unpack('!H', obd_data[0:2])[0] * 0.01 if len(obd_data) >= 2 else 0,
+                    "raw_text": raw.hex()
+                }
+
+            # 0xA0: Extended OBD
+            if protocol_number == 0xA0:
+                obd_data = raw[4:-6]
+                return {
+                    "type": "obd",
+                    "rpm": struct.unpack('!H', obd_data[0:2])[0] if len(obd_data) >= 2 else 0,
+                    "coolant": obd_data[2] if len(obd_data) > 2 else 0,
+                    "raw_text": raw.hex()
+                }
+
             print(f"[{datetime.now()}] UNKNOWN GT06 Prot: {hex(protocol_number)} (Len: {len(raw)}) | Hex: {raw.hex()}")
             return {"raw_text": raw.hex(), "protocol_number": hex(protocol_number), "type": "unknown"}
 
