@@ -1393,7 +1393,18 @@ async function loadAllPositions(vehicles) {
 
 // Add or update marker and update Control Panel Card
 function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData = null) {
-    const obdData = rawData; // alias
+    let marker = markers[id];
+
+    // Merge OBD State so Location packets don't overwrite OBD parameters
+    let obdData = rawData;
+    if (marker && marker.obdData) {
+        if (rawData && rawData.type === 'location' && marker.obdData.type === 'obd') {
+            obdData = { ...marker.obdData, ...rawData, type: 'obd' };
+        } else if (rawData && rawData.type === 'obd') {
+            obdData = { ...marker.obdData, ...rawData };
+        }
+    }
+
     // Determine Offline Status
     const timeDiff = new Date() - new Date(timestamp);
     const hoursOffline = timeDiff / (1000 * 60 * 60);
@@ -1444,8 +1455,20 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     `;
 
     if (marker) {
-        marker.setLatLng([lat, lng]);
-        marker.setIcon(icon);
+        if (lat !== null && lat !== undefined) {
+            if (typeof marker.setLatLng === 'function') {
+                marker.setLatLng([lat, lng]);
+                marker.setIcon(icon);
+            } else {
+                // Was a generic object, upgrade to Leaflet Marker
+                const savedObdData = marker.obdData;
+                marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+                marker.obdData = savedObdData;
+                marker.on('click', () => { selectVehicle({ id, name, imei, driver_name: 'Unknown' }); });
+                markers[id] = marker;
+            }
+        }
+
         // Update Metadata
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
@@ -1453,24 +1476,36 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker.obdData = obdData; // Attach OBD Data for Reports
 
         // Update Popup Content
-        marker.setPopupContent(popupContentStr);
+        if (typeof marker.setPopupContent === 'function') {
+            marker.setPopupContent(popupContentStr);
+        }
     } else {
-        marker = L.marker([lat, lng], { icon: icon }).addTo(map);
-        marker.vehicleIMEI = imei;
-        marker.vehicleId = id;
-        marker.isOffline = assetStatus === 'Offline';
-        marker.obdData = obdData; // Attach OBD Data for Reports
+        if (lat !== null && lat !== undefined) {
+            marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+            marker.vehicleIMEI = imei;
+            marker.vehicleId = id;
+            marker.isOffline = assetStatus === 'Offline';
+            marker.obdData = obdData; // Attach OBD Data for Reports
 
-        marker.bindPopup(popupContentStr);
+            marker.bindPopup(popupContentStr);
 
-        // Click listener to select vehicle
-        marker.on('click', () => {
-            // Find vehicle object efficiently or reconstruct
-            const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
-            selectVehicle(vehicleObj); // Trigger selection
-        });
+            // Click listener to select vehicle
+            marker.on('click', () => {
+                // Find vehicle object efficiently or reconstruct
+                const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
+                selectVehicle(vehicleObj); // Trigger selection
+            });
 
-        markers[id] = marker;
+            markers[id] = marker;
+        } else {
+            // Create as a generic object so obdData is captured for loadReports
+            markers[id] = {
+                vehicleIMEI: imei,
+                vehicleId: id,
+                isOffline: assetStatus === 'Offline',
+                obdData: obdData
+            };
+        }
     }
 
     // Store latest data (including ignition)
