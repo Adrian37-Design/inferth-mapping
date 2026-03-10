@@ -2011,16 +2011,32 @@ function connectWebSocket() {
             const isObd = data.raw && data.raw.type === 'obd';
 
             if (data.imei && (data.latitude || isObd)) {
-                // Find device and update
-                const deviceId = Object.keys(markers).find(id => {
-                    const m = markers[id];
-                    return m.vehicleIMEI === data.imei;
-                });
+                console.log('📡 Real-time update:', data.imei, isObd ? 'OBD' : 'Location');
+
+                // Find device by IMEI
+                let deviceId = Object.keys(markers).find(id => markers[id].vehicleIMEI === data.imei);
+
+                // If not found in markers, check if we have a pending vehicle object
+                if (!deviceId && selectedVehicle && selectedVehicle.imei === data.imei) {
+                    deviceId = selectedVehicle.id;
+                }
 
                 if (deviceId) {
                     const m = markers[deviceId];
-                    const lat = data.latitude || (m ? m.getLatLng().lat : null);
-                    const lng = data.longitude || (m ? m.getLatLng().lng : null);
+                    let lat = data.latitude;
+                    let lng = data.longitude;
+
+                    // If this is an OBD packet, try to inherit last known coordinates
+                    if (!lat && m) {
+                        if (typeof m.getLatLng === 'function') {
+                            const ll = m.getLatLng();
+                            lat = ll.lat;
+                            lng = ll.lng;
+                        } else if (m.lat) {
+                            lat = m.lat;
+                            lng = m.lng;
+                        }
+                    }
 
                     const obdData = data.raw || {};
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
