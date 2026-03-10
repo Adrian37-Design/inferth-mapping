@@ -1772,8 +1772,8 @@ function playRoute() {
         return;
     }
 
-    // Stop existing playback
-    stopRoute();
+    // Stop existing playback (keep history state)
+    stopRoute(false);
 
     playbackIndex = 0;
     const speed = parseInt(document.getElementById('playback-speed').value);
@@ -1818,8 +1818,8 @@ function pauseRoute() {
     }
 }
 
-// Stop route playback (Exits history view)
-function stopRoute() {
+// Stop route playback (Optional: Exits history view)
+function stopRoute(clearAll = true) {
     pauseRoute();
     playbackIndex = 0;
     if (playbackMarker) {
@@ -1827,26 +1827,26 @@ function stopRoute() {
         playbackMarker = null;
     }
 
-    // Clear historical route lines
+    if (clearAll) {
+        // Clear historical route lines
     if (selectedVehicle && routes[selectedVehicle.id]) {
         map.removeLayer(routes[selectedVehicle.id]);
         delete routes[selectedVehicle.id];
     }
 
-    // Restore real-time markers
-    isHistoryMode = false;
-    Object.values(markers).forEach(m => {
-        if (m instanceof L.Marker && !map.hasLayer(m)) {
-            m.addTo(map);
-        }
-    });
+        Object.values(markers).forEach(m => {
+            if (m instanceof L.Marker && !map.hasLayer(m)) {
+                m.addTo(map);
+            }
+        });
 
-    // Hide controls
-    document.getElementById('route-controls').classList.add('hidden');
+        // Hide controls
+        document.getElementById('route-controls').classList.add('hidden');
 
-    // Reset timeline view
-    const timeline = document.getElementById('detail-timeline');
-    if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+        // Reset timeline view
+        const timeline = document.getElementById('detail-timeline');
+        if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+    }
 }
 
 // Close modal helper function
@@ -2229,10 +2229,10 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
 
     timeline.innerHTML = '<p class="loading">Loading history...</p>';
 
-    // Default to today if no dates provided
+    // Default to today if no dates provided (format correctly for datetime-local)
     const today = new Date().toISOString().split('T')[0];
-    if (!startDateStr || startDateStr === 'today') startDateStr = today;
-    if (!endDateStr || endDateStr === 'today') endDateStr = today;
+    if (!startDateStr || startDateStr === 'today') startDateStr = `${today}T00:00`;
+    if (!endDateStr || endDateStr === 'today') endDateStr = `${today}T23:59`;
 
     // Update picker visual
     const startPicker = document.getElementById('history-start-date');
