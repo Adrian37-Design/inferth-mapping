@@ -2345,12 +2345,15 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 playbackRoute = tripPoints;
                 document.getElementById('route-controls').classList.remove('hidden');
 
-                // UX: Auto-navigate to map (close sidebar on small screens)
-                if (window.innerWidth < 1024) {
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) sidebar.classList.add('hidden');
-                    setTimeout(() => { if (map) map.invalidateSize(); }, 350);
-                }
+                // UX: Auto-navigate to map (close sidebar)
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) sidebar.classList.add('hidden');
+                setTimeout(() => { if (map) map.invalidateSize(); }, 350);
+
+                // Start playback automatically
+                setTimeout(() => {
+                    playRoute();
+                }, 400); // Small delay to let sidebar close animation finish
 
                 // Show a toast or notification
                 console.log(`Visualizing trip: ${duration} mins`);
