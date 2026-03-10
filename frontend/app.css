@@ -1833,6 +1833,20 @@ body {
     margin-top: 2px;
 }
 
+.timeline-item {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.timeline-item:hover {
+    background: rgba(45, 95, 109, 0.05);
+}
+
+.timeline-item.active {
+    background: rgba(45, 95, 109, 0.1);
+    border-left: 3px solid var(--primary);
+}
+
 .timeline-content {
     flex: 1;
 }

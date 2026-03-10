@@ -2280,6 +2280,34 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     <div class="timeline-desc">Duration: ${duration} min</div>
                 </div>
             `;
+
+            item.onclick = () => {
+                // UI: Highlight active trip
+                document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+
+                // Logic: Draw specific trip on map
+                if (routes[id]) map.removeLayer(routes[id]);
+
+                const points = tripPoints.map(p => [p.lat, p.lng]);
+                const polyline = L.polyline(points, {
+                    color: '#00d4ff',
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: '5, 10'
+                }).addTo(map);
+
+                routes[id] = polyline;
+                map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+                // Set up playback for this specific trip
+                playbackRoute = tripPoints;
+                document.getElementById('route-controls').classList.remove('hidden');
+
+                // Show a toast or notification
+                console.log(`Visualizing trip: ${duration} mins`);
+            };
+
             timeline.appendChild(item);
         });
 
