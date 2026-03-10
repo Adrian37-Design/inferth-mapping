@@ -643,7 +643,10 @@ function loadReports() {
     // Scan markers for recent OBD data
     if (typeof markers !== 'undefined') {
         Object.values(markers).forEach(marker => {
-            if (marker.obdData && !marker.isOffline) {
+            const timeDiff = new Date() - new Date(marker.lastUpdate);
+            const minsOffline = timeDiff / (1000 * 60);
+
+            if (marker.obdData && minsOffline < 15) {
                 // Assuming obdData contains rpm and fuel
                 const rpm = parseFloat(marker.obdData.rpm);
                 const fuel = parseFloat(marker.obdData.fuel_consumption || marker.obdData.fuel);
@@ -1396,13 +1399,13 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     let marker = markers[id];
 
     // Merge OBD State so Location packets don't overwrite OBD parameters
-    let obdData = rawData;
-    if (marker && marker.obdData) {
-        if (rawData && rawData.type === 'location' && marker.obdData.type === 'obd') {
-            obdData = { ...marker.obdData, ...rawData, type: 'obd' };
-        } else if (rawData && rawData.type === 'obd') {
-            obdData = { ...marker.obdData, ...rawData };
-        }
+    const existingObd = (marker && marker.obdData) ? marker.obdData : {};
+    const incomingData = rawData || {};
+    let obdData = { ...existingObd, ...incomingData };
+
+    // If this is strictly a location update, preserve the 'obd' type for reports
+    if (existingObd.type === 'obd' && incomingData.type === 'location') {
+        obdData.type = 'obd';
     }
 
     // Determine Offline Status
