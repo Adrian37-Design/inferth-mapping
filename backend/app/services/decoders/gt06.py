@@ -77,10 +77,6 @@ class GT06Decoder(BaseDecoder):
                 lon = lon_int / 1800000.0
                 
                 # Course/Status byte (offset 16 from raw[4:])
-                # Bit 10 (0x0400): Latitude N/S (1=North, 0=South)
-                # Bit 11 (0x0800): Longitude E/W (0=East, 1=West)
-                # Bit 12 (0x1000): ACC/Ignition (1=On, 0=Off)
-                # Bit 13 (0x2000): Vehicle motion (1=Moving, 0=Stationary)
                 course_status = struct.unpack('!H', data[16:18])[0]
                 
                 # Apply signs
@@ -89,18 +85,27 @@ class GT06Decoder(BaseDecoder):
                 if (course_status & 0x0800): # 1 = West
                     lon = -lon
                 
-                ignition = bool(course_status & 0x1000)  # ACC bit
-                in_motion = bool(course_status & 0x2000)  # Motion bit
-                
-                return {
+                res = {
                     "latitude": lat,
                     "longitude": lon,
                     "speed": data[15],
-                    "ignition": ignition,
-                    "in_motion": in_motion,
+                    "ignition": bool(course_status & 0x1000),
+                    "in_motion": bool(course_status & 0x2000),
                     "type": "location",
                     "raw_text": raw.hex()
                 }
+
+                # OBD Extension (Common in some TK models)
+                # If packet has extra bytes after Course/Status
+                if len(data) >= 28:
+                    # Trailing 11 bytes (approx) often contain OBD
+                    # Offset 18: RPM (2 bytes)
+                    res["rpm"] = struct.unpack('!H', data[18:20])[0]
+                    # Offset 23: Mileage (4 bytes)
+                    res["mileage"] = struct.unpack('!I', data[23:27])[0]
+                    res["type"] = "location_obd"
+
+                return res
 
             # 0x8A: OBD Data
             if protocol_number == 0x8A:

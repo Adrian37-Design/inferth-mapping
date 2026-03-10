@@ -37,6 +37,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
         self.peer = None
         self.imei = None # Session IMEI persistence
         self.is_sinotrack = False # Identification flag
+        self.buffer = b"" # Splitting buffer
 
     def connection_made(self, transport):
         self.transport = transport
@@ -63,6 +64,32 @@ class TCPTrackerProtocol(asyncio.Protocol):
             print(f"[{datetime.now()}] FORWARDING ERROR: {e}")
 
     def data_received(self, data):
+        self.buffer += data
+        
+        while len(self.buffer) >= 5:
+            # GT06 frames start with 0x7878 or 0x7979
+            if self.buffer.startswith(b'\x78\x78'):
+                length = self.buffer[2]
+                total_len = length + 5 # Header(2) + Len(1) + Stop(2) = 5. Length field is Data+Serial+CRC
+                if len(self.buffer) < total_len:
+                    break
+                packet = self.buffer[:total_len]
+                self.buffer = self.buffer[total_len:]
+                self._process_packet(packet)
+            elif self.buffer.startswith(b'\x79\x79'):
+                import struct
+                length = struct.unpack('!H', self.buffer[2:4])[0]
+                total_len = length + 6 # Header(2) + Len(2) + Stop(2) = 6
+                if len(self.buffer) < total_len:
+                    break
+                packet = self.buffer[:total_len]
+                self.buffer = self.buffer[total_len:]
+                self._process_packet(packet)
+            else:
+                # Seek for next potential header
+                self.buffer = self.buffer[1:]
+
+    def _process_packet(self, data):
         print(f"[{datetime.now()}] RECV hex: {data.hex()}")
         try:
             loop = asyncio.get_running_loop()
