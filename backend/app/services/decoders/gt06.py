@@ -57,17 +57,9 @@ class GT06Decoder(BaseDecoder):
                 if res["mcc"] == 648:
                     res["lbs_info"] = "Zimbabwe Tower Connection"
 
-            # Check for OBD mileage at the end of long packets (Extension Protocol)
-            # Standard packets are ~35 bytes of 'data' (raw[4:]).
-            # Packets with mileage extension are usually significantly longer.
-            if len(data) >= 42:
-                # Mileage is 4 bytes at offset 28 in the data part
-                mileage = struct.unpack('!I', data[28:32])[0]
-                if 0 < mileage < 10000000: # Sanity check: max 10M km
-                    res["mileage"] = mileage
-                    res["type"] = "location_obd"
-                    
             return res
+        except Exception as e:
+            return {"type": "error", "error": f"GPS parse failed: {e}"}
         except Exception as e:
             return {"type": "error", "error": f"GPS parse failed: {e}"}
 
