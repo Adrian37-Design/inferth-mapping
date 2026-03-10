@@ -32,6 +32,9 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
+    if credentials is None:
+        raise credentials_exception
+        
     try:
         token = credentials.credentials
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
