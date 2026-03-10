@@ -2008,17 +2008,22 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (data.imei && data.latitude && data.longitude) {
+            const isObd = data.raw && data.raw.type === 'obd';
+
+            if (data.imei && (data.latitude || isObd)) {
                 // Find device and update
                 const deviceId = Object.keys(markers).find(id => {
-                    const marker = markers[id];
-                    return marker.vehicleIMEI === data.imei;
+                    const m = markers[id];
+                    return m.vehicleIMEI === data.imei;
                 });
 
                 if (deviceId) {
-                    // Extract OBD data if present in metadata/raw
+                    const m = markers[deviceId];
+                    const lat = data.latitude || (m ? m.getLatLng().lat : null);
+                    const lng = data.longitude || (m ? m.getLatLng().lng : null);
+
                     const obdData = data.raw || {};
-                    addOrUpdateMarker(deviceId, '', data.imei, data.latitude, data.longitude, data.speed, data.timestamp, obdData);
+                    addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
 
                     // Live update intelligence reports if that tab is active
                     const activeTab = document.querySelector('.rail-item.active');
