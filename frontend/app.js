@@ -28,6 +28,7 @@ let playbackRoute = null;
 let playbackMarker = null;
 let editingVehicleId = null;
 let allVehicles = [];
+let isHistoryMode = false;
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -1431,7 +1432,6 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const ignitionOn = rawData && rawData.ignition === true;
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
     const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
-
     // 1. Update Map Marker
     const icon = L.divIcon({
         html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker">
@@ -1441,6 +1441,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         className: 'custom-marker',
         iconSize: [40, 40]
     });
+
+    if (isHistoryMode) {
+        if (marker && map.hasLayer(marker)) map.removeLayer(marker);
+    }
 
     let diagnosticHtml = '';
     if (obdData) {
@@ -1473,11 +1477,19 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             } else {
                 // Was a generic object, upgrade to Leaflet Marker
                 const savedObdData = marker.obdData;
-                marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+                marker = L.marker([lat, lng], { icon: icon });
+                if (!isHistoryMode) marker.addTo(map);
                 marker.obdData = savedObdData;
                 marker.on('click', () => { selectVehicle({ id, name, imei, driver_name: 'Unknown' }); });
                 markers[id] = marker;
             }
+        }
+
+        // Ensure visibility state matches history mode
+        if (isHistoryMode && map.hasLayer(marker)) {
+            map.removeLayer(marker);
+        } else if (!isHistoryMode && !map.hasLayer(marker)) {
+            marker.addTo(map);
         }
 
         // Update Metadata
@@ -1492,7 +1504,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     } else {
         if (lat !== null && lat !== undefined) {
-            marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+            marker = L.marker([lat, lng], { icon: icon });
+            if (!isHistoryMode) marker.addTo(map);
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
@@ -1819,6 +1832,14 @@ function stopRoute() {
         map.removeLayer(routes[selectedVehicle.id]);
         delete routes[selectedVehicle.id];
     }
+
+    // Restore real-time markers
+    isHistoryMode = false;
+    Object.values(markers).forEach(m => {
+        if (m instanceof L.Marker && !map.hasLayer(m)) {
+            m.addTo(map);
+        }
+    });
 
     // Hide controls
     document.getElementById('route-controls').classList.add('hidden');
@@ -2311,6 +2332,14 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
 
                 routes[id] = polyline;
                 map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+                // Enter history mode: hide live markers
+                isHistoryMode = true;
+                Object.values(markers).forEach(m => {
+                    if (m instanceof L.Marker && map.hasLayer(m)) {
+                        map.removeLayer(m);
+                    }
+                });
 
                 // Set up playback for this specific trip
                 playbackRoute = tripPoints;
