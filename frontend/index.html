@@ -126,13 +126,22 @@
 
                         <!-- Section 2: Timeline & History -->
                         <div class="detail-section">
-                            <h4 class="section-title">History & Timeline</h4>
+                            <div class="section-header"
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 class="section-title" style="margin: 0;">History & Timeline</h4>
+                                <button class="btn-icon-small" id="clear-history-btn" title="Clear History"
+                                    style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </div>
                             <div class="history-controls"
                                 style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
-                                <input type="date" id="history-start-date" class="form-select-small">
+                                <input type="datetime-local" id="history-start-date" class="form-select-small"
+                                    style="flex: 2; min-width: 140px;">
                                 <span style="color:#888; font-size: 0.8rem;">to</span>
-                                <input type="date" id="history-end-date" class="form-select-small">
-                                <button class="btn-small" id="load-history-btn">Load</button>
+                                <input type="datetime-local" id="history-end-date" class="form-select-small"
+                                    style="flex: 2; min-width: 140px;">
+                                <button class="btn-small" id="load-history-btn" style="flex: 1;">Load</button>
                             </div>
                             <div class="timeline-view" id="detail-timeline">
                                 <p class="empty-state">Select a range to view history</p>

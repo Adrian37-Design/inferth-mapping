@@ -2207,10 +2207,9 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
     if (endPicker) endPicker.value = endDateStr;
 
     try {
+        // datetime-local values are already in a compatible string format or YYYY-MM-DDTHH:MM
         let sd = new Date(startDateStr);
-        sd.setHours(0, 0, 0, 0);
         let ed = new Date(endDateStr);
-        ed.setHours(23, 59, 59, 999);
 
         // Fetch using the routes endpoint which cleanly supports start/end dates
         const response = await fetch(`${API_URL}/positions/routes/${id}?start_date=${sd.toISOString()}&end_date=${ed.toISOString()}`, {
@@ -2304,6 +2303,13 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 playbackRoute = tripPoints;
                 document.getElementById('route-controls').classList.remove('hidden');
 
+                // UX: Auto-navigate to map (close sidebar on small screens)
+                if (window.innerWidth < 1024) {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.add('hidden');
+                    setTimeout(() => { if (map) map.invalidateSize(); }, 350);
+                }
+
                 // Show a toast or notification
                 console.log(`Visualizing trip: ${duration} mins`);
             };
@@ -2323,10 +2329,20 @@ const historyStartPicker = document.getElementById('history-start-date');
 const historyEndPicker = document.getElementById('history-end-date');
 
 if (historyStartPicker && historyEndPicker) {
-    // Set default to today
-    const today = new Date();
-    historyStartPicker.valueAsDate = today;
-    historyEndPicker.valueAsDate = today;
+    // Set default to today (00:00 to 23:59)
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+
+    // Format to YYYY-MM-DDTHH:mm for datetime-local
+    const formatDT = (d) => {
+        const offset = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - (offset * 60 * 1000));
+        return local.toISOString().slice(0, 16);
+    };
+
+    historyStartPicker.value = formatDT(startOfDay);
+    historyEndPicker.value = formatDT(endOfDay);
 
     const historyOnChange = () => {
         if (selectedVehicle) {
@@ -2347,6 +2363,21 @@ if (loadHistoryBtn) {
             const endDateStr = document.getElementById('history-end-date').value;
             loadAssetHistory(selectedVehicle.id, startDateStr, endDateStr);
         }
+    });
+}
+
+// Clear History Handler
+const clearHistoryBtn = document.getElementById('clear-history-btn');
+if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener('click', () => {
+        if (selectedVehicle && routes[selectedVehicle.id]) {
+            map.removeLayer(routes[selectedVehicle.id]);
+            delete routes[selectedVehicle.id];
+        }
+        playbackRoute = null;
+        document.getElementById('route-controls').classList.add('hidden');
+        const timeline = document.getElementById('detail-timeline');
+        if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
     });
 }
 

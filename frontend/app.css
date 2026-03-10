@@ -1767,6 +1767,11 @@ body {
     cursor: pointer;
 }
 
+.btn-icon-small:hover {
+    color: var(--primary) !important;
+    transform: scale(1.1);
+}
+
 /* Actions */
 .action-grid {
     display: grid;
