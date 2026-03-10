@@ -14,11 +14,12 @@ class PositionCreate(BaseModel):
 class PositionOut(BaseModel):
     id: int
     device_id: int
-    latitude: float
-    longitude: float
-    speed: Optional[float]
-    course: Optional[float]
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    speed: Optional[float] = None
+    course: Optional[float] = None
     timestamp: Optional[datetime] = None
+    raw: Optional[dict] = None
 
     class Config:
         from_attributes = True
