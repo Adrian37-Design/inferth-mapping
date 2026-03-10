@@ -89,6 +89,10 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             await db.commit()
             await db.refresh(device)
             
+        # Sanitize for JSON
+        from app.services.tcp_server import sanitize_for_json
+        sanitized_data = sanitize_for_json(data)
+        
         pos = Position(
             device_id=device.id,
             latitude=data.get("latitude"),
@@ -96,7 +100,7 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             speed=data.get("speed", 0),
             course=data.get("course", 0),
             timestamp=datetime.utcnow(),
-            raw=data # Store decoded dict directly
+            raw=sanitized_data # Store sanitized dict
         )
         db.add(pos)
         await db.commit()
@@ -110,7 +114,7 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             "longitude": pos.longitude,
             "speed": pos.speed,
             "timestamp": pos.timestamp.isoformat(),
-            "raw": pos.raw
+            "raw": sanitized_data
         })
 
         return {"status": "ok", "id": pos.id}
