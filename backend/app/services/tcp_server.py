@@ -169,15 +169,16 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         print(f"SUCCESS: Saved data for device {device.imei}")
 
                         # REALTIME BROADCAST
-                        await publish_position({
-                            "id": position.id,
-                            "imei": device.imei,
-                            "latitude": decoded.get("latitude"),
-                            "longitude": decoded.get("longitude"),
-                            "speed": decoded.get("speed", 0.0),
-                            "timestamp": timestamp.isoformat(),
-                            "raw": sanitized_decoded
-                        })
+                        if position and decoded.get("type") not in ["heartbeat", "login"]:
+                            await publish_position({
+                                "id": position.id,
+                                "imei": device.imei,
+                                "latitude": decoded.get("latitude"),
+                                "longitude": decoded.get("longitude"),
+                                "speed": decoded.get("speed", 0.0),
+                                "timestamp": timestamp.isoformat(),
+                                "raw": sanitized_decoded
+                            })
                     except Exception as e:
                         print(f"[{datetime.now()}] ERROR saving position: {e}")
             else:

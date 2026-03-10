@@ -1398,14 +1398,23 @@ async function loadAllPositions(vehicles) {
 function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData = null) {
     let marker = markers[id];
 
-    // Merge OBD State so Location packets don't overwrite OBD parameters
+    // Robust OBD State Merging
     const existingObd = (marker && marker.obdData) ? marker.obdData : {};
-    const incomingData = rawData || {};
-    let obdData = { ...existingObd, ...incomingData };
+    let obdData = { ...existingObd };
 
-    // If this is strictly a location update, preserve the 'obd' type for reports
-    if (existingObd.type === 'obd' && incomingData.type === 'location') {
-        obdData.type = 'obd';
+    if (rawData) {
+        // Only update specific telemetry fields if they are present
+        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'mileage'];
+        telemetryFields.forEach(field => {
+            if (rawData[field] !== undefined) {
+                obdData[field] = rawData[field];
+            }
+        });
+
+        // If it's a specific OBD packet, keep that type
+        if (rawData.type === 'obd' || rawData.type === 'location_obd') {
+            obdData.type = rawData.type;
+        }
     }
 
     // Determine Offline Status
