@@ -21,6 +21,53 @@ class GT06Decoder(BaseDecoder):
     Decodes the binary GT06 protocol (Concox, TK series, etc.)
     Standard Header: 0x78 0x78
     """
+    def _parse_location(self, data: bytes) -> Dict[str, Any]:
+        """Helper to parse GPS/LBS data from 0x12, 0x22, 0x16 packets"""
+        try:
+            # Data usually starts from raw[4:]
+            lat_int = struct.unpack('!I', data[7:11])[0]
+            lon_int = struct.unpack('!I', data[11:15])[0]
+            
+            lat = lat_int / 1800000.0
+            lon = lon_int / 1800000.0
+            
+            course_status = struct.unpack('!H', data[16:18])[0]
+            
+            # Apply signs
+            if not (course_status & 0x0400): # 0 = South
+                lat = -lat
+            if (course_status & 0x0800): # 1 = West
+                lon = -lon
+            
+            res = {
+                "latitude": lat,
+                "longitude": lon,
+                "speed": data[15],
+                "ignition": bool(course_status & 0x1000),
+                "in_motion": bool(course_status & 0x2000),
+                "type": "location"
+            }
+
+            # LBS Data (MCC/MNC/LAC/CellID) often follows GPS at offset 18
+            if len(data) >= 26:
+                res["mcc"] = struct.unpack('!H', data[18:20])[0]
+                res["mnc"] = data[20]
+                res["lac"] = struct.unpack('!H', data[21:23])[0]
+                res["cellid"] = struct.unpack('!I', b'\x00' + data[23:26])[0]
+                if res["mcc"] == 648:
+                    res["lbs_info"] = "Zimbabwe Tower Connection"
+
+            # Check for OBD mileage at the end of long packets (e.g. 0x22 or 0x16 variants)
+            if len(data) >= 34:
+                mileage = struct.unpack('!I', data[28:32])[0]
+                if mileage > 0:
+                    res["mileage"] = mileage
+                    res["type"] = "location_obd"
+                    
+            return res
+        except Exception as e:
+            return {"type": "error", "error": f"GPS parse failed: {e}"}
+
     async def decode(self, raw: bytes) -> Dict[str, Any]:
         if len(raw) < 5:
             return {"raw_text": raw.hex()}
