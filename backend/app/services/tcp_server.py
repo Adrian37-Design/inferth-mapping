@@ -9,6 +9,7 @@ from app.db import AsyncSessionLocal
 from app.models import Position, Device
 from sqlalchemy import select
 import sys
+from app.realtime import publish_position
 
 from app.services.decoders.gt06 import GT06Decoder
 
@@ -30,9 +31,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         self.peer = transport.get_extra_info('peername')
-        # Robust Logging to a local file for the USER to see
-        with open("tracker_debug.log", "a") as f:
-            f.write(f"\n[{datetime.now()}] --- NEW CONNECTION: {self.peer} ---\n")
+        print(f"[{datetime.now()}] --- NEW CONNECTION: {self.peer} ---")
 
     async def _forward_data(self, data: bytes):
         """Asynchronously forward data to secondary destination (Sinotrack)."""
@@ -51,12 +50,10 @@ class TCPTrackerProtocol(asyncio.Protocol):
             writer.close()
             await writer.wait_closed()
         except Exception as e:
-            with open("tracker_debug.log", "a") as f:
-                f.write(f"[{datetime.now()}] FORWARDING ERROR: {e}\n")
+            print(f"[{datetime.now()}] FORWARDING ERROR: {e}")
 
     def data_received(self, data):
-        with open("tracker_debug.log", "a") as f:
-            f.write(f"[{datetime.now()}] RECV hex: {data.hex()}\n")
+        print(f"[{datetime.now()}] RECV hex: {data.hex()}")
         try:
             loop = asyncio.get_running_loop()
             loop.create_task(self.handle(data))
@@ -66,8 +63,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                 loop.create_task(self._forward_data(data))
                 
         except Exception as e:
-            with open("tracker_debug.log", "a") as f:
-                f.write(f"[{datetime.now()}] ERROR creating task: {e}\n")
+            print(f"[{datetime.now()}] ERROR creating task: {e}")
 
     async def handle(self, data: bytes):
         try:
@@ -79,8 +75,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                 # If decoder produced a RESPONSE (ACK), send it back IMMEDIATELY
                 if result.get("response"):
                     self.transport.write(result["response"])
-                    with open("tracker_debug.log", "a") as f:
-                        f.write(f"[{datetime.now()}] SENT hex: {result['response'].hex()}\n")
+                    print(f"[{datetime.now()}] SENT hex: {result['response'].hex()}")
 
                 # Persistence Logic:
                 # 1. If decoder found a NEW IMEI, update session
@@ -102,8 +97,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                                 asyncio.create_task(self._forward_data(data))
                     break
             
-            with open("tracker_debug.log", "a") as f:
-                f.write(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')} ({decoded.get('latitude')}, {decoded.get('longitude')})\n")
+            print(f"[{datetime.now()}] DECODED: {decoded.get('imei')} - {decoded.get('type')} ({decoded.get('latitude')}, {decoded.get('longitude')})")
             
             # if we have an imei: create a position (coords might be null for pure OBD)
             if decoded.get("imei"):
@@ -114,32 +108,40 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         device = result.scalars().first()
                         
                         if not device:
-                            with open("tracker_debug.log", "a") as f:
-                                f.write(f"[{datetime.now()}] AUTO-CREATING device {decoded['imei']} for Tenant 1\n")
+                            print(f"[{datetime.now()}] AUTO-CREATING device {decoded['imei']} for Tenant 1")
                             device = Device(imei=decoded['imei'], name=f"Tracker {decoded['imei']}", tenant_id=1)
                             db.add(device)
                             await db.commit()
                             await db.refresh(device)
                         
                         # Create position
+                        timestamp = datetime.utcnow()
                         position = Position(
                             device_id=device.id,
                             latitude=decoded.get("latitude"),
                             longitude=decoded.get("longitude"),
                             speed=decoded.get("speed", 0.0),
-                            timestamp=datetime.utcnow(),
+                            timestamp=timestamp,
                             raw=decoded
                         )
                         db.add(position)
                         await db.commit()
-                        with open("debug.log", "a") as f:
-                            f.write(f"SUCCESS: Saved data for device {device.imei}\n")
+                        print(f"SUCCESS: Saved data for device {device.imei}")
+
+                        # REALTIME BROADCAST
+                        await publish_position({
+                            "id": position.id,
+                            "imei": device.imei,
+                            "latitude": decoded.get("latitude"),
+                            "longitude": decoded.get("longitude"),
+                            "speed": decoded.get("speed", 0.0),
+                            "timestamp": timestamp.isoformat(),
+                            "raw": decoded
+                        })
                     except Exception as e:
-                        with open("tracker_debug.log", "a") as f:
-                            f.write(f"[{datetime.now()}] ERROR saving position: {e}\n")
+                        print(f"[{datetime.now()}] ERROR saving position: {e}")
             else:
                 pass # Already logged missing fields in DECODED line
 
         except Exception as e:
-            with open("tracker_debug.log", "a") as f:
-                f.write(f"[{datetime.now()}] ERROR in handle: {e}\n")
+            print(f"[{datetime.now()}] ERROR in handle: {e}")

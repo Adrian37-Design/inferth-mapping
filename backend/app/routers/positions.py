@@ -6,6 +6,7 @@ from app.schemas import PositionCreate, PositionOut
 from app.auth_middleware import get_current_user
 from sqlalchemy.future import select
 from datetime import datetime
+from app.realtime import publish_position
 
 router = APIRouter(prefix="/positions")
 
@@ -73,7 +74,8 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
         print(f"Login received for device: {data['imei']}")
         return {"status": "login_ok", "imei": data["imei"]}
 
-    if "imei" in data and "latitude" in data:
+    # Handle Location AND OBD packets
+    if "imei" in data and ("latitude" in data or data.get("type") == "obd"):
         # Save to DB
         # Find Device
         device_q = await db.execute(select(Device).where(Device.imei == data["imei"]))
@@ -89,18 +91,31 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             
         pos = Position(
             device_id=device.id,
-            latitude=data["latitude"],
-            longitude=data["longitude"],
+            latitude=data.get("latitude"),
+            longitude=data.get("longitude"),
             speed=data.get("speed", 0),
             course=data.get("course", 0),
             timestamp=datetime.utcnow(),
-            raw=payload.get("raw_hex")
+            raw=data # Store decoded dict directly
         )
         db.add(pos)
         await db.commit()
+        await db.refresh(pos)
+
+        # REALTIME BROADCAST
+        await publish_position({
+            "id": pos.id,
+            "imei": device.imei,
+            "latitude": pos.latitude,
+            "longitude": pos.longitude,
+            "speed": pos.speed,
+            "timestamp": pos.timestamp.isoformat(),
+            "raw": pos.raw
+        })
+
         return {"status": "ok", "id": pos.id}
         
-    return {"status": "ignored", "reason": "no_gps_data"}
+    return {"status": "ignored", "reason": "no_gps_or_obd_data"}
 
 @router.get("/latest/{imei}", response_model=PositionOut)
 async def latest_position(
