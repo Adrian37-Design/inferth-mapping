@@ -1428,16 +1428,18 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                </div>`,
         className: 'custom-marker',
         iconSize: [40, 40]
+    });
+
     let diagnosticHtml = '';
-        if(obdData) {
-            if (obdData.rpm !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00ff88;"><i class="fas fa-tachometer-alt"></i> RPM: ${obdData.rpm}</div>`;
-            if (obdData.fuel_consumption !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${obdData.fuel_consumption}L</div>`;
-            if (obdData.coolant !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff5722;"><i class="fas fa-thermometer-half"></i> Coolant: ${obdData.coolant}°C</div>`;
-            if (obdData.battery !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-car-battery"></i> Battery: ${obdData.battery.toFixed(1)}V</div>`;
-            if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
-            if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
-            if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Mileage: ${obdData.mileage}km</div>`;
-        }
+    if (obdData) {
+        if (obdData.rpm !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00ff88;"><i class="fas fa-tachometer-alt"></i> RPM: ${obdData.rpm}</div>`;
+        if (obdData.fuel_consumption !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${obdData.fuel_consumption}L</div>`;
+        if (obdData.coolant !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff5722;"><i class="fas fa-thermometer-half"></i> Coolant: ${obdData.coolant}°C</div>`;
+        if (obdData.battery !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-car-battery"></i> Battery: ${obdData.battery.toFixed(1)}V</div>`;
+        if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
+        if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
+        if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Mileage: ${obdData.mileage}km</div>`;
+    }
 
     const popupContentStr = `
         <div style="text-align:center;">
@@ -1451,81 +1453,81 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         </div>
     `;
 
-        if(marker) {
-            if (lat !== null && lat !== undefined) {
-                if (typeof marker.setLatLng === 'function') {
-                    marker.setLatLng([lat, lng]);
-                    marker.setIcon(icon);
-                } else {
-                    // Was a generic object, upgrade to Leaflet Marker
-                    const savedObdData = marker.obdData;
-                    marker = L.marker([lat, lng], { icon: icon }).addTo(map);
-                    marker.obdData = savedObdData;
-                    marker.on('click', () => { selectVehicle({ id, name, imei, driver_name: 'Unknown' }); });
-                    markers[id] = marker;
-                }
+    if (marker) {
+        if (lat !== null && lat !== undefined) {
+            if (typeof marker.setLatLng === 'function') {
+                marker.setLatLng([lat, lng]);
+                marker.setIcon(icon);
+            } else {
+                // Was a generic object, upgrade to Leaflet Marker
+                const savedObdData = marker.obdData;
+                marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+                marker.obdData = savedObdData;
+                marker.on('click', () => { selectVehicle({ id, name, imei, driver_name: 'Unknown' }); });
+                markers[id] = marker;
             }
+        }
 
-            // Update Metadata
+        // Update Metadata
+        marker.vehicleIMEI = imei;
+        marker.vehicleId = id;
+        marker.isOffline = assetStatus === 'Offline';
+        marker.obdData = obdData; // Attach OBD Data for Reports
+
+        // Update Popup Content
+        if (typeof marker.setPopupContent === 'function') {
+            marker.setPopupContent(popupContentStr);
+        }
+    } else {
+        if (lat !== null && lat !== undefined) {
+            marker = L.marker([lat, lng], { icon: icon }).addTo(map);
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
             marker.obdData = obdData; // Attach OBD Data for Reports
 
-            // Update Popup Content
-            if (typeof marker.setPopupContent === 'function') {
-                marker.setPopupContent(popupContentStr);
-            }
+            marker.bindPopup(popupContentStr);
+
+            // Click listener to select vehicle
+            marker.on('click', () => {
+                // Find vehicle object efficiently or reconstruct
+                const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
+                selectVehicle(vehicleObj); // Trigger selection
+            });
+
+            markers[id] = marker;
         } else {
-            if(lat !== null && lat !== undefined) {
-                marker = L.marker([lat, lng], { icon: icon }).addTo(map);
-    marker.vehicleIMEI = imei;
-    marker.vehicleId = id;
-    marker.isOffline = assetStatus === 'Offline';
-    marker.obdData = obdData; // Attach OBD Data for Reports
-
-    marker.bindPopup(popupContentStr);
-
-    // Click listener to select vehicle
-    marker.on('click', () => {
-        // Find vehicle object efficiently or reconstruct
-        const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
-        selectVehicle(vehicleObj); // Trigger selection
-    });
-
-    markers[id] = marker;
-} else {
-    // Create as a generic object so obdData is captured for loadReports
-    markers[id] = {
-        vehicleIMEI: imei,
-        vehicleId: id,
-        isOffline: assetStatus === 'Offline',
-        obdData: obdData
-    };
-}
+            // Create as a generic object so obdData is captured for loadReports
+            markers[id] = {
+                vehicleIMEI: imei,
+                vehicleId: id,
+                isOffline: assetStatus === 'Offline',
+                obdData: obdData
+            };
+        }
     }
 
-// Store latest data (including ignition)
-vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn };
+    // Store latest data (including ignition)
+    vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn };
 
-// Update Detail View if open
-if (selectedVehicle && selectedVehicle.id === id) {
-    const statusEl = document.getElementById('detail-status');
-    if (statusEl) {
-        statusEl.textContent = assetStatus;
-        statusEl.className = `status-badge status-${assetStatus.toLowerCase()}`;
+    // Update Detail View if open
+    if (selectedVehicle && selectedVehicle.id === id) {
+        const statusEl = document.getElementById('detail-status');
+        if (statusEl) {
+            statusEl.textContent = assetStatus;
+            statusEl.className = `status-badge status-${assetStatus.toLowerCase()}`;
+        }
+        // Update the ignition field in the detail view
+        const ignEl = document.getElementById('detail-ignition');
+        if (ignEl) {
+            ignEl.textContent = ignitionOn ? 'On' : 'Off';
+            ignEl.style.color = ignitionOn ? '#00ff88' : '#aaa';
+        }
+        updateAssetDetailUI(id);
     }
-    // Update the ignition field in the detail view
-    const ignEl = document.getElementById('detail-ignition');
-    if (ignEl) {
-        ignEl.textContent = ignitionOn ? 'On' : 'Off';
-        ignEl.style.color = ignitionOn ? '#00ff88' : '#aaa';
-    }
-    updateAssetDetailUI(id);
-}
 
-// 2. Update Control Panel Card (The Asset-Centric View)
-updateVehicleCard(id, speed, timestamp, lat, lng);
+    // 2. Update Control Panel Card (The Asset-Centric View)
+    updateVehicleCard(id, speed, timestamp, lat, lng);
 }
 
 function updateVehicleCard(id, speed, timestamp, lat, lng) {
