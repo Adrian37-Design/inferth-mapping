@@ -1450,6 +1450,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
         marker.isOffline = assetStatus === 'Offline';
+        marker.obdData = obdData; // Attach OBD Data for Reports
 
         // Update Popup Content
         marker.setPopupContent(popupContentStr);
@@ -1458,6 +1459,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
         marker.isOffline = assetStatus === 'Offline';
+        marker.obdData = obdData; // Attach OBD Data for Reports
 
         marker.bindPopup(popupContentStr);
 
