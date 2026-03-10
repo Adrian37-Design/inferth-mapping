@@ -154,7 +154,8 @@ class TCPTrackerProtocol(asyncio.Protocol):
                     except Exception as e:
                         print(f"[{datetime.now()}] ERROR saving position: {e}")
             else:
-                pass # Already logged missing fields in DECODED line
+                if decoded.get("type") != "unknown":
+                    print(f"[{datetime.now()}] IGNORED packet (No IMEI): {decoded.get('type')} | Hex: {data.hex()[:50]}...")
 
         except Exception as e:
             print(f"[{datetime.now()}] ERROR in handle: {e}")

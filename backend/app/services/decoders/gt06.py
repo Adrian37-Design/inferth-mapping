@@ -138,8 +138,26 @@ class GT06Decoder(BaseDecoder):
                 
                 return res
 
-            print(f"[{datetime.now()}] UNKNOWN GT06 Prot: {hex(protocol_number)} | Hex: {raw.hex()}")
-            return {"raw_text": raw.hex(), "protocol_number": hex(protocol_number)}
+            # 0x94: Information Transmission (Often OBD-II)
+            if protocol_number == 0x94:
+                # Information Type 0x01: OBD Data
+                info_type = raw[4]
+                if info_type == 0x01:
+                    obd_data = raw[5:-6]
+                    res = {
+                        "type": "obd",
+                        "rpm": struct.unpack('!H', obd_data[0:2])[0] if len(obd_data) >= 2 else 0,
+                        "speed": obd_data[2] if len(obd_data) > 2 else 0,
+                        "coolant": obd_data[3] if len(obd_data) > 3 else 0,
+                        "engine_load": obd_data[4] if len(obd_data) > 4 else 0,
+                        "fuel_consumption": struct.unpack('!I', obd_data[5:9])[0] if len(obd_data) >= 9 else 0,
+                        "raw_text": raw.hex()
+                    }
+                    return res
+                return {"type": "info", "info_type": hex(info_type), "raw_text": raw.hex()}
+
+            print(f"[{datetime.now()}] UNKNOWN GT06 Prot: {hex(protocol_number)} (Len: {len(raw)}) | Hex: {raw.hex()}")
+            return {"raw_text": raw.hex(), "protocol_number": hex(protocol_number), "type": "unknown"}
 
         except Exception as e:
             return {"raw_text": raw.hex(), "error": str(e)}
