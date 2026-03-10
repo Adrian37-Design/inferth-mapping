@@ -41,7 +41,6 @@ class GT06Decoder(BaseDecoder):
                 
                 # Extract Serial Number for ACK (usually at the end before CRC/Stop)
                 # Packet: Header(2) | Len(1) | Prot(1) | IMEI(8) | Type(2) | Timezone(2) | Serial(2) | CRC(2) | Stop(2)
-                # Total length for 0x01 is often 0x0D or similar
                 serial_num = raw[-6:-4] 
                 
                 # Generate ACK
@@ -57,57 +56,56 @@ class GT06Decoder(BaseDecoder):
                     "raw_text": raw.hex()
                 }
 
-            # 0x12, 0x22, 0x13, 0x23: Location Data / Heartbeat
-            if protocol_number in [0x12, 0x22, 0x13, 0x23]:
-                # 0x13/0x23 Heartbeat ACK: Header(2) | Len(1) | Prot(1) | Serial(2) | CRC(2) | Stop(2)
-                if protocol_number in [0x13, 0x23]:
-                    serial_num = raw[-6:-4]
-                    ack_payload = struct.pack('!BB', 0x05, protocol_number) + serial_num
-                    ack_crc = crc16_itu_t(ack_payload)
-                    ack = b'\x78\x78' + ack_payload + struct.pack('!H', ack_crc) + b'\x0d\x0a'
-                    return {"type": "heartbeat", "response": ack, "raw_text": raw.hex()}
+            # 0x13, 0x23: Heartbeat ACK
+            if protocol_number in [0x13, 0x23]:
+                serial_num = raw[-6:-4]
+                ack_payload = struct.pack('!BB', 0x05, protocol_number) + serial_num
+                ack_crc = crc16_itu_t(ack_payload)
+                ack = b'\x78\x78' + ack_payload + struct.pack('!H', ack_crc) + b'\x0d\x0a'
+                return {"type": "heartbeat", "response": ack, "raw_text": raw.hex()}
 
-                # Location parsing (0x12/0x22)
-                # Packet: Date(6) | Sat(1) | Lat(4) | Lon(4) | Speed(1) | Course/Status(2) | ...
-                data = raw[4:]
-                lat_int = struct.unpack('!I', data[7:11])[0]
-                lon_int = struct.unpack('!I', data[11:15])[0]
-                
-                lat = lat_int / 1800000.0
-                lon = lon_int / 1800000.0
-                
-                # Course/Status byte (offset 16 from raw[4:])
-                course_status = struct.unpack('!H', data[16:18])[0]
-                
-                # Apply signs
-                if not (course_status & 0x0400): # 0 = South
-                    lat = -lat
-                if (course_status & 0x0800): # 1 = West
-                    lon = -lon
-                
-                res = {
-                    "latitude": lat,
-                    "longitude": lon,
-                    "speed": data[15],
-                    "ignition": bool(course_status & 0x1000),
-                    "in_motion": bool(course_status & 0x2000),
-                    "type": "location",
+            # 0x12, 0x22, 0x16: Location Data / Heartbeat (using helper)
+            if protocol_number in [0x12, 0x22, 0x16]:
+                res = self._parse_location(raw[4:])
+                res["raw_text"] = raw.hex()
+                return res
+
+            # 0x94: Information Transmission (Often OBD-II)
+            if protocol_number == 0x94:
+                # Information Type 0x01: OBD Data
+                info_type = raw[4]
+                if info_type == 0x01:
+                    obd_data = raw[5:-6]
+                    res = {
+                        "type": "obd",
+                        "rpm": struct.unpack('!H', obd_data[0:2])[0] if len(obd_data) >= 2 else 0,
+                        "speed": obd_data[2] if len(obd_data) > 2 else 0,
+                        "coolant": obd_data[3] if len(obd_data) > 3 else 0,
+                        "engine_load": obd_data[4] if len(obd_data) > 4 else 0,
+                        "fuel_consumption": struct.unpack('!I', obd_data[5:9])[0] if len(obd_data) >= 9 else 0,
+                        "raw_text": raw.hex()
+                    }
+                    return res
+                return {"type": "info", "info_type": hex(info_type), "raw_text": raw.hex()}
+
+            # 0x27: External Power / OBD Status
+            if protocol_number == 0x27:
+                obd_data = raw[4:-6]
+                return {
+                    "type": "obd",
+                    "voltage": struct.unpack('!H', obd_data[0:2])[0] * 0.01 if len(obd_data) >= 2 else 0,
                     "raw_text": raw.hex()
                 }
 
-                # OBD Extension (Common in some TK models)
-                # If packet has extra bytes after Course/Status
-                if len(data) >= 28:
-                    # Trailing 11 bytes (approx) often contain OBD
-                    # Offset 18: RPM (2 bytes)
-                    res["rpm"] = struct.unpack('!H', data[18:20])[0]
-                    # Offset 23: Mileage (4 bytes)
-                    res["mileage"] = struct.unpack('!I', data[23:27])[0]
-                    res["type"] = "location_obd"
-
-                return res
-
-            # 0x8A: OBD Data
+            # 0xA0: Extended OBD
+            if protocol_number == 0xA0:
+                obd_data = raw[4:-6]
+                return {
+                    "type": "obd",
+                    "rpm": struct.unpack('!H', obd_data[0:2])[0] if len(obd_data) >= 2 else 0,
+                    "coolant": obd_data[2] if len(obd_data) > 2 else 0,
+                    "raw_text": raw.hex()
+                }
             if protocol_number == 0x8A:
                 # Packet: Header(2) | Len(1) | Prot(1) | Data(...) | Serial(2) | CRC(2) | Stop(2)
                 # OBD Body often starts after offset 4
