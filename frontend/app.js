@@ -1805,7 +1805,7 @@ function pauseRoute() {
     }
 }
 
-// Stop route playback
+// Stop route playback (Exits history view)
 function stopRoute() {
     pauseRoute();
     playbackIndex = 0;
@@ -1813,6 +1813,19 @@ function stopRoute() {
         map.removeLayer(playbackMarker);
         playbackMarker = null;
     }
+
+    // Clear historical route lines
+    if (selectedVehicle && routes[selectedVehicle.id]) {
+        map.removeLayer(routes[selectedVehicle.id]);
+        delete routes[selectedVehicle.id];
+    }
+
+    // Hide controls
+    document.getElementById('route-controls').classList.add('hidden');
+
+    // Reset timeline view
+    const timeline = document.getElementById('detail-timeline');
+    if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
 }
 
 // Close modal helper function
