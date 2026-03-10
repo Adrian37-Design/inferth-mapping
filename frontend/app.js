@@ -2008,7 +2008,7 @@ function connectWebSocket() {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            const isObd = data.raw && data.raw.type === 'obd';
+            const isObd = data.raw && (data.raw.type === 'obd' || data.raw.type === 'location_obd');
 
             if (data.imei && (data.latitude || isObd)) {
                 console.log('📡 Real-time update:', data.imei, isObd ? 'OBD' : 'Location');
@@ -2042,9 +2042,16 @@ function connectWebSocket() {
                         }
                     }
 
-                    // CRITICAL: Preserve old OBD data if this is just a location update
+                    // MERGE OBD Data
                     const existingObd = (m && m.obdData) ? m.obdData : {};
-                    const obdData = isObd ? (data.raw || {}) : existingObd;
+                    const incomingObd = data.raw || {};
+                    const obdData = { ...existingObd, ...incomingObd };
+
+                    console.log('📡 Engine Data Sync:', data.imei, {
+                        rpm: obdData.rpm,
+                        speed: data.speed,
+                        mileage: obdData.mileage
+                    });
 
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
 
