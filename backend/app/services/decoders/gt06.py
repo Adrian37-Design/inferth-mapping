@@ -138,6 +138,7 @@ class GT06Decoder(BaseDecoder):
                 
                 return res
 
+            print(f"[{datetime.now()}] UNKNOWN GT06 Prot: {hex(protocol_number)} | Hex: {raw.hex()}")
             return {"raw_text": raw.hex(), "protocol_number": hex(protocol_number)}
 
         except Exception as e:

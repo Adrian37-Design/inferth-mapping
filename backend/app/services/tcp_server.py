@@ -11,6 +11,16 @@ from sqlalchemy import select
 import sys
 from app.realtime import publish_position
 
+def sanitize_for_json(data):
+    """Recursively convert bytes to hex strings for JSON serialization."""
+    if isinstance(data, dict):
+        return {k: sanitize_for_json(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_for_json(i) for i in data]
+    elif isinstance(data, bytes):
+        return data.hex()
+    return data
+
 from app.services.decoders.gt06 import GT06Decoder
 
 # Initialize multiple decoders for broad compatibility
@@ -86,7 +96,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                 if not result.get("imei") and self.imei:
                     result["imei"] = self.imei
 
-                if result.get("imei") and (result.get("latitude") or result.get("type") in ["login", "obd"]):
+                if result.get("imei") and (result.get("latitude") or result.get("type") in ["login", "obd", "heartbeat"]):
                     decoded = result
                     # Identify session type for selective mirroring
                     if isinstance(dec, SinotrackDecoder):
@@ -116,13 +126,16 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         
                         # Create position
                         timestamp = datetime.utcnow()
+                        # Sanitize decoded dict for JSON storage
+                        sanitized_decoded = sanitize_for_json(decoded)
+                        
                         position = Position(
                             device_id=device.id,
                             latitude=decoded.get("latitude"),
                             longitude=decoded.get("longitude"),
                             speed=decoded.get("speed", 0.0),
                             timestamp=timestamp,
-                            raw=decoded
+                            raw=sanitized_decoded
                         )
                         db.add(position)
                         await db.commit()
@@ -136,7 +149,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             "longitude": decoded.get("longitude"),
                             "speed": decoded.get("speed", 0.0),
                             "timestamp": timestamp.isoformat(),
-                            "raw": decoded
+                            "raw": sanitized_decoded
                         })
                     except Exception as e:
                         print(f"[{datetime.now()}] ERROR saving position: {e}")
