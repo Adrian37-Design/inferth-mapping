@@ -1438,28 +1438,19 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const icon = L.divIcon({
         html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${imei}">
                 <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
-                <div class="location-label" id="addr-${imei}">Loading...</div>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
         className: 'custom-marker',
         iconSize: [40, 40]
     });
 
-    // Handle Address Resolution
+    // Handle Address Resolution (Popup Only)
     setTimeout(async () => {
-        const addrEl = document.getElementById(`addr-${imei}`);
         const popupAddrEl = document.getElementById(`popup-addr-${imei}`);
-        
-        if ((addrEl || popupAddrEl) && lat && lng) {
+        if (popupAddrEl && lat && lng) {
             const address = await getAddress(lat, lng);
             if (address) {
-                if (addrEl) {
-                    addrEl.textContent = address;
-                    addrEl.style.display = 'block';
-                }
-                if (popupAddrEl) {
-                    popupAddrEl.textContent = address;
-                }
+                popupAddrEl.textContent = address;
             }
         }
     }, 100);
@@ -2547,28 +2538,6 @@ style.textContent = `
     font-size: 10px;
     white-space: nowrap;
     z-index: 1000;
-}
-
-.location-label {
-    position: absolute;
-    top: -24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.95);
-    color: #1a1c23;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    border: 1px solid rgba(0,0,0,0.1);
-    z-index: 1001;
-    pointer-events: none;
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: none; /* Hidden until resolved */
 }
 
 .custom-marker {
