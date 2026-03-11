@@ -1431,7 +1431,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const timeDiff = new Date() - new Date(timestamp);
     const minsOffline = timeDiff / (1000 * 60);
-    const ignitionOn = rawData && rawData.ignition === true;
+    
+    // Robust Ignition State Merging
+    let ignitionOn = (rawData && rawData.ignition !== undefined) ? rawData.ignition : (marker && marker.ignitionOn);
+    // Default to false if never seen
+    if (ignitionOn === undefined) ignitionOn = false;
 
     let assetStatus = 'Offline';
     if (minsOffline < 10) {
@@ -1511,6 +1515,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 marker.setLatLng([lat, lng]);
                 marker.vehicleName = resolvedName; // Cache for future updates
             }
+            marker.ignitionOn = ignitionOn; // Save for persistence
             if (typeof marker.setIcon === 'function') {
                 marker.setIcon(icon);
             }
@@ -1541,6 +1546,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
             marker.obdData = obdData; // Attach OBD Data for Reports
+            marker.ignitionOn = ignitionOn; // Save for persistence
 
             marker.bindPopup(popupContentStr);
 

@@ -43,7 +43,6 @@ class GT06Decoder(BaseDecoder):
                 "latitude": lat,
                 "longitude": lon,
                 "speed": data[15],
-                "ignition": bool(course_status & 0x1000),
                 "in_motion": bool(course_status & 0x2000),
                 "type": "location"
             }
@@ -98,13 +97,22 @@ class GT06Decoder(BaseDecoder):
                     "raw_text": raw.hex()
                 }
 
-            # 0x13, 0x23: Heartbeat ACK
+            # 0x13, 0x23: Status / Heartbeat
             if protocol_number in [0x13, 0x23]:
+                # Terminal Information byte is at offset 4
+                terminal_info = raw[4]
+                ignition = bool(terminal_info & 0x02) # Bit 1: ACC On/Off
+                
                 serial_num = raw[-6:-4]
                 ack_payload = struct.pack('!BB', 0x05, protocol_number) + serial_num
                 ack_crc = crc16_itu_t(ack_payload)
                 ack = b'\x78\x78' + ack_payload + struct.pack('!H', ack_crc) + b'\x0d\x0a'
-                return {"type": "heartbeat", "response": ack, "raw_text": raw.hex()}
+                return {
+                    "type": "heartbeat", 
+                    "ignition": ignition,
+                    "response": ack, 
+                    "raw_text": raw.hex()
+                }
 
             # 0x12, 0x22, 0x16: Location Data / Heartbeat (using helper)
             if protocol_number in [0x12, 0x22, 0x16]:
