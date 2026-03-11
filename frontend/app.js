@@ -1448,11 +1448,18 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Handle Address Resolution
     setTimeout(async () => {
         const addrEl = document.getElementById(`addr-${imei}`);
-        if (addrEl && lat && lng) {
+        const popupAddrEl = document.getElementById(`popup-addr-${imei}`);
+        
+        if ((addrEl || popupAddrEl) && lat && lng) {
             const address = await getAddress(lat, lng);
             if (address) {
-                addrEl.textContent = address;
-                addrEl.style.display = 'block';
+                if (addrEl) {
+                    addrEl.textContent = address;
+                    addrEl.style.display = 'block';
+                }
+                if (popupAddrEl) {
+                    popupAddrEl.textContent = address;
+                }
             }
         }
     }, 100);
@@ -1472,15 +1479,25 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Mileage: ${obdData.mileage}km</div>`;
     }
 
+    const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
+    const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
+    const initialAddr = cachedAddr || "Loading location...";
+
     const popupContentStr = `
-        <div style="text-align:center;">
+        <div style="text-align:center; min-width: 150px;">
             <strong>${name}</strong><br>
             <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
             <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-            Speed: ${Math.round(speed || 0)} km/h<br>
-            Status: ${assetStatus}<br>
-            <span style="color:${ignitionColor}; font-size:0.9em;"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
-            ${diagnosticHtml}
+            <div style="margin-bottom: 8px; color: var(--primary); font-weight: 600; font-size: 0.95em;">
+                <i class="fas fa-map-marker-alt"></i> 
+                <span id="popup-addr-${imei}">${initialAddr}</span>
+            </div>
+            <div style="font-size: 0.9em; line-height: 1.4;">
+                Speed: ${Math.round(speed || 0)} km/h<br>
+                Status: ${assetStatus}<br>
+                <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
+                ${diagnosticHtml}
+            </div>
         </div>
     `;
 
