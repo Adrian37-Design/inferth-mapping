@@ -1440,7 +1440,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         } else if (ignitionOn) {
             assetStatus = 'Idling';
         } else {
-            assetStatus = 'Parked';
+            assetStatus = 'Stationary';
         }
     }
 
