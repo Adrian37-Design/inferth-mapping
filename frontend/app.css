@@ -1147,6 +1147,43 @@ body {
     color: #d1d5db;
 }
 
+/* Marker Popup History Button */
+.popup-history-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 8px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.popup-history-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(45, 95, 109, 0.3);
+}
+
+/* History Highlight Animation */
+.history-pulse-highlight {
+    animation: history-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+@keyframes history-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(45, 95, 109, 0.4); border: 1px solid rgba(45, 95, 109, 0.3); }
+    70% { box-shadow: 0 0 0 10px rgba(45, 95, 109, 0); border: 1px solid var(--primary); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 95, 109, 0); border: 1px solid rgba(45, 95, 109, 0.3); }
+}
+
 /* Priority Alerts List */
 .priority-list {
     display: flex;

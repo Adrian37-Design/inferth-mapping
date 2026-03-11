@@ -1514,6 +1514,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
                 ${diagnosticHtml}
             </div>
+            <button class="popup-history-btn" onclick="window.openHistorySearch('${id}', '${imei}')">
+                <i class="fas fa-history"></i> View History
+            </button>
         </div>
     `;
 
@@ -1685,6 +1688,24 @@ async function getAddress(lat, lng) {
         return null;
     }
 }
+
+// Quick History Search from Map
+window.openHistorySearch = (id, imei) => {
+    // 1. Select the vehicle (this handles tab switching and centering)
+    selectVehicle({ id, imei });
+
+    // 2. Ensure sidebar is not collapsed (if on mobile)
+    const sidebar = document.querySelector('.sidebar-container');
+    if (sidebar) sidebar.classList.remove('collapsed');
+
+    // 3. Highlight the History & Timeline section
+    const historySection = document.querySelector('.history-controls');
+    if (historySection) {
+        historySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        historySection.classList.add('history-pulse-highlight');
+        setTimeout(() => historySection.classList.remove('history-pulse-highlight'), 3000);
+    }
+};
 
 // Select Vehicle Helper
 function selectVehicle(vehicle) {
