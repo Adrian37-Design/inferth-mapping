@@ -1419,18 +1419,31 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     }
 
-    // Determine Offline Status
-    const timeDiff = new Date() - new Date(timestamp);
-    const hoursOffline = timeDiff / (1000 * 60 * 60);
-    // Offline = no data for 10+ minutes
-    const minsOffline = timeDiff / (1000 * 60);
-    let assetStatus = 'Offline';
-    if (minsOffline < 10) {
-        assetStatus = speed > 3 ? 'Moving' : 'Idle';
+    // Determine Status & Name
+    let resolvedName = name;
+    if (!resolvedName && allVehicles.length > 0) {
+        const v = allVehicles.find(av => av.imei === imei || av.id === id);
+        if (v) resolvedName = v.name;
+    }
+    if (!resolvedName && marker && marker.vehicleName) {
+        resolvedName = marker.vehicleName;
     }
 
-    // Extract ignition from raw packet
+    const timeDiff = new Date() - new Date(timestamp);
+    const minsOffline = timeDiff / (1000 * 60);
     const ignitionOn = rawData && rawData.ignition === true;
+
+    let assetStatus = 'Offline';
+    if (minsOffline < 10) {
+        if (speed > 3) {
+            assetStatus = 'Moving';
+        } else if (ignitionOn) {
+            assetStatus = 'Idling';
+        } else {
+            assetStatus = 'Parked';
+        }
+    }
+
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
     const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
     // 1. Update Map Marker
@@ -1476,7 +1489,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const popupContentStr = `
         <div style="text-align:center; min-width: 150px;">
-            <strong>${name}</strong><br>
+            <strong>${resolvedName || imei}</strong><br>
             <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
             <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
             <div style="margin-bottom: 8px; color: var(--primary); font-weight: 600; font-size: 0.95em;">
@@ -1496,15 +1509,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (lat !== null && lat !== undefined) {
             if (typeof marker.setLatLng === 'function') {
                 marker.setLatLng([lat, lng]);
+                marker.vehicleName = resolvedName; // Cache for future updates
+            }
+            if (typeof marker.setIcon === 'function') {
                 marker.setIcon(icon);
-            } else {
-                // Was a generic object, upgrade to Leaflet Marker
-                const savedObdData = marker.obdData;
-                marker = L.marker([lat, lng], { icon: icon });
-                if (!isHistoryMode) marker.addTo(map);
-                marker.obdData = savedObdData;
-                marker.on('click', () => { selectVehicle({ id, name, imei, driver_name: 'Unknown' }); });
-                markers[id] = marker;
             }
         }
 
