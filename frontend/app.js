@@ -29,6 +29,7 @@ let playbackMarker = null;
 let editingVehicleId = null;
 let allVehicles = [];
 let isHistoryMode = false;
+const addressCache = new Map(); // Global cache for reverse geocoding
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -1433,14 +1434,28 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
     const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
     // 1. Update Map Marker
+    // 1. Update Map Marker
     const icon = L.divIcon({
-        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker">
+        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${data.imei}">
                 <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
+                <div class="location-label" id="addr-${data.imei}">Loading...</div>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
         className: 'custom-marker',
         iconSize: [40, 40]
     });
+
+    // Handle Address Resolution
+    setTimeout(async () => {
+        const addrEl = document.getElementById(`addr-${data.imei}`);
+        if (addrEl && lat && lng) {
+            const address = await getAddress(lat, lng);
+            if (address) {
+                addrEl.textContent = address;
+                addrEl.style.display = 'block';
+            }
+        }
+    }, 100);
 
     if (isHistoryMode) {
         if (marker && map.hasLayer(marker)) map.removeLayer(marker);
@@ -1598,6 +1613,39 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     if (locSpan) {
         // Mocking address for now (or strictly showing lat/lng)
         locSpan.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+}
+
+// Reverse Geocoding Helper
+async function getAddress(lat, lng) {
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
+
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+            headers: {
+                'Accept-Language': 'en',
+                'User-Agent': 'InferthMapping/1.0'
+            }
+        });
+        const data = await response.json();
+        
+        // Extract street name or neighborhood
+        const addr = data.address;
+        const street = addr.road || addr.suburb || addr.city_district || addr.hamlet || addr.village || addr.city || "Unknown Location";
+        
+        addressCache.set(cacheKey, street);
+        
+        // Limit cache size
+        if (addressCache.size > 500) {
+            const firstKey = addressCache.keys().next().value;
+            addressCache.delete(firstKey);
+        }
+        
+        return street;
+    } catch (e) {
+        console.warn("Reverse geocoding failed", e);
+        return null;
     }
 }
 
@@ -1842,16 +1890,6 @@ function stopRoute(clearAll = true) {
             }
         });
 
-        // Expand sidebar panel
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) {
-            sidebar.classList.remove('collapsed');
-            const toggleBtn = document.getElementById('toggle-sidebar-btn');
-            if (toggleBtn) {
-                const icon = toggleBtn.querySelector('i');
-                if (icon) icon.className = 'fas fa-chevron-left';
-            }
-        }
 
         // Hide controls
         document.getElementById('route-controls').classList.add('hidden');
@@ -2491,6 +2529,29 @@ style.textContent = `
     border-radius: 4px;
     font-size: 10px;
     white-space: nowrap;
+    z-index: 1000;
+}
+
+.location-label {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    color: #1a1c23;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    border: 1px solid rgba(0,0,0,0.1);
+    z-index: 1001;
+    pointer-events: none;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: none; /* Hidden until resolved */
 }
 
 .custom-marker {
