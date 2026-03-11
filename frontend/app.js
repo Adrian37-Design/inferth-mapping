@@ -1436,9 +1436,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // 1. Update Map Marker
     // 1. Update Map Marker
     const icon = L.divIcon({
-        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${data.imei}">
+        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${imei}">
                 <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
-                <div class="location-label" id="addr-${data.imei}">Loading...</div>
+                <div class="location-label" id="addr-${imei}">Loading...</div>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
         className: 'custom-marker',
@@ -1447,7 +1447,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     // Handle Address Resolution
     setTimeout(async () => {
-        const addrEl = document.getElementById(`addr-${data.imei}`);
+        const addrEl = document.getElementById(`addr-${imei}`);
         if (addrEl && lat && lng) {
             const address = await getAddress(lat, lng);
             if (address) {
