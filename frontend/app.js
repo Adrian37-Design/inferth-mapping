@@ -1606,17 +1606,24 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
 
     // Determine Status using timestamp (10-minute offline threshold)
     const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
+    
+    // Get persistent ignition state from marker
+    const marker = markers[id];
+    const ignitionOn = marker ? marker.ignitionOn : false;
+
     let status, label;
     if (minsAgo >= 10) {
         status = 'offline'; label = 'Offline';
     } else if (speed > 3) {
         status = 'moving'; label = 'Moving';
+    } else if (ignitionOn) {
+        status = 'idling'; label = 'Idling';
     } else {
-        status = 'idle'; label = 'Idle';
+        status = 'stationary'; label = 'Stationary';
     }
 
     // Update Classes
-    card.classList.remove('status-offline', 'status-idle', 'status-moving');
+    card.classList.remove('status-offline', 'status-idle', 'status-moving', 'status-idling', 'status-stationary');
     card.classList.add(`status-${status}`);
 
     // Update Badge
