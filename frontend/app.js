@@ -2345,9 +2345,17 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 playbackRoute = tripPoints;
                 document.getElementById('route-controls').classList.remove('hidden');
 
-                // UX: Auto-navigate to map (close sidebar)
+                // UX: Auto-navigate to map (collapse sidebar)
                 const sidebar = document.getElementById('sidebar');
-                if (sidebar) sidebar.classList.add('hidden');
+                if (sidebar) {
+                    sidebar.classList.add('collapsed');
+                    // Update Chevron Icon
+                    const toggleBtn = document.getElementById('toggle-sidebar-btn');
+                    if (toggleBtn) {
+                        const icon = toggleBtn.querySelector('i');
+                        if (icon) icon.className = 'fas fa-chevron-right';
+                    }
+                }
                 setTimeout(() => { if (map) map.invalidateSize(); }, 350);
 
                 // Start playback automatically
@@ -2400,16 +2408,6 @@ if (historyStartPicker && historyEndPicker) {
     historyEndPicker.addEventListener('change', historyOnChange);
 }
 
-const loadHistoryBtn = document.getElementById('load-history-btn');
-if (loadHistoryBtn) {
-    loadHistoryBtn.addEventListener('click', () => {
-        if (selectedVehicle) {
-            const startDateStr = document.getElementById('history-start-date').value;
-            const endDateStr = document.getElementById('history-end-date').value;
-            loadAssetHistory(selectedVehicle.id, startDateStr, endDateStr);
-        }
-    });
-}
 
 // Clear History Handler
 const clearHistoryBtn = document.getElementById('clear-history-btn');
