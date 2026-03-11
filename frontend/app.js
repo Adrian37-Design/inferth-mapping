@@ -1829,16 +1829,29 @@ function stopRoute(clearAll = true) {
 
     if (clearAll) {
         // Clear historical route lines
-    if (selectedVehicle && routes[selectedVehicle.id]) {
-        map.removeLayer(routes[selectedVehicle.id]);
-        delete routes[selectedVehicle.id];
-    }
+        if (selectedVehicle && routes[selectedVehicle.id]) {
+            map.removeLayer(routes[selectedVehicle.id]);
+            delete routes[selectedVehicle.id];
+        }
 
+        // Restore real-time markers
+        isHistoryMode = false;
         Object.values(markers).forEach(m => {
             if (m instanceof L.Marker && !map.hasLayer(m)) {
                 m.addTo(map);
             }
         });
+
+        // Expand sidebar panel
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.classList.remove('collapsed');
+            const toggleBtn = document.getElementById('toggle-sidebar-btn');
+            if (toggleBtn) {
+                const icon = toggleBtn.querySelector('i');
+                if (icon) icon.className = 'fas fa-chevron-left';
+            }
+        }
 
         // Hide controls
         document.getElementById('route-controls').classList.add('hidden');
