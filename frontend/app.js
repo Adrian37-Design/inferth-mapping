@@ -105,8 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Collect current vehicle list and refresh KPIs
-            const vehicleIds = Object.keys(vehiclePositions).map(id => ({ id }));
-            if (vehicleIds.length > 0) updateDashboardKPIs(vehicleIds);
+            if (allVehicles.length > 0) updateDashboardKPIs(allVehicles);
 
             // Update detail panel if open
             if (selectedVehicle) updateAssetDetailUI(selectedVehicle.id);
@@ -1270,38 +1269,47 @@ async function loadVehicles() {
 
 // Update Dashboard (KPIs)
 function updateDashboardKPIs(vehicles) {
-    let active = 0;
-    let idle = 0;
+    let moving = 0;
+    let idling = 0;
+    let stationary = 0;
     let offline = 0;
-    let alertsCount = alerts.filter(a => !a.read).length; // Count unread alerts
+    let alertsCount = (typeof alerts !== 'undefined' && alerts) ? alerts.filter(a => !a.read).length : 0;
 
-    // Offline = no data for 10+ minutes (tracker sends every ~10s when active)
     const OFFLINE_MINS = 10;
     vehicles.forEach(v => {
+        // Find marker or position data
+        const marker = markers[v.id];
         const pos = vehiclePositions[v.id];
+        const timestamp = pos ? pos.timestamp : (marker ? marker.lastUpdate : null);
 
-        if (pos && pos.timestamp) {
-            const minsAgo = (Date.now() - new Date(pos.timestamp).getTime()) / 60000;
+        if (timestamp) {
+            const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
 
             if (minsAgo < OFFLINE_MINS) {
-                if (pos.speed > 3) {
-                    active++;
+                // Use marker's persistent ignition state if available, otherwise check position data
+                const speed = pos ? pos.speed : 0;
+                const ignitionOn = marker ? marker.ignitionOn : (pos ? pos.ignition : false);
+
+                if (speed > 3) {
+                    moving++;
+                } else if (ignitionOn) {
+                    idling++;
                 } else {
-                    idle++;
+                    stationary++;
                 }
             } else {
                 offline++;
             }
         } else {
-            // No position data yet
             offline++;
         }
     });
 
     // Update UI Elements
-    animateValue('kpi-active', 0, active, 1000);
-    animateValue('kpi-idle', 0, idle, 1000);
-    animateValue('kpi-alerts', 0, alertsCount, 1000); // Using alerts count
+    animateValue('kpi-active', 0, moving, 1000);
+    animateValue('kpi-idle', 0, idling, 1000);
+    animateValue('kpi-stationary', 0, stationary, 1000);
+    animateValue('kpi-alerts', 0, alertsCount, 1000);
     animateValue('kpi-offline', 0, offline, 1000);
 
     // Update Priority Alerts Panel
@@ -2173,6 +2181,9 @@ function connectWebSocket() {
                     });
 
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
+                    
+                    // Sync Dashboard KPIs immediately
+                    if (allVehicles.length > 0) updateDashboardKPIs(allVehicles);
 
                     // Live update intelligence reports if that tab is active
                     const activeTab = document.querySelector('.rail-item.active');

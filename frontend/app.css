@@ -1066,7 +1066,7 @@ body {
 
 .kpi-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 12px;
 }
 
@@ -1126,12 +1126,16 @@ body {
     color: var(--danger);
 }
 
-.offline-card {
-    border-bottom: 3px solid #6b7280;
-}
-
 .offline-card .kpi-value {
     color: #9ca3af;
+}
+
+.stationary-card {
+    border-bottom: 3px solid #8e94a1; /* Neutral dark grey/blue */
+}
+
+.stationary-card .kpi-value {
+    color: #d1d5db;
 }
 
 /* Priority Alerts List */
