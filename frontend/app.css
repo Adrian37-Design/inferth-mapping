@@ -1595,11 +1595,23 @@ body {
 }
 
 .trip-details {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    font-size: 0.9em;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85em;
     color: var(--text-secondary);
+    margin-top: 5px;
+}
+
+.trip-details strong {
+    color: var(--primary);
+    margin-right: 5px;
+}
+
+.trip-details div {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
 }
 
 /* Responsive */
@@ -1943,6 +1955,26 @@ body {
 .timeline-desc {
     font-size: 0.8em;
     color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.timeline-desc strong {
+    color: var(--primary);
+    opacity: 0.8;
+}
+
+.timeline-stop .timeline-icon {
+    background: rgba(245, 158, 11, 0.15) !important;
+    color: var(--warning) !important;
+}
+
+.timeline-trip .timeline-icon {
+    background: rgba(0, 212, 255, 0.15);
+    color: var(--primary);
+}
+
+.timeline-item.active .timeline-desc {
+    color: var(--text-primary);
 }
 
 /* --- Reports Dashboard --- */
@@ -2375,3 +2407,23 @@ body {
     background: var(--dark-bg);
     color: white;
 }
+
+/* Playback Popup */
+.playback-popup {
+    min-width: 180px;
+    padding: 5px;
+    line-height: 1.6;
+}
+
+.playback-popup strong {
+    color: var(--primary);
+    font-size: 0.9em;
+}
+
+#playback-addr {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}

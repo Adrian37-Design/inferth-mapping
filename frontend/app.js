@@ -33,6 +33,7 @@ let isHistoryMode = false;
 const addressCache = new Map(); // Global cache for reverse geocoding
 let fleetChartDashboard = null;
 let fleetChartReports = null;
+let historyMarkers = []; // Track markers added during history view
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -2122,10 +2123,21 @@ function playRoute() {
 
         const point = playbackRoute[playbackIndex];
         playbackMarker.setLatLng([point.lat, point.lng]);
+        
+        // Dynamic address resolution in popup
         playbackMarker.bindPopup(`
-            Time: ${new Date(point.timestamp).toLocaleString()}<br>
-            Speed: ${Math.round(point.speed)} km/h
+            <div class="playback-popup">
+                <strong>Time:</strong> ${new Date(point.timestamp).toLocaleString()}<br>
+                <strong>Speed:</strong> ${Math.round(point.speed)} km/h<br>
+                <div id="playback-addr">Resolving address...</div>
+            </div>
         `).openPopup();
+
+        setTimeout(async () => {
+            const addr = await getAddress(point.lat, point.lng);
+            const addrEl = document.getElementById('playback-addr');
+            if (addrEl) addrEl.innerHTML = `<strong>Street:</strong> ${addr || 'Unknown'}`;
+        }, 50);
 
         map.panTo([point.lat, point.lng]);
         playbackIndex++;
@@ -2171,6 +2183,10 @@ function stopRoute(clearAll = true) {
         // Reset timeline view
         const timeline = document.getElementById('detail-timeline');
         if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+
+        // Clear history markers
+        historyMarkers.forEach(m => map.removeLayer(m));
+        historyMarkers = [];
     }
 }
 
@@ -2322,11 +2338,20 @@ async function loadTrips() {
                 </div>
                 <div class="trip-details">
                     <div>Duration: ${trip.duration_minutes} min</div>
-                    <div>Points: ${trip.points_count}</div>
-                    <div>Start: ${new Date(trip.start_time).toLocaleTimeString()}</div>
-                    <div>End: ${new Date(trip.end_time).toLocaleTimeString()}</div>
+                    <div id="trip-start-addr-${index}">Resolving start location...</div>
+                    <div id="trip-end-addr-${index}">Resolving end location...</div>
                 </div>
             `;
+            
+            // Async address resolution
+            setTimeout(async () => {
+                const sAddr = await getAddress(trip.start_location.lat, trip.start_location.lng);
+                const eAddr = await getAddress(trip.end_location.lat, trip.end_location.lng);
+                const sEl = document.getElementById(`trip-start-addr-${index}`);
+                const eEl = document.getElementById(`trip-end-addr-${index}`);
+                if (sEl) sEl.innerHTML = `<strong>From:</strong> ${sAddr || 'Unknown Address'}`;
+                if (eEl) eEl.innerHTML = `<strong>To:</strong> ${eAddr || 'Unknown Address'}`;
+            }, 100);
 
             item.addEventListener('click', async () => {
                 // Load route for this specific trip
@@ -2614,87 +2639,150 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         }
         if (currentTrip.length > 0) trips.push(currentTrip);
 
-        // Render the processed trips
-        if (trips.length === 0) {
-            timeline.innerHTML = '<p class="empty-state">No activity recorded for this date range</p>';
-            return;
-        }
-
-        trips.forEach(tripPoints => {
-            if (tripPoints.length < 2) return;
-
+        // Render the processed trips AND injected stops
+        const timelineData = []; // Combined array of {type, points, duration, start, end}
+        
+        trips.forEach((tripPoints, idx) => {
             const startP = tripPoints[0];
             const endP = tripPoints[tripPoints.length - 1];
-            const duration = ((new Date(endP.timestamp) - new Date(startP.timestamp)) / 60000).toFixed(1);
-
-            // Re-calc distance manually or just estimate
-            // We have total distance from API but not per sub-trip, estimating...
-            // Or roughly display points count
-
-            const item = document.createElement('div');
-            item.className = 'timeline-item';
-            item.innerHTML = `
-                <div class="timeline-icon"><i class="fas fa-route"></i></div>
-                <div class="timeline-content">
-                    <div class="timeline-time">${new Date(startP.timestamp).toLocaleDateString()} ${new Date(startP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} to ${new Date(endP.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    <div class="timeline-title">Trip Recorded (${tripPoints.length} updates)</div>
-                    <div class="timeline-desc">Duration: ${duration} min</div>
-                </div>
-            `;
-
-            item.onclick = () => {
-                // UI: Highlight active trip
-                document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
-                item.classList.add('active');
-
-                // Logic: Draw specific trip on map
-                if (routes[id]) map.removeLayer(routes[id]);
-
-                const points = tripPoints.map(p => [p.lat, p.lng]);
-                const polyline = L.polyline(points, {
-                    color: '#00d4ff',
-                    weight: 5,
-                    opacity: 0.8,
-                    dashArray: '5, 10'
-                }).addTo(map);
-
-                routes[id] = polyline;
-                map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
-
-                // Enter history mode: hide live markers
-                isHistoryMode = true;
-                Object.values(markers).forEach(m => {
-                    if (m instanceof L.Marker && map.hasLayer(m)) {
-                        map.removeLayer(m);
-                    }
-                });
-
-                // Set up playback for this specific trip
-                playbackRoute = tripPoints;
-                document.getElementById('route-controls').classList.remove('hidden');
-
-                // UX: Auto-navigate to map (collapse sidebar)
-                const sidebar = document.getElementById('sidebar');
-                if (sidebar) {
-                    sidebar.classList.add('collapsed');
-                    // Update Chevron Icon
-                    const toggleBtn = document.getElementById('toggle-sidebar-btn');
-                    if (toggleBtn) {
-                        const icon = toggleBtn.querySelector('i');
-                        if (icon) icon.className = 'fas fa-chevron-right';
-                    }
+            const duration = ((new Date(endP.timestamp) - new Date(startP.timestamp)) / 60000).toFixed(0);
+            
+            timelineData.push({
+                type: 'trip',
+                points: tripPoints,
+                duration: duration,
+                start: startP,
+                end: endP,
+                id: `timeline-trip-${idx}`
+            });
+            
+            // Check for stop AFTER this trip (unless it's the last trip)
+            if (idx < trips.length - 1) {
+                const nextTripStart = trips[idx+1][0];
+                const stopDur = ((new Date(nextTripStart.timestamp) - new Date(endP.timestamp)) / 60000).toFixed(0);
+                
+                if (stopDur >= 10) { // Only log stops > 10 mins
+                    timelineData.push({
+                        type: 'stop',
+                        lat: endP.lat,
+                        lng: endP.lng,
+                        duration: stopDur,
+                        start: endP,
+                        end: nextTripStart,
+                        id: `timeline-stop-${idx}`
+                    });
                 }
-                setTimeout(() => { if (map) map.invalidateSize(); }, 350);
+            }
+        });
 
-                // Start playback automatically
-                setTimeout(() => {
-                    playRoute();
-                }, 400); // Small delay to let sidebar close animation finish
+        timelineData.forEach(itemData => {
+            const item = document.createElement('div');
+            item.className = `timeline-item timeline-${itemData.type}`;
+            
+            if (itemData.type === 'trip') {
+                item.innerHTML = `
+                    <div class="timeline-icon"><i class="fas fa-route"></i></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">${new Date(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div class="timeline-title">Driving Period (${itemData.duration} min)</div>
+                        <div class="timeline-desc" id="addr-trip-start-${itemData.id}">Resolving start...</div>
+                        <div class="timeline-desc" id="addr-trip-end-${itemData.id}">Resolving destination...</div>
+                    </div>
+                `;
+                
+                // Address Resolution
+                setTimeout(async () => {
+                    const sAddr = await getAddress(itemData.start.lat, itemData.start.lng);
+                    const eAddr = await getAddress(itemData.end.lat, itemData.end.lng);
+                    const sEl = document.getElementById(`addr-trip-start-${itemData.id}`);
+                    const eEl = document.getElementById(`addr-trip-end-${itemData.id}`);
+                    if (sEl) sEl.innerHTML = `<strong>From:</strong> ${sAddr || 'Street in area'}`;
+                    if (eEl) eEl.innerHTML = `<strong>To:</strong> ${eAddr || 'Street in area'}`;
+                }, 50);
+                
+                item.onclick = () => {
+                    document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                    
+                    // Clear Previous history markers
+                    historyMarkers.forEach(m => map.removeLayer(m));
+                    historyMarkers = [];
 
-                // Show a toast or notification
-                console.log(`Visualizing trip: ${duration} mins`);
-            };
+                    if (routes[id]) map.removeLayer(routes[id]);
+                    const points = itemData.points.map(p => [p.lat, p.lng]);
+                    const polyline = L.polyline(points, { color: '#00d4ff', weight: 5, opacity: 0.8 }).addTo(map);
+                    routes[id] = polyline;
+                    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 
+                    // Add Start/End Dots
+                    const startMarker = L.circleMarker([itemData.start.lat, itemData.start.lng], {
+                        radius: 8,
+                        fillColor: "#00ff88",
+                        color: "#fff",
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).bindPopup("<b>Start:</b> " + new Date(itemData.start.timestamp).toLocaleTimeString()).addTo(map);
+
+                    const endMarker = L.circleMarker([itemData.end.lat, itemData.end.lng], {
+                        radius: 8,
+                        fillColor: "#ff4444",
+                        color: "#fff",
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).bindPopup("<b>Destination:</b> " + new Date(itemData.end.timestamp).toLocaleTimeString()).addTo(map);
+
+                    historyMarkers.push(startMarker, endMarker);
+
+                    isHistoryMode = true;
+                    Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
+                    playbackRoute = itemData.points;
+                    document.getElementById('route-controls').classList.remove('hidden');
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.add('collapsed');
+                    setTimeout(() => { if (map) map.invalidateSize(); playRoute(); }, 400);
+                };
+            } else {
+                // Stop Item
+                item.innerHTML = `
+                    <div class="timeline-icon" style="background: var(--warning);"><i class="fas fa-parking"></i></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">${new Date(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div class="timeline-title">Stop Detected (${itemData.duration} min)</div>
+                        <div class="timeline-desc" id="addr-stop-${itemData.id}">Resolving location...</div>
+                    </div>
+                `;
+                
+                setTimeout(async () => {
+                    const addr = await getAddress(itemData.lat, itemData.lng);
+                    const el = document.getElementById(`addr-stop-${itemData.id}`);
+                    if (el) el.innerHTML = `<strong>Location:</strong> ${addr || 'Street in area'}`;
+                }, 50);
+                
+                item.onclick = () => {
+                    document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+
+                    // Clear Previous
+                    historyMarkers.forEach(m => map.removeLayer(m));
+                    historyMarkers = [];
+
+                    const stopMarker = L.circleMarker([itemData.lat, itemData.lng], {
+                        radius: 10,
+                        fillColor: "var(--warning)",
+                        color: "#fff",
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 1
+                    }).bindPopup(`<b>Stop Duration:</b> ${itemData.duration} min`).addTo(map);
+
+                    historyMarkers.push(stopMarker);
+
+                    map.flyTo([itemData.lat, itemData.lng], 17);
+                    stopMarker.openPopup();
+                };
+            }
             timeline.appendChild(item);
         });
 
