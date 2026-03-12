@@ -809,7 +809,7 @@ async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null
         const data = await response.json();
 
         if (!data.labels || data.labels.length === 0) {
-            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for today</p>';
+            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for the selected period</p>';
             return;
         }
 
