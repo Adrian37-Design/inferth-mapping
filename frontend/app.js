@@ -1610,7 +1610,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Total Odometer: ${obdData.mileage}km</div>`;
     }
 
-    const todayMileage = dailyMileageCache.get(id) || 0;
+    const todayMileage = dailyMileageCache.get(String(id)) || 0;
 
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
     const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
@@ -1707,7 +1707,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 const response = await window.AuthManager.fetchAPI(`/positions/analytics/device/${id}/daily`);
                 if (response.ok) {
                     const data = await response.json();
-                    dailyMileageCache.set(id, data.daily_mileage);
+                    dailyMileageCache.set(String(id), data.daily_mileage);
                     
                     // Re-render popup content with fresh mileage
                     addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData);
