@@ -226,7 +226,14 @@
                                 <option value="daily">Daily</option>
                                 <option value="weekly">Weekly</option>
                                 <option value="monthly">Monthly</option>
+                                <option value="custom">Custom Range</option>
                             </select>
+                        </div>
+                        <div id="fleet-custom-controls" class="hidden" style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: flex-end; align-items: center;">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">From:</span>
+                            <input type="date" id="fleet-start-date" class="inline-select-small">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">To:</span>
+                            <input type="date" id="fleet-end-date" class="inline-select-small">
                         </div>
                         <div class="chart-container">
                             <canvas id="fleet-performance-chart"></canvas>

@@ -122,10 +122,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Timeframe selector for Fleet Performance
     const periodSelect = document.getElementById('fleet-period-select');
+    const customControls = document.getElementById('fleet-custom-controls');
+    const startDateInput = document.getElementById('fleet-start-date');
+    const endDateInput = document.getElementById('fleet-end-date');
+
     if (periodSelect) {
         periodSelect.addEventListener('change', (e) => {
-            initFleetAnalyticsCharts('fleet-performance-chart', e.target.value);
+            const period = e.target.value;
+            if (period === 'custom') {
+                customControls.classList.remove('hidden');
+                // Default to last 7 days if empty
+                if (!startDateInput.value) {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(end.getDate() - 7);
+                    startDateInput.value = start.toISOString().split('T')[0];
+                    endDateInput.value = end.toISOString().split('T')[0];
+                }
+                initFleetAnalyticsCharts('fleet-performance-chart', 'custom', startDateInput.value, endDateInput.value);
+            } else {
+                customControls.classList.add('hidden');
+                initFleetAnalyticsCharts('fleet-performance-chart', period);
+            }
         });
+    }
+
+    if (startDateInput && endDateInput) {
+        const refreshCustom = () => {
+            if (periodSelect.value === 'custom') {
+                initFleetAnalyticsCharts('fleet-performance-chart', 'custom', startDateInput.value, endDateInput.value);
+            }
+        };
+        startDateInput.addEventListener('change', refreshCustom);
+        endDateInput.addEventListener('change', refreshCustom);
     }
 
     // Sidebar Toggle
@@ -757,7 +786,7 @@ function numberWithCommas(x) {
 }
 
 // --- Fleet Analytics Charts ---
-async function initFleetAnalyticsCharts(canvasId, period = 'daily') {
+async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null, end = null) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
@@ -767,10 +796,15 @@ async function initFleetAnalyticsCharts(canvasId, period = 'daily') {
         if (period === 'daily') performanceTitle.innerText = 'Fleet Performance (Today)';
         else if (period === 'weekly') performanceTitle.innerText = 'Fleet Performance (Last 7 Days)';
         else if (period === 'monthly') performanceTitle.innerText = 'Fleet Performance (Last 30 Days)';
+        else if (period === 'custom') performanceTitle.innerText = `Fleet Performance (${start} to ${end})`;
     }
 
     try {
-        const response = await window.AuthManager.fetchAPI(`/positions/analytics/fleet?period=${period}`);
+        let url = `/positions/analytics/fleet?period=${period}`;
+        if (period === 'custom' && start && end) {
+            url += `&start=${start}&end=${end}`;
+        }
+        const response = await window.AuthManager.fetchAPI(url);
         if (!response.ok) throw new Error('Failed to fetch analytics');
         const data = await response.json();
 
