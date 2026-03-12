@@ -595,6 +595,22 @@ body {
     border: 1px solid rgba(45, 95, 109, 0.3);
     z-index: 400;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.mode-selector, .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 15px;
+}
+
+.mode-selector label, .speed-control label {
+    white-space: nowrap;
 }
 
 .route-controls.hidden {

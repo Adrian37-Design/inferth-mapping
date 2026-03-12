@@ -34,6 +34,7 @@ const addressCache = new Map(); // Global cache for reverse geocoding
 let fleetChartDashboard = null;
 let fleetChartReports = null;
 let historyMarkers = []; // Track markers added during history view
+let playbackViewMode = 'standard';
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -88,6 +89,29 @@ function initMap() {
 document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
+
+    // Playback View Mode Listener
+    const modeSelector = document.getElementById('playback-view-mode');
+    if (modeSelector) {
+        modeSelector.addEventListener('change', (e) => {
+            playbackViewMode = e.target.value;
+            if (playbackRoute) {
+                // If switch to cluster, render immediately
+                if (playbackViewMode === 'cluster') {
+                    renderClusterMode();
+                } else {
+                    // Switch back to standard: clear cluster dots but keep route/playback state
+                    historyMarkers = historyMarkers.filter(m => {
+                        if (m._isClusterDot) {
+                            map.removeLayer(m);
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+            }
+        });
+    }
 
     // Silent background auto-refresh every 30 seconds
     // Keeps KPIs, status badges and "Last Seen" timers accurate without a page reload
@@ -2095,6 +2119,12 @@ function playRoute() {
         return;
     }
 
+    // If Cluster mode, don't animate, just show all dots
+    if (playbackViewMode === 'cluster') {
+        renderClusterMode();
+        return;
+    }
+
     // Stop existing playback (keep history state)
     stopRoute(false);
 
@@ -2142,6 +2172,43 @@ function playRoute() {
         map.panTo([point.lat, point.lng]);
         playbackIndex++;
     }, interval);
+}
+
+// Cluster mode implementation: Show all points as dots
+function renderClusterMode() {
+    if (!playbackRoute) return;
+    
+    // Clear existing cluster dots
+    historyMarkers = historyMarkers.filter(m => {
+        if (m._isClusterDot) {
+            map.removeLayer(m);
+            return false;
+        }
+        return true;
+    });
+
+    playbackRoute.forEach(point => {
+        const isMoving = point.speed > 3;
+        const color = isMoving ? "#00ff88" : "#ff4444"; // Green for moving, Red for stationary
+        
+        const dot = L.circleMarker([point.lat, point.lng], {
+            radius: 4,
+            fillColor: color,
+            color: "#fff",
+            weight: 1,
+            opacity: 0.8,
+            fillOpacity: 0.8
+        });
+
+        dot._isClusterDot = true;
+        dot.bindPopup(`
+            <b>Time:</b> ${new Date(point.timestamp).toLocaleString()}<br>
+            <b>Speed:</b> ${Math.round(point.speed)} km/h
+        `);
+
+        dot.addTo(map);
+        historyMarkers.push(dot);
+    });
 }
 
 // Pause route playback
