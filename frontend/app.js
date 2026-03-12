@@ -258,8 +258,6 @@ function setupTabs() {
             if (targetId === 'tab-dashboard') {
                 initFleetAnalyticsCharts('fleet-performance-chart');
             }
-        });
-
             if (targetId === 'tab-audit') {
                 loadAuditLogs();
             }
