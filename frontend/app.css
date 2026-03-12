@@ -1184,6 +1184,28 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(45, 95, 109, 0); border: 1px solid rgba(45, 95, 109, 0.3); }
 }
 
+/* Charts & Analytics */
+.chart-section {
+    margin-top: 20px;
+    padding-bottom: 10px;
+}
+
+.chart-container, .chart-holder {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 15px;
+    margin-top: 10px;
+    backdrop-filter: blur(10px);
+}
+
+.chart-placeholder {
+    display: none; /* Hide old placeholders */
+}
+
 /* Priority Alerts List */
 .priority-list {
     display: flex;
