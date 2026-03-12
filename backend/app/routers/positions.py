@@ -113,7 +113,7 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             "latitude": pos.latitude,
             "longitude": pos.longitude,
             "speed": pos.speed,
-            "timestamp": pos.timestamp.isoformat(),
+            "timestamp": pos.timestamp.isoformat() + "Z",
             "raw": sanitized_data
         })
 

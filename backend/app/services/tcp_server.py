@@ -176,7 +176,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                                 "latitude": decoded.get("latitude"),
                                 "longitude": decoded.get("longitude"),
                                 "speed": decoded.get("speed", 0.0),
-                                "timestamp": timestamp.isoformat(),
+                                "timestamp": timestamp.isoformat() + "Z",
                                 "raw": sanitized_decoded
                             })
                     except Exception as e:
