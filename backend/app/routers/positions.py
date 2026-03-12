@@ -463,7 +463,9 @@ async def get_fleet_analytics(
                 c = 2 * asin(sqrt(max(0, min(1, a))))
                 km = 6371 * c
                 
-                if 0 < km < 5: buckets[bucket_idx]["distance"] += km
+                if 0 < km < 5 and p.speed is not None and p.speed > 3:
+                    buckets[bucket_idx]["distance"] += km
+                
                 if p.speed is not None and p.speed > 3: # Check for None before comparison
                     gap = (p.timestamp - prev.timestamp).total_seconds()
                     if 0 < gap < 600: buckets[bucket_idx]["active_seconds"] += gap
@@ -507,7 +509,9 @@ async def get_fleet_analytics(
                     c = 2 * asin(sqrt(max(0, min(1, a))))
                     km = 6371 * c
                     
-                    if 0 < km < 10: buckets[p_date]["distance"] += km
+                    if 0 < km < 10 and p.speed is not None and p.speed > 3:
+                        buckets[p_date]["distance"] += km
+                    
                     if p.speed is not None and p.speed > 3: # Check for None before comparison
                         gap = (p.timestamp - prev.timestamp).total_seconds()
                         if 0 < gap < 600: buckets[p_date]["active_seconds"] += gap
@@ -587,7 +591,7 @@ async def get_device_daily_mileage(
             c = 2 * asin(sqrt(max(0, min(1, a))))
             km = 6371 * c
             
-            if 0 < km < 5:
+            if 0 < km < 5 and p.speed is not None and p.speed > 3:
                 total_distance += km
                 
         last_p = p
