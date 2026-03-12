@@ -1924,6 +1924,14 @@ function openAssetDetail(vehicle) {
 
     // Initial Data Population
     updateAssetDetailUI(vehicle.id);
+    
+    // Populate Metadata Fields Immediately
+    const meta = vehicle.device_metadata || {};
+    if (document.getElementById('detail-imei-val')) document.getElementById('detail-imei-val').textContent = vehicle.imei || '--';
+    if (document.getElementById('detail-model')) document.getElementById('detail-model').textContent = meta.model || '--';
+    if (document.getElementById('detail-plate')) document.getElementById('detail-plate').textContent = meta.plate || '--';
+    if (document.getElementById('detail-vin')) document.getElementById('detail-vin').textContent = meta.vin || '--';
+    if (document.getElementById('detail-sim')) document.getElementById('detail-sim').textContent = meta.sim || '--';
 
     // Load History (Default: Today)
     loadAssetHistory(vehicle.id, null, null);
@@ -1998,6 +2006,22 @@ function updateAssetDetailUI(id) {
     const timeDiff = Math.floor(minsAgo);
     const lastSeenEl = document.getElementById('detail-last-seen');
     if (lastSeenEl) lastSeenEl.textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
+
+    // 5. Vehicle Overview: Total Mileage
+    const mileageEl = document.getElementById('detail-mileage');
+    if (mileageEl) {
+        // Look for mileage in raw data OR obdData from marker
+        let totalMileage = '--';
+        const marker = markers[id];
+        
+        if (data.raw && data.raw.mileage !== undefined) {
+            totalMileage = data.raw.mileage;
+        } else if (marker && marker.obdData && marker.obdData.mileage !== undefined) {
+            totalMileage = marker.obdData.mileage;
+        }
+        
+        mileageEl.textContent = totalMileage !== '--' ? `${totalMileage} km` : '-- km';
+    }
 }
 
 // Select vehicle (Entry Point)
