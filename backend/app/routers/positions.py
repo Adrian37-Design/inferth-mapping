@@ -385,21 +385,30 @@ async def get_device_trips(
 
 @router.get("/analytics/fleet")
 async def get_fleet_analytics(
+    period: str = "daily",
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_db_user)
 ):
-    """Get aggregated mileage and active hours for the entire fleet (Today, 30min intervals)"""
+    """Get aggregated mileage and active hours for the entire fleet (Daily/Weekly/Monthly)"""
     from sqlalchemy import select
     from datetime import datetime, timedelta
     
     # Zimbabwe is UTC+2
     tz_offset = timedelta(hours=2)
     now_zim = datetime.utcnow() + tz_offset
-    zim_today_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Query all positions for today (in UTC, but wide enough to cover Zim today)
-    # Zim 00:00 is UTC 22:00 previous day. So we fetch last 30 hours to be safe.
-    fetch_start = zim_today_start - tz_offset
+    if period == "weekly":
+        days_to_fetch = 7
+        zim_start = (now_zim - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "monthly":
+        days_to_fetch = 30
+        zim_start = (now_zim - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+    else: # daily
+        days_to_fetch = 1
+        zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Query all positions for the range (fetch wide to cover Zim transition)
+    fetch_start = zim_start - tz_offset
     
     stmt = (
         select(Position)
@@ -415,75 +424,95 @@ async def get_fleet_analytics(
     result = await db.execute(stmt)
     positions = result.scalars().all()
     
-    # Initialize 48 buckets (representing 00:00 to 23:30 in Zimbabwean Time)
-    buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
-    last_positions = {device_id: None for device_id in set(p.device_id for p in positions)}
+    labels = []
+    mileage_data = []
+    hours_data = []
     
-    last_positions = {}
-    
-    for p in positions:
-        try:
-            if p.latitude is None or p.longitude is None:
-                continue
-                
-            # Convert timestamp to Zimbabwean Time
+    if period == "daily":
+        # 30-min buckets for today
+        buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
+        last_positions = {}
+        
+        for p in positions:
+            if p.latitude is None or p.longitude is None: continue
             p_zim = p.timestamp + tz_offset
+            if p_zim.date() != now_zim.date(): continue
             
-            # Skip if not from "today" in Zimbabwe
-            if p_zim.date() != now_zim.date():
-                continue
-                
             bucket_idx = (p_zim.hour * 2) + (1 if p_zim.minute >= 30 else 0)
             
             if p.device_id in last_positions:
                 prev = last_positions[p.device_id]
-                prev_zim = prev.timestamp + tz_offset
+                # Haversine distance
+                from math import radians, cos, sin, asin, sqrt
+                lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
+                a = sin((lat2-lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2-lon1)/2)**2
+                c = 2 * asin(sqrt(max(0, min(1, a))))
+                km = 6371 * c
                 
-                # Double check distance only if within the same day
-                if prev_zim.date() == p_zim.date():
+                if 0 < km < 5: buckets[bucket_idx]["distance"] += km
+                if p.speed is not None and p.speed > 3: # Check for None before comparison
+                    gap = (p.timestamp - prev.timestamp).total_seconds()
+                    if 0 < gap < 600: buckets[bucket_idx]["active_seconds"] += gap
+            
+            last_positions[p.device_id] = p
+
+        cum_mileage = 0
+        cum_active_seconds = 0
+        current_zim_bucket = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
+        
+        for i in range(current_zim_bucket + 1):
+            h = i // 2
+            m = "30" if i % 2 else "00"
+            labels.append(f"{h:02d}:{m}")
+            cum_mileage += buckets[i]["distance"]
+            cum_active_seconds += buckets[i]["active_seconds"]
+            mileage_data.append(round(cum_mileage, 1))
+            hours_data.append(round(cum_active_seconds / 3600, 1))
+            
+    else:
+        # Daily buckets for Weekly/Monthly
+        buckets = {}
+        for i in range(days_to_fetch):
+            day = (zim_start + timedelta(days=i)).date()
+            buckets[day] = {"distance": 0, "active_seconds": 0}
+            
+        last_positions = {}
+        for p in positions:
+            if p.latitude is None or p.longitude is None: continue
+            p_zim = (p.timestamp + tz_offset)
+            p_date = p_zim.date()
+            
+            if p_date not in buckets: continue
+            
+            if p.device_id in last_positions:
+                prev = last_positions[p.device_id]
+                if (p.timestamp + tz_offset).date() == (prev.timestamp + tz_offset).date():
                     from math import radians, cos, sin, asin, sqrt
                     lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
-                    
-                    # Haversine with floating point safety
-                    dlon = lon2 - lon1
-                    dlat = lat2 - lat1
-                    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                    a = sin((lat2-lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2-lon1)/2)**2
                     c = 2 * asin(sqrt(max(0, min(1, a))))
                     km = 6371 * c
                     
-                    if 0 < km < 5: 
-                        buckets[bucket_idx]["distance"] += km
-                    
-                    if p.speed and p.speed > 3:
+                    if 0 < km < 10: buckets[p_date]["distance"] += km
+                    if p.speed is not None and p.speed > 3: # Check for None before comparison
                         gap = (p.timestamp - prev.timestamp).total_seconds()
-                        if 0 < gap < 600:
-                            buckets[bucket_idx]["active_seconds"] += gap
-                        
+                        if 0 < gap < 600: buckets[p_date]["active_seconds"] += gap
+            
             last_positions[p.device_id] = p
-        except:
-            continue
-        
-    # Transform to Cumulative and Cap at current time
-    labels = []
-    mileage_data = []
-    hours_data = []
-    cum_mileage = 0
-    cum_active_seconds = 0
-    
-    # Current Zim bucket
-    current_zim_bucket = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
-    
-    for i in range(current_zim_bucket + 1):
-        h = i // 2
-        m = "30" if i % 2 else "00"
-        labels.append(f"{h:02d}:{m}")
-        
-        cum_mileage += buckets[i]["distance"]
-        cum_active_seconds += buckets[i]["active_seconds"]
-        
-        mileage_data.append(round(cum_mileage, 1))
-        hours_data.append(round(cum_active_seconds / 3600, 1))
-        
+            
+        # Cumulative transform
+        cum_mileage = 0
+        cum_active_seconds = 0
+        # Sort buckets by date to ensure correct cumulative calculation
+        sorted_dates = sorted(buckets.keys())
+        for date in sorted_dates:
+            val = buckets[date]
+            labels.append(date.strftime("%b %d"))
+            cum_mileage += val["distance"]
+            cum_active_seconds += val["active_seconds"]
+            mileage_data.append(round(cum_mileage, 1))
+            hours_data.append(round(cum_active_seconds / 3600, 1))
+
     return {
         "labels": labels,
         "mileage": mileage_data,
