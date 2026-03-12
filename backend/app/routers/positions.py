@@ -392,13 +392,13 @@ async def get_fleet_analytics(
     from sqlalchemy import func, cast, Date
     from datetime import datetime, timedelta
     
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Query all positions for the last 7 days
+    # Query all positions for today
     stmt = (
         select(Position)
         .join(Device)
-        .where(Position.timestamp >= seven_days_ago)
+        .where(Position.timestamp >= today_start)
     )
     
     # Filter by tenant
@@ -410,27 +410,21 @@ async def get_fleet_analytics(
     result = await db.execute(stmt)
     positions = result.scalars().all()
     
-    if not positions:
-        return {"labels": [], "mileage": [], "hours": []}
-        
-    # Process analytics in memory (group by day)
-    daily_stats = {} # { "YYYY-MM-DD": { "distance": 0, "active_seconds": 0, "last_positions": {device_id: pos} } }
+    # Initialize 24 hourly buckets
+    hourly_stats = {h: {"distance": 0, "active_seconds": 0} for h in range(24)}
+    last_positions = {} # {device_id: last_pos} to track delta across hours
     
     for p in positions:
         try:
-            # Skip invalid positions
             if p.latitude is None or p.longitude is None:
                 continue
                 
-            day_str = p.timestamp.date().isoformat()
-            if day_str not in daily_stats:
-                daily_stats[day_str] = {"distance": 0, "active_seconds": 0, "last_positions": {}}
+            hour = p.timestamp.hour
             
-            # Calculate distance if we have a previous position for this device ON THIS DAY
-            if p.device_id in daily_stats[day_str]["last_positions"]:
-                prev = daily_stats[day_str]["last_positions"][p.device_id]
+            if p.device_id in last_positions:
+                prev = last_positions[p.device_id]
                 
-                # Check previous coordinates as well (extra safety)
+                # Check previous coordinates
                 if prev.latitude is not None and prev.longitude is not None:
                     # Simple Haversine
                     from math import radians, cos, sin, asin, sqrt
@@ -441,36 +435,36 @@ async def get_fleet_analytics(
                     c = 2 * asin(sqrt(a))
                     km = 6371 * c
                     
-                    if 0 < km < 5: # Filter out GPS jumps and zero-distance points
-                        daily_stats[day_str]["distance"] += km
+                    if 0 < km < 5: 
+                        hourly_stats[hour]["distance"] += km
                     
-                    # Active time: if speed > 3 km/h, add the gap
                     if p.speed and p.speed > 3:
                         gap = (p.timestamp - prev.timestamp).total_seconds()
-                        if 0 < gap < 600: # Max 10 mins gap to count as continuous activity
-                            daily_stats[day_str]["active_seconds"] += gap
+                        if 0 < gap < 600:
+                            hourly_stats[hour]["active_seconds"] += gap
                         
-            daily_stats[day_str]["last_positions"][p.device_id] = p
+            last_positions[p.device_id] = p
         except Exception as e:
-            # Log error but continue with next point
-            print(f"Error processing analytics point {p.id}: {str(e)}")
             continue
         
-    # Sort days and format for Chart.js
-    sorted_days = sorted(daily_stats.keys())
+    # Transform to Cumulative
     labels = []
     mileage_data = []
     hours_data = []
     
-    for day in sorted_days:
-        # Convert date to Day Name (e.g. "Mon")
-        try:
-            dt = datetime.fromisoformat(day)
-            labels.append(dt.strftime("%a"))
-            mileage_data.append(round(daily_stats[day]["distance"], 1))
-            hours_data.append(round(daily_stats[day]["active_seconds"] / 3600, 1))
-        except:
-            continue
+    cum_mileage = 0
+    cum_active_seconds = 0
+    
+    for h in range(24):
+        labels.append(f"{h:02d}:00")
+        
+        cum_mileage += hourly_stats[h]["distance"]
+        cum_active_seconds += hourly_stats[h]["active_seconds"]
+        
+        # Only show up to current hour (optional, but makes chart cleaner)
+        # Actually, let's show the whole 24h as requested
+        mileage_data.append(round(cum_mileage, 1))
+        hours_data.append(round(cum_active_seconds / 3600, 1))
         
     return {
         "labels": labels,

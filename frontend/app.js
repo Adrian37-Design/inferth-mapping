@@ -758,7 +758,7 @@ async function initFleetAnalyticsCharts(canvasId) {
         const data = await response.json();
 
         if (!data.labels || data.labels.length === 0) {
-            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for the last 7 days</p>';
+            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for today</p>';
             return;
         }
 
