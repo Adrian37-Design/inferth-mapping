@@ -455,14 +455,14 @@ async def get_fleet_analytics(
     cum_mileage = 0
     cum_active_seconds = 0
     
-    for h in range(24):
+    current_hour = datetime.utcnow().hour
+    
+    for h in range(current_hour + 1):
         labels.append(f"{h:02d}:00")
         
         cum_mileage += hourly_stats[h]["distance"]
         cum_active_seconds += hourly_stats[h]["active_seconds"]
         
-        # Only show up to current hour (optional, but makes chart cleaner)
-        # Actually, let's show the whole 24h as requested
         mileage_data.append(round(cum_mileage, 1))
         hours_data.append(round(cum_active_seconds / 3600, 1))
         
