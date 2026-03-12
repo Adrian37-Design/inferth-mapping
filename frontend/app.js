@@ -1606,8 +1606,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.battery !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-car-battery"></i> Battery: ${obdData.battery.toFixed(1)}V</div>`;
         if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
         if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
-        if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Mileage: ${obdData.mileage}km</div>`;
+        if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Total Odometer: ${obdData.mileage}km</div>`;
     }
+
+    const todayMileage = dailyMileageCache.get(id) || 0;
 
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
     const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
@@ -1623,6 +1625,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 <span id="popup-addr-${imei}">${initialAddr}</span>
             </div>
             <div style="font-size: 0.9em; line-height: 1.4;">
+                <div style="color: #ff9800; font-weight: bold; margin-bottom: 4px;">
+                    <i class="fas fa-route"></i> Today: ${todayMileage} km
+                </div>
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${assetStatus}<br>
                 <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
@@ -1692,6 +1697,26 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 obdData: obdData
             };
         }
+        }
+    }
+
+    // Refresh Daily Mileage on Popup Open
+    if (marker && typeof marker.on === 'function') {
+        marker.off('popupopen').on('popupopen', async () => {
+            try {
+                const response = await window.AuthManager.fetchAPI(`/positions/analytics/device/${id}/daily`);
+                if (response.ok) {
+                    const data = await response.json();
+                    dailyMileageCache.set(id, data.daily_mileage);
+                    
+                    // Re-render popup content with fresh mileage
+                    addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData);
+                    marker.openPopup();
+                }
+            } catch (e) {
+                console.warn("Failed to fetch daily mileage", e);
+            }
+        });
     }
 
     // Store latest data (including ignition)

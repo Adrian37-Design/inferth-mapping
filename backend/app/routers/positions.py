@@ -489,3 +489,64 @@ async def get_fleet_analytics(
         "mileage": mileage_data,
         "hours": hours_data
     }
+
+@router.get("/analytics/device/{device_id}/daily")
+async def get_device_daily_mileage(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get the total mileage for a specific device today (Zimbabwean Time)"""
+    from sqlalchemy import select
+    from datetime import datetime, timedelta
+    from math import radians, cos, sin, asin, sqrt
+    
+    # Zimbabwe is UTC+2
+    tz_offset = timedelta(hours=2)
+    now_zim = datetime.utcnow() + tz_offset
+    zim_today_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Fetch start in UTC
+    fetch_start = zim_today_start - tz_offset
+    
+    # Query positions
+    stmt = (
+        select(Position)
+        .join(Device)
+        .where(Position.device_id == device_id)
+        .where(Position.timestamp >= fetch_start)
+    )
+    
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+        
+    stmt = stmt.order_by(Position.timestamp.asc())
+    
+    result = await db.execute(stmt)
+    positions = result.scalars().all()
+    
+    total_distance = 0
+    last_p = None
+    
+    for p in positions:
+        if p.latitude is None or p.longitude is None:
+            continue
+            
+        p_zim = p.timestamp + tz_offset
+        if p_zim.date() != now_zim.date():
+            continue
+            
+        if last_p:
+            lon1, lat1, lon2, lat2 = map(radians, [last_p.longitude, last_p.latitude, p.longitude, p.latitude])
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(max(0, min(1, a))))
+            km = 6371 * c
+            
+            if 0 < km < 5:
+                total_distance += km
+                
+        last_p = p
+        
+    return {"device_id": device_id, "daily_mileage": round(total_distance, 2)}
