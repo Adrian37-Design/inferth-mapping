@@ -30,6 +30,8 @@ let editingVehicleId = null;
 let allVehicles = [];
 let isHistoryMode = false;
 const addressCache = new Map(); // Global cache for reverse geocoding
+let fleetChartDashboard = null;
+let fleetChartReports = null;
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -115,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Tab Switching Logic
     setupTabs();
+    initFleetAnalyticsCharts('fleet-performance-chart');
 
     // Sidebar Toggle
     setupSidebarToggle();
@@ -249,7 +252,13 @@ function setupTabs() {
 
             if (targetId === 'tab-reports') {
                 loadReports();
+                initFleetAnalyticsCharts('chart-usage-canvas');
             }
+
+            if (targetId === 'tab-dashboard') {
+                initFleetAnalyticsCharts('fleet-performance-chart');
+            }
+        });
 
             if (targetId === 'tab-audit') {
                 loadAuditLogs();
@@ -738,6 +747,113 @@ window.exportReport = function () {
 
 function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// --- Fleet Analytics Charts ---
+async function initFleetAnalyticsCharts(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    try {
+        const response = await window.AuthManager.fetchAPI('/positions/analytics/fleet');
+        if (!response.ok) throw new Error('Failed to fetch analytics');
+        const data = await response.json();
+
+        if (!data.labels || data.labels.length === 0) {
+            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for the last 7 days</p>';
+            return;
+        }
+
+        // Destroy existing instance to prevent flicker/memory leaks
+        if (canvasId === 'fleet-performance-chart' && fleetChartDashboard) {
+            fleetChartDashboard.destroy();
+        } else if (canvasId === 'chart-usage-canvas' && fleetChartReports) {
+            fleetChartReports.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        const chartConfig = {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Mileage (km)',
+                        data: data.mileage,
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Active Hours',
+                        data: data.hours,
+                        borderColor: '#ff4d4d',
+                        backgroundColor: 'rgba(255, 77, 77, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: '#aaa', font: { size: 10 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(20, 30, 48, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#aaa',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: true,
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#888' }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#00d4ff' },
+                        title: { display: true, text: 'km', color: '#00d4ff' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#ff4d4d' },
+                        title: { display: true, text: 'hrs', color: '#ff4d4d' }
+                    }
+                }
+            }
+        };
+
+        const newChart = new Chart(ctx, chartConfig);
+        if (canvasId === 'fleet-performance-chart') fleetChartDashboard = newChart;
+        else fleetChartReports = newChart;
+
+    } catch (error) {
+        console.error('Error initializing charts:', error);
+    }
 }
 
 // --- Audit Logs Logic ---

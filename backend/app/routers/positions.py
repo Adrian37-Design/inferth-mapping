@@ -382,3 +382,84 @@ async def get_device_trips(
         "total_trips": len(trip_summaries),
         "period_days": days
     }
+
+@router.get("/analytics/fleet")
+async def get_fleet_analytics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get aggregated mileage and active hours for the entire fleet (Last 7 Days)"""
+    from sqlalchemy import func, cast, Date
+    from datetime import datetime, timedelta
+    
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    
+    # Query all positions for the last 7 days
+    stmt = (
+        select(Position)
+        .join(Device)
+        .where(Position.timestamp >= seven_days_ago)
+    )
+    
+    # Filter by tenant
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+        
+    stmt = stmt.order_by(Position.timestamp.asc())
+    
+    result = await db.execute(stmt)
+    positions = result.scalars().all()
+    
+    if not positions:
+        return {"labels": [], "mileage": [], "hours": []}
+        
+    # Process analytics in memory (group by day)
+    daily_stats = {} # { "YYYY-MM-DD": { "distance": 0, "active_seconds": 0, "last_pos": {device_id: pos} } }
+    
+    for p in positions:
+        day_str = p.timestamp.date().isoformat()
+        if day_str not in daily_stats:
+            daily_stats[day_str] = {"distance": 0, "active_seconds": 0, "last_positions": {}}
+        
+        # Calculate distance if we have a previous position for this device ON THIS DAY
+        if p.device_id in daily_stats[day_str]["last_positions"]:
+            prev = daily_stats[day_str]["last_positions"][p.device_id]
+            
+            # Simple Haversine
+            from math import radians, cos, sin, asin, sqrt
+            lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * asin(sqrt(a))
+            km = 6371 * c
+            
+            if km < 5: # Filter out GPS jumps (> 300km/h average if points are 1 min apart)
+                daily_stats[day_str]["distance"] += km
+            
+            # Active time: if speed > 3 km/h, add the gap
+            if p.speed and p.speed > 3:
+                gap = (p.timestamp - prev.timestamp).total_seconds()
+                if gap < 600: # Max 10 mins gap to count as continuous activity
+                    daily_stats[day_str]["active_seconds"] += gap
+                    
+        daily_stats[day_str]["last_positions"][p.device_id] = p
+        
+    # Sort days and format for Chart.js
+    sorted_days = sorted(daily_stats.keys())
+    labels = []
+    mileage_data = []
+    hours_data = []
+    
+    for day in sorted_days:
+        # Convert date to Day Name (e.g. "Mon")
+        dt = datetime.fromisoformat(day)
+        labels.append(dt.strftime("%a"))
+        mileage_data.append(round(daily_stats[day]["distance"], 1))
+        hours_data.append(round(daily_stats[day]["active_seconds"] / 3600, 1))
+        
+    return {
+        "labels": labels,
+        "mileage": mileage_data,
+        "hours": hours_data
+    }
