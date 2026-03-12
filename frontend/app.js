@@ -1560,6 +1560,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Default to false if never seen
     if (ignitionOn === undefined) ignitionOn = false;
 
+    // Safety: Infer ignition from speed (Moving assets MUST have ignition on)
+    if (speed > 3) ignitionOn = true;
+
     let assetStatus = 'Offline';
     if (minsOffline < 10) {
         if (speed > 3) {
