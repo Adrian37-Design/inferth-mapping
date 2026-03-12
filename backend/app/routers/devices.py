@@ -82,7 +82,8 @@ async def list_devices(
             "imei": getattr(d, 'imei', 'N/A'),
             "name": getattr(d, 'name', None) or f"Device {getattr(d, 'imei', 'Unknown')}",
             "driver_name": getattr(d, 'driver_name', None),
-            "tenant_id": getattr(d, 'tenant_id', None)
+            "tenant_id": getattr(d, 'tenant_id', None),
+            "device_metadata": getattr(d, 'device_metadata', {})
         })
     return output
 
@@ -155,4 +156,4 @@ async def update_device(
     await db.commit()
     await db.refresh(device)
     
-    return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name}
+    return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name, "device_metadata": device.device_metadata}
