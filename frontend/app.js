@@ -21,6 +21,7 @@ let markers = {};
 let vehiclePositions = {}; // Store latest data for details view
 let routes = {};
 let selectedVehicle = null;
+let dailyMileageCache = new Map();
 let ws = null;
 let playbackInterval = null;
 let playbackIndex = 0;
