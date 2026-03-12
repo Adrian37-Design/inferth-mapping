@@ -388,7 +388,10 @@ async def get_fleet_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get aggregated mileage and active hours for the entire fleet (Last 7 Days)"""
+    """Get aggregated mileage and active hours for the entire fleet (Today, 30min intervals)"""
+    from sqlalchemy import select
+    from datetime import datetime, timedelta
+    
     # Zimbabwe is UTC+2
     tz_offset = timedelta(hours=2)
     now_zim = datetime.utcnow() + tz_offset
@@ -413,9 +416,10 @@ async def get_fleet_analytics(
     positions = result.scalars().all()
     
     # Initialize 48 buckets (representing 00:00 to 23:30 in Zimbabwean Time)
-    # Bucket index = hour * 2 + (1 if minute >= 30 else 0)
     buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
-    last_positions = {} # {device_id: last_pos}
+    last_positions = {device_id: None for device_id in set(p.device_id for p in positions)}
+    
+    last_positions = {}
     
     for p in positions:
         try:
@@ -439,7 +443,12 @@ async def get_fleet_analytics(
                 if prev_zim.date() == p_zim.date():
                     from math import radians, cos, sin, asin, sqrt
                     lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
-                    c = 2 * asin(sqrt(sin((lat2-lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2-lon1)/2)**2))
+                    
+                    # Haversine with floating point safety
+                    dlon = lon2 - lon1
+                    dlat = lat2 - lat1
+                    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                    c = 2 * asin(sqrt(max(0, min(1, a))))
                     km = 6371 * c
                     
                     if 0 < km < 5: 
