@@ -2353,3 +2353,25 @@ body {
 .hidden {
     display: none !important;
 }
+
+.inline-select-small {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.inline-select-small:hover {
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.inline-select-small option {
+    background: var(--dark-bg);
+    color: white;
+}

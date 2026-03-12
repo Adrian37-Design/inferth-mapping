@@ -387,7 +387,7 @@ async def get_device_trips(
 async def get_fleet_analytics(
     period: str = "daily",
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_db_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get aggregated mileage and active hours for the entire fleet (Daily/Weekly/Monthly)"""
     from sqlalchemy import select
