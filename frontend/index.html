@@ -220,7 +220,14 @@
                     </div>
 
                     <div class="dashboard-section chart-section">
-                        <h4 class="section-title">Fleet Performance (Today)</h4>
+                        <div class="section-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 class="section-title" id="performance-title" style="margin: 0;">Fleet Performance (Today)</h4>
+                            <select id="fleet-period-select" class="inline-select-small">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
                         <div class="chart-container">
                             <canvas id="fleet-performance-chart"></canvas>
                         </div>

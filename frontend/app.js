@@ -120,6 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     initFleetAnalyticsCharts('fleet-performance-chart');
 
+    // Timeframe selector for Fleet Performance
+    const periodSelect = document.getElementById('fleet-period-select');
+    if (periodSelect) {
+        periodSelect.addEventListener('change', (e) => {
+            initFleetAnalyticsCharts('fleet-performance-chart', e.target.value);
+        });
+    }
+
     // Sidebar Toggle
     setupSidebarToggle();
 
@@ -749,12 +757,20 @@ function numberWithCommas(x) {
 }
 
 // --- Fleet Analytics Charts ---
-async function initFleetAnalyticsCharts(canvasId) {
+async function initFleetAnalyticsCharts(canvasId, period = 'daily') {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
+    // Update title based on period
+    const performanceTitle = document.getElementById('performance-title');
+    if (performanceTitle) {
+        if (period === 'daily') performanceTitle.innerText = 'Fleet Performance (Today)';
+        else if (period === 'weekly') performanceTitle.innerText = 'Fleet Performance (Last 7 Days)';
+        else if (period === 'monthly') performanceTitle.innerText = 'Fleet Performance (Last 30 Days)';
+    }
+
     try {
-        const response = await window.AuthManager.fetchAPI('/positions/analytics/fleet');
+        const response = await window.AuthManager.fetchAPI(`/positions/analytics/fleet?period=${period}`);
         if (!response.ok) throw new Error('Failed to fetch analytics');
         const data = await response.json();
 
