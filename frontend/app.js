@@ -1698,7 +1698,6 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 obdData: obdData
             };
         }
-        }
     }
 
     // Refresh Daily Mileage on Popup Open
