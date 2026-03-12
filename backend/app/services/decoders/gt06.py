@@ -43,6 +43,7 @@ class GT06Decoder(BaseDecoder):
                 "latitude": lat,
                 "longitude": lon,
                 "speed": data[15],
+                "ignition": data[15] > 3, # Infer ignition from speed
                 "in_motion": bool(course_status & 0x2000),
                 "type": "location"
             }
