@@ -386,10 +386,12 @@ async def get_device_trips(
 @router.get("/analytics/fleet")
 async def get_fleet_analytics(
     period: str = "daily",
+    start: str = None,
+    end: str = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get aggregated mileage and active hours for the entire fleet (Daily/Weekly/Monthly)"""
+    """Get aggregated mileage and active hours for the entire fleet (Daily/Weekly/Monthly/Custom)"""
     from sqlalchemy import select
     from datetime import datetime, timedelta
     
@@ -403,6 +405,18 @@ async def get_fleet_analytics(
     elif period == "monthly":
         days_to_fetch = 30
         zim_start = (now_zim - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "custom" and start and end:
+        try:
+            zim_start = datetime.strptime(start, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
+            zim_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+            if zim_end < zim_start:
+                zim_start, zim_end = zim_end, zim_start
+            days_to_fetch = (zim_end.date() - zim_start.date()).days + 1
+            if days_to_fetch > 90: # Cap at 90 days for performance
+                days_to_fetch = 90
+        except:
+            days_to_fetch = 1
+            zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
     else: # daily
         days_to_fetch = 1
         zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
