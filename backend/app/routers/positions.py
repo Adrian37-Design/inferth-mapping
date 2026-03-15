@@ -351,26 +351,41 @@ async def get_device_trips(
         end_pos = trip_positions[-1]
         duration = (end_pos.timestamp - start_pos.timestamp).total_seconds() / 60  # minutes
         
-        # Calculate distance
+        # Calculate distance and harsh events
         total_distance = 0
+        harsh_events = []
         for i in range(1, len(trip_positions)):
             from math import radians, cos, sin, asin, sqrt
             prev = trip_positions[i-1]
             curr = trip_positions[i]
             
+            # Distance
             lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, curr.longitude, curr.latitude])
             dlon = lon2 - lon1
             dlat = lat2 - lat1
             a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * asin(sqrt(a))
+            c = 2 * asin(sqrt(max(0, min(1, a))))
             km = 6371 * c
             total_distance += km
+
+            # Harsh Driving Detection
+            delta_speed = (curr.speed or 0) - (prev.speed or 0)
+            delta_time = (curr.timestamp - prev.timestamp).total_seconds()
+            
+            if 0 < delta_time <= 15: # 15s window
+                accel = delta_speed / delta_time
+                if accel > 10: # >10 km/h per sec
+                    harsh_events.append({"type": "Harsh Accel", "value": round(accel, 1), "time": curr.timestamp.isoformat()})
+                elif accel < -12: # <-12 km/h per sec
+                    harsh_events.append({"type": "Harsh Braking", "value": round(accel, 1), "time": curr.timestamp.isoformat()})
         
         trip_summaries.append({
             "start_time": start_pos.timestamp.isoformat(),
             "end_time": end_pos.timestamp.isoformat(),
             "duration_minutes": round(duration, 1),
             "distance_km": round(total_distance, 2),
+            "harsh_events_count": len(harsh_events),
+            "harsh_events": harsh_events,
             "start_location": {"lat": start_pos.latitude, "lng": start_pos.longitude},
             "end_location": {"lat": end_pos.latitude, "lng": end_pos.longitude},
             "points_count": len(trip_positions)

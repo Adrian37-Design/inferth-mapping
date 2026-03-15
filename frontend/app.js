@@ -1709,7 +1709,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 </div>
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${assetStatus}<br>
-                <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
+                <div style="margin-top:4px;">
+                    <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
+                    ${rawData && rawData.main_power_cut ? '<br><span style="color:#ef4835; font-weight:bold;"><i class="fas fa-plug"></i> MAIN POWER CUT!</span>' : ''}
+                    ${rawData && rawData.sos ? '<br><span style="color:#ef4835; font-weight:bold; animation: pulse 1s infinite;"><i class="fas fa-sos"></i> SOS ALERT!</span>' : ''}
+                </div>
                 ${diagnosticHtml}
             </div>
             <button class="popup-history-btn" onclick="window.openHistorySearch('${id}', '${imei}')">
@@ -2035,17 +2039,80 @@ function updateAssetDetailUI(id) {
     // 5. Vehicle Overview: Total Mileage
     const mileageEl = document.getElementById('detail-mileage');
     if (mileageEl) {
-        // Look for mileage in raw data OR obdData from marker
         let totalMileage = '--';
         const marker = markers[id];
-        
         if (data.raw && data.raw.mileage !== undefined) {
             totalMileage = data.raw.mileage;
         } else if (marker && marker.obdData && marker.obdData.mileage !== undefined) {
             totalMileage = marker.obdData.mileage;
         }
-        
         mileageEl.textContent = totalMileage !== '--' ? `${totalMileage} km` : '-- km';
+    }
+
+    // --- Intelligence Suite: Smart Visibility Panels ---
+    const detailContainer = document.getElementById('tab-asset-detail');
+    if (!detailContainer) return;
+
+    // 1. Remove existing dynamic panels to re-render
+    const existingPanels = detailContainer.querySelectorAll('.diagnostic-container, .intel-alert');
+    existingPanels.forEach(p => p.remove());
+
+    // 2. Hardware Alerts (Power Cut / SOS)
+    const marker = markers[id];
+    const raw = (marker && marker.rawData) ? marker.rawData : (data.raw || {});
+    
+    if (raw.main_power_cut || raw.sos) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'intel-alert';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <div class="intel-alert-content">
+                <span class="intel-alert-title">${raw.sos ? 'SOS ALERT ACTIVE' : 'MAIN POWER DISCONNECTED'}</span>
+                <span class="intel-alert-desc">${raw.sos ? 'Driver initiated emergency signal.' : 'Vehicle battery connection lost. Operating on internal battery.'}</span>
+            </div>
+        `;
+        // Insert after header
+        const header = detailContainer.querySelector('.asset-detail-header') || detailContainer.firstChild;
+        header.after(alertDiv);
+    }
+
+    // 3. Engine Diagnostics (OBD-II Gauges)
+    const obd = (marker && marker.obdData) ? marker.obdData : {};
+    const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined;
+
+    if (hasObdData) {
+        const diagDiv = document.createElement('div');
+        diagDiv.className = 'diagnostic-container';
+        
+        // Calculate percentages for gauges
+        const rpmPerc = Math.min(100, ((obd.rpm || 0) / 8000) * 100);
+        const battPerc = Math.min(100, (((obd.battery || 12) - 10) / 5) * 100); // 10V-15V range
+
+        diagDiv.innerHTML = `
+            <div class="diagnostic-title"><i class="fas fa-microchip"></i> Live Engine Diagnostics</div>
+            <div class="gauge-grid">
+                <div class="gauge-item">
+                    <div class="gauge-label">Engine RPM</div>
+                    <div class="gauge-visual-wrap">
+                        <div class="gauge-visual" style="--perc: ${rpmPerc}%"></div>
+                    </div>
+                    <div class="gauge-value">${obd.rpm || 0}</div>
+                </div>
+                <div class="gauge-item">
+                    <div class="gauge-label">Battery</div>
+                    <div class="gauge-visual-wrap">
+                        <div class="gauge-visual" style="--perc: ${battPerc}%"></div>
+                    </div>
+                    <div class="gauge-value">${obd.battery ? obd.battery.toFixed(1) : '--'}V</div>
+                </div>
+            </div>
+            <div style="margin-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85em;">
+                <div style="color:var(--text-secondary)">Coolant: <span style="color:white; font-weight:600">${obd.coolant || '--'}°C</span></div>
+                <div style="color:var(--text-secondary)">Load: <span style="color:white; font-weight:600">${obd.engine_load || '--'}%</span></div>
+            </div>
+        `;
+        // Append to sidebar
+        detailContainer.appendChild(diagDiv);
     }
 }
 
@@ -2405,6 +2472,7 @@ async function loadTrips() {
                 </div>
                 <div class="trip-details">
                     <div>Duration: ${trip.duration_minutes} min</div>
+                    ${trip.harsh_events_count > 0 ? `<div style="color:#ef4835; font-weight:bold;"><i class="fas fa-exclamation-triangle"></i> Harsh Events: ${trip.harsh_events_count}</div>` : ''}
                     <div id="trip-start-addr-${index}">Resolving start location...</div>
                     <div id="trip-end-addr-${index}">Resolving end location...</div>
                 </div>
