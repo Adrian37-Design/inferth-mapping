@@ -48,6 +48,10 @@ class GT06Decoder(BaseDecoder):
                 "type": "location"
             }
 
+            # Optional: Terminal Info might be present in 0x16 or 0x22 depending on variant
+            # Usually GPS packets don't have the status byte in the same spot, 
+            # but we can try to extract from 'course_status' or extra bytes if available.
+
             # LBS Data (MCC/MNC/LAC/CellID) often follows GPS at offset 18
             if len(data) >= 26:
                 res["mcc"] = struct.unpack('!H', data[18:20])[0]
@@ -103,7 +107,17 @@ class GT06Decoder(BaseDecoder):
                 # Terminal Information byte is at offset 4
                 terminal_info = raw[4]
                 ignition = bool(terminal_info & 0x02) # Bit 1: ACC On/Off
+                main_power_cut = bool(terminal_info & 0x01) # Bit 0: Emergency (sometimes)
+                # Note: Bit 0/Bit 2 vary by manufacturer for SOS vs Power. 
+                # We'll treat SOS/Power bits specifically if documented. 
+                # Standard GT06 Alarm bits (Bit 3-5): 001=Vibration, 010=Power Cut, 011=Low Batt, 100=SOS
+                alarm_code = (terminal_info >> 3) & 0x07
                 
+                status_notes = []
+                if alarm_code == 0x02: status_notes.append("Main Power Cut")
+                if alarm_code == 0x04: status_notes.append("SOS Alarm")
+                if alarm_code == 0x03: status_notes.append("Low Battery")
+
                 serial_num = raw[-6:-4]
                 ack_payload = struct.pack('!BB', 0x05, protocol_number) + serial_num
                 ack_crc = crc16_itu_t(ack_payload)
@@ -111,6 +125,10 @@ class GT06Decoder(BaseDecoder):
                 return {
                     "type": "heartbeat", 
                     "ignition": ignition,
+                    "main_power_cut": alarm_code == 0x02,
+                    "sos": alarm_code == 0x04,
+                    "low_battery": alarm_code == 0x03,
+                    "status_notes": status_notes,
                     "response": ack, 
                     "raw_text": raw.hex()
                 }

@@ -2442,4 +2442,113 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     font-size: 0.85em;
     color: var(--text-secondary);
-}
+}
+
+/* Engine Diagnostics & Intelligence */
+.diagnostic-container {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.diagnostic-title {
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.gauge-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.gauge-label {
+    font-size: 0.7em;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.gauge-visual-wrap {
+    position: relative;
+    width: 70px;
+    height: 35px;
+}
+
+.gauge-visual {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--primary) var(--perc, 0%), 
+        rgba(255, 255, 255, 0.1) var(--perc, 0%)
+    );
+    mask: radial-gradient(transparent 55%, black 56%);
+    -webkit-mask: radial-gradient(transparent 55%, black 56%);
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+    transform: rotate(-90deg);
+}
+
+.gauge-value {
+    margin-top: -5px;
+    font-size: 1em;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Intelligence Alerts */
+.intel-alert {
+    background: rgba(239, 72, 53, 0.1);
+    border: 1px solid rgba(239, 72, 53, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: alertBorderPulse 2s infinite;
+}
+
+@keyframes alertBorderPulse {
+    0% { border-color: rgba(239, 72, 53, 0.2); box-shadow: 0 0 0 0 rgba(239, 72, 53, 0); }
+    50% { border-color: rgba(239, 72, 53, 0.6); box-shadow: 0 0 10px 0 rgba(239, 72, 53, 0.2); }
+    100% { border-color: rgba(239, 72, 53, 0.2); box-shadow: 0 0 0 0 rgba(239, 72, 53, 0); }
+}
+
+.intel-alert i {
+    font-size: 1.4em;
+    color: var(--secondary);
+}
+
+.intel-alert-content {
+    flex: 1;
+}
+
+.intel-alert-title {
+    font-size: 0.85em;
+    font-weight: 700;
+    color: var(--secondary);
+    display: block;
+}
+
+.intel-alert-desc {
+    font-size: 0.75em;
+    color: var(--text-secondary);
+}
+
