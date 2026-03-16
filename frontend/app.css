@@ -467,10 +467,6 @@ body {
     border-left-color: var(--success);
 }
 
-.status-idle, .status-idling {
-    border-left-color: var(--warning);
-}
-
 .status-stationary {
     border-left-color: #8e94a1;
 }
@@ -516,11 +512,6 @@ body {
 .badge-moving {
     background: rgba(16, 185, 129, 0.15);
     color: var(--success);
-}
-
-.badge-idle, .badge-idling {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
 }
 
 .badge-stationary {

@@ -1482,8 +1482,6 @@ function updateDashboardKPIs(vehicles) {
 
                 if (speed > 3) {
                     moving++;
-                } else if (ignitionOn) {
-                    idling++;
                 } else {
                     stationary++;
                 }
@@ -1497,7 +1495,8 @@ function updateDashboardKPIs(vehicles) {
 
     // Update UI Elements
     animateValue('kpi-active', 0, moving, 1000);
-    animateValue('kpi-idle', 0, idling, 1000);
+    const idleEl = document.getElementById('kpi-idle');
+    if (idleEl && idleEl.parentElement) idleEl.parentElement.style.display = 'none';
     animateValue('kpi-stationary', 0, stationary, 1000);
     animateValue('kpi-alerts', 0, alertsCount, 1000);
     animateValue('kpi-offline', 0, offline, 1000);
@@ -1642,8 +1641,6 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (minsOffline < 10) {
         if (speed > 3) {
             assetStatus = 'Moving';
-        } else if (ignitionOn) {
-            assetStatus = 'Idling';
         } else {
             assetStatus = 'Stationary';
         }
@@ -1840,8 +1837,6 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
         status = 'offline'; label = 'Offline';
     } else if (speed > 3) {
         status = 'moving'; label = 'Moving';
-    } else if (ignitionOn) {
-        status = 'idling'; label = 'Idling';
     } else {
         status = 'stationary'; label = 'Stationary';
     }
@@ -1999,7 +1994,7 @@ function updateAssetDetailUI(id) {
     } else if (data.speed > 3) {
         status = 'Moving'; statusClass = 'badge-moving';
     } else {
-        status = 'Idle'; statusClass = 'badge-idle';
+        status = 'Stationary'; statusClass = 'badge-stationary';
     }
     if (statusBadge) {
         statusBadge.textContent = status;
