@@ -2600,6 +2600,11 @@ function connectWebSocket() {
 
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
                     
+                    // IF this is the selected vehicle, update the Detail UI immediately
+                    if (selectedVehicle && selectedVehicle.imei === data.imei) {
+                        updateAssetDetailUI(deviceId, data.speed, data.timestamp, obdData);
+                    }
+
                     // Sync Dashboard KPIs immediately
                     if (allVehicles.length > 0) updateDashboardKPIs(allVehicles);
 
