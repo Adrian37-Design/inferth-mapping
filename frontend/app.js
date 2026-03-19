@@ -717,18 +717,22 @@ function loadReports() {
             const timeDiff = new Date() - new Date(marker.lastUpdate);
             const minsOffline = timeDiff / (1000 * 60);
 
-            if (marker.obdData && minsOffline < 15) {
-                // Assuming obdData contains rpm and fuel
-                const rpm = parseFloat(marker.obdData.rpm);
-                const fuel = parseFloat(marker.obdData.fuel_consumption || marker.obdData.fuel);
-                const coolant = parseFloat(marker.obdData.coolant);
-                const load = parseFloat(marker.obdData.engine_load);
+            const obd = marker.obdData;
+            if (obd && minsOffline < 15) {
+                const rpm = parseFloat(obd.rpm);
+                const fuel = parseFloat(obd.fuel_consumption || obd.fuel);
+                const coolant = parseFloat(obd.coolant);
+                const load = parseFloat(obd.engine_load);
+                const battery = parseFloat(obd.battery || obd.voltage); // Fallback to voltage if battery % not avail
 
-                if (!isNaN(rpm)) { totalRPM += rpm; obdVehicleCount++; }
-                // Use the highest fuel accumulated across fleet or sum for total (depending on use case, here we sum total active consumption)
-                if (!isNaN(fuel)) totalFuel += fuel;
-                if (!isNaN(coolant)) totalCoolant += coolant;
-                if (!isNaN(load)) totalLoad += load;
+                let hasValidMetric = false;
+                if (!isNaN(rpm) && rpm > 0) { totalRPM += rpm; hasValidMetric = true; }
+                if (!isNaN(fuel) && fuel > 0) { totalFuel += fuel; hasValidMetric = true; }
+                if (!isNaN(coolant) && coolant > 0) { totalCoolant += coolant; hasValidMetric = true; }
+                if (!isNaN(load) && load > 0) { totalLoad += load; hasValidMetric = true; }
+                if (!isNaN(battery) && battery > 0) { hasValidMetric = true; }
+
+                if (hasValidMetric) obdVehicleCount++;
             }
         });
     }
@@ -1603,7 +1607,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     if (rawData) {
         // Only update specific telemetry fields if they are present
-        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'mileage'];
+        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage'];
         telemetryFields.forEach(field => {
             if (rawData[field] !== undefined) {
                 obdData[field] = rawData[field];
@@ -2073,7 +2077,7 @@ function updateAssetDetailUI(id) {
 
     // 3. Engine Diagnostics (OBD-II Gauges)
     const obd = (marker && marker.obdData) ? marker.obdData : {};
-    const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined;
+    const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined || obd.voltage !== undefined || obd.engine_load !== undefined;
 
     if (hasObdData) {
         const diagDiv = document.createElement('div');
@@ -2081,7 +2085,20 @@ function updateAssetDetailUI(id) {
         
         // Calculate percentages for gauges
         const rpmPerc = Math.min(100, ((obd.rpm || 0) / 8000) * 100);
-        const battPerc = Math.min(100, (((obd.battery || 12) - 10) / 5) * 100); // 10V-15V range
+        
+        // Battery Logic: Prefer % if available, otherwise estimate from voltage (11.5V - 14.5V range)
+        let displayBattery = obd.battery;
+        let battLabel = "Battery %";
+        let battText = `${obd.battery}%`;
+        let battPerc = obd.battery || 0;
+
+        if (obd.battery === undefined && obd.voltage !== undefined) {
+            battLabel = "Battery voltage";
+            battText = `${obd.voltage.toFixed(1)}V`;
+            battPerc = Math.min(100, Math.max(0, ((obd.voltage - 11.5) / 3) * 100));
+        } else if (obd.battery !== undefined) {
+           battPerc = obd.battery;
+        }
 
         diagDiv.innerHTML = `
             <div class="diagnostic-title"><i class="fas fa-microchip"></i> Live Engine Diagnostics</div>
@@ -2094,16 +2111,18 @@ function updateAssetDetailUI(id) {
                     <div class="gauge-value">${obd.rpm || 0}</div>
                 </div>
                 <div class="gauge-item">
-                    <div class="gauge-label">Battery</div>
+                    <div class="gauge-label">${battLabel}</div>
                     <div class="gauge-visual-wrap">
                         <div class="gauge-visual" style="--perc: ${battPerc}%"></div>
                     </div>
-                    <div class="gauge-value">${obd.battery ? obd.battery.toFixed(1) : '--'}V</div>
+                    <div class="gauge-value">${battText}</div>
                 </div>
             </div>
             <div style="margin-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85em;">
                 <div style="color:var(--text-secondary)">Coolant: <span style="color:white; font-weight:600">${obd.coolant || '--'}°C</span></div>
-                <div style="color:var(--text-secondary)">Load: <span style="color:white; font-weight:600">${obd.engine_load || '--'}%</span></div>
+                <div style="color:var(--text-secondary)">Engine Load: <span style="color:white; font-weight:600">${obd.engine_load || '--'}%</span></div>
+                <div style="color:var(--text-secondary)">Throttle: <span style="color:white; font-weight:600">${obd.throttle || '--'}%</span></div>
+                <div style="color:var(--text-secondary)">Fuel Used: <span style="color:white; font-weight:600">${obd.fuel_consumption ? obd.fuel_consumption.toFixed(1)+'L' : '--'}</span></div>
             </div>
         `;
         // Append to sidebar
