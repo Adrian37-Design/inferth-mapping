@@ -179,6 +179,20 @@ class TCPTrackerProtocol(asyncio.Protocol):
                                 "timestamp": timestamp.isoformat() + "Z",
                                 "raw": sanitized_decoded
                             })
+
+                        # 5. ALERT EVALUATION (Persistent Rules)
+                        from app.services.alerts import AlertService
+                        try:
+                            # Run in background to not block the receiver
+                            asyncio.create_task(AlertService.evaluate_rules(db, device.id, {
+                                "latitude": decoded.get("latitude"),
+                                "longitude": decoded.get("longitude"),
+                                "speed": decoded.get("speed", 0.0),
+                                "raw": sanitized_decoded
+                            }))
+                        except Exception as alert_err:
+                            print(f"[{datetime.now()}] ALERT EVALUATION ERROR: {alert_err}")
+
                     except Exception as e:
                         print(f"[{datetime.now()}] ERROR saving position: {e}")
             else:
