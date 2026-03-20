@@ -82,6 +82,11 @@ class AlertService:
                     """
                     # We use asyncio.create_task to not block the TCP server
                     asyncio.create_task(AlertService._send_email_async(rule.contact, subject, html))
+                
+                elif rule.channel == "sms" and rule.contact:
+                    # Placeholder for SMS Gateway (e.g. Twilio/Infobip)
+                    print(f"SMS ALERT TRIGGERED for {rule.contact}: {message}")
+                    # asyncio.create_task(AlertService._send_sms_async(rule.contact, message))
 
     @staticmethod
     async def _send_email_async(to, subject, html):
