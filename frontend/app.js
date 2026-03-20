@@ -3080,7 +3080,7 @@ document.head.appendChild(style);
 let activeRules = [];
 
 // Global function for Save Rule to ensure accessibility
-window.saveRule = function () {
+window.saveRule = async function () {
     const assetSelect = document.getElementById('rule-asset');
     const eventSelect = document.getElementById('rule-event');
     const channelSelect = document.getElementById('rule-channel');
@@ -3089,51 +3089,108 @@ window.saveRule = function () {
 
     if (!assetSelect || !eventSelect || !channelSelect) return;
 
-    const asset = assetSelect.options[assetSelect.selectedIndex].text;
-    const eventType = eventSelect.options[eventSelect.selectedIndex].text;
-    const channel = channelSelect.options[channelSelect.selectedIndex].text;
+    const assetId = assetSelect.value === 'all' ? null : parseInt(assetSelect.value);
+    const assetName = assetId ? assetSelect.options[assetSelect.selectedIndex].text : "Any Vehicle";
+    const eventType = eventSelect.value;
+    const eventLabel = eventSelect.options[eventSelect.selectedIndex].text;
+    const channel = channelSelect.value;
+    const channelLabel = channelSelect.options[channelSelect.selectedIndex].text;
     const val = valueInput.value;
     const contact = contactInput.value.trim();
 
     // Basic Validation
-    if (eventSelect.value === 'speeding' && !val) {
+    if (eventType === 'speeding' && !val) {
         alert("Please enter a speed limit.");
         return;
     }
 
-    if ((channelSelect.value === 'email' || channelSelect.value === 'sms') && !contact) {
+    if ((channel === 'email' || channel === 'sms') && !contact) {
         alert("Please enter contact details (Email or Phone).");
         return;
     }
 
-    let ruleText = `Notify me when ${asset} triggers ${eventType}`;
-
-    if (eventSelect.value === 'speeding') {
-        ruleText += ` over ${val} km/h`;
-    }
-
-    ruleText += ` via ${channel}`;
-
-    if (contact) {
-        ruleText += ` (${contact})`;
-    }
-
-    const newRule = {
-        id: Date.now(),
-        text: ruleText
+    const payload = {
+        device_id: assetId,
+        event_type: eventType,
+        threshold: val ? parseFloat(val) : null,
+        channel: channel,
+        contact: contact,
+        is_active: true
     };
 
-    activeRules.push(newRule);
-    renderRules();
+    try {
+        const response = await window.AuthManager.fetchAPI('/rules/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
 
-    // Provide feedback
-    const btn = document.getElementById('save-rule-btn');
-    if (btn) {
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check"></i> Saved';
-        setTimeout(() => {
-            btn.innerHTML = originalText;
-        }, 1500);
+        if (!response.ok) throw new Error('Failed to save rule');
+
+        // Provide feedback
+        const btn = document.getElementById('save-rule-btn');
+        if (btn) {
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Saved';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+            }, 1500);
+        }
+
+        loadRules(); // Reload list from backend
+    } catch (err) {
+        console.error(err);
+        alert("Error saving rule: " + err.message);
+    }
+};
+
+async function loadRules() {
+    try {
+        const response = await window.AuthManager.fetchAPI('/rules/');
+        if (!response.ok) return;
+        activeRules = await response.json();
+        renderRules();
+    } catch (err) {
+        console.error("Error loading rules:", err);
+    }
+}
+
+async function loadRecentAlerts() {
+    try {
+        const response = await window.AuthManager.fetchAPI('/alerts/');
+        if (!response.ok) return;
+        const backendAlerts = await response.json();
+        
+        // Sync with local alerts array
+        alerts = backendAlerts.map(a => ({
+            id: a.id,
+            type: a.type,
+            title: a.device_name || "System",
+            message: a.message,
+            time: new Date(a.timestamp),
+            read: a.is_read
+        }));
+
+        renderAlerts();
+        updateAlertsCount();
+        updatePriorityAlertsPanel();
+        
+        // Update KPI
+        const kpiAlerts = document.getElementById('kpi-alerts');
+        if (kpiAlerts) kpiAlerts.textContent = alerts.filter(a => !a.read).length;
+
+    } catch (err) {
+        // Silent fail for background poll
+        console.error("Alert poll failed:", err);
+    }
+}
+
+window.deleteRule = async function(id) {
+    if (!confirm("Are you sure you want to delete this rule?")) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(`/rules/${id}`, { method: 'DELETE' });
+        if (response.ok) loadRules();
+    } catch (err) {
+        alert("Error deleting rule");
     }
 };
 
@@ -3144,71 +3201,56 @@ function setupRulesEngine() {
     const contactContainer = document.getElementById('contact-container');
     const contactInput = document.getElementById('rule-contact');
 
-    // Dynamic Input Handling
     if (eventSelect) {
         eventSelect.addEventListener('change', () => {
             const val = eventSelect.value;
             if (val === 'speeding') {
-                if (valueContainer) valueContainer.style.display = 'inline';
-                const unit = document.getElementById('rule-unit');
-                if (unit) unit.textContent = 'km/h';
+                if (valueContainer) valueContainer.classList.remove('hidden');
             } else {
-                if (valueContainer) valueContainer.style.display = 'none';
+                if (valueContainer) valueContainer.classList.add('hidden');
             }
         });
     }
 
-    // Dynamic Contact Handling
-    if (channelSelect) {
+    if (channelSelect && contactContainer) {
         channelSelect.addEventListener('change', () => {
-            const val = channelSelect.value;
-            if (val === 'email') {
-                if (contactContainer) contactContainer.style.display = 'inline';
-                if (contactInput) contactInput.placeholder = "Enter email address...";
-            } else if (val === 'sms') {
-                if (contactContainer) contactContainer.style.display = 'inline';
-                if (contactInput) contactInput.placeholder = "Enter phone number...";
+            if (channelSelect.value === 'email' || channelSelect.value === 'sms') {
+                contactContainer.classList.remove('hidden');
+                if (contactInput) contactInput.placeholder = channelSelect.value === 'email' ? 'Enter email address' : 'Enter phone number';
             } else {
-                if (contactContainer) contactContainer.style.display = 'none';
+                contactContainer.classList.add('hidden');
             }
         });
     }
 
-    renderRules();
+    loadRules();
+    loadRecentAlerts();
+    setInterval(loadRecentAlerts, 10000); // Poll Alerts every 10s
 }
-
-// Global ensure delete works
-window.deleteRule = function (id) {
-    activeRules = activeRules.filter(r => r.id !== id);
-    renderRules();
-};
 
 function renderRules() {
     const list = document.getElementById('active-rules-list');
     if (!list) return;
 
     if (activeRules.length === 0) {
-        list.innerHTML = '<p class="empty-state">No rules defined.</p>';
-        return;
+        list.innerHTML = '<p class="empty-state">No rules defined. Try creating one above.</p>';
+    } else {
+        list.innerHTML = activeRules.map(rule => {
+            const eventLabel = rule.event_type.replace('_', ' ').charAt(0).toUpperCase() + rule.event_type.replace('_', ' ').slice(1);
+            let text = `Notify me when <strong>Vehicle</strong> triggers <strong>${eventLabel}</strong>`;
+            if (rule.event_type === 'speeding') text += ` (>${rule.threshold} km/h)`;
+            text += ` via <strong>${rule.channel}</strong>`;
+            
+            return `
+            <div class="rule-item">
+                <div class="rule-text">${text}</div>
+                <button class="delete-rule-btn" onclick="deleteRule(${rule.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+            `;
+        }).join('');
     }
-
-    list.innerHTML = '';
-    activeRules.forEach(rule => {
-        const item = document.createElement('div');
-        item.className = 'rule-item';
-        item.innerHTML = `
-            <div class="rule-text">${rule.text}</div>
-            <button class="delete-rule-btn" onclick="deleteRule(${rule.id})">
-                <i class="fas fa-trash"></i>
-            </button>
-        `;
-        list.appendChild(item);
-    });
-}
-
-window.deleteRule = function (id) {
-    activeRules = activeRules.filter(r => r.id !== id);
-    renderRules();
 }
 
 // --- Company Management ---

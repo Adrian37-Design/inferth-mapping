@@ -137,3 +137,35 @@ class Transaction(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     tenant = relationship("Tenant", backref="transactions")
+    
+class Rule(Base):
+    __tablename__ = "rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"))
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=True) # If null, applies to all
+    event_type = Column(String, index=True) # speeding, geofence_exit, power_alarm, sensor_alarm, offline, harsh_braking
+    threshold = Column(Float, nullable=True) # For speeding (km/h)
+    channel = Column(String, default="system") # system, email, sms
+    contact = Column(String, nullable=True) # email address or phone number
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tenant = relationship("Tenant")
+    device = relationship("Device")
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"))
+    device_id = Column(Integer, ForeignKey("devices.id"))
+    rule_id = Column(Integer, ForeignKey("rules.id"), nullable=True)
+    type = Column(String, index=True) # speeding, power_alarm, etc.
+    message = Column(String)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    is_read = Column(Boolean, default=False)
+
+    tenant = relationship("Tenant")
+    device = relationship("Device")
+    rule = relationship("Rule")

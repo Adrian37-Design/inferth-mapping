@@ -3,7 +3,7 @@ from sqlalchemy import select
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, admin
+from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts
 from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
@@ -73,7 +73,9 @@ async def run_migrations_and_branding():
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR DEFAULT 'Monthly'",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS features JSON DEFAULT '{\"reports\": false, \"advanced_rules\": false, \"geofencing\": true}'",
-                    "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)"
+                    "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "CREATE TABLE IF NOT EXISTS rules (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), event_type VARCHAR, threshold FLOAT, channel VARCHAR DEFAULT 'system', contact VARCHAR, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), rule_id INTEGER REFERENCES rules(id), type VARCHAR, message VARCHAR, timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, is_read BOOLEAN DEFAULT FALSE)"
                 ]
                 
                 for stmt in migration_statements:
@@ -361,6 +363,8 @@ app.include_router(audit.router)
 app.include_router(geofences.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
+app.include_router(rules.router)
+app.include_router(alerts.router)
 
 @app.websocket("/ws/positions")
 async def websocket_endpoint(websocket: WebSocket):

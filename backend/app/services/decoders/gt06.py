@@ -114,9 +114,10 @@ class GT06Decoder(BaseDecoder):
                 alarm_code = (terminal_info >> 3) & 0x07
                 
                 status_notes = []
+                if alarm_code == 0x01: status_notes.append("Vibration Alarm")
                 if alarm_code == 0x02: status_notes.append("Main Power Cut")
-                if alarm_code == 0x04: status_notes.append("SOS Alarm")
                 if alarm_code == 0x03: status_notes.append("Low Battery")
+                if alarm_code == 0x04: status_notes.append("SOS Alarm")
 
                 serial_num = raw[-6:-4]
                 ack_payload = struct.pack('!BB', 0x05, protocol_number) + serial_num
@@ -126,6 +127,7 @@ class GT06Decoder(BaseDecoder):
                     "type": "heartbeat", 
                     "ignition": ignition,
                     "main_power_cut": alarm_code == 0x02,
+                    "vibration": alarm_code == 0x01,
                     "sos": alarm_code == 0x04,
                     "low_battery": alarm_code == 0x03,
                     "status_notes": status_notes,
