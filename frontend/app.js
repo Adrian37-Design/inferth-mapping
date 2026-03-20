@@ -1992,6 +1992,8 @@ function updateAssetDetailUI(id) {
     const data = vehiclePositions[id];
     if (!data) return;
 
+    const obd = obdDataMap[id] || {}; // Consistently scoped for the whole function
+
     const minsAgo = (Date.now() - new Date(data.timestamp).getTime()) / 60000;
     const isOffline = minsAgo >= 10;
 
@@ -2044,7 +2046,6 @@ function updateAssetDetailUI(id) {
     const mileageEl = document.getElementById('detail-mileage');
     if (mileageEl) {
         let totalMileage = '--';
-        const obd = obdDataMap[id] || {};
         if (data.raw && data.raw.mileage !== undefined) {
             totalMileage = data.raw.mileage;
         } else if (obd.mileage !== undefined) {
@@ -2062,7 +2063,6 @@ function updateAssetDetailUI(id) {
     existingPanels.forEach(p => p.remove());
 
     // 2. Hardware Alerts (Power Cut / SOS)
-    const obd = obdDataMap[id] || {};
     const raw = (data && data.raw) ? data.raw : (obd || {});
     
     if (raw.main_power_cut || raw.sos) {
@@ -2081,7 +2081,6 @@ function updateAssetDetailUI(id) {
     }
 
     // 3. Engine Diagnostics (OBD-II Gauges)
-    const obd = obdDataMap[id] || {};
     const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined || obd.voltage !== undefined || obd.engine_load !== undefined;
 
     if (hasObdData) {
