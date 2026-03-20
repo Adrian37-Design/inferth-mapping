@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
-from typing import List
+from typing import List, Optional
 from app.db import AsyncSessionLocal
 from app.models import Rule, User
 from app.routers.auth import get_current_user
@@ -11,11 +11,11 @@ from datetime import datetime
 router = APIRouter(prefix="/rules", tags=["rules"])
 
 class RuleBase(BaseModel):
-    device_id: int = None
+    device_id: Optional[int] = None
     event_type: str
-    threshold: float = None
+    threshold: Optional[float] = None
     channel: str = "system"
-    contact: str = None
+    contact: Optional[str] = None
     is_active: bool = True
 
 class RuleCreate(RuleBase):

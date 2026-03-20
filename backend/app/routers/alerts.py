@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
-from typing import List
+from typing import List, Optional
 from app.db import AsyncSessionLocal
 from app.models import Alert, User, Device
 from app.routers.auth import get_current_user
@@ -17,7 +17,7 @@ class AlertOut(BaseModel):
     timestamp: datetime
     is_read: bool
     device_id: int
-    device_name: str = None
+    device_name: Optional[str] = None
 
     class Config:
         from_attributes = True
