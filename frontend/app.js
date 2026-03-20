@@ -35,6 +35,7 @@ let fleetChartDashboard = null;
 let fleetChartReports = null;
 let historyMarkers = []; // Track markers added during history view
 let playbackViewMode = 'standard';
+let obdDataMap = {}; // Global persistence for telemetry independently of map markers
 
 // --- Quick Actions Logic (Global Scope) ---
 
@@ -711,28 +712,34 @@ function loadReports() {
     let totalLoad = 0;
     let obdVehicleCount = 0;
 
-    // Scan markers for recent OBD data
-    if (typeof markers !== 'undefined') {
-        Object.values(markers).forEach(marker => {
-            const timeDiff = new Date() - new Date(marker.lastUpdate);
-            const minsOffline = timeDiff / (1000 * 60);
+    // Scan all vehicles for recent OBD data (using obdDataMap)
+    if (typeof allVehicles !== 'undefined') {
+        allVehicles.forEach(v => {
+            const obd = obdDataMap[v.id];
+            if (obd) {
+                // Determine if it's "live" (updated in last 15 mins)
+                const lastUpdate = vehiclePositions[v.id] ? vehiclePositions[v.id].timestamp : null;
+                if (!lastUpdate) return;
+                
+                const timeDiff = new Date() - new Date(lastUpdate);
+                const minsOffline = timeDiff / (1000 * 60);
 
-            const obd = marker.obdData;
-            if (obd && minsOffline < 15) {
-                const rpm = parseFloat(obd.rpm);
-                const fuel = parseFloat(obd.fuel_consumption || obd.fuel);
-                const coolant = parseFloat(obd.coolant);
-                const load = parseFloat(obd.engine_load);
-                const battery = parseFloat(obd.battery || obd.voltage); // Fallback to voltage if battery % not avail
+                if (minsOffline < 15) {
+                    const rpm = parseFloat(obd.rpm);
+                    const fuel = parseFloat(obd.fuel_consumption || obd.fuel);
+                    const coolant = parseFloat(obd.coolant);
+                    const load = parseFloat(obd.engine_load);
+                    const battery = parseFloat(obd.battery || obd.voltage); 
 
-                let hasValidMetric = false;
-                if (!isNaN(rpm) && rpm > 0) { totalRPM += rpm; hasValidMetric = true; }
-                if (!isNaN(fuel) && fuel > 0) { totalFuel += fuel; hasValidMetric = true; }
-                if (!isNaN(coolant) && coolant > 0) { totalCoolant += coolant; hasValidMetric = true; }
-                if (!isNaN(load) && load > 0) { totalLoad += load; hasValidMetric = true; }
-                if (!isNaN(battery) && battery > 0) { hasValidMetric = true; }
+                    let hasValidMetric = false;
+                    if (!isNaN(rpm) && rpm > 0) { totalRPM += rpm; hasValidMetric = true; }
+                    if (!isNaN(fuel) && fuel > 0) { totalFuel += fuel; hasValidMetric = true; }
+                    if (!isNaN(coolant) && coolant > 0) { totalCoolant += coolant; hasValidMetric = true; }
+                    if (!isNaN(load) && load > 0) { totalLoad += load; hasValidMetric = true; }
+                    if (!isNaN(battery) && battery > 0) { hasValidMetric = true; }
 
-                if (hasValidMetric) obdVehicleCount++;
+                    if (hasValidMetric) obdVehicleCount++;
+                }
             }
         });
     }
@@ -1614,6 +1621,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             }
         });
 
+        // Update global persistence map
+        obdDataMap[id] = obdData;
+
         // If it's a specific OBD packet, keep that type
         if (rawData.type === 'obd' || rawData.type === 'location_obd') {
             obdData.type = rawData.type;
@@ -1737,9 +1747,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
         // Ensure visibility state matches history mode
         if (isHistoryMode && map.hasLayer(marker)) {
-            map.removeLayer(marker);
+            if (typeof map.removeLayer === 'function') map.removeLayer(marker);
         } else if (!isHistoryMode && !map.hasLayer(marker)) {
-            marker.addTo(map);
+            if (typeof marker.addTo === 'function') marker.addTo(map);
         }
 
         // Update Metadata
@@ -1755,32 +1765,27 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     } else {
         if (lat !== null && lat !== undefined) {
             marker = L.marker([lat, lng], { icon: icon });
-            if (!isHistoryMode) marker.addTo(map);
+            if (!isHistoryMode && typeof marker.addTo === 'function') marker.addTo(map);
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
             marker.obdData = obdData; // Attach OBD Data for Reports
             marker.ignitionOn = ignitionOn; // Save for persistence
 
-            marker.bindPopup(popupContentStr);
+            if (typeof marker.bindPopup === 'function') marker.bindPopup(popupContentStr);
 
             // Click listener to select vehicle
-            marker.on('click', () => {
-                // Find vehicle object efficiently or reconstruct
-                const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; // Partial
-                selectVehicle(vehicleObj); // Trigger selection
-            });
+            if (typeof marker.on === 'function') {
+                marker.on('click', () => {
+                    const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; 
+                    selectVehicle(vehicleObj); 
+                });
+            }
 
             markers[id] = marker;
-        } else {
-            // Create as a generic object so obdData is captured for loadReports
-            markers[id] = {
-                vehicleIMEI: imei,
-                vehicleId: id,
-                isOffline: assetStatus === 'Offline',
-                obdData: obdData
-            };
         }
+        // NOTE: We no longer create a "fake" object in markers[id] if lat is null.
+        // The telemetry is now safely stored in obdDataMap[id].
     }
 
     // Refresh Daily Mileage on Popup Open
@@ -1794,7 +1799,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                     
                     // Re-render popup content with fresh mileage
                     addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData);
-                    marker.openPopup();
+                    if (typeof marker.openPopup === 'function') marker.openPopup();
                 }
             } catch (e) {
                 console.warn("Failed to fetch daily mileage", e);
@@ -2039,11 +2044,11 @@ function updateAssetDetailUI(id) {
     const mileageEl = document.getElementById('detail-mileage');
     if (mileageEl) {
         let totalMileage = '--';
-        const marker = markers[id];
+        const obd = obdDataMap[id] || {};
         if (data.raw && data.raw.mileage !== undefined) {
             totalMileage = data.raw.mileage;
-        } else if (marker && marker.obdData && marker.obdData.mileage !== undefined) {
-            totalMileage = marker.obdData.mileage;
+        } else if (obd.mileage !== undefined) {
+            totalMileage = obd.mileage;
         }
         mileageEl.textContent = totalMileage !== '--' ? `${totalMileage} km` : '-- km';
     }
@@ -2057,8 +2062,8 @@ function updateAssetDetailUI(id) {
     existingPanels.forEach(p => p.remove());
 
     // 2. Hardware Alerts (Power Cut / SOS)
-    const marker = markers[id];
-    const raw = (marker && marker.rawData) ? marker.rawData : (data.raw || {});
+    const obd = obdDataMap[id] || {};
+    const raw = (data && data.raw) ? data.raw : (obd || {});
     
     if (raw.main_power_cut || raw.sos) {
         const alertDiv = document.createElement('div');
@@ -2076,7 +2081,7 @@ function updateAssetDetailUI(id) {
     }
 
     // 3. Engine Diagnostics (OBD-II Gauges)
-    const obd = (marker && marker.obdData) ? marker.obdData : {};
+    const obd = obdDataMap[id] || {};
     const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined || obd.voltage !== undefined || obd.engine_load !== undefined;
 
     if (hasObdData) {
@@ -2135,10 +2140,14 @@ function selectVehicle(vehicle) {
     selectedVehicle = vehicle;
 
     // Center map on vehicle
-    if (markers[vehicle.id]) {
+    if (markers[vehicle.id] && typeof markers[vehicle.id].getLatLng === 'function') {
         const latLng = markers[vehicle.id].getLatLng();
         map.setView(latLng, 16);
-        markers[vehicle.id].openPopup();
+        if (typeof markers[vehicle.id].openPopup === 'function') {
+            markers[vehicle.id].openPopup();
+        }
+    } else {
+        console.warn(`Marker for vehicle ${vehicle.id} not found on map or is not a valid marker.`);
     }
 
     // Open Detail View
