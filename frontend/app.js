@@ -36,6 +36,7 @@ let fleetChartReports = null;
 let historyMarkers = []; // Track markers added during history view
 let playbackViewMode = 'standard';
 let geocodingRateLimitExpiry = 0; // Back-off timer for reverse geocoding
+let obdDataMap = {}; // Global persistence for telemetry independently of map markers
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
