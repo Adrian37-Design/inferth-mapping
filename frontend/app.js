@@ -35,8 +35,7 @@ let fleetChartDashboard = null;
 let fleetChartReports = null;
 let historyMarkers = []; // Track markers added during history view
 let playbackViewMode = 'standard';
-let obdDataMap = {}; // Global persistence for telemetry independently of map markers
-
+let geocodingRateLimitExpiry = 0; // Back-off timer for reverse geocoding
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
@@ -1898,6 +1897,10 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
 
 // Reverse Geocoding Helper
 async function getAddress(lat, lng) {
+    if (Date.now() < geocodingRateLimitExpiry) {
+        return "Rate limited (waiting...)";
+    }
+
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
 
@@ -1908,10 +1911,20 @@ async function getAddress(lat, lng) {
                 'User-Agent': 'InferthMapping/1.0'
             }
         });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                console.warn("Geocoding rate limit hit. Backing off for 60s.");
+                geocodingRateLimitExpiry = Date.now() + 60000;
+                return "Rate limited (backing off...)";
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+
         const data = await response.json();
         
         // Extract street name or neighborhood
-        const addr = data.address;
+        const addr = data.address || {};
         const street = addr.road || addr.suburb || addr.city_district || addr.hamlet || addr.village || addr.city || "Unknown Location";
         
         addressCache.set(cacheKey, street);
@@ -1924,8 +1937,8 @@ async function getAddress(lat, lng) {
         
         return street;
     } catch (e) {
-        console.warn("Reverse geocoding failed", e);
-        return null;
+        console.warn("Reverse geocoding failed:", e.message);
+        return null; // Fallback to raw coords in UI
     }
 }
 
@@ -2267,9 +2280,12 @@ function playRoute() {
         `).openPopup();
 
         setTimeout(async () => {
-            const addr = await getAddress(point.lat, point.lng);
-            const addrEl = document.getElementById('playback-addr');
-            if (addrEl) addrEl.innerHTML = `<strong>Street:</strong> ${addr || 'Unknown'}`;
+            // Only update address every 10 points to save API quota, unless it's the first/last point
+            if (playbackIndex % 10 === 0 || playbackIndex === 1 || playbackIndex >= playbackRoute.length - 1) {
+                const addr = await getAddress(point.lat, point.lng);
+                const addrEl = document.getElementById('playback-addr');
+                if (addrEl) addrEl.innerHTML = `<strong>Street:</strong> ${addr || 'Unknown'}`;
+            }
         }, 50);
 
         map.panTo([point.lat, point.lng]);
