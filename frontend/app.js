@@ -97,11 +97,15 @@ document.addEventListener('DOMContentLoaded', () => {
         modeSelector.addEventListener('change', (e) => {
             playbackViewMode = e.target.value;
             if (playbackRoute) {
-                // If switch to cluster, render immediately
+                // If switch to cluster, render dots
                 if (playbackViewMode === 'cluster') {
                     renderClusterMode();
+                    // Hide polyline if exists
+                    if (selectedVehicle && routes[selectedVehicle.id]) {
+                        map.removeLayer(routes[selectedVehicle.id]);
+                    }
                 } else {
-                    // Switch back to standard: clear cluster dots but keep route/playback state
+                    // Switch back to standard: clear cluster dots
                     historyMarkers = historyMarkers.filter(m => {
                         if (m._isClusterDot) {
                             map.removeLayer(m);
@@ -109,6 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         return true;
                     });
+                    
+                    // Re-render route line if standard
+                    if (selectedVehicle && playbackRoute) {
+                        const points = playbackRoute.map(p => [p.lat, p.lng]);
+                        if (routes[selectedVehicle.id]) map.removeLayer(routes[selectedVehicle.id]);
+                        routes[selectedVehicle.id] = L.polyline(points, {
+                            color: '#00d4ff',
+                            weight: 4,
+                            opacity: 0.7
+                        }).addTo(map);
+                    }
                 }
             }
         });
@@ -2208,10 +2223,9 @@ function playRoute() {
         return;
     }
 
-    // If Cluster mode, don't animate, just show all dots
+    // If Cluster mode, ensure dots are visible before starting animation
     if (playbackViewMode === 'cluster') {
         renderClusterMode();
-        return;
     }
 
     // Stop existing playback (keep history state)
