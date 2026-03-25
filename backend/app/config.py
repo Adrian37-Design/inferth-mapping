@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_EMAIL: str | None = None
     SMTP_PASSWORD: str | None = None
+    
+    # SMS Settings
+    SMS_PROVIDER: str = "mock" # infobip, twilio, or mock
+    SMS_API_KEY: str | None = None
+    SMS_API_BASE_URL: str | None = None
+    SMS_SENDER: str = "Inferth" # Sender ID (Alphanumeric or Number)
+    
+    # Twilio Specific
+    TWILIO_ACCOUNT_SID: str | None = None
+    TWILIO_AUTH_TOKEN: str | None = None
+    TWILIO_FROM_NUMBER: str | None = None
 
     class Config:
         env_file = ".env"

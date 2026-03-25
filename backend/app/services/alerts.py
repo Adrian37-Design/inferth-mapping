@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from app.models import Rule, Alert, Device, User
 from app.services.email import send_email
+from app.services.sms import SMSService
 from datetime import datetime
 import asyncio
 
@@ -84,9 +85,8 @@ class AlertService:
                     asyncio.create_task(AlertService._send_email_async(rule.contact, subject, html))
                 
                 elif rule.channel == "sms" and rule.contact:
-                    # Placeholder for SMS Gateway (e.g. Twilio/Infobip)
-                    print(f"SMS ALERT TRIGGERED for {rule.contact}: {message}")
-                    # asyncio.create_task(AlertService._send_sms_async(rule.contact, message))
+                    # Trigger actual SMS via configured provider
+                    asyncio.create_task(SMSService.send_sms_async(rule.contact, message))
 
     @staticmethod
     async def _send_email_async(to, subject, html):
