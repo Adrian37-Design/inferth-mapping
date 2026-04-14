@@ -389,15 +389,11 @@ class AuthManager {
             return;
         }
 
-        // Load Tenants
-        await this.loadTenants();
-
         const form = document.getElementById('login-form');
         if (!form) return;
 
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
-        const tenantSelect = document.getElementById('tenant-select');
         const loginBtn = document.getElementById('login-btn');
         const errorMessage = document.getElementById('error-message');
         const togglePassword = document.getElementById('toggle-password');
@@ -416,7 +412,6 @@ class AuthManager {
             e.preventDefault();
             const email = emailInput.value;
             const password = passwordInput.value;
-            const tenantId = tenantSelect ? tenantSelect.value : null;
 
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
@@ -424,7 +419,7 @@ class AuthManager {
             errorMessage.classList.remove('show');
 
             try {
-                await this.login(email, password, tenantId ? parseInt(tenantId) : null);
+                await this.login(email, password, null);
                 window.location.href = 'index.html';
             } catch (error) {
                 this.showError(errorMessage, error.message);
@@ -434,8 +429,8 @@ class AuthManager {
         });
     }
 
-    // Load Tenants
-    async loadTenants() {
+    // applyTheme below
+    _removedLoadTenants() {
         const hiddenInput = document.getElementById('tenant-select');
         const optionsContainer = document.getElementById('tenant-options');
         const trigger = document.getElementById('tenant-trigger');
