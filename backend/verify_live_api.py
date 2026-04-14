@@ -1,9 +1,10 @@
 
 import asyncio
 import httpx
+import os
 
 API_URL = "https://inferth-mapping.up.railway.app"
-CREDENTIALS = {"username": "adriankwaramba@gmail.com", "password": "Kingcarter@1"}
+CREDENTIALS = {"username": os.getenv("VERIFY_EMAIL", ""), "password": os.getenv("VERIFY_PASSWORD", "")}
 
 async def check_live_api():
     async with httpx.AsyncClient(timeout=10.0) as client:

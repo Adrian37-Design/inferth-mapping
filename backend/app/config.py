@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     MQTT_BROKER: str = "mqtt.inferth.com"  
     MQTT_PORT: int = 1883
     
-    DATABASE_URL: str ="postgresql://postgres:kwaramba1@localhost:5432/inferth"
+    DATABASE_URL: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # TCP Server Settings with defaults
