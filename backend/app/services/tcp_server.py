@@ -2,6 +2,7 @@ import asyncio
 from app.config import settings
 from app.services.decoders.gps103 import GPS103Decoder
 from app.services.decoders.sinotrack import SinotrackDecoder
+from app.services.decoders.teltonika import TeltonikaDecoder
 from app.routers.positions import create_position
 import json
 from datetime import datetime
@@ -27,7 +28,8 @@ from app.services.decoders.gt06 import GT06Decoder
 decoders = [
     SinotrackDecoder(),
     GPS103Decoder(),
-    GT06Decoder()
+    GT06Decoder(),
+    TeltonikaDecoder()
 ]
 
 class TCPTrackerProtocol(asyncio.Protocol):
@@ -63,31 +65,87 @@ class TCPTrackerProtocol(asyncio.Protocol):
         except Exception as e:
             print(f"[{datetime.now()}] FORWARDING ERROR: {e}")
 
+    # Bytes that indicate the start of a known BINARY protocol frame.
+    _BINARY_HEADERS = (b'\x00\x00\x00\x00', b'\x78\x78', b'\x79\x79')
+    # Terminators used by TEXT protocols (Sinotrack / GPS103 / TK103).
+    _TEXT_TERMINATORS = (b'\r\n', b'\n', b';', b'#', b')')
+
     def data_received(self, data):
+        import struct
         self.buffer += data
-        
-        while len(self.buffer) >= 5:
-            # GT06 frames start with 0x7878 or 0x7979
-            if self.buffer.startswith(b'\x78\x78'):
+
+        # Keep processing complete frames/messages out of the buffer.
+        while self.buffer:
+            # --- BINARY: Teltonika frames start with 0x00000000 (4 zero bytes) ---
+            if self.buffer.startswith(b'\x00\x00\x00\x00'):
+                if len(self.buffer) < 12:
+                    break  # need full preamble + length
+                data_length = struct.unpack('!I', self.buffer[4:8])[0]
+                total_len = 12 + data_length  # Preamble(4) + DataLength(4) + Data + CRC(4)
+                if len(self.buffer) < total_len:
+                    break
+                packet = self.buffer[:total_len]
+                self.buffer = self.buffer[total_len:]
+                self._process_packet(packet)
+
+            # --- BINARY: GT06 frames start with 0x7878 ---
+            elif self.buffer.startswith(b'\x78\x78'):
+                if len(self.buffer) < 5:
+                    break
                 length = self.buffer[2]
-                total_len = length + 5 # Header(2) + Len(1) + Stop(2) = 5. Length field is Data+Serial+CRC
+                total_len = length + 5  # Header(2) + Len(1) + Stop(2)
                 if len(self.buffer) < total_len:
                     break
                 packet = self.buffer[:total_len]
                 self.buffer = self.buffer[total_len:]
                 self._process_packet(packet)
+
+            # --- BINARY: GT06 extended frames start with 0x7979 ---
             elif self.buffer.startswith(b'\x79\x79'):
-                import struct
+                if len(self.buffer) < 6:
+                    break
                 length = struct.unpack('!H', self.buffer[2:4])[0]
-                total_len = length + 6 # Header(2) + Len(2) + Stop(2) = 6
+                total_len = length + 6  # Header(2) + Len(2) + Stop(2)
                 if len(self.buffer) < total_len:
                     break
                 packet = self.buffer[:total_len]
                 self.buffer = self.buffer[total_len:]
                 self._process_packet(packet)
+
+            # --- TEXT: Sinotrack / GPS103 / TK103 (e.g. "imei:8040000,...;") ---
             else:
-                # Seek for next potential header
-                self.buffer = self.buffer[1:]
+                # Find the earliest message terminator in the buffer.
+                end_idx = -1
+                term_len = 0
+                for term in self._TEXT_TERMINATORS:
+                    idx = self.buffer.find(term)
+                    if idx != -1 and (end_idx == -1 or idx < end_idx):
+                        end_idx = idx
+                        term_len = len(term)
+
+                if end_idx == -1:
+                    # No complete text message yet. If a binary header appears
+                    # later in the buffer, drop the leading garbage up to it so
+                    # we don't stall. Otherwise wait for more data (cap growth).
+                    next_bin = -1
+                    for hdr in self._BINARY_HEADERS:
+                        idx = self.buffer.find(hdr)
+                        if idx > 0 and (next_bin == -1 or idx < next_bin):
+                            next_bin = idx
+                    if next_bin > 0:
+                        self.buffer = self.buffer[next_bin:]
+                        continue
+                    if len(self.buffer) > 4096:
+                        # Prevent unbounded buffering from a misbehaving client.
+                        self.buffer = b""
+                    break
+
+                # Extract the complete text message (including terminator).
+                packet = self.buffer[:end_idx + term_len]
+                self.buffer = self.buffer[end_idx + term_len:]
+                # Ignore empty/whitespace-only fragments left between messages.
+                if packet.strip():
+                    self._process_packet(packet)
 
     def _process_packet(self, data):
         print(f"[{datetime.now()}] RECV hex: {data.hex()}")
