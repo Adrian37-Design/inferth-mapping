@@ -3,12 +3,26 @@ from sqlalchemy import select
 from app.models import Rule, Alert, Device, User
 from app.services.email import send_email
 from app.services.sms import SMSService
+from app.db import AsyncSessionLocal
 from datetime import datetime
 import asyncio
 
 class AlertService:
     @staticmethod
     async def evaluate_rules(db: Session, device_id: int, position_data: dict):
+        """
+        Public entrypoint. This is typically launched as a fire-and-forget
+        background task (asyncio.create_task), which means the caller's `db`
+        session is usually closed (via its own `async with`) before this code
+        runs. Using that closed session raises
+        "'NoneType' object has no attribute 'twophase'". To be safe we always
+        run against a fresh, dedicated session here and ignore the passed-in one.
+        """
+        async with AsyncSessionLocal() as session:
+            await AlertService._evaluate_rules(session, device_id, position_data)
+
+    @staticmethod
+    async def _evaluate_rules(db: Session, device_id: int, position_data: dict):
         """
         Evaluates active rules for a given device and position.
         position_data: dict containing latitude, longitude, speed, and raw (which has alarm flags)
