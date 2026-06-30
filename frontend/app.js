@@ -1891,8 +1891,13 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
 
     const locSpan = card.querySelector('.meta-location');
     if (locSpan) {
-        // Mocking address for now (or strictly showing lat/lng)
-        locSpan.textContent = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        // Guard against positions with no GPS fix (lat/lng can be null for
+        // heartbeat-only updates), which would otherwise crash on toFixed().
+        if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
+            locSpan.textContent = `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+        } else {
+            locSpan.textContent = 'No GPS fix';
+        }
     }
 }
 
