@@ -46,6 +46,11 @@ class TCPTrackerProtocol(asyncio.Protocol):
         self.peer = transport.get_extra_info('peername')
         print(f"[{datetime.now()}] --- NEW CONNECTION: {self.peer} ---")
 
+    def connection_lost(self, exc):
+        # Diagnostic: report disconnects and any bytes left unframed in the buffer.
+        leftover = self.buffer
+        print(f"[{datetime.now()}] --- CONNECTION LOST: {self.peer} | exc={exc} | unframed_buffer={leftover.hex() if leftover else '(empty)'} ---")
+
     async def _forward_data(self, data: bytes):
         """Asynchronously forward data to secondary destination (Sinotrack)."""
         if not settings.SECONDARY_DESTINATION:
@@ -72,6 +77,11 @@ class TCPTrackerProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         import struct
+        # RAW diagnostic: log every byte the instant it arrives, before framing.
+        try:
+            print(f"[{datetime.now()}] RAW RECV from {self.peer}: {data.hex()} | repr={data!r}")
+        except Exception:
+            pass
         self.buffer += data
 
         # Keep processing complete frames/messages out of the buffer.
