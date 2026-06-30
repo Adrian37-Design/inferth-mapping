@@ -23,9 +23,13 @@ def sanitize_for_json(data):
     return data
 
 from app.services.decoders.gt06 import GT06Decoder
+from app.services.decoders.h02 import H02Decoder
 
-# Initialize multiple decoders for broad compatibility
+# Initialize multiple decoders for broad compatibility.
+# H02 is first so it claims "*HQ,..." frames (ST-901A GPRS) before the
+# broader Sinotrack regex has a chance to mis-handle them.
 decoders = [
+    H02Decoder(),
     SinotrackDecoder(),
     GPS103Decoder(),
     GT06Decoder(),
