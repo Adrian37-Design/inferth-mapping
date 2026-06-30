@@ -12,6 +12,7 @@ class DeviceCreate(BaseModel):
     imei: str
     name: str | None = None
     driver_name: str | None = None
+    company: str | None = None
     tenant_name: str | None = None
 
 @router.post("/")
@@ -40,6 +41,7 @@ async def create_device(
         imei=payload.imei, 
         name=payload.name, 
         driver_name=payload.driver_name,
+        company=payload.company,
         tenant_id=target_tenant_id
     )
     db.add(device)
@@ -82,6 +84,7 @@ async def list_devices(
             "imei": getattr(d, 'imei', 'N/A'),
             "name": getattr(d, 'name', None) or f"Device {getattr(d, 'imei', 'Unknown')}",
             "driver_name": getattr(d, 'driver_name', None),
+            "company": getattr(d, 'company', None),
             "tenant_id": getattr(d, 'tenant_id', None),
             "device_metadata": getattr(d, 'device_metadata', {})
         })
@@ -141,6 +144,8 @@ async def update_device(
         device.name = payload.name
     if payload.driver_name is not None:
         device.driver_name = payload.driver_name
+    if payload.company is not None:
+        device.company = payload.company
         
     # Audit Log
     from app.models import AuditLog
@@ -156,4 +161,4 @@ async def update_device(
     await db.commit()
     await db.refresh(device)
     
-    return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name, "device_metadata": device.device_metadata}
+    return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name, "company": device.company, "device_metadata": device.device_metadata}

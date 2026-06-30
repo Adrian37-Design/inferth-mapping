@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=61">
+    <link rel="stylesheet" href="/static/app.css?v=62">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -887,6 +887,11 @@
                         <input type="text" id="vehicle-name" placeholder="e.g., Toyota Hilux - AXK 1234">
                         <small>Optional: Give this vehicle a friendly name</small>
                     </div>
+                    <div class="form-group">
+                        <label for="vehicle-company">Company / Operator</label>
+                        <input type="text" id="vehicle-company" placeholder="e.g., Console Telematics">
+                        <small>Optional: Group this tracker under a company</small>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" id="cancel-add-vehicle">Cancel</button>
                         <button type="submit" class="btn-primary">
@@ -901,7 +906,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=63"></script>
+    <script src="/static/app.js?v=64"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
