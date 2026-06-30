@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TARGET_ID = "8040000"
+TARGET_ID = "3009295338"
 
 
 def _normalize_url(db_url: str) -> str:
