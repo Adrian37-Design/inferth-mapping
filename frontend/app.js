@@ -2407,6 +2407,8 @@ function openEditModal(vehicle) {
     document.getElementById('vehicle-name').value = vehicle.name;
     document.getElementById('vehicle-company').value = vehicle.company || '';
     document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-edit"></i> Edit Vehicle';
+    const submitBtn = document.getElementById('vehicle-submit-btn');
+    if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
     document.getElementById('add-vehicle-modal').classList.remove('hidden');
 }
 
@@ -2783,6 +2785,9 @@ if (addVehicleBtn) {
 
         const modalTitle = document.querySelector('#add-vehicle-modal .modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';
+
+        const submitBtn = document.getElementById('vehicle-submit-btn');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Vehicle';
 
         const modal = document.getElementById('add-vehicle-modal');
         if (modal) modal.classList.remove('hidden');
