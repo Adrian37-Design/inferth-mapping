@@ -1519,13 +1519,14 @@ function updateDashboardKPIs(vehicles) {
         }
     });
 
-    // Update UI Elements
-    animateValue('kpi-active', 0, moving, 1000);
+    // Update UI Elements. Passing null as start value lets animateValue use the
+    // currently displayed number, which prevents the 0->N flicker on live updates.
+    animateValue('kpi-active', null, moving, 1000);
     const idleEl = document.getElementById('kpi-idle');
     if (idleEl && idleEl.parentElement) idleEl.parentElement.style.display = 'none';
-    animateValue('kpi-stationary', 0, stationary, 1000);
-    animateValue('kpi-alerts', 0, alertsCount, 1000);
-    animateValue('kpi-offline', 0, offline, 1000);
+    animateValue('kpi-stationary', null, stationary, 1000);
+    animateValue('kpi-alerts', null, alertsCount, 1000);
+    animateValue('kpi-offline', null, offline, 1000);
 
     // Update Priority Alerts Panel
     updatePriorityAlertsPanel();
@@ -1566,11 +1567,19 @@ function updatePriorityAlertsPanel() {
 function animateValue(id, start, end, duration) {
     const obj = document.getElementById(id);
     if (!obj) return;
+    // When the value is already the target, skip re-animating — this prevents
+    // dashboard KPIs from flickering 0->1 every second when live updates arrive.
+    const currentValue = parseInt(obj.innerHTML, 10) || 0;
+    if (currentValue === end) {
+        obj.innerHTML = end;
+        return;
+    }
+    const startFrom = Number.isFinite(start) ? start : currentValue;
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        obj.innerHTML = Math.floor(progress * (end - start) + start);
+        obj.innerHTML = Math.floor(progress * (end - startFrom) + startFrom);
         if (progress < 1) {
             window.requestAnimationFrame(step);
         }
