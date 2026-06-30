@@ -1420,6 +1420,7 @@ async function loadVehicles() {
                     <div class="vehicle-status-badge badge-offline">Offline</div>
                 </div>
                 <div class="vehicle-details">
+                    ${vehicle.company ? `<div class="vehicle-company"><i class="fas fa-building"></i> ${vehicle.company}</div>` : ''}
                     <div>IMEI: ${vehicle.imei}</div>
                     <div class="vehicle-meta-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; color: var(--text-muted); margin-top: 5px;">
                         <div><i class="fas fa-clock"></i> <span class="meta-time">--:--</span></div>
@@ -2404,20 +2405,24 @@ function openEditModal(vehicle) {
     editingVehicleId = vehicle.id;
     document.getElementById('vehicle-imei').value = vehicle.imei;
     document.getElementById('vehicle-name').value = vehicle.name;
+    document.getElementById('vehicle-company').value = vehicle.company || '';
     document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-edit"></i> Edit Vehicle';
     document.getElementById('add-vehicle-modal').classList.remove('hidden');
 }
 
 // Add new vehicle
-async function addVehicle(imei, name) {
+async function addVehicle(imei, name, company = null) {
     try {
+        const payload = { imei, name: name || imei };
+        if (company) payload.company = company;
+
         const response = await fetch(`${API_URL}/devices/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...window.AuthManager.getAuthHeader()
             },
-            body: JSON.stringify({ imei, name: name || imei })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
@@ -2436,9 +2441,10 @@ async function addVehicle(imei, name) {
 
 // Update existing vehicle
 // Update existing vehicle
-async function updateVehicle(id, imei, name, driver_name = null) {
+async function updateVehicle(id, imei, name, driver_name = null, company = null) {
     const payload = { imei, name: name || imei };
     if (driver_name !== null) payload.driver_name = driver_name;
+    if (company !== null) payload.company = company;
 
     try {
         const response = await fetch(`${API_URL}/devices/${id}`, {
@@ -2696,6 +2702,7 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const imei = document.getElementById('vehicle-imei').value.trim();
     const name = document.getElementById('vehicle-name').value.trim();
+    const company = document.getElementById('vehicle-company').value.trim();
 
     if (!imei) {
         alert('Please enter an IMEI');
@@ -2703,9 +2710,9 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     }
 
     if (editingVehicleId) {
-        updateVehicle(editingVehicleId, imei, name);
+        updateVehicle(editingVehicleId, imei, name, null, company);
     } else {
-        addVehicle(imei, name);
+        addVehicle(imei, name, company);
     }
 });
 
@@ -2769,8 +2776,10 @@ if (addVehicleBtn) {
         editingVehicleId = null; // Reset editing state
         const imeiInput = document.getElementById('vehicle-imei');
         const nameInput = document.getElementById('vehicle-name');
+        const companyInput = document.getElementById('vehicle-company');
         if (imeiInput) imeiInput.value = '';
         if (nameInput) nameInput.value = '';
+        if (companyInput) companyInput.value = '';
 
         const modalTitle = document.querySelector('#add-vehicle-modal .modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';

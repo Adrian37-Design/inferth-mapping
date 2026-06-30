@@ -500,6 +500,15 @@ body {
     gap: 5px;
 }
 
+.vehicle-company {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+}
+
 .vehicle-status-badge {
     font-size: 0.75em;
     padding: 4px 10px;
@@ -2542,4 +2551,4 @@ body {
     font-size: 0.75em;
     color: var(--text-secondary);
 }
-
+
