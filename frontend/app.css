@@ -223,16 +223,27 @@ body {
 }
 
 .rail-item {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    min-height: 48px;
     border-radius: 10px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 2px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
+    padding: 4px 0;
+}
+
+.rail-label {
+    font-size: 0.55rem;
+    line-height: 1;
+    text-align: center;
+    color: inherit;
+    opacity: 0.9;
 }
 
 .rail-item:hover {
@@ -284,7 +295,7 @@ body {
 
 .panel-header h3 {
     color: var(--primary);
-    font-size: 1.1em;
+    font-size: 1.6em;
     font-weight: 700;
 }
 
