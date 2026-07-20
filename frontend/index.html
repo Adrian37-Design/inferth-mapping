@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=63">
+    <link rel="stylesheet" href="/static/app.css?v=64">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -364,13 +364,50 @@
 
                 <!-- Tab: Reports & Intelligence -->
                 <div id="tab-reports" class="tab-content">
-                    <div class="reports-header">
-                        <div class="date-range-picker">
-                            <span>Last 30 Days</span> <i class="fas fa-chevron-down"></i>
+                    <div class="reports-controls">
+                        <div class="report-control-group">
+                            <label>Vehicle</label>
+                            <select id="report-vehicle" class="glass-input"></select>
                         </div>
-                        <button class="btn-primary" onclick="exportReport()">
-                            <i class="fas fa-download"></i> Export
+                        <div class="report-control-group">
+                            <label>Report</label>
+                            <select id="report-type" class="glass-input">
+                                <option value="trips">Trip Reports</option>
+                                <option value="stops">Stop Reports</option>
+                                <option value="mileage">Mileage Reports</option>
+                                <option value="speed">Speed Reports</option>
+                                <option value="idle">Idle Reports</option>
+                                <option value="summary">Daily Summary</option>
+                            </select>
+                        </div>
+                        <div class="report-control-group">
+                            <label>Start</label>
+                            <input type="date" id="report-start" class="glass-input">
+                        </div>
+                        <div class="report-control-group">
+                            <label>End</label>
+                            <input type="date" id="report-end" class="glass-input">
+                        </div>
+                        <div class="report-control-group">
+                            <label>Group</label>
+                            <select id="report-group" class="glass-input">
+                                <option value="day">Day</option>
+                                <option value="week">Week</option>
+                                <option value="month">Month</option>
+                            </select>
+                        </div>
+                        <button class="btn-primary" onclick="loadReport()">
+                            <i class="fas fa-sync-alt"></i> Run
                         </button>
+                        <div class="report-export-group">
+                            <button class="btn-secondary btn-sm" onclick="exportReport('csv')">CSV</button>
+                            <button class="btn-secondary btn-sm" onclick="exportReport('excel')">Excel</button>
+                            <button class="btn-secondary btn-sm" onclick="exportReport('pdf')">PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="report-output" id="report-output">
+                        <p class="empty-state">Select a vehicle and report type, then click Run.</p>
                     </div>
 
                     <!-- Monetization Hook: Savings Widget -->
@@ -914,7 +951,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=66"></script>
+    <script src="/static/app.js?v=67"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
