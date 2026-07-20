@@ -331,6 +331,7 @@ function setupTabs() {
 
             if (targetId === 'tab-reports') {
                 loadReports();
+                initReportControls();
                 initFleetAnalyticsCharts('chart-usage-canvas');
             }
 
@@ -828,8 +829,193 @@ function updateChart(id, html) {
     }
 }
 
-window.exportReport = function () {
-    alert("Generating Comprehensive Fleet Intelligence PDF...\n(This will download the file shortly)");
+window.exportReport = async function (format) {
+    const deviceId = document.getElementById('report-vehicle')?.value;
+    const reportType = document.getElementById('report-type')?.value;
+    const start = document.getElementById('report-start')?.value;
+    const end = document.getElementById('report-end')?.value;
+    const group = document.getElementById('report-group')?.value;
+
+    if (!deviceId) {
+        alert('Please select a vehicle first.');
+        return;
+    }
+
+    let url = `/reports/export/${format}?device_id=${deviceId}&report_type=${reportType}`;
+    if (start) url += `&start=${start}T00:00:00`;
+    if (end) url += `&end=${end}T23:59:59`;
+    if (reportType === 'mileage' && group) url += `&group_by=${group}`;
+    if (reportType === 'summary' && group) {
+        const period = group === 'day' ? 'daily' : group === 'week' ? 'weekly' : 'monthly';
+        url += `&period=${period}`;
+    }
+
+    try {
+        const response = await window.AuthManager.fetchAPI(url);
+        if (!response.ok) throw new Error('Export failed');
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const ext = format === 'excel' ? 'xlsx' : format;
+        a.download = `${reportType}_report_${deviceId}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    } catch (err) {
+        console.error(err);
+        alert('Export failed: ' + err.message);
+    }
+}
+
+function initReportControls() {
+    const vehicleSel = document.getElementById('report-vehicle');
+    const typeSel = document.getElementById('report-type');
+    const groupWrap = document.getElementById('report-group')?.parentElement;
+    if (!vehicleSel) return;
+
+    vehicleSel.innerHTML = '<option value="">Select vehicle</option>' +
+        allVehicles.map(v => `<option value="${v.id}">${v.name || v.imei}</option>`).join('');
+
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startEl = document.getElementById('report-start');
+    const endEl = document.getElementById('report-end');
+    if (startEl) startEl.value = weekAgo.toISOString().split('T')[0];
+    if (endEl) endEl.value = today.toISOString().split('T')[0];
+
+    function updateGroupVisibility() {
+        if (!groupWrap) return;
+        const show = typeSel.value === 'mileage' || typeSel.value === 'summary';
+        groupWrap.style.display = show ? 'flex' : 'none';
+    }
+    if (typeSel) typeSel.addEventListener('change', updateGroupVisibility);
+    updateGroupVisibility();
+}
+
+window.loadReport = async function () {
+    const deviceId = document.getElementById('report-vehicle')?.value;
+    const reportType = document.getElementById('report-type')?.value;
+    const start = document.getElementById('report-start')?.value;
+    const end = document.getElementById('report-end')?.value;
+    const group = document.getElementById('report-group')?.value;
+    const output = document.getElementById('report-output');
+
+    if (!deviceId) {
+        if (output) output.innerHTML = '<p class="empty-state">Select a vehicle first.</p>';
+        return;
+    }
+
+    if (output) output.innerHTML = '<p class="empty-state"><i class="fas fa-spinner fa-spin"></i> Loading report...</p>';
+
+    let url = `/reports/${deviceId}/${reportType === 'summary' ? 'summary/daily' : reportType}`;
+    const params = [];
+    if (start) params.push(`start=${start}T00:00:00`);
+    if (end) params.push(`end=${end}T23:59:59`);
+    if (reportType === 'mileage' && group) params.push(`group_by=${group}`);
+    if (reportType === 'summary' && group) {
+        const period = group === 'day' ? 'daily' : group === 'week' ? 'weekly' : 'monthly';
+        url = `/reports/${deviceId}/summary/${period}`;
+    }
+    if (params.length) url += '?' + params.join('&');
+
+    try {
+        const response = await window.AuthManager.fetchAPI(url);
+        if (!response.ok) throw new Error('Failed to load report');
+        const data = await response.json();
+        renderReportOutput(reportType, data, output);
+    } catch (err) {
+        console.error(err);
+        if (output) output.innerHTML = `<p class="empty-state">Error: ${err.message}</p>`;
+    }
+}
+
+function renderReportOutput(type, data, container) {
+    if (!container) return;
+
+    let summaryCards = '';
+    if (data.total_trips !== undefined) {
+        summaryCards = `
+            <div class="report-summary-cards">
+                <div class="report-summary-card"><div class="value">${data.total_trips || 0}</div><div class="label">Trips</div></div>
+                <div class="report-summary-card"><div class="value">${(data.total_distance_km || 0).toFixed(1)}</div><div class="label">Total km</div></div>
+                <div class="report-summary-card"><div class="value">${(data.total_duration_minutes || 0).toFixed(0)}</div><div class="label">Minutes</div></div>
+            </div>`;
+    } else if (data.total_stops !== undefined) {
+        summaryCards = `
+            <div class="report-summary-cards">
+                <div class="report-summary-card"><div class="value">${data.total_stops || 0}</div><div class="label">Stops</div></div>
+                <div class="report-summary-card"><div class="value">${(data.total_idle_minutes || 0).toFixed(0)}</div><div class="label">Idle min</div></div>
+            </div>`;
+    } else if (data.total_distance_km !== undefined && type === 'mileage') {
+        summaryCards = `
+            <div class="report-summary-cards">
+                <div class="report-summary-card"><div class="value">${(data.total_distance_km || 0).toFixed(1)}</div><div class="label">Total km</div></div>
+                <div class="report-summary-card"><div class="value">${(data.entries || []).length}</div><div class="label">Periods</div></div>
+            </div>`;
+    } else if (type === 'speed') {
+        summaryCards = `
+            <div class="report-summary-cards">
+                <div class="report-summary-card"><div class="value">${(data.max_speed_kmh || 0).toFixed(1)}</div><div class="label">Max km/h</div></div>
+                <div class="report-summary-card"><div class="value">${(data.avg_speed_kmh || 0).toFixed(1)}</div><div class="label">Avg km/h</div></div>
+                <div class="report-summary-card"><div class="value">${data.speeding_count || 0}</div><div class="label">Speeding</div></div>
+            </div>`;
+    } else if (type === 'summary') {
+        summaryCards = `
+            <div class="report-summary-cards">
+                <div class="report-summary-card"><div class="value">${(data.total_distance_km || 0).toFixed(1)}</div><div class="label">Total km</div></div>
+                <div class="report-summary-card"><div class="value">${(data.total_idle_minutes || 0).toFixed(0)}</div><div class="label">Idle min</div></div>
+            </div>`;
+    }
+
+    container.innerHTML = summaryCards + buildReportTable(type, data);
+}
+
+function buildReportTable(type, data) {
+    let rows = [];
+    let headers = [];
+
+    if (type === 'trips') {
+        headers = ['Start', 'End', 'Duration (min)', 'Distance (km)', 'Harsh Events'];
+        rows = (data.trips || []).map(t => [
+            formatDateTime(t.start_time), formatDateTime(t.end_time),
+            t.duration_minutes, t.distance_km, t.harsh_events_count
+        ]);
+    } else if (type === 'stops' || type === 'idle') {
+        headers = ['Start', 'End', 'Duration (min)', 'Lat', 'Lng'];
+        rows = ((data.stops || [])).map(s => [
+            formatDateTime(s.start_time), formatDateTime(s.end_time),
+            s.duration_minutes, s.lat?.toFixed(5) || '-', s.lng?.toFixed(5) || '-'
+        ]);
+    } else if (type === 'mileage') {
+        headers = ['Period', 'Start', 'End', 'Distance (km)', 'Points'];
+        rows = (data.entries || []).map(e => [
+            e.period, formatDateTime(e.start_time), formatDateTime(e.end_time),
+            e.distance_km, e.points
+        ]);
+    } else if (type === 'speed') {
+        headers = ['Time', 'Speed (km/h)', 'Lat', 'Lng'];
+        rows = (data.speeding_instances || []).map(i => [
+            formatDateTime(i.time), i.speed_kmh, i.lat?.toFixed(5) || '-', i.lng?.toFixed(5) || '-'
+        ]);
+    } else if (type === 'summary') {
+        headers = ['Period', 'Distance (km)', 'Max km/h', 'Avg km/h', 'Moving (min)', 'Idle (min)', 'Points'];
+        rows = (data.summaries || []).map(s => [
+            s.period, s.distance_km, s.max_speed_kmh, s.avg_speed_kmh,
+            s.moving_minutes, s.idle_minutes, s.points
+        ]);
+    }
+
+    if (rows.length === 0) return '<p class="empty-state">No data for selected period.</p>';
+
+    const th = headers.map(h => `<th>${h}</th>`).join('');
+    const tr = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+    return `<table class="report-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString();
 }
 
 function numberWithCommas(x) {
