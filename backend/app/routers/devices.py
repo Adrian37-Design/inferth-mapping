@@ -23,8 +23,16 @@ async def create_device(
 ):
     # Enforce tenant isolation on creation
     target_tenant_id = None
-    if current_user.tenant_id == 1 and payload.tenant_name:
-        # Global admins can specify a tenant name
+
+    # If company matches an existing tenant name, assign device to that tenant
+    if payload.company:
+        q = await db.execute(select(Tenant).where(Tenant.name == payload.company))
+        tenant = q.scalars().first()
+        if tenant:
+            target_tenant_id = tenant.id
+
+    # Global admins can also specify a tenant name explicitly
+    if target_tenant_id is None and current_user.tenant_id == 1 and payload.tenant_name:
         q = await db.execute(select(Tenant).where(Tenant.name == payload.tenant_name))
         tenant = q.scalars().first()
         if not tenant:
@@ -33,8 +41,9 @@ async def create_device(
             await db.commit()
             await db.refresh(tenant)
         target_tenant_id = tenant.id
-    else:
-        # Everyone else creates for their own tenant
+
+    # Default: create for the current user's tenant
+    if target_tenant_id is None:
         target_tenant_id = current_user.tenant_id
 
     device = Device(
