@@ -500,23 +500,34 @@ def _export_pdf(data, report_type, filename_base):
     if not rows:
         rows = [{"Report": f"No {report_type} data found"}]
     output = io.BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=18)
+    # Use landscape for better column fit
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=18)
     elements = []
     styles = getSampleStyleSheet()
     elements.append(Paragraph(f"<b>{report_type.capitalize()} Report - {data.get('device_name', '')}</b>", styles["Title"]))
     elements.append(Paragraph(f"Period: {data.get('period', data.get('range', {})).get('start', '')} to {data.get('period', data.get('range', {})).get('end', '')}", styles["Normal"]))
     elements.append(Spacer(1, 12))
     table_data = [list(rows[0].keys())] + [list(r.values()) for r in rows]
-    table = Table(table_data, repeatRows=1)
+    
+    # Calculate column widths based on content
+    num_cols = len(table_data[0])
+    col_widths = []
+    available_width = landscape(A4)[0] - 40  # Total width minus margins
+    for i in range(num_cols):
+        col_widths.append(available_width / num_cols)
+    
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2D5F6D")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")])
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("WORDWRAP", (0, 0), (-1, -1), "LTR")
     ]))
     elements.append(table)
     doc.build(elements)
