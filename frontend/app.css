@@ -1433,7 +1433,8 @@ body {
     font-weight: 600;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 12px 15px;
     background: var(--card-bg);
@@ -1442,6 +1443,20 @@ body {
     color: var(--text-primary);
     font-size: 1em;
     transition: all 0.3s;
+}
+
+.form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    padding-right: 35px;
+}
+
+.form-group select option {
+    background: var(--card-bg);
+    color: var(--text-primary);
 }
 
 .form-group input:focus {
@@ -2613,13 +2628,28 @@ body {
     letter-spacing: 0.5px;
 }
 
-.report-control-group .glass-input {
+.report-control-group .glass-input,
+.report-control-group select {
     padding: 8px 10px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: var(--text-primary);
     font-size: 0.9em;
+}
+
+.report-control-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+}
+
+.report-control-group select option {
+    background: var(--card-bg);
+    color: var(--text-primary);
 }
 
 .report-export-group {
