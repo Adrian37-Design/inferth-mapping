@@ -391,13 +391,26 @@ async def export_report(
         return _export_pdf(data, report_type, filename_base)
 
 
+def _format_date(date_str):
+    """Format ISO date string to simplified format: YYYY-MM-DD HH:MM"""
+    if not date_str:
+        return ""
+    try:
+        # Parse ISO format and return simplified format
+        from datetime import datetime
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except:
+        return date_str[:16] if len(date_str) > 16 else date_str
+
+
 def _flatten_rows(data, report_type):
     rows = []
     if report_type in ("trips",):
         for t in data.get("trips", []):
             rows.append({
-                "Start": t.get("start_time"),
-                "End": t.get("end_time"),
+                "Start": _format_date(t.get("start_time")),
+                "End": _format_date(t.get("end_time")),
                 "Duration (min)": t.get("duration_minutes"),
                 "Distance (km)": t.get("distance_km"),
                 "Harsh Events": t.get("harsh_events_count"),
@@ -409,8 +422,8 @@ def _flatten_rows(data, report_type):
     elif report_type in ("stops", "idle"):
         for s in data.get("stops", data.get("stops", [])):
             rows.append({
-                "Start": s.get("start_time"),
-                "End": s.get("end_time"),
+                "Start": _format_date(s.get("start_time")),
+                "End": _format_date(s.get("end_time")),
                 "Duration (min)": s.get("duration_minutes"),
                 "Lat": s.get("lat"),
                 "Lng": s.get("lng")
@@ -419,15 +432,15 @@ def _flatten_rows(data, report_type):
         for e in data.get("entries", []):
             rows.append({
                 "Period": e.get("period"),
-                "Start": e.get("start_time"),
-                "End": e.get("end_time"),
+                "Start": _format_date(e.get("start_time")),
+                "End": _format_date(e.get("end_time")),
                 "Distance (km)": e.get("distance_km"),
                 "Points": e.get("points")
             })
     elif report_type == "speed":
         for inst in data.get("speeding_instances", []):
             rows.append({
-                "Time": inst.get("time"),
+                "Time": _format_date(inst.get("time")),
                 "Speed (km/h)": inst.get("speed_kmh"),
                 "Lat": inst.get("lat"),
                 "Lng": inst.get("lng")
@@ -436,8 +449,8 @@ def _flatten_rows(data, report_type):
         for s in data.get("summaries", []):
             rows.append({
                 "Period": s.get("period"),
-                "Start": s.get("start_time"),
-                "End": s.get("end_time"),
+                "Start": _format_date(s.get("start_time")),
+                "End": _format_date(s.get("end_time")),
                 "Distance (km)": s.get("distance_km"),
                 "Max Speed (km/h)": s.get("max_speed_kmh"),
                 "Avg Speed (km/h)": s.get("avg_speed_kmh"),
