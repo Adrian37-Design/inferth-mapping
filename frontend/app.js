@@ -353,6 +353,77 @@ function setupTabs() {
     });
 }
 
+// Global function to switch tabs programmatically
+window.switchTab = function(targetId) {
+    const railItems = document.querySelectorAll('.rail-item');
+    const targetRail = document.querySelector(`.rail-item[data-tab="${targetId}"]`);
+    
+    if (targetRail) {
+        // 1. Activate Rail Item
+        railItems.forEach(i => i.classList.remove('active'));
+        targetRail.classList.add('active');
+
+        // 2. Show Sidebar Content
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+            content.style.display = '';
+        });
+
+        // Show target
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) {
+            targetContent.classList.add('active');
+
+            // UI FIX: If switching to Geofence tab, force map to recalculate size
+            if (targetId === 'tab-geofence' && miniMap) {
+                miniMap.invalidateSize();
+                setTimeout(() => miniMap.invalidateSize(), 300);
+                setTimeout(() => miniMap.invalidateSize(), 600);
+            }
+        }
+
+        // 3. Update Header Title
+        const title = targetRail.getAttribute('title');
+        const headerTitle = document.getElementById('panel-title');
+        if (headerTitle) headerTitle.innerText = title;
+
+        // 4. Mobile Handling
+        const sidebar = document.querySelector('.sidebar-container');
+        if (window.innerWidth < 768 && sidebar) {
+            sidebar.classList.remove('collapsed');
+        }
+        if (sidebar) sidebar.classList.remove('collapsed');
+
+        // Lazy Load Users
+        if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isManager()) {
+            loadUsers();
+            usersLoaded = true;
+        }
+
+        if (targetId === 'tab-reports') {
+            loadReports();
+            initReportControls();
+            initFleetAnalyticsCharts('chart-usage-canvas');
+        }
+
+        if (targetId === 'tab-dashboard') {
+            initFleetAnalyticsCharts('fleet-performance-chart');
+        }
+        if (targetId === 'tab-audit') {
+            loadAuditLogs();
+        }
+
+        if (targetId === 'tab-companies') {
+            loadCompanies();
+        }
+
+        if (targetId === 'tab-billing') {
+            loadBillingData();
+        }
+    }
+};
+
 // --- Billing & Subscription Logic (Step 10) ---
 function loadBillingData() {
     const user = window.AuthManager.user;

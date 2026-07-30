@@ -1340,24 +1340,25 @@ body {
 }
 
 .dropdown-header {
-    background: var(--light-bg);
+    background: rgba(255, 255, 255, 0.05);
     padding: 10px 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .dropdown-header h4 {
     margin: 0;
     font-size: 0.9rem;
     font-weight: 600;
+    color: var(--text-primary);
 }
 
 .dropdown-header button {
     background: none;
     border: none;
-    color: var(--primary-color);
+    color: var(--primary);
     font-size: 0.8rem;
     cursor: pointer;
 }
@@ -1370,51 +1371,50 @@ body {
 .empty-state {
     padding: 20px;
     text-align: center;
-    color: #888;
+    color: var(--text-muted);
     font-size: 0.9rem;
 }
 
 .alert-item {
     padding: 10px 15px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     transition: background 0.2s;
     display: flex;
     align-items: flex-start;
     gap: 10px;
+    color: var(--text-primary);
 }
 
 .alert-item:hover {
-    background: var(--primary-light);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .alert-item.unread {
-    background: #eef2ff;
+    background: rgba(45, 95, 109, 0.1);
 }
 
 .alert-icon {
-    color: var(--warning-color);
+    color: var(--warning);
     margin-top: 3px;
 }
 
 .alert-content h5 {
     margin: 0 0 4px 0;
     font-size: 0.9rem;
-    color: #000000;
+    color: var(--text-primary);
     font-weight: 700;
 }
 
 .alert-content p {
     margin: 0;
     font-size: 0.8rem;
-    color: #000000;
-    /* Black */
+    color: var(--text-secondary);
     font-weight: 500;
 }
 
 .alert-time {
     font-size: 0.7rem;
-    color: #000000;
-    /* Black */
+    color: var(--text-muted);
     display: block;
     margin-top: 4px;
     font-weight: 600;
