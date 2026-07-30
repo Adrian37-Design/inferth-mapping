@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Device, Position, User
-from app.auth import get_current_user
+from app.auth_middleware import get_current_user
 from datetime import datetime, timedelta
 from typing import Optional, List, Literal
 from math import radians, cos, sin, asin, sqrt
