@@ -3,7 +3,7 @@ from sqlalchemy import select
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports
+from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics
 from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
@@ -367,6 +367,7 @@ app.include_router(admin.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)
 app.include_router(reports.router)
+app.include_router(analytics.router)
 
 @app.websocket("/ws/positions")
 async def websocket_endpoint(websocket: WebSocket):

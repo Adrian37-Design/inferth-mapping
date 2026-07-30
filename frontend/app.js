@@ -160,6 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Tab Switching Logic
     setupTabs();
     initFleetAnalyticsCharts('fleet-performance-chart');
+    
+    // Load analytics when analytics tab is opened
+    const analyticsTab = document.querySelector('[data-tab="tab-analytics"]');
+    if (analyticsTab) {
+        analyticsTab.addEventListener('click', () => {
+            setTimeout(() => loadAnalytics(), 100);
+        });
+    }
 
     // Timeframe selector for Fleet Performance
     const periodSelect = document.getElementById('fleet-period-select');
@@ -3689,7 +3697,224 @@ function renderRules() {
     }
 }
 
-// --- Company Management ---
+// --- Analytics Dashboard Functions ---
+
+async function loadAnalytics() {
+    const period = document.getElementById('analytics-period').value;
+    const endDate = new Date().toISOString();
+    const startDate = new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Load all analytics data
+    await Promise.all([
+        loadDriverPerformance(startDate, endDate),
+        loadFuelEfficiency(startDate, endDate),
+        loadVehicleUtilization(startDate, endDate),
+        loadMaintenanceStatus()
+    ]);
+}
+
+async function loadDriverPerformance(start, end) {
+    const grid = document.getElementById('driver-performance-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p class="loading">Loading driver performance...</p>';
+    
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/driver-performance?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load driver performance');
+        
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No driver performance data available</p>';
+            return;
+        }
+        
+        grid.innerHTML = data.map(driver => `
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>${driver.device_name}</h5>
+                    <span class="driver-name">${driver.driver_name}</span>
+                </div>
+                <div class="analytics-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Harsh Braking</span>
+                        <span class="metric-value ${driver.harsh_braking > 5 ? 'danger' : 'success'}">${driver.harsh_braking}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Harsh Acceleration</span>
+                        <span class="metric-value ${driver.harsh_acceleration > 5 ? 'danger' : 'success'}">${driver.harsh_acceleration}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Speeding Events</span>
+                        <span class="metric-value ${driver.speeding_events > 3 ? 'danger' : 'success'}">${driver.speeding_events}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Max Speed</span>
+                        <span class="metric-value">${driver.max_speed.toFixed(1)} km/h</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Driver performance error:', err);
+        grid.innerHTML = '<p class="empty-state">Error loading driver performance</p>';
+    }
+}
+
+async function loadFuelEfficiency(start, end) {
+    const grid = document.getElementById('fuel-efficiency-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p class="loading">Loading fuel efficiency...</p>';
+    
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/fuel-efficiency?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load fuel efficiency');
+        
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No fuel efficiency data available</p>';
+            return;
+        }
+        
+        grid.innerHTML = data.map(fuel => `
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>${fuel.device_name}</h5>
+                </div>
+                <div class="analytics-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Efficiency</span>
+                        <span class="metric-value">${fuel.efficiency_kml.toFixed(2)} km/L</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Total Distance</span>
+                        <span class="metric-value">${fuel.total_distance.toFixed(1)} km</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Total Fuel</span>
+                        <span class="metric-value">${fuel.total_consumption.toFixed(1)} L</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Cost/km</span>
+                        <span class="metric-value">$${fuel.cost_per_km.toFixed(3)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Total Cost</span>
+                        <span class="metric-value">$${fuel.total_cost.toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Fuel efficiency error:', err);
+        grid.innerHTML = '<p class="empty-state">Error loading fuel efficiency</p>';
+    }
+}
+
+async function loadVehicleUtilization(start, end) {
+    const grid = document.getElementById('vehicle-utilization-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p class="loading">Loading vehicle utilization...</p>';
+    
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/vehicle-utilization?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load vehicle utilization');
+        
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No utilization data available</p>';
+            return;
+        }
+        
+        grid.innerHTML = data.map(util => `
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>${util.device_name}</h5>
+                </div>
+                <div class="analytics-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Utilization Rate</span>
+                        <span class="metric-value ${util.utilization_rate < 30 ? 'danger' : util.utilization_rate < 50 ? 'warning' : 'success'}">${util.utilization_rate.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Moving Time</span>
+                        <span class="metric-value">${util.moving_minutes.toFixed(0)} min</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Idle Time</span>
+                        <span class="metric-value">${util.idle_minutes.toFixed(0)} min</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Offline Time</span>
+                        <span class="metric-value">${util.offline_minutes.toFixed(0)} min</span>
+                    </div>
+                </div>
+                <div class="utilization-bar">
+                    <div class="utilization-segment moving" style="width: ${(util.moving_minutes / util.total_minutes * 100).toFixed(1)}%"></div>
+                    <div class="utilization-segment idle" style="width: ${(util.idle_minutes / util.total_minutes * 100).toFixed(1)}%"></div>
+                    <div class="utilization-segment offline" style="width: ${(util.offline_minutes / util.total_minutes * 100).toFixed(1)}%"></div>
+                </div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Vehicle utilization error:', err);
+        grid.innerHTML = '<p class="empty-state">Error loading vehicle utilization</p>';
+    }
+}
+
+async function loadMaintenanceStatus() {
+    const grid = document.getElementById('maintenance-status-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p class="loading">Loading maintenance status...</p>';
+    
+    try {
+        const response = await window.AuthManager.fetchAPI('/analytics/maintenance-status');
+        if (!response.ok) throw new Error('Failed to load maintenance status');
+        
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No maintenance data available</p>';
+            return;
+        }
+        
+        grid.innerHTML = data.map(maint => `
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>${maint.device_name}</h5>
+                    <span class="status-badge ${maint.status === 'Good' ? 'success' : maint.status === 'Due Soon' ? 'warning' : 'danger'}">${maint.status}</span>
+                </div>
+                <div class="analytics-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Odometer</span>
+                        <span class="metric-value">${maint.odometer.toFixed(0)} km</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Next Service</span>
+                        <span class="metric-value">${maint.next_service_km.toFixed(0)} km</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">km Until Service</span>
+                        <span class="metric-value ${maint.km_until_service < 1000 ? 'danger' : 'success'}">${maint.km_until_service.toFixed(0)} km</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill ${maint.service_progress > 80 ? 'danger' : maint.service_progress > 60 ? 'warning' : 'success'}" style="width: ${maint.service_progress}%"></div>
+                </div>
+                <div class="progress-label">${maint.service_progress.toFixed(0)}% to next service</div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Maintenance status error:', err);
+        grid.innerHTML = '<p class="empty-state">Error loading maintenance status</p>';
+    }
+}
 
 // Wire up the New Company form
 document.addEventListener('DOMContentLoaded', () => {
