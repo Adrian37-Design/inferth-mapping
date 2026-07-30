@@ -3832,8 +3832,8 @@ function setupGeofencing() {
                 polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00d4ff' } },
                 circle: { shapeOptions: { color: '#00d4ff' } },
                 rectangle: { shapeOptions: { color: '#00d4ff' } },
+                polyline: { shapeOptions: { color: '#00d4ff' } },
                 marker: false,
-                polyline: false,
                 circlemarker: false
             }
         });
