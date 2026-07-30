@@ -147,6 +147,27 @@ body {
     font-weight: 600;
 }
 
+.map-btn {
+    background: rgba(45, 95, 109, 0.1);
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.map-btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(45, 95, 109, 0.3);
+}
+
 .logout-btn:hover {
     background: var(--danger);
     color: white;
@@ -1295,14 +1316,15 @@ body {
     top: 100%;
     right: 0;
     width: 300px;
-    background: white;
+    background: var(--card-bg);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 8px;
     z-index: 2000;
     margin-top: 10px;
     overflow: hidden;
-    color: var(--text-color);
+    color: var(--text-primary);
     animation: slideDown 0.2s ease-out;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes slideDown {
