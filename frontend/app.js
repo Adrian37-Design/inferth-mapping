@@ -424,6 +424,20 @@ window.switchTab = function(targetId) {
     }
 };
 
+// Global function to show full map with all vehicles (collapse sidebar)
+window.showFullMap = function() {
+    const sidebar = document.querySelector('.sidebar-container');
+    if (sidebar) {
+        sidebar.classList.add('collapsed');
+    }
+    
+    // Fit map to show all vehicles
+    if (map && Object.keys(markers).length > 0) {
+        const group = new L.featureGroup(Object.values(markers));
+        map.fitBounds(group.getBounds());
+    }
+};
+
 // --- Billing & Subscription Logic (Step 10) ---
 function loadBillingData() {
     const user = window.AuthManager.user;
