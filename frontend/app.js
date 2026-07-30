@@ -1910,7 +1910,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     if (rawData) {
         // Only update specific telemetry fields if they are present
-        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage'];
+        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage', 'vin', 'dtc'];
         telemetryFields.forEach(field => {
             if (rawData[field] !== undefined) {
                 obdData[field] = rawData[field];
@@ -1993,6 +1993,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
         if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
         if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Total Odometer: ${obdData.mileage}km</div>`;
+        if (obdData.vin !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#607d8b;"><i class="fas fa-id-card"></i> VIN: ${obdData.vin}</div>`;
+        if (obdData.dtc !== undefined && obdData.dtc.length > 0) {
+            const dtcList = Array.isArray(obdData.dtc) ? obdData.dtc : [obdData.dtc];
+            diagnosticHtml += `<div style="font-size:0.85em; color:#f44336;"><i class="fas fa-exclamation-triangle"></i> DTC: ${dtcList.join(', ')}</div>`;
+        }
     }
 
     const todayMileage = dailyMileageCache.get(String(id)) || 0;
