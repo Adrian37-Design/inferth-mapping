@@ -196,6 +196,33 @@
                             <div class="timeline-view" id="detail-timeline">
                                 <p class="empty-state">Select a range to view history</p>
                             </div>
+                            <!-- Playback Controls (Hidden by default) -->
+                            <div id="route-controls" class="playback-controls hidden"
+                                style="margin-top: 15px; padding: 10px; background: var(--card-bg); border-radius: 8px;">
+                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                                    <button id="play-route" class="btn-small" title="Play">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button id="pause-route" class="btn-small" title="Pause">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                    <button id="stop-route" class="btn-small" title="Stop">
+                                        <i class="fas fa-stop"></i>
+                                    </button>
+                                    <div style="display: flex; align-items: center; gap: 5px; margin-left: auto;">
+                                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Speed:</span>
+                                        <select id="playback-speed" class="form-select-small" style="width: 70px;">
+                                            <option value="0.5">0.5x</option>
+                                            <option value="1" selected>1x</option>
+                                            <option value="2">2x</option>
+                                            <option value="4">4x</option>
+                                        </select>
+                                        <span id="speed-value" style="font-size: 0.8rem; color: var(--text-secondary);">1x</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="timeline-slider" min="0" max="100" value="0"
+                                    style="width: 100%; cursor: pointer;">
+                            </div>
                         </div>
 
                         <!-- Section 3: Quick Actions -->
@@ -955,7 +982,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=70"></script>
+    <script src="/static/app.js?v=71"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

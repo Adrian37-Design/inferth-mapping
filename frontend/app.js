@@ -3042,6 +3042,107 @@ if (playbackSpeedInput) {
     });
 }
 
+// Timeline slider for scrubbing
+const timelineSlider = document.getElementById('timeline-slider');
+if (timelineSlider) {
+    timelineSlider.addEventListener('input', (e) => {
+        if (playbackRoute && playbackRoute.length > 0) {
+            const index = parseInt(e.target.value);
+            playbackIndex = index;
+            updatePlaybackMarker(index);
+        }
+    });
+}
+
+// Playback functions
+function playRoute() {
+    if (!playbackRoute || playbackRoute.length === 0) return;
+    
+    // Clear existing interval
+    if (playbackInterval) clearInterval(playbackInterval);
+    
+    // Start from current index or beginning
+    if (playbackIndex >= playbackRoute.length) playbackIndex = 0;
+    
+    // Initialize timeline slider
+    if (timelineSlider) {
+        timelineSlider.max = playbackRoute.length - 1;
+        timelineSlider.value = playbackIndex;
+    }
+    
+    // Create playback marker if not exists
+    if (!playbackMarker) {
+        playbackMarker = L.marker([playbackRoute[0].lat, playbackRoute[0].lng], {
+            icon: L.divIcon({
+                className: 'playback-marker',
+                html: '<div style="background: #00ff88; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            })
+        }).addTo(map);
+    }
+    
+    // Get playback speed
+    const speedInput = document.getElementById('playback-speed');
+    const speed = speedInput ? parseFloat(speedInput.value) : 1;
+    const interval = Math.max(50, 500 / speed); // Adjust interval based on speed
+    
+    playbackInterval = setInterval(() => {
+        if (playbackIndex >= playbackRoute.length - 1) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+            return;
+        }
+        
+        playbackIndex++;
+        updatePlaybackMarker(playbackIndex);
+        
+        // Update slider
+        if (timelineSlider) timelineSlider.value = playbackIndex;
+        
+    }, interval);
+}
+
+function pauseRoute() {
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+}
+
+function stopRoute() {
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+    
+    playbackIndex = 0;
+    
+    // Remove playback marker
+    if (playbackMarker) {
+        map.removeLayer(playbackMarker);
+        playbackMarker = null;
+    }
+    
+    // Reset slider
+    if (timelineSlider) timelineSlider.value = 0;
+    
+    // Reset to start of route
+    if (playbackRoute && playbackRoute.length > 0) {
+        map.setView([playbackRoute[0].lat, playbackRoute[0].lng], 15);
+    }
+}
+
+function updatePlaybackMarker(index) {
+    if (!playbackRoute || index >= playbackRoute.length || !playbackMarker) return;
+    
+    const point = playbackRoute[index];
+    playbackMarker.setLatLng([point.lat, point.lng]);
+    
+    // Pan map to follow marker
+    map.panTo([point.lat, point.lng], { animate: true, duration: 0.1 });
+}
+
 // Add Vehicle Button
 const addVehicleBtn = document.getElementById('add-vehicle');
 if (addVehicleBtn) {
