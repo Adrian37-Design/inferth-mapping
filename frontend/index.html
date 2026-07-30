@@ -519,6 +519,55 @@
                     </div>
                 </div>
 
+                <!-- Tab: Analytics Dashboard -->
+                <div id="tab-analytics" class="tab-content">
+                    <div class="analytics-controls">
+                        <div class="analytics-control-group">
+                            <label>Time Period</label>
+                            <select id="analytics-period" class="glass-input">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                            </select>
+                        </div>
+                        <button class="btn-primary" onclick="loadAnalytics()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+
+                    <!-- Driver Performance -->
+                    <div class="analytics-section">
+                        <h4 class="section-title">Driver Performance</h4>
+                        <div class="analytics-grid" id="driver-performance-grid">
+                            <p class="empty-state">Loading driver performance data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Fuel Efficiency -->
+                    <div class="analytics-section">
+                        <h4 class="section-title">Fuel Efficiency</h4>
+                        <div class="analytics-grid" id="fuel-efficiency-grid">
+                            <p class="empty-state">Loading fuel efficiency data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Vehicle Utilization -->
+                    <div class="analytics-section">
+                        <h4 class="section-title">Vehicle Utilization</h4>
+                        <div class="analytics-grid" id="vehicle-utilization-grid">
+                            <p class="empty-state">Loading utilization data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Maintenance Status -->
+                    <div class="analytics-section">
+                        <h4 class="section-title">Maintenance Status</h4>
+                        <div class="analytics-grid" id="maintenance-status-grid">
+                            <p class="empty-state">Loading maintenance data...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab: Geofencing (STEP 8) -->
                 <div id="tab-geofence" class="tab-content">
                     <div class="panel-section">
@@ -982,7 +1031,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=73"></script>
+    <script src="/static/app.js?v=74"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
