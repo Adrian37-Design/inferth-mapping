@@ -1,3 +1,11 @@
+.compliance-item.warning {
+    color: var(--warning);
+}
+
+.compliance-item.danger {
+    color: var(--danger);
+}
+
 /* Analytics Dashboard */
 .analytics-controls {
     display: flex;
