@@ -791,21 +791,24 @@ body {
 /* Route Controls */
 .route-controls {
     position: absolute;
-    bottom: 30px;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(10, 14, 39, 0.9);
-    backdrop-filter: blur(10px);
-    padding: 15px 25px;
-    border-radius: 30px;
+    background: rgba(10, 14, 39, 0.92);
+    backdrop-filter: blur(14px);
+    padding: 12px 22px 14px;
+    border-radius: 20px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 20px;
-    border: 1px solid rgba(45, 95, 109, 0.3);
+    gap: 14px;
+    border: 1px solid rgba(45, 95, 109, 0.35);
     z-index: 400;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    flex-wrap: wrap;
     justify-content: center;
+    min-width: 340px;
+    max-width: 680px;
+    width: auto;
 }
 
 .mode-selector, .speed-control {
@@ -826,17 +829,16 @@ body {
     display: none;
 }
 
+/* Timeline slider sits on its own row inside the bar */
 .timeline-slider-container {
-    position: absolute;
-    bottom: -60px;
-    left: 0;
-    right: 0;
-    padding: 15px;
-    background: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    height: 50px;
-    z-index: 1000;
+    flex: 0 0 100%;    /* full width row */
+    width: 100%;
+    padding: 4px 2px 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 2px;
 }
 
 .timeline-slider-container input[type="range"] {
@@ -2937,3 +2939,284 @@ body {
     margin-top: 4px;
 }
 
+/* ===== Intel Sub-tabs (Phase 7 / Phase 8) ===== */
+.intel-subtabs {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0 10px;
+    padding: 4px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.intel-subtab {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.intel-subtab.active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 3px 12px rgba(45,95,109,0.45);
+}
+
+.intel-subtab:hover:not(.active) {
+    background: rgba(255,255,255,0.07);
+    color: var(--text-primary);
+}
+
+.intel-section {
+    /* shown by default */
+}
+
+.intel-section.hidden {
+    display: none;
+}
+
+/* ===== badge-live pulse ===== */
+.badge-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #10b981;
+    border: 1px solid rgba(16,185,129,0.4);
+    border-radius: 20px;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    margin-left: auto;
+    position: relative;
+}
+
+.badge-live::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse-live 1.6s infinite;
+}
+
+@keyframes pulse-live {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+/* report-card-header flex row */
+.report-card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 10px;
+    gap: 8px;
+}
+
+.report-card-header h5 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    flex: 1;
+}
+
+.report-card-header h5 i {
+    color: var(--primary-light);
+}
+
+/* ===== OBD Notice banner ===== */
+.obd-notice {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: #93c5fd;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.obd-notice i {
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 0.9rem;
+}
+
+.obd-notice strong {
+    color: #bfdbfe;
+}
+
+/* ===== OBD Vehicle Cards Grid ===== */
+.obd-vehicle-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.obd-vehicle-card {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.obd-vehicle-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.obd-vehicle-card-header strong {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.obd-vehicle-card-header .obd-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse-live 1.6s infinite;
+}
+
+.obd-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.obd-metric {
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 6px 4px;
+}
+
+.obd-metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.obd-metric-label {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.obd-vin-row,
+.obd-odo-row {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.obd-vin-row i,
+.obd-odo-row i {
+    opacity: 0.6;
+    width: 12px;
+    text-align: center;
+}
+
+/* ===== DTC Fault List ===== */
+.dtc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dtc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.25);
+    font-size: 0.8rem;
+}
+
+.dtc-item i {
+    color: #f87171;
+    flex-shrink: 0;
+}
+
+.dtc-code {
+    font-family: monospace;
+    font-weight: 700;
+    color: #fca5a5;
+    letter-spacing: 0.05em;
+}
+
+.dtc-desc {
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.dtc-vehicle {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+/* ===== Analytics Mini Grid (Fleet Health) ===== */
+.analytics-mini-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: none !important;
+    background-image: none !important;
+    padding: 6px 0 0;
+}
+
+.analytics-mini-chip {
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 8px 4px;
+    border: 1px solid rgba(255,255,255,0.07);
+}
+
+.analytics-mini-chip-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.analytics-mini-chip-label {
+    font-size: 0.64rem;
+    color: var(--text-secondary);
+    margin-top: 3px;
+}

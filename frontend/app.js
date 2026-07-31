@@ -3697,6 +3697,146 @@ function renderRules() {
     }
 }
 
+// --- Intel Sub-tab Switching (Phase 7 / Phase 8) ---
+
+window.switchIntelSubTab = function(tab) {
+    const sectionAnalytics = document.getElementById('intel-section-analytics');
+    const sectionObd = document.getElementById('intel-section-obd');
+    const btnAnalytics = document.getElementById('intel-tab-analytics');
+    const btnObd = document.getElementById('intel-tab-obd');
+
+    if (tab === 'analytics') {
+        if (sectionAnalytics) sectionAnalytics.classList.remove('hidden');
+        if (sectionObd) sectionObd.classList.add('hidden');
+        if (btnAnalytics) btnAnalytics.classList.add('active');
+        if (btnObd) btnObd.classList.remove('active');
+        // Refresh analytics data
+        loadIntelAnalytics();
+    } else if (tab === 'obd') {
+        if (sectionObd) sectionObd.classList.remove('hidden');
+        if (sectionAnalytics) sectionAnalytics.classList.add('hidden');
+        if (btnObd) btnObd.classList.add('active');
+        if (btnAnalytics) btnAnalytics.classList.remove('active');
+        // Render OBD cards from live telemetry
+        renderOBDVehicleCards();
+        refreshDTCCodes();
+    }
+};
+
+// Render per-vehicle OBD diagnostic cards in the CAN/OBD panel
+function renderOBDVehicleCards() {
+    const container = document.getElementById('obd-vehicle-cards');
+    if (!container) return;
+
+    if (typeof allVehicles === 'undefined' || allVehicles.length === 0) {
+        container.innerHTML = '<p class="empty-state">No vehicles found.</p>';
+        return;
+    }
+
+    const vehiclesWithObd = allVehicles.filter(v => obdDataMap[v.id]);
+    if (vehiclesWithObd.length === 0) {
+        container.innerHTML = '<p class="empty-state">No OBD telemetry received yet. Connect a Teltonika FMC003 or FMB140 device.</p>';
+        return;
+    }
+
+    container.innerHTML = vehiclesWithObd.map(v => {
+        const obd = obdDataMap[v.id] || {};
+        const rpm = obd.rpm !== undefined ? Math.round(obd.rpm) : null;
+        const fuelLevel = obd.fuel_level !== undefined ? parseFloat(obd.fuel_level).toFixed(1) : (obd.fuel !== undefined ? parseFloat(obd.fuel).toFixed(1) : null);
+        const battery = obd.battery !== undefined ? parseFloat(obd.battery).toFixed(1) : (obd.voltage !== undefined ? parseFloat(obd.voltage).toFixed(1) : null);
+        const coolant = obd.coolant !== undefined ? Math.round(obd.coolant) : null;
+        const engineLoad = obd.engine_load !== undefined ? Math.round(obd.engine_load) : null;
+        const vin = obd.vin || null;
+        const odometer = obd.mileage !== undefined ? parseFloat(obd.mileage).toFixed(0) : null;
+
+        const fmtVal = (v, unit, color) => v !== null
+            ? `<div class="obd-metric-value" style="color:${color}">${v}${unit}</div>`
+            : `<div class="obd-metric-value" style="color:#4b5563">—</div>`;
+
+        return `
+        <div class="obd-vehicle-card">
+            <div class="obd-vehicle-card-header">
+                <strong><i class="fas fa-car" style="color:var(--primary-light);margin-right:6px;"></i>${v.name || 'Vehicle ' + v.id}</strong>
+                <span class="obd-live-dot" title="Live telemetry"></span>
+            </div>
+            <div class="obd-metrics-grid">
+                <div class="obd-metric">
+                    ${fmtVal(rpm, ' RPM', rpm !== null && rpm > 3000 ? '#ef4444' : '#10b981')}
+                    <div class="obd-metric-label"><i class="fas fa-tachometer-alt"></i> RPM</div>
+                </div>
+                <div class="obd-metric">
+                    ${fmtVal(fuelLevel !== null ? fuelLevel + '%' : null, '', '#00d9ff')}
+                    <div class="obd-metric-label"><i class="fas fa-gas-pump"></i> Fuel</div>
+                </div>
+                <div class="obd-metric">
+                    ${fmtVal(battery, 'V', battery !== null && parseFloat(battery) < 11.5 ? '#ef4444' : '#fbbf24')}
+                    <div class="obd-metric-label"><i class="fas fa-car-battery"></i> Battery</div>
+                </div>
+                <div class="obd-metric">
+                    ${fmtVal(coolant, '°C', coolant !== null && coolant > 100 ? '#ef4444' : '#f97316')}
+                    <div class="obd-metric-label"><i class="fas fa-thermometer-half"></i> Coolant</div>
+                </div>
+                <div class="obd-metric">
+                    ${fmtVal(engineLoad, '%', '#e040fb')}
+                    <div class="obd-metric-label"><i class="fas fa-cogs"></i> Eng. Load</div>
+                </div>
+                <div class="obd-metric">
+                    ${odometer !== null ? `<div class="obd-metric-value" style="color:#94a3b8">${odometer}</div>` : `<div class="obd-metric-value" style="color:#4b5563">—</div>`}
+                    <div class="obd-metric-label"><i class="fas fa-road"></i> km Odo</div>
+                </div>
+            </div>
+            ${vin ? `<div class="obd-vin-row"><i class="fas fa-fingerprint"></i><span>VIN: <strong style="color:var(--text-primary);font-family:monospace;">${vin}</strong></span></div>` : ''}
+            ${odometer !== null ? `<div class="obd-odo-row"><i class="fas fa-road"></i><span>Odometer: <strong style="color:var(--text-primary);">${odometer} km</strong></span></div>` : ''}
+        </div>`;
+    }).join('');
+}
+
+// Refresh DTC fault codes panel from live obdDataMap
+window.refreshDTCCodes = function() {
+    const container = document.getElementById('dtc-codes-list');
+    if (!container) return;
+
+    if (typeof allVehicles === 'undefined') {
+        container.innerHTML = '<p class="empty-state">No vehicles loaded.</p>';
+        return;
+    }
+
+    const allDTCs = [];
+    allVehicles.forEach(v => {
+        const obd = obdDataMap[v.id];
+        if (obd && obd.dtc) {
+            const dtcList = Array.isArray(obd.dtc) ? obd.dtc : (obd.dtc ? [obd.dtc] : []);
+            dtcList.forEach(code => {
+                if (code) allDTCs.push({ code: String(code).toUpperCase(), vehicle: v.name || 'Vehicle ' + v.id });
+            });
+        }
+    });
+
+    if (allDTCs.length === 0) {
+        container.innerHTML = '<p class="empty-state" style="color:#10b981;"><i class="fas fa-check-circle"></i> No active DTC fault codes detected.</p>';
+        return;
+    }
+
+    const dtcDescriptions = {
+        'P0100': 'MAF Sensor Circuit Malfunction',
+        'P0171': 'System Too Lean (Bank 1)',
+        'P0172': 'System Too Rich (Bank 1)',
+        'P0300': 'Random Misfire Detected',
+        'P0420': 'Catalyst System Efficiency Below Threshold',
+        'P0442': 'Evaporative Emission Control System Leak',
+        'P0500': 'Vehicle Speed Sensor Malfunction',
+    };
+
+    container.innerHTML = allDTCs.map(d => `
+        <div class="dtc-item">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span class="dtc-code">${d.code}</span>
+            <span class="dtc-desc">${dtcDescriptions[d.code] || 'Engine fault code'}</span>
+            <span class="dtc-vehicle">${d.vehicle}</span>
+        </div>
+    `).join('');
+};
+
 // --- Intel Analytics Functions ---
 
 async function loadIntelAnalytics() {
@@ -3705,12 +3845,68 @@ async function loadIntelAnalytics() {
     
     // Load all analytics data for Intel tab
     await Promise.all([
+        loadFleetHealthForIntel(),
         loadDriverBehaviorForIntel(startDate, endDate),
         loadFuelCostForIntel(startDate, endDate),
         loadUsageProductivityForIntel(startDate, endDate),
         loadComplianceForIntel()
     ]);
 }
+
+// Fleet Health summary chip display
+async function loadFleetHealthForIntel() {
+    const summaryEl = document.getElementById('report-health-summary');
+    const chartEl = document.getElementById('chart-fleet-health');
+    if (!summaryEl || !chartEl) return;
+
+    // Build from live vehicle state
+    if (typeof allVehicles === 'undefined' || allVehicles.length === 0) {
+        summaryEl.textContent = 'No fleet data available';
+        chartEl.innerHTML = '';
+        return;
+    }
+
+    let moving = 0, idle = 0, stationary = 0, offline = 0;
+    allVehicles.forEach(v => {
+        const pos = vehiclePositions ? vehiclePositions[v.id] : null;
+        if (!pos) { offline++; return; }
+        const age = (new Date() - new Date(pos.timestamp)) / 60000;
+        if (age > 30) { offline++; }
+        else if (pos.speed > 5) { moving++; }
+        else if (pos.ignition) { idle++; }
+        else { stationary++; }
+    });
+
+    const total = allVehicles.length;
+    const healthScore = total > 0 ? Math.round(((total - offline) / total) * 100) : 0;
+    summaryEl.innerHTML = `Fleet health: <strong style="color:${healthScore >= 80 ? '#10b981' : healthScore >= 50 ? '#f59e0b' : '#ef4444'}">${healthScore}%</strong> — ${total} vehicles total`;
+
+    chartEl.innerHTML = `
+        <div class="analytics-mini-chip">
+            <div class="analytics-mini-chip-value" style="color:#10b981">${moving}</div>
+            <div class="analytics-mini-chip-label">Moving</div>
+        </div>
+        <div class="analytics-mini-chip">
+            <div class="analytics-mini-chip-value" style="color:#f59e0b">${idle}</div>
+            <div class="analytics-mini-chip-label">Idling</div>
+        </div>
+        <div class="analytics-mini-chip">
+            <div class="analytics-mini-chip-value" style="color:#64748b">${stationary}</div>
+            <div class="analytics-mini-chip-label">Parked</div>
+        </div>
+        <div class="analytics-mini-chip">
+            <div class="analytics-mini-chip-value" style="color:#ef4444">${offline}</div>
+            <div class="analytics-mini-chip-label">Offline</div>
+        </div>
+        <div class="analytics-mini-chip" style="grid-column: span 2;">
+            <div class="analytics-mini-chip-value" style="color:${healthScore >= 80 ? '#10b981' : healthScore >= 50 ? '#f59e0b' : '#ef4444'}">${healthScore}%</div>
+            <div class="analytics-mini-chip-label">Health Score</div>
+        </div>
+    `;
+    // Override grid cols to fit 5 chips (3 + 2)
+    chartEl.style.gridTemplateColumns = 'repeat(3, 1fr)';
+}
+
 
 async function loadDriverBehaviorForIntel(start, end) {
     try {
