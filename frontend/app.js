@@ -161,11 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     initFleetAnalyticsCharts('fleet-performance-chart');
     
-    // Load analytics when analytics tab is opened
-    const analyticsTab = document.querySelector('[data-tab="tab-analytics"]');
-    if (analyticsTab) {
-        analyticsTab.addEventListener('click', () => {
-            setTimeout(() => loadAnalytics(), 100);
+    // Load analytics data when Intel tab is opened
+    const intelTab = document.querySelector('[data-tab="tab-reports"]');
+    if (intelTab) {
+        intelTab.addEventListener('click', () => {
+            setTimeout(() => loadIntelAnalytics(), 100);
         });
     }
 
@@ -3694,6 +3694,221 @@ function renderRules() {
             </div>
             `;
         }).join('');
+    }
+}
+
+// --- Intel Analytics Functions ---
+
+async function loadIntelAnalytics() {
+    const endDate = new Date().toISOString();
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    // Load all analytics data for Intel tab
+    await Promise.all([
+        loadDriverBehaviorForIntel(startDate, endDate),
+        loadFuelCostForIntel(startDate, endDate),
+        loadUsageProductivityForIntel(startDate, endDate),
+        loadComplianceForIntel()
+    ]);
+}
+
+async function loadDriverBehaviorForIntel(start, end) {
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/driver-performance?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load driver performance');
+        
+        const data = await response.json();
+        
+        const summaryEl = document.getElementById('report-behavior-summary');
+        const chartEl = document.getElementById('chart-behavior');
+        
+        if (!summaryEl || !chartEl) return;
+        
+        if (data.length === 0) {
+            summaryEl.textContent = 'No driver behavior data available';
+            return;
+        }
+        
+        // Calculate totals
+        const totalHarshBraking = data.reduce((sum, d) => sum + d.harsh_braking, 0);
+        const totalHarshAccel = data.reduce((sum, d) => sum + d.harsh_acceleration, 0);
+        const totalSpeeding = data.reduce((sum, d) => sum + d.speeding_events, 0);
+        
+        summaryEl.textContent = `${totalHarshBraking} harsh braking, ${totalHarshAccel} harsh acceleration, ${totalSpeeding} speeding events`;
+        
+        // Create simple chart
+        chartEl.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: ${totalHarshBraking > 5 ? '#ef4444' : '#10b981'}">${totalHarshBraking}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Harsh Braking</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: ${totalHarshAccel > 5 ? '#ef4444' : '#10b981'}">${totalHarshAccel}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Harsh Accel</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: ${totalSpeeding > 3 ? '#ef4444' : '#10b981'}">${totalSpeeding}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Speeding</div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Driver behavior error:', err);
+    }
+}
+
+async function loadFuelCostForIntel(start, end) {
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/fuel-efficiency?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load fuel efficiency');
+        
+        const data = await response.json();
+        
+        const summaryEl = document.getElementById('report-fuel-summary');
+        const chartEl = document.getElementById('chart-fuel');
+        
+        if (!summaryEl || !chartEl) return;
+        
+        if (data.length === 0) {
+            summaryEl.textContent = 'No fuel data available';
+            return;
+        }
+        
+        // Calculate totals
+        const totalCost = data.reduce((sum, d) => sum + d.total_cost, 0);
+        const totalFuel = data.reduce((sum, d) => sum + d.total_consumption, 0);
+        const avgEfficiency = data.reduce((sum, d) => sum + d.efficiency_kml, 0) / data.length;
+        
+        summaryEl.textContent = `Est. fuel cost: $${totalCost.toFixed(2)}, Avg efficiency: ${avgEfficiency.toFixed(2)} km/L`;
+        
+        // Create simple chart
+        chartEl.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary);">$${totalCost.toFixed(0)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Total Cost</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--secondary);">${totalFuel.toFixed(0)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Total Fuel (L)</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #10b981;">${avgEfficiency.toFixed(1)}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Avg km/L</div>
+                </div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Fuel cost error:', err);
+    }
+}
+
+async function loadUsageProductivityForIntel(start, end) {
+    try {
+        const response = await window.AuthManager.fetchAPI(`/analytics/vehicle-utilization?start_date=${start}&end_date=${end}`);
+        if (!response.ok) throw new Error('Failed to load vehicle utilization');
+        
+        const data = await response.json();
+        
+        const summaryEl = document.getElementById('report-usage-summary');
+        const chartEl = document.getElementById('chart-usage-canvas');
+        
+        if (!summaryEl) return;
+        
+        if (data.length === 0) {
+            summaryEl.textContent = 'No utilization data available';
+            return;
+        }
+        
+        // Calculate averages
+        const avgUtilization = data.reduce((sum, d) => sum + d.utilization_rate, 0) / data.length;
+        const totalMoving = data.reduce((sum, d) => sum + d.moving_minutes, 0);
+        const totalIdle = data.reduce((sum, d) => sum + d.idle_minutes, 0);
+        
+        summaryEl.textContent = `Fleet utilization: ${avgUtilization.toFixed(1)}%, Moving: ${(totalMoving / 60).toFixed(1)}h, Idle: ${(totalIdle / 60).toFixed(1)}h`;
+        
+        // Update chart if canvas exists
+        if (chartEl) {
+            // Simple bar chart using Chart.js if available
+            if (typeof Chart !== 'undefined') {
+                const ctx = chartEl.getContext('2d');
+                
+                // Destroy existing chart if any
+                if (chartEl.chart) {
+                    chartEl.chart.destroy();
+                }
+                
+                chartEl.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.device_name),
+                        datasets: [{
+                            label: 'Utilization %',
+                            data: data.map(d => d.utilization_rate),
+                            backgroundColor: 'rgba(45, 95, 109, 0.8)',
+                            borderColor: 'rgba(45, 95, 109, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8', maxRotation: 45 },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        console.error('Usage productivity error:', err);
+    }
+}
+
+async function loadComplianceForIntel() {
+    try {
+        const response = await window.AuthManager.fetchAPI('/analytics/maintenance-status');
+        if (!response.ok) throw new Error('Failed to load maintenance status');
+        
+        const data = await response.json();
+        
+        const summaryEl = document.getElementById('report-compliance-summary');
+        const listEl = document.getElementById('report-compliance-list');
+        
+        if (!summaryEl || !listEl) return;
+        
+        if (data.length === 0) {
+            summaryEl.textContent = 'No maintenance data available';
+            return;
+        }
+        
+        const overdue = data.filter(d => d.status === 'Overdue').length;
+        const dueSoon = data.filter(d => d.status === 'Due Soon').length;
+        const good = data.filter(d => d.status === 'Good').length;
+        
+        summaryEl.textContent = `${good} vehicles in good condition, ${dueSoon} due soon, ${overdue} overdue`;
+        
+        listEl.innerHTML = data.map(m => `
+            <div class="compliance-item ${m.status === 'Good' ? 'ok' : m.status === 'Due Soon' ? 'warning' : 'danger'}">
+                <i class="fas ${m.status === 'Good' ? 'fa-check' : m.status === 'Due Soon' ? 'fa-exclamation-triangle' : 'fa-times'}"></i>
+                ${m.device_name}: ${m.km_until_service.toFixed(0)}km until service
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Compliance error:', err);
     }
 }
 
