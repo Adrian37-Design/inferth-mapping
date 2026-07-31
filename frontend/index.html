@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=67">
+    <link rel="stylesheet" href="/static/app.css?v=68">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -418,70 +418,115 @@
                     <div class="savings-widget">
                         <h4>Estimated Monthly Savings</h4>
                         <div class="savings-amount" id="report-savings">$0</div>
-                        <p class="savings-subtext">Based on reduced idling & optimized routes</p>
+                        <p class="savings-subtext">Based on reduced idling &amp; optimized routes</p>
                     </div>
 
-                    <!-- 4-Quadrant Layout -->
-                    <div class="reports-grid">
-                        <!-- Quadrant 1: Usage -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-clock"></i> Usage & Productivity</h5>
+                    <!-- Intel Sub-tabs: Fleet Analytics | OBD Diagnostics -->
+                    <div class="intel-subtabs">
+                        <button class="intel-subtab active" id="intel-tab-analytics" onclick="switchIntelSubTab('analytics')">
+                            <i class="fas fa-chart-bar"></i> Fleet Analytics
+                        </button>
+                        <button class="intel-subtab" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
+                            <i class="fas fa-microchip"></i> CAN / OBD
+                        </button>
+                    </div>
+
+                    <!-- ===== Phase 8: Fleet Analytics ===== -->
+                    <div id="intel-section-analytics" class="intel-section">
+                        <div class="reports-grid">
+
+                            <!-- Fleet Health -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-heartbeat"></i> Fleet Health</h5>
+                                    <span class="badge-live">LIVE</span>
+                                </div>
+                                <div class="report-summary" id="report-health-summary">Loading fleet health...</div>
+                                <div id="chart-fleet-health" class="chart-placeholder analytics-mini-grid"></div>
                             </div>
-                            <div class="report-summary" id="report-usage-summary">
-                                Cumulative fleet utilization (Today).
+
+                            <!-- Driver Performance -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-user-shield"></i> Driver Performance</h5>
+                                </div>
+                                <div class="report-summary" id="report-behavior-summary">Loading driver data...</div>
+                                <div class="chart-placeholder" id="chart-behavior"></div>
                             </div>
-                            <div class="chart-holder">
-                                <canvas id="chart-usage-canvas"></canvas>
+
+                            <!-- Fuel Efficiency -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-gas-pump"></i> Fuel Efficiency</h5>
+                                </div>
+                                <div class="report-summary" id="report-fuel-summary">Loading fuel data...</div>
+                                <div class="chart-placeholder" id="chart-fuel"></div>
+                            </div>
+
+                            <!-- Vehicle Utilization -->
+                            <div class="report-card">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-clock"></i> Vehicle Utilization</h5>
+                                </div>
+                                <div class="report-summary" id="report-usage-summary">Loading utilization...</div>
+                                <div class="chart-holder">
+                                    <canvas id="chart-usage-canvas"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Maintenance Status (full width) -->
+                            <div class="report-card" style="grid-column: 1 / -1;">
+                                <div class="report-card-header">
+                                    <h5><i class="fas fa-clipboard-check"></i> Maintenance Status</h5>
+                                </div>
+                                <div class="report-summary" id="report-compliance-summary">Loading maintenance...</div>
+                                <div class="compliance-list" id="report-compliance-list">
+                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
+                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
+                                </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Quadrant 2: Behavior -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-user-shield"></i> Driver Behavior</h5>
-                            </div>
-                            <div class="report-summary" id="report-behavior-summary">
-                                3 harsh braking events detected.
-                            </div>
-                            <div class="chart-placeholder" id="chart-behavior"></div>
+                    <!-- ===== Phase 7: CAN / OBD Diagnostics ===== -->
+                    <div id="intel-section-obd" class="intel-section hidden">
+
+                        <!-- Compatibility Notice -->
+                        <div class="obd-notice">
+                            <i class="fas fa-info-circle"></i>
+                            Requires a CAN/OBD-compatible tracker such as
+                            <strong>Teltonika FMC003</strong> or <strong>FMB140</strong>.
+                            Data shown is real-time from live telemetry.
                         </div>
 
-                        <!-- Quadrant 3: Fuel -->
-                        <div class="report-card">
+                        <!-- Fleet OBD Summary bar charts -->
+                        <div class="report-card" style="margin-bottom: 12px;">
                             <div class="report-card-header">
-                                <h5><i class="fas fa-gas-pump"></i> Fuel & Cost</h5>
-                            </div>
-                            <div class="report-summary" id="report-fuel-summary">
-                                Est. fuel cost: $1,200 (Mock)
-                            </div>
-                            <div class="chart-placeholder" id="chart-fuel"></div>
-                        </div>
-
-                        <!-- Quadrant 4: Compliance -->
-                        <div class="report-card">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-clipboard-check"></i> Compliance</h5>
-                            </div>
-                            <div class="report-summary" id="report-compliance-summary">
-                                All vehicles active within hours.
-                            </div>
-                            <div class="compliance-list" id="report-compliance-list">
-                                <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
-                                <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
-                            </div>
-                        </div>
-
-                        <!-- Quadrant 5: OBD Diagnostics -->
-                        <div class="report-card" style="grid-column: 1 / -1;">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-microchip"></i> Live Engine Diagnostics</h5>
+                                <h5><i class="fas fa-tachometer-alt"></i> Live Engine Diagnostics</h5>
+                                <span class="badge-live">LIVE</span>
                             </div>
                             <div class="report-summary" id="report-obd-summary" style="margin-bottom: 10px;">
                                 Awaiting real-time telemetry...
                             </div>
-                            <div class="chart-placeholder" id="chart-obd" style="min-height: 120px;">
-                                <!-- OBD Metrics rendered by JS -->
+                            <div class="chart-placeholder" id="chart-obd" style="min-height: 140px;"></div>
+                        </div>
+
+                        <!-- Per-vehicle OBD cards -->
+                        <h5 style="color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; margin: 10px 0 8px;">
+                            <i class="fas fa-car"></i> Per-Vehicle Diagnostics
+                        </h5>
+                        <div id="obd-vehicle-cards" class="obd-vehicle-grid">
+                            <p class="empty-state">No OBD telemetry received yet.</p>
+                        </div>
+
+                        <!-- DTC Fault Codes -->
+                        <div class="report-card" style="margin-top: 12px;">
+                            <div class="report-card-header">
+                                <h5><i class="fas fa-exclamation-triangle"></i> DTC Fault Codes</h5>
+                                <button class="btn-text btn-sm" onclick="refreshDTCCodes()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                            </div>
+                            <div id="dtc-codes-list" class="dtc-list">
+                                <p class="empty-state">No active fault codes detected.</p>
                             </div>
                         </div>
                     </div>
