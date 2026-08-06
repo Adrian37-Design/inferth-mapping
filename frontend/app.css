@@ -887,6 +887,254 @@ body {
         /* Moved up significantly to avoid mobile nav bars */
         right: 15px;
     }
+    
+    /* Navbar adjustments */
+    .navbar {
+        padding: 10px 15px;
+        height: 60px;
+    }
+    
+    .nav-brand {
+        font-size: 1.2em;
+    }
+    
+    .brand-logo {
+        height: 35px;
+        max-width: 120px;
+    }
+    
+    .nav-stats {
+        gap: 10px;
+    }
+    
+    .stat-item {
+        padding: 8px 12px;
+        font-size: 0.8em;
+    }
+    
+    .map-btn span,
+    .logout-btn span {
+        display: none;
+    }
+    
+    /* Sidebar adjustments */
+    .sidebar-rail {
+        width: 50px;
+    }
+    
+    .rail-label {
+        display: none;
+    }
+    
+    .sidebar-panel {
+        width: 85%;
+        max-width: 350px;
+    }
+    
+    /* Analytics grid mobile */
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .analytics-metrics {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Reports grid mobile */
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* KPI cards mobile */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .kpi-card {
+        padding: 12px;
+    }
+    
+    .kpi-value {
+        font-size: 1.2em;
+    }
+    
+    .kpi-label {
+        font-size: 0.7em;
+    }
+    
+    /* Timeline slider mobile */
+    .timeline-slider-container {
+        bottom: -70px;
+        height: 60px;
+    }
+    
+    /* Modal mobile */
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    /* Vehicle list mobile */
+    .vehicle-item {
+        padding: 12px;
+    }
+    
+    .vehicle-name {
+        font-size: 0.9em;
+    }
+    
+    /* Action buttons mobile */
+    .action-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .action-btn {
+        padding: 10px;
+        font-size: 0.8em;
+    }
+    
+    .action-btn span {
+        font-size: 0.75em;
+    }
+    
+    /* Detail view mobile */
+    .detail-scroll-area {
+        padding: 10px;
+    }
+    
+    .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .status-item {
+        padding: 8px;
+    }
+    
+    .status-value {
+        font-size: 0.9em;
+    }
+    
+    /* OBD metrics mobile */
+    .obd-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* DTC list mobile */
+    .dtc-item {
+        padding: 6px 10px;
+        font-size: 0.75em;
+    }
+    
+    /* Chart containers mobile */
+    .chart-container {
+        height: 200px;
+    }
+    
+    /* Report controls mobile */
+    .reports-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .report-control-group {
+        width: 100%;
+    }
+    
+    .report-export-group {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .report-export-group button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small mobile adjustments */
+    .navbar {
+        padding: 8px 10px;
+        height: 55px;
+    }
+    
+    .nav-brand {
+        font-size: 1em;
+    }
+    
+    .brand-logo {
+        height: 30px;
+        max-width: 100px;
+    }
+    
+    .nav-stats {
+        gap: 5px;
+    }
+    
+    .stat-item {
+        padding: 6px 10px;
+        font-size: 0.75em;
+    }
+    
+    .stat-item span {
+        display: none;
+    }
+    
+    /* Sidebar rail minimal */
+    .sidebar-rail {
+        width: 45px;
+    }
+    
+    .rail-item {
+        padding: 8px 0;
+    }
+    
+    .rail-item i {
+        font-size: 1.2em;
+    }
+    
+    /* KPI cards minimal */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+    
+    .kpi-card {
+        padding: 10px;
+    }
+    
+    .kpi-value {
+        font-size: 1em;
+    }
+    
+    .kpi-label {
+        font-size: 0.65em;
+    }
+    
+    /* Status grid minimal */
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Analytics cards minimal */
+    .analytics-card {
+        padding: 12px;
+    }
+    
+    .analytics-card-header h5 {
+        font-size: 0.85em;
+    }
+    
+    .metric-value {
+        font-size: 0.85em;
+    }
+    
+    .metric-label {
+        font-size: 0.7em;
+    }
 }
 
 .control-btn {
