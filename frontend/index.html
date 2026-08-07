@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=69">
+    <link rel="stylesheet" href="/static/app.css?v=70">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -788,13 +788,13 @@
 
             <!-- Route Controls (Hidden by default) -->
             <div class="route-controls hidden" id="route-controls">
-                <button class="control-btn" id="play-route" title="Play Route">
+                <button class="control-btn" id="play-route" title="Play Route" onclick="playRoute()">
                     <i class="fas fa-play"></i>
                 </button>
-                <button class="control-btn" id="pause-route" title="Pause">
+                <button class="control-btn" id="pause-route" title="Pause" onclick="pauseRoute()">
                     <i class="fas fa-pause"></i>
                 </button>
-                <button class="control-btn" id="stop-route" title="Stop">
+                <button class="control-btn" id="stop-route" title="Stop" onclick="stopRouteAndExit()">
                     <i class="fas fa-stop"></i>
                 </button>
                 <div class="mode-selector">
@@ -812,14 +812,6 @@
                     <input type="range" id="timeline-slider" min="0" max="100" value="0" style="width: 100%; cursor: pointer;">
                 </div>
             </div>
-        </div>
-
-        <!-- Floating Action Buttons -->
-        <!-- Only map-specific tools remain -->
-        <div class="fab-container">
-            <button class="fab" id="center-map" title="Center Map">
-                <i class="fas fa-crosshairs"></i>
-            </button>
         </div>
     </div>
 

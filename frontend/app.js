@@ -2612,153 +2612,6 @@ async function showRoute() {
     }
 }
 
-// Play route animation
-function playRoute() {
-    if (!playbackRoute || playbackRoute.length === 0) {
-        alert('No route loaded');
-        return;
-    }
-
-    // If Cluster mode, ensure dots are visible before starting animation
-    if (playbackViewMode === 'cluster') {
-        renderClusterMode();
-    }
-
-    // Stop existing playback (keep history state)
-    stopRoute(false);
-
-    playbackIndex = 0;
-    const speed = parseInt(document.getElementById('playback-speed').value);
-    const interval = 1000 / speed; // milliseconds per frame
-
-    // Create or update playback marker
-    if (playbackMarker) {
-        map.removeLayer(playbackMarker);
-    }
-
-    const icon = L.divIcon({
-        html: '<i class="fas fa-location-arrow" style="color: #ffd700; font-size: 24px;"></i>',
-        className: 'playback-marker',
-        iconSize: [30, 30]
-    });
-
-    playbackMarker = L.marker([playbackRoute[0].lat, playbackRoute[0].lng], { icon: icon }).addTo(map);
-
-    playbackInterval = setInterval(() => {
-        if (playbackIndex >= playbackRoute.length) {
-            stopRoute();
-            return;
-        }
-
-        const point = playbackRoute[playbackIndex];
-        playbackMarker.setLatLng([point.lat, point.lng]);
-        
-        // Dynamic address resolution in popup
-        playbackMarker.bindPopup(`
-            <div class="playback-popup">
-                <strong>Time:</strong> ${new Date(point.timestamp).toLocaleString()}<br>
-                <strong>Speed:</strong> ${Math.round(point.speed)} km/h<br>
-                <div id="playback-addr">Resolving address...</div>
-            </div>
-        `).openPopup();
-
-        setTimeout(async () => {
-            // Only update address every 10 points to save API quota, unless it's the first/last point
-            if (playbackIndex % 10 === 0 || playbackIndex === 1 || playbackIndex >= playbackRoute.length - 1) {
-                const addr = await getAddress(point.lat, point.lng);
-                const addrEl = document.getElementById('playback-addr');
-                if (addrEl) addrEl.innerHTML = `<strong>Street:</strong> ${addr || 'Unknown'}`;
-            }
-        }, 50);
-
-        map.panTo([point.lat, point.lng]);
-        playbackIndex++;
-    }, interval);
-}
-
-// Cluster mode implementation: Show all points as dots
-function renderClusterMode() {
-    if (!playbackRoute) return;
-    
-    // Clear existing cluster dots
-    historyMarkers = historyMarkers.filter(m => {
-        if (m._isClusterDot) {
-            map.removeLayer(m);
-            return false;
-        }
-        return true;
-    });
-
-    playbackRoute.forEach(point => {
-        const isMoving = point.speed > 3;
-        const color = isMoving ? "#00ff88" : "#ff4444"; // Green for moving, Red for stationary
-        
-        const dot = L.circleMarker([point.lat, point.lng], {
-            radius: 4,
-            fillColor: color,
-            color: "#fff",
-            weight: 1,
-            opacity: 0.8,
-            fillOpacity: 0.8
-        });
-
-        dot._isClusterDot = true;
-        dot.bindPopup(`
-            <b>Time:</b> ${new Date(point.timestamp).toLocaleString()}<br>
-            <b>Speed:</b> ${Math.round(point.speed)} km/h
-        `);
-
-        dot.addTo(map);
-        historyMarkers.push(dot);
-    });
-}
-
-// Pause route playback
-function pauseRoute() {
-    if (playbackInterval) {
-        clearInterval(playbackInterval);
-        playbackInterval = null;
-    }
-}
-
-// Stop route playback (Optional: Exits history view)
-function stopRoute(clearAll = true) {
-    pauseRoute();
-    playbackIndex = 0;
-    if (playbackMarker) {
-        map.removeLayer(playbackMarker);
-        playbackMarker = null;
-    }
-
-    if (clearAll) {
-        // Clear historical route lines
-        if (selectedVehicle && routes[selectedVehicle.id]) {
-            map.removeLayer(routes[selectedVehicle.id]);
-            delete routes[selectedVehicle.id];
-        }
-
-        // Restore real-time markers
-        isHistoryMode = false;
-        Object.values(markers).forEach(m => {
-            if (m instanceof L.Marker && !map.hasLayer(m)) {
-                m.addTo(map);
-            }
-        });
-
-
-        // Hide controls
-        document.getElementById('route-controls').classList.add('hidden');
-
-        // Reset timeline view
-        const timeline = document.getElementById('detail-timeline');
-        if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
-
-        // Clear history markers
-        historyMarkers.forEach(m => map.removeLayer(m));
-        historyMarkers = [];
-    }
-}
-
 // Close modal helper function
 function closeModal() {
     document.getElementById('add-vehicle-modal').classList.add('hidden');
@@ -3172,27 +3025,93 @@ if (timelineSlider) {
 }
 
 // ============================================================
-// Playback functions (smooth interpolated animation)
+// Robust Telemetry & Route Point Filtering (Fixes Starburst Fans & Jumps)
 // ============================================================
+function filterValidRoutePoints(points) {
+    if (!Array.isArray(points) || points.length === 0) return [];
+
+    // 1. Sort chronologically by timestamp
+    const sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // 2. Filter invalid / zero / NaN coords
+    const validCoords = sorted.filter(p => {
+        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return false;
+        if (isNaN(p.lat) || isNaN(p.lng)) return false;
+        if (Math.abs(p.lat) < 0.01 && Math.abs(p.lng) < 0.01) return false;
+        return true;
+    });
+
+    if (validCoords.length < 2) return validCoords;
+
+    // 3. Filter out anomalous jumps / ping-ponging back to default hubs (e.g. Kadoma)
+    const cleanPoints = [validCoords[0]];
+
+    for (let i = 1; i < validCoords.length; i++) {
+        const prev = cleanPoints[cleanPoints.length - 1];
+        const curr = validCoords[i];
+
+        const dtSeconds = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 1000;
+
+        // Calculate distance in km (Haversine formula)
+        const dLat = (curr.lat - prev.lat) * Math.PI / 180;
+        const dLng = (curr.lng - prev.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(prev.lat * Math.PI / 180) * Math.cos(curr.lat * Math.PI / 180) *
+                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Skip exact duplicate points
+        if (distKm < 0.001) continue;
+
+        // If time difference < 5 mins and jump requires impossible speed > 180 km/h:
+        if (dtSeconds > 0 && dtSeconds < 300) {
+            const speedKmh = (distKm / (dtSeconds / 3600));
+            if (speedKmh > 180) {
+                // If there is a next point, check if next point returns near prev
+                if (i + 1 < validCoords.length) {
+                    const next = validCoords[i + 1];
+                    const dLatNext = (next.lat - prev.lat) * Math.PI / 180;
+                    const dLngNext = (next.lng - prev.lng) * Math.PI / 180;
+                    const aNext = Math.sin(dLatNext / 2) * Math.sin(dLatNext / 2) +
+                                  Math.cos(prev.lat * Math.PI / 180) * Math.cos(next.lat * Math.PI / 180) *
+                                  Math.sin(dLngNext / 2) * Math.sin(dLngNext / 2);
+                    const distNextKm = 6371 * 2 * Math.atan2(Math.sqrt(aNext), Math.sqrt(1 - aNext));
+
+                    if (distNextKm < 5) {
+                        // curr is a temporary anomalous jump! Skip it.
+                        continue;
+                    }
+                }
+            }
+        }
+
+        cleanPoints.push(curr);
+    }
+
+    return cleanPoints;
+}
+
+// ============================================================
+// Playback Engine (Smooth 60fps Interpolation & Unified Controls)
+// ============================================================
+let markerAnimFrame = null;
+
 function playRoute() {
     if (!playbackRoute || playbackRoute.length === 0) return;
 
-    // Sort route by timestamp before playback
-    playbackRoute = [...playbackRoute].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    playbackRoute = filterValidRoutePoints(playbackRoute);
+    if (playbackRoute.length === 0) return;
 
-    // Clear existing interval
     if (playbackInterval) clearInterval(playbackInterval);
 
-    // Start from current index or beginning
-    if (playbackIndex >= playbackRoute.length) playbackIndex = 0;
+    if (playbackIndex >= playbackRoute.length - 1) playbackIndex = 0;
 
-    // Initialize timeline slider
+    const timelineSlider = document.getElementById('timeline-slider');
     if (timelineSlider) {
         timelineSlider.max = playbackRoute.length - 1;
         timelineSlider.value = playbackIndex;
     }
 
-    // Create or reuse playback marker
     const startPt = playbackRoute[playbackIndex];
     if (!playbackMarker) {
         playbackMarker = L.marker([startPt.lat, startPt.lng], {
@@ -3208,7 +3127,7 @@ function playRoute() {
 
     const speedInput = document.getElementById('playback-speed');
     const speed = speedInput ? parseFloat(speedInput.value) : 1;
-    const interval = Math.max(30, 400 / speed);
+    const interval = Math.max(40, 500 / speed);
 
     playbackInterval = setInterval(() => {
         if (playbackIndex >= playbackRoute.length - 1) {
@@ -3231,42 +3150,36 @@ function pauseRoute() {
     }
 }
 
-// Stop and fully exit back to live tracking
 function stopRouteAndExit() {
-    // Stop interval
-    if (playbackInterval) {
-        clearInterval(playbackInterval);
-        playbackInterval = null;
-    }
+    pauseRoute();
     playbackIndex = 0;
 
-    // Remove playback marker
+    if (markerAnimFrame) {
+        cancelAnimationFrame(markerAnimFrame);
+        markerAnimFrame = null;
+    }
+
     if (playbackMarker) {
         map.removeLayer(playbackMarker);
         playbackMarker = null;
     }
 
-    // Clear history polyline
     if (selectedVehicle && routes[selectedVehicle.id]) {
         map.removeLayer(routes[selectedVehicle.id]);
         delete routes[selectedVehicle.id];
     }
 
-    // Clear history markers (start/end dots)
     historyMarkers.forEach(m => { try { map.removeLayer(m); } catch(e){} });
     historyMarkers = [];
 
-    // Reset timeline slider
+    const timelineSlider = document.getElementById('timeline-slider');
     if (timelineSlider) timelineSlider.value = 0;
 
-    // Clear playback data
     playbackRoute = null;
 
-    // Hide route controls
     const routeControls = document.getElementById('route-controls');
     if (routeControls) routeControls.classList.add('hidden');
 
-    // Restore live-tracking markers
     isHistoryMode = false;
     Object.values(markers).forEach(m => {
         if (m instanceof L.Marker && !map.hasLayer(m)) {
@@ -3274,52 +3187,53 @@ function stopRouteAndExit() {
         }
     });
 
-    // Reset timeline UI
     const timeline = document.getElementById('detail-timeline');
     if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
 
-    // Re-expand sidebar
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.remove('collapsed');
     setTimeout(() => { if (map) map.invalidateSize(); }, 350);
 }
 
-// Smooth interpolated marker movement (fixes jumping)
 function updatePlaybackMarker(index) {
     if (!playbackRoute || index >= playbackRoute.length || !playbackMarker) return;
 
     const point = playbackRoute[index];
-    const targetLatLng = L.latLng(point.lat, point.lng);
+    const targetLat = point.lat;
+    const targetLng = point.lng;
 
-    // Interpolate smoothly using requestAnimationFrame
+    if (markerAnimFrame) cancelAnimationFrame(markerAnimFrame);
+
     const startLatLng = playbackMarker.getLatLng();
     const startTime = performance.now();
-    const duration = 300; // ms for smooth transition
+    const duration = 250;
 
-    function animateStep(now) {
-        const elapsed = now - startTime;
-        const t = Math.min(elapsed / duration, 1);
-        const lat = startLatLng.lat + (targetLatLng.lat - startLatLng.lat) * t;
-        const lng = startLatLng.lng + (targetLatLng.lng - startLatLng.lng) * t;
-        if (playbackMarker) playbackMarker.setLatLng([lat, lng]);
-        if (t < 1) requestAnimationFrame(animateStep);
+    function step(now) {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const ease = 1 - (1 - progress) * (1 - progress);
+
+        const curLat = startLatLng.lat + (targetLat - startLatLng.lat) * ease;
+        const curLng = startLatLng.lng + (targetLng - startLatLng.lng) * ease;
+
+        if (playbackMarker) {
+            playbackMarker.setLatLng([curLat, curLng]);
+        }
+
+        if (progress < 1) {
+            markerAnimFrame = requestAnimationFrame(step);
+        }
     }
-    requestAnimationFrame(animateStep);
+    markerAnimFrame = requestAnimationFrame(step);
 
-    // Pan map smoothly
-    map.panTo(targetLatLng, { animate: true, duration: 0.3 });
-
-    // Update popup with current info
-    if (playbackMarker) {
-        playbackMarker.bindPopup(
-            `<div style="font-size:0.82rem;line-height:1.6">
-                <strong>${new Date(point.timestamp).toLocaleTimeString()}</strong><br>
-                Speed: ${Math.round(point.speed || 0)} km/h
-             </div>`,
-            { autoPan: false }
-        );
-    }
+    map.panTo([targetLat, targetLng], { animate: true, duration: 0.25 });
 }
+
+// Bind functions globally to window so HTML inline onclick="playRoute()", etc. ALWAYS work
+window.playRoute = playRoute;
+window.pauseRoute = pauseRoute;
+window.stopRoute = stopRouteAndExit;
+window.stopRouteAndExit = stopRouteAndExit;
+window.filterValidRoutePoints = filterValidRoutePoints;
 
 // Add Vehicle Button
 const addVehicleBtn = document.getElementById('add-vehicle');
