@@ -3468,3 +3468,61 @@ body {
     color: var(--text-secondary);
     margin-top: 3px;
 }
+
+/* ===== Map Type Control (Streets / Satellite / Terrain) ===== */
+.map-type-control {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 4px;
+    display: flex;
+    gap: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    margin-bottom: 25px !important;
+    margin-right: 15px !important;
+}
+
+.map-type-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #94a3b8);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.map-type-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.map-type-btn.active {
+    background: linear-gradient(135deg, var(--primary, #00d4ff), #0088ff);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+}
+
+/* ===== Locate Vehicle Button in Fleet List ===== */
+.locate-vehicle-btn {
+    background: rgba(0, 212, 255, 0.15);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: var(--primary-light, #00d4ff);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.locate-vehicle-btn:hover {
+    background: var(--primary, #00d4ff);
+    color: #000;
+    transform: scale(1.05);
+}
+
