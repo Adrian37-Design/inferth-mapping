@@ -78,12 +78,62 @@ window.triggerAlertAction = function () {
 // Initialize map
 function initMap() {
     if (map) return; // Prevent double initialization
-    map = L.map('map').setView([-17.8252, 31.0335], 12);
+    map = L.map('map', { zoomControl: false }).setView([-17.8252, 31.0335], 12);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap | Inferth Mapping',
-        maxZoom: 19
-    }).addTo(map);
+    // --- Tile Layer Definitions ---
+    const tileLayers = {
+        'Streets': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap | Inferth Mapping',
+            maxZoom: 19
+        }),
+        'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 19
+        }),
+        'Terrain': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenTopoMap (CC-BY-SA)',
+            maxZoom: 17
+        })
+    };
+
+    // Add default layer
+    tileLayers['Streets'].addTo(map);
+
+    // --- Custom Map Type Toggle Button ---
+    const MapTypeControl = L.Control.extend({
+        options: { position: 'bottomright' },
+        onAdd: function () {
+            const container = L.DomUtil.create('div', 'map-type-control');
+            const layers = Object.keys(tileLayers);
+            const icons = { 'Streets': 'fa-map', 'Satellite': 'fa-satellite', 'Terrain': 'fa-mountain' };
+            let currentLayer = tileLayers['Streets'];
+            let currentName = 'Streets';
+
+            layers.forEach(name => {
+                const btn = L.DomUtil.create('button', 'map-type-btn', container);
+                btn.title = name;
+                btn.innerHTML = `<i class="fas ${icons[name]}"></i><span>${name}</span>`;
+                if (name === 'Streets') btn.classList.add('active');
+
+                L.DomEvent.on(btn, 'click', function (e) {
+                    L.DomEvent.stopPropagation(e);
+                    if (name === currentName) return;
+                    map.removeLayer(currentLayer);
+                    tileLayers[name].addTo(map);
+                    currentLayer = tileLayers[name];
+                    currentName = name;
+                    container.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                });
+            });
+
+            return container;
+        }
+    });
+    new MapTypeControl().addTo(map);
+
+    // Zoom control top-right
+    L.control.zoom({ position: 'topright' }).addTo(map);
 }
 
 // Initialize application
@@ -1708,6 +1758,9 @@ async function loadVehicles() {
                     </div>
                 </div>
                 <div class="action-buttons">
+                    <button class="locate-vehicle-btn" data-id="${vehicle.id}" title="Locate on Map">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
                     ${window.AuthManager.canEdit() ? `
                     <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
                         <i class="fas fa-edit"></i>
@@ -1725,6 +1778,36 @@ async function loadVehicles() {
                     selectVehicle(vehicle);
                 }
             });
+
+            // Locate on map button
+            const locateBtn = card.querySelector('.locate-vehicle-btn');
+            if (locateBtn) {
+                locateBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const marker = markers[vehicle.id];
+                    const pos = vehiclePositions[vehicle.id];
+                    let lat, lng;
+                    if (marker && typeof marker.getLatLng === 'function') {
+                        const ll = marker.getLatLng();
+                        lat = ll.lat; lng = ll.lng;
+                    } else if (pos) {
+                        lat = pos.lat; lng = pos.lng;
+                    }
+                    if (lat && lng) {
+                        // Collapse sidebar, fly to vehicle
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar) sidebar.classList.add('collapsed');
+                        setTimeout(() => {
+                            if (map) map.invalidateSize();
+                            map.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
+                            if (marker) marker.openPopup();
+                        }, 300);
+                    } else {
+                        // Show the map button and switch to map view
+                        window.showFullMap();
+                    }
+                });
+            }
 
             // Add edit button handler
             const editBtn = card.querySelector('.edit-vehicle-btn');
@@ -2872,18 +2955,32 @@ async function loadTrips() {
 }
 
 function showRoutePolyline(points) {
-    const coords = points.map(p => [p.lat, p.lng]);
+    if (!points || points.length === 0) return;
+    // Sort points by timestamp to avoid scattered/scrambled lines
+    const sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    // Filter out clearly invalid coordinates (e.g. 0,0 or huge jumps > 50km in one step)
+    const filtered = sorted.filter((p, i) => {
+        if (!p.lat || !p.lng || (Math.abs(p.lat) < 0.01 && Math.abs(p.lng) < 0.01)) return false;
+        if (i > 0) {
+            const prev = sorted[i - 1];
+            const dist = Math.sqrt(Math.pow(p.lat - prev.lat, 2) + Math.pow(p.lng - prev.lng, 2));
+            if (dist > 0.5) return false; // skip teleport jumps > ~55km
+        }
+        return true;
+    });
+    if (filtered.length < 2) return;
+    const coords = filtered.map(p => [p.lat, p.lng]);
     const polyline = L.polyline(coords, {
         color: '#00d4ff',
         weight: 4,
-        opacity: 0.7
+        opacity: 0.85,
+        smoothFactor: 1.5
     }).addTo(map);
-
-    if (routes[selectedVehicle.id]) {
+    if (selectedVehicle && routes[selectedVehicle.id]) {
         map.removeLayer(routes[selectedVehicle.id]);
     }
-    routes[selectedVehicle.id] = polyline;
-    map.fitBounds(polyline.getBounds());
+    if (selectedVehicle) routes[selectedVehicle.id] = polyline;
+    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 }
 
 // Connect to WebSocket
@@ -3037,23 +3134,30 @@ if (centerMapBtn) {
     });
 }
 
-// Safe playback controls
-const playRouteBtn = document.getElementById('play-route');
-if (playRouteBtn) playRouteBtn.addEventListener('click', playRoute);
+// Safe playback controls — wired inside DOMContentLoaded to ensure DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const playRouteBtn = document.getElementById('play-route');
+    if (playRouteBtn) playRouteBtn.addEventListener('click', () => playRoute());
 
-const pauseRouteBtn = document.getElementById('pause-route');
-if (pauseRouteBtn) pauseRouteBtn.addEventListener('click', pauseRoute);
+    const pauseRouteBtn = document.getElementById('pause-route');
+    if (pauseRouteBtn) pauseRouteBtn.addEventListener('click', () => pauseRoute());
 
-const stopRouteBtn = document.getElementById('stop-route');
-if (stopRouteBtn) stopRouteBtn.addEventListener('click', stopRoute);
+    const stopRouteBtn = document.getElementById('stop-route');
+    if (stopRouteBtn) stopRouteBtn.addEventListener('click', () => stopRouteAndExit());
 
-const playbackSpeedInput = document.getElementById('playback-speed');
-if (playbackSpeedInput) {
-    playbackSpeedInput.addEventListener('input', (e) => {
-        const valSpan = document.getElementById('speed-value');
-        if (valSpan) valSpan.textContent = `${e.target.value}x`;
-    });
-}
+    const playbackSpeedInput = document.getElementById('playback-speed');
+    if (playbackSpeedInput) {
+        playbackSpeedInput.addEventListener('input', (e) => {
+            const valSpan = document.getElementById('speed-value');
+            if (valSpan) valSpan.textContent = `${e.target.value}x`;
+            // If currently playing, restart with new speed
+            if (playbackInterval) {
+                pauseRoute();
+                playRoute();
+            }
+        });
+    }
+});
 
 // Timeline slider for scrubbing
 const timelineSlider = document.getElementById('timeline-slider');
@@ -3067,52 +3171,56 @@ if (timelineSlider) {
     });
 }
 
-// Playback functions
+// ============================================================
+// Playback functions (smooth interpolated animation)
+// ============================================================
 function playRoute() {
     if (!playbackRoute || playbackRoute.length === 0) return;
-    
+
+    // Sort route by timestamp before playback
+    playbackRoute = [...playbackRoute].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
     // Clear existing interval
     if (playbackInterval) clearInterval(playbackInterval);
-    
+
     // Start from current index or beginning
     if (playbackIndex >= playbackRoute.length) playbackIndex = 0;
-    
+
     // Initialize timeline slider
     if (timelineSlider) {
         timelineSlider.max = playbackRoute.length - 1;
         timelineSlider.value = playbackIndex;
     }
-    
-    // Create playback marker if not exists
+
+    // Create or reuse playback marker
+    const startPt = playbackRoute[playbackIndex];
     if (!playbackMarker) {
-        playbackMarker = L.marker([playbackRoute[0].lat, playbackRoute[0].lng], {
+        playbackMarker = L.marker([startPt.lat, startPt.lng], {
             icon: L.divIcon({
                 className: 'playback-marker',
-                html: '<div style="background: #00ff88; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-            })
+                html: '<div style="background:#00ff88;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 2px 10px rgba(0,255,136,0.6);"></div>',
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            }),
+            zIndexOffset: 1000
         }).addTo(map);
     }
-    
-    // Get playback speed
+
     const speedInput = document.getElementById('playback-speed');
     const speed = speedInput ? parseFloat(speedInput.value) : 1;
-    const interval = Math.max(50, 500 / speed); // Adjust interval based on speed
-    
+    const interval = Math.max(30, 400 / speed);
+
     playbackInterval = setInterval(() => {
         if (playbackIndex >= playbackRoute.length - 1) {
             clearInterval(playbackInterval);
             playbackInterval = null;
             return;
         }
-        
+
         playbackIndex++;
         updatePlaybackMarker(playbackIndex);
-        
-        // Update slider
+
         if (timelineSlider) timelineSlider.value = playbackIndex;
-        
     }, interval);
 }
 
@@ -3123,37 +3231,94 @@ function pauseRoute() {
     }
 }
 
-function stopRoute() {
+// Stop and fully exit back to live tracking
+function stopRouteAndExit() {
+    // Stop interval
     if (playbackInterval) {
         clearInterval(playbackInterval);
         playbackInterval = null;
     }
-    
     playbackIndex = 0;
-    
+
     // Remove playback marker
     if (playbackMarker) {
         map.removeLayer(playbackMarker);
         playbackMarker = null;
     }
-    
-    // Reset slider
-    if (timelineSlider) timelineSlider.value = 0;
-    
-    // Reset to start of route
-    if (playbackRoute && playbackRoute.length > 0) {
-        map.setView([playbackRoute[0].lat, playbackRoute[0].lng], 15);
+
+    // Clear history polyline
+    if (selectedVehicle && routes[selectedVehicle.id]) {
+        map.removeLayer(routes[selectedVehicle.id]);
+        delete routes[selectedVehicle.id];
     }
+
+    // Clear history markers (start/end dots)
+    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch(e){} });
+    historyMarkers = [];
+
+    // Reset timeline slider
+    if (timelineSlider) timelineSlider.value = 0;
+
+    // Clear playback data
+    playbackRoute = null;
+
+    // Hide route controls
+    const routeControls = document.getElementById('route-controls');
+    if (routeControls) routeControls.classList.add('hidden');
+
+    // Restore live-tracking markers
+    isHistoryMode = false;
+    Object.values(markers).forEach(m => {
+        if (m instanceof L.Marker && !map.hasLayer(m)) {
+            try { m.addTo(map); } catch(e){}
+        }
+    });
+
+    // Reset timeline UI
+    const timeline = document.getElementById('detail-timeline');
+    if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+
+    // Re-expand sidebar
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('collapsed');
+    setTimeout(() => { if (map) map.invalidateSize(); }, 350);
 }
 
+// Smooth interpolated marker movement (fixes jumping)
 function updatePlaybackMarker(index) {
     if (!playbackRoute || index >= playbackRoute.length || !playbackMarker) return;
-    
+
     const point = playbackRoute[index];
-    playbackMarker.setLatLng([point.lat, point.lng]);
-    
-    // Pan map to follow marker
-    map.panTo([point.lat, point.lng], { animate: true, duration: 0.1 });
+    const targetLatLng = L.latLng(point.lat, point.lng);
+
+    // Interpolate smoothly using requestAnimationFrame
+    const startLatLng = playbackMarker.getLatLng();
+    const startTime = performance.now();
+    const duration = 300; // ms for smooth transition
+
+    function animateStep(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const lat = startLatLng.lat + (targetLatLng.lat - startLatLng.lat) * t;
+        const lng = startLatLng.lng + (targetLatLng.lng - startLatLng.lng) * t;
+        if (playbackMarker) playbackMarker.setLatLng([lat, lng]);
+        if (t < 1) requestAnimationFrame(animateStep);
+    }
+    requestAnimationFrame(animateStep);
+
+    // Pan map smoothly
+    map.panTo(targetLatLng, { animate: true, duration: 0.3 });
+
+    // Update popup with current info
+    if (playbackMarker) {
+        playbackMarker.bindPopup(
+            `<div style="font-size:0.82rem;line-height:1.6">
+                <strong>${new Date(point.timestamp).toLocaleTimeString()}</strong><br>
+                Speed: ${Math.round(point.speed || 0)} km/h
+             </div>`,
+            { autoPan: false }
+        );
+    }
 }
 
 // Add Vehicle Button
@@ -3309,41 +3474,49 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 item.onclick = () => {
                     document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    
-                    // Clear Previous history markers
-                    historyMarkers.forEach(m => map.removeLayer(m));
+
+                    // Clear previous history state
+                    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch(e){} });
                     historyMarkers = [];
+                    if (playbackMarker) { map.removeLayer(playbackMarker); playbackMarker = null; }
+                    if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
+
+                    // Sort points by timestamp before drawing
+                    const sortedPoints = [...itemData.points].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+                    // Filter out invalid/teleport points
+                    const filteredPoints = sortedPoints.filter((p, i) => {
+                        if (!p.lat || !p.lng) return false;
+                        if (i > 0) {
+                            const prev = sortedPoints[i-1];
+                            const dist = Math.sqrt(Math.pow(p.lat-prev.lat,2)+Math.pow(p.lng-prev.lng,2));
+                            if (dist > 0.5) return false;
+                        }
+                        return true;
+                    });
+
+                    if (filteredPoints.length < 2) return;
 
                     if (routes[id]) map.removeLayer(routes[id]);
-                    const points = itemData.points.map(p => [p.lat, p.lng]);
-                    const polyline = L.polyline(points, { color: '#00d4ff', weight: 5, opacity: 0.8 }).addTo(map);
+                    const coords = filteredPoints.map(p => [p.lat, p.lng]);
+                    const polyline = L.polyline(coords, { color: '#00d4ff', weight: 5, opacity: 0.85, smoothFactor: 1.5 }).addTo(map);
                     routes[id] = polyline;
                     map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 
                     // Add Start/End Dots
-                    const startMarker = L.circleMarker([itemData.start.lat, itemData.start.lng], {
-                        radius: 8,
-                        fillColor: "#00ff88",
-                        color: "#fff",
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 1
-                    }).bindPopup("<b>Start:</b> " + new Date(itemData.start.timestamp).toLocaleTimeString()).addTo(map);
+                    const startMarker = L.circleMarker([filteredPoints[0].lat, filteredPoints[0].lng], {
+                        radius: 9, fillColor: '#00ff88', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
+                    }).bindPopup('<b>Start:</b> ' + new Date(filteredPoints[0].timestamp).toLocaleTimeString()).addTo(map);
 
-                    const endMarker = L.circleMarker([itemData.end.lat, itemData.end.lng], {
-                        radius: 8,
-                        fillColor: "#ff4444",
-                        color: "#fff",
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 1
-                    }).bindPopup("<b>Destination:</b> " + new Date(itemData.end.timestamp).toLocaleTimeString()).addTo(map);
+                    const endMarker = L.circleMarker([filteredPoints[filteredPoints.length-1].lat, filteredPoints[filteredPoints.length-1].lng], {
+                        radius: 9, fillColor: '#ff4444', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
+                    }).bindPopup('<b>Destination:</b> ' + new Date(filteredPoints[filteredPoints.length-1].timestamp).toLocaleTimeString()).addTo(map);
 
                     historyMarkers.push(startMarker, endMarker);
 
                     isHistoryMode = true;
                     Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
-                    playbackRoute = itemData.points;
+                    playbackRoute = filteredPoints;
                     document.getElementById('route-controls').classList.remove('hidden');
                     const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.add('collapsed');
