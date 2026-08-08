@@ -1937,12 +1937,36 @@ function animateValue(id, start, end, duration) {
         obj.innerHTML = end;
         return;
     }
-    const startFrom = Number.isFinite(start) ? start : currentValue;
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        obj.innerHTML = Math.floor(progress * (end - startFrom) + startFrom);
+        const value = Math.floor(progress * (end - start) + start);
+        obj.textContent = value;
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// Smooth marker animation function
+function animateMarker(marker, fromLatLng, toLatLng, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        // Easing function for smooth animation
+        const easeProgress = progress < 0.5 
+            ? 2 * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        
+        const lat = fromLatLng.lat + (toLatLng.lat - fromLatLng.lat) * easeProgress;
+        const lng = fromLatLng.lng + (toLatLng.lng - fromLatLng.lng) * easeProgress;
+        
+        marker.setLatLng([lat, lng]);
+        
         if (progress < 1) {
             window.requestAnimationFrame(step);
         }
@@ -2049,16 +2073,37 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
     const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
-    // 1. Update Map Marker
-    // 1. Update Map Marker
+    
+    // 1. Update Map Marker with smooth animation
     const icon = L.divIcon({
         html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${imei}">
-                <i class="fas fa-car" style="transform: rotate(${0}deg);"></i>
+                <i class="fas fa-car" style="transform: rotate(${0}deg); transition: transform 0.5s ease;"></i>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
         className: 'custom-marker',
         iconSize: [40, 40]
     });
+
+    // Smooth marker transition
+    if (marker && map.hasLayer(marker)) {
+        const currentLatLng = marker.getLatLng();
+        const newLatLng = L.latLng(lat, lng);
+        
+        // Animate marker movement
+        animateMarker(marker, currentLatLng, newLatLng, 1000);
+        
+        // Update marker content without recreating
+        const markerEl = document.getElementById(`marker-${imei}`);
+        if (markerEl) {
+            markerEl.className = `vehicle-marker ${assetStatus.toLowerCase()}-marker`;
+            const speedLabel = markerEl.querySelector('.speed-label');
+            if (speedLabel) speedLabel.textContent = `${Math.round(speed || 0)} km/h`;
+        }
+    } else {
+        // Create new marker
+        marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+        markers[id] = marker;
+    }
 
     // Handle Address Resolution (Popup Only)
     setTimeout(async () => {
@@ -2127,14 +2172,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     if (marker) {
         if (lat !== null && lat !== undefined) {
-            if (typeof marker.setLatLng === 'function') {
-                marker.setLatLng([lat, lng]);
-                marker.vehicleName = resolvedName; // Cache for future updates
-            }
+            marker.vehicleName = resolvedName; // Cache for future updates
             marker.ignitionOn = ignitionOn; // Save for persistence
-            if (typeof marker.setIcon === 'function') {
-                marker.setIcon(icon);
-            }
         }
 
         // Ensure visibility state matches history mode
@@ -2156,7 +2195,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     } else {
         if (lat !== null && lat !== undefined) {
-            marker = L.marker([lat, lng], { icon: icon });
+            // Marker already created in smooth animation section above
             if (!isHistoryMode && typeof marker.addTo === 'function') marker.addTo(map);
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
@@ -2173,8 +2212,6 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                     selectVehicle(vehicleObj); 
                 });
             }
-
-            markers[id] = marker;
         }
         // NOTE: We no longer create a "fake" object in markers[id] if lat is null.
         // The telemetry is now safely stored in obdDataMap[id].
@@ -2809,26 +2846,26 @@ async function loadTrips() {
 
 function showRoutePolyline(points) {
     if (!points || points.length === 0) return;
-    // Sort points by timestamp to avoid scattered/scrambled lines
-    const sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    // Filter out clearly invalid coordinates (e.g. 0,0 or huge jumps > 50km in one step)
-    const filtered = sorted.filter((p, i) => {
-        if (!p.lat || !p.lng || (Math.abs(p.lat) < 0.01 && Math.abs(p.lng) < 0.01)) return false;
-        if (i > 0) {
-            const prev = sorted[i - 1];
-            const dist = Math.sqrt(Math.pow(p.lat - prev.lat, 2) + Math.pow(p.lng - prev.lng, 2));
-            if (dist > 0.5) return false; // skip teleport jumps > ~55km
-        }
-        return true;
-    });
-    if (filtered.length < 2) return;
+    
+    // Use the robust filtering function to clean the route data
+    const filtered = filterValidRoutePoints(points);
+    
+    if (filtered.length < 2) {
+        console.warn('Not enough valid points to draw route');
+        return;
+    }
+    
+    // Create polyline with all valid points to show actual trip path
     const coords = filtered.map(p => [p.lat, p.lng]);
     const polyline = L.polyline(coords, {
         color: '#00d4ff',
         weight: 4,
         opacity: 0.85,
-        smoothFactor: 1.5
+        smoothFactor: 1.0,  // Lower value for more accurate path following
+        lineJoin: 'round',
+        lineCap: 'round'
     }).addTo(map);
+    
     if (selectedVehicle && routes[selectedVehicle.id]) {
         map.removeLayer(routes[selectedVehicle.id]);
     }

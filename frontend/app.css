@@ -1052,6 +1052,239 @@ body {
     .report-export-group button {
         width: 100%;
     }
+    
+    /* Additional mobile fixes */
+    .main-container {
+        height: calc(100vh - 60px);
+    }
+    
+    /* Vehicle markers smaller on mobile */
+    .vehicle-marker {
+        width: 30px !important;
+        height: 30px !important;
+    }
+    
+    .vehicle-marker i {
+        font-size: 14px !important;
+    }
+    
+    .speed-label {
+        font-size: 0.7em !important;
+    }
+    
+    /* Route controls mobile */
+    .route-controls {
+        bottom: 120px;
+        left: 10px;
+        right: 10px;
+    }
+    
+    .control-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 0.9em;
+    }
+    
+    /* Playback controls mobile */
+    .playback-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    /* Geofence form mobile */
+    .rules-builder-card {
+        margin: 10px;
+        padding: 15px;
+    }
+    
+    .form-group label {
+        font-size: 0.85em;
+    }
+    
+    .glass-input {
+        font-size: 0.85em;
+    }
+    
+    /* Alert items mobile */
+    .alert-item {
+        padding: 12px;
+    }
+    
+    .alert-content h5 {
+        font-size: 0.9em;
+    }
+    
+    .alert-content p {
+        font-size: 0.8em;
+    }
+    
+    /* Priority alerts mobile */
+    .priority-alert-item {
+        padding: 8px;
+    }
+    
+    .p-alert-title {
+        font-size: 0.8em;
+    }
+    
+    /* User table mobile */
+    .data-table {
+        font-size: 0.75em;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 4px;
+    }
+    
+    /* Billing cards mobile */
+    .billing-card {
+        padding: 15px;
+    }
+    
+    .billing-footer {
+        flex-direction: column;
+    }
+    
+    .billing-footer button {
+        width: 100%;
+    }
+    
+    /* Feature list mobile */
+    .feature-item {
+        padding: 10px;
+        font-size: 0.85em;
+    }
+    
+    /* Summary card mobile */
+    .summary-card-sidebar {
+        padding: 12px;
+    }
+    
+    /* Panel sections mobile */
+    .panel-section {
+        margin-bottom: 15px;
+    }
+    
+    .section-title {
+        font-size: 0.95em;
+    }
+    
+    /* Empty state mobile */
+    .empty-state {
+        font-size: 0.85em;
+        padding: 20px 10px;
+    }
+    
+    /* FAB mobile */
+    .fab {
+        width: 48px;
+        height: 48px;
+        font-size: 1.1em;
+    }
+    
+    /* Search input mobile */
+    .search-input {
+        font-size: 0.85em;
+        padding: 10px;
+    }
+    
+    /* Filter buttons mobile */
+    .filter-btn {
+        padding: 8px 12px;
+        font-size: 0.8em;
+    }
+    
+    /* Header buttons mobile */
+    .header-btn {
+        padding: 8px;
+        font-size: 0.85em;
+    }
+    
+    /* View controls mobile */
+    .view-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    /* Timeline view mobile */
+    .timeline-item {
+        padding: 10px;
+    }
+    
+    .timeline-time {
+        font-size: 0.75em;
+    }
+    
+    .timeline-event {
+        font-size: 0.85em;
+    }
+    
+    /* Savings widget mobile */
+    .savings-widget {
+        padding: 15px;
+    }
+    
+    .savings-amount {
+        font-size: 1.5em;
+    }
+    
+    /* Compliance list mobile */
+    .compliance-item {
+        padding: 8px;
+        font-size: 0.85em;
+    }
+    
+    /* Chart placeholder mobile */
+    .chart-placeholder {
+        min-height: 150px;
+    }
+    
+    /* Report card mobile */
+    .report-card {
+        padding: 12px;
+    }
+    
+    .report-card-header h5 {
+        font-size: 0.9em;
+    }
+    
+    .report-summary {
+        font-size: 0.8em;
+    }
+    
+    /* Leaflet controls mobile */
+    .leaflet-control-zoom {
+        margin-top: 10px;
+        margin-left: 10px;
+    }
+    
+    .leaflet-control-zoom a {
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        font-size: 16px;
+    }
+    
+    .leaflet-control-attribution {
+        font-size: 8px;
+    }
+    
+    /* Leaflet popup mobile */
+    .leaflet-popup-content-wrapper {
+        padding: 1px;
+    }
+    
+    .leaflet-popup-content {
+        margin: 8px 12px;
+        font-size: 0.85em;
+    }
+    
+    /* Leaflet tooltip mobile */
+    .leaflet-tooltip {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
 }
 
 @media (max-width: 480px) {
