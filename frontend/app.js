@@ -3389,18 +3389,18 @@ function filterValidRoutePoints(points) {
     // 1. Sort chronologically by timestamp
     let sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    // Detect collapsed timestamps: when a tracker dumps buffered data, every
-    // point gets ~the same receipt timestamp and chronological order is
-    // meaningless (this is what produces the fan pattern). If most deltas
-    // are zero, reconstruct the path spatially instead.
+    // Detect collapsed timestamps: when a tracker dumps buffered data, the
+    // burst points share ~the same receipt timestamp and their relative
+    // order after sorting is arbitrary (this is what produces the fan
+    // pattern). Scan the WHOLE array — a burst can be buried anywhere,
+    // especially in mixed data where newer points have real GPS timestamps.
     let zeroDeltas = 0;
-    const sampleSize = Math.min(sorted.length - 1, 50);
-    for (let i = 0; i < sampleSize; i++) {
+    for (let i = 0; i < sorted.length - 1; i++) {
         const dt = Math.abs(new Date(sorted[i + 1].timestamp) - new Date(sorted[i].timestamp));
         if (dt < 1000) zeroDeltas++;
     }
-    if (sampleSize >= 10 && zeroDeltas / sampleSize > 0.8) {
-        console.warn(`Collapsed timestamps detected (${zeroDeltas}/${sampleSize} zero deltas) — reconstructing path spatially`);
+    if (sorted.length >= 10 && zeroDeltas / (sorted.length - 1) > 0.5) {
+        console.warn(`Collapsed timestamps detected (${zeroDeltas}/${sorted.length - 1} zero deltas) — reconstructing path spatially`);
         sorted = nearestNeighborOrder(sorted);
     }
 
@@ -3414,12 +3414,28 @@ function filterValidRoutePoints(points) {
 
     if (validCoords.length < 2) return validCoords;
 
-    // 3. Filter out anomalous jumps / ping-ponging back to default hubs (e.g. Kadoma)
-    const cleanPoints = [validCoords[0]];
+    // 3. Filter out anomalous jumps / ping-ponging back to default hubs
+    // (e.g. Kadoma). This must run to a FIXPOINT: when a spike survives a
+    // pass it becomes the anchor for subsequent points, so only a second
+    // pass can see those points are also spikes relative to the true path.
+    // (This is why re-selecting the view mode — which re-filters — used to
+    // "fix" the fan.)
+    let current = validCoords;
+    for (let pass = 0; pass < 5; pass++) {
+        const cleaned = filterSpikePass(current);
+        if (cleaned.length === current.length) break; // stable — nothing removed
+        current = cleaned;
+    }
+    return current;
+}
 
-    for (let i = 1; i < validCoords.length; i++) {
+// One pass of spike removal. Returns the points that survived.
+function filterSpikePass(inputPoints) {
+    const cleanPoints = [inputPoints[0]];
+
+    for (let i = 1; i < inputPoints.length; i++) {
         const prev = cleanPoints[cleanPoints.length - 1];
-        const curr = validCoords[i];
+        const curr = inputPoints[i];
 
         const dtSeconds = (new Date(curr.timestamp) - new Date(prev.timestamp)) / 1000;
 
@@ -3448,8 +3464,8 @@ function filterValidRoutePoints(points) {
         //    for dt=0 data because dense snapped traces are never 1 km apart
         //    between consecutive points, while buffered-burst spikes are.
 
-        if (i + 1 < validCoords.length) {
-            const next = validCoords[i + 1];
+        if (i + 1 < inputPoints.length) {
+            const next = inputPoints[i + 1];
             const dLatNext = (next.lat - prev.lat) * Math.PI / 180;
             const dLngNext = (next.lng - prev.lng) * Math.PI / 180;
             const aNext = Math.sin(dLatNext / 2) * Math.sin(dLatNext / 2) +
@@ -3471,8 +3487,8 @@ function filterValidRoutePoints(points) {
             // bursts often contain several consecutive bad fixes.
             if (distKm > 1) {
                 let returnIdx = -1;
-                for (let j = i + 1; j <= Math.min(i + 4, validCoords.length - 1); j++) {
-                    const np = validCoords[j];
+                for (let j = i + 1; j <= Math.min(i + 4, inputPoints.length - 1); j++) {
+                    const np = inputPoints[j];
                     const dLa = (np.lat - prev.lat) * Math.PI / 180;
                     const dLn = (np.lng - prev.lng) * Math.PI / 180;
                     const aN = Math.sin(dLa / 2) * Math.sin(dLa / 2) +
@@ -3486,7 +3502,7 @@ function filterValidRoutePoints(points) {
                     // Time guard: if there was genuinely enough time to drive
                     // out and back, keep the point. With collapsed timestamps
                     // (dt=0) the implied speed is always impossible.
-                    const dtNext = (new Date(validCoords[returnIdx].timestamp) - new Date(prev.timestamp)) / 1000;
+                    const dtNext = (new Date(inputPoints[returnIdx].timestamp) - new Date(prev.timestamp)) / 1000;
                     const effDtNext = Math.max(dtNext, 1);
                     if (effDtNext < 900) {
                         const outAndBackKmh = ((distKm * 2) / (effDtNext / 3600));
