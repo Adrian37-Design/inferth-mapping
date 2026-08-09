@@ -1,4 +1,5 @@
 // Inferth Mapping - Fleet Tracking Platform
+console.log('%c Inferth app.js v92 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
 
 // Check authentication before anything else
 if (!window.AuthManager || !window.AuthManager.checkAuth()) {
@@ -3448,9 +3449,11 @@ function filterValidRoutePoints(points) {
     let current = validCoords;
     for (let pass = 0; pass < 5; pass++) {
         const cleaned = filterSpikePass(current);
+        console.log(`[filter] pass ${pass}: ${current.length} -> ${cleaned.length} points`);
         if (cleaned.length === current.length) break; // stable — nothing removed
         current = cleaned;
     }
+    console.log(`[filter] done: ${points.length} raw -> ${current.length} clean`);
     return current;
 }
 
