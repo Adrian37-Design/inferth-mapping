@@ -150,9 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // If switch to cluster, render dots
                 if (playbackViewMode === 'cluster') {
                     renderClusterMode();
-                    // Hide polyline if exists
+                    // Hide polyline if exists (handles array or single layer)
                     if (selectedVehicle && routes[selectedVehicle.id]) {
-                        map.removeLayer(routes[selectedVehicle.id]);
+                        if (Array.isArray(routes[selectedVehicle.id])) {
+                            routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+                        } else {
+                            try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+                        }
                     }
                 } else {
                     // Switch back to standard: clear cluster dots
@@ -163,16 +167,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         return true;
                     });
-                    
-                    // Re-render route line if standard
+
+                    // Re-render route line if standard (playbackRoute is
+                    // already cleaned/snapped by the loaders)
                     if (selectedVehicle && playbackRoute) {
+                        if (routes[selectedVehicle.id]) {
+                            if (Array.isArray(routes[selectedVehicle.id])) {
+                                routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+                            } else {
+                                try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+                            }
+                        }
                         const points = playbackRoute.map(p => [p.lat, p.lng]);
-                        if (routes[selectedVehicle.id]) map.removeLayer(routes[selectedVehicle.id]);
-                        routes[selectedVehicle.id] = L.polyline(points, {
+                        routes[selectedVehicle.id] = [L.polyline(points, {
                             color: '#00d4ff',
                             weight: 4,
-                            opacity: 0.7
-                        }).addTo(map);
+                            opacity: 0.85,
+                            smoothFactor: 1.0,
+                            lineJoin: 'round',
+                            lineCap: 'round'
+                        }).addTo(map)];
                     }
                 }
             }
@@ -2716,26 +2730,55 @@ async function showRoute() {
             return;
         }
 
-        // Clear existing route
-        if (routes[selectedVehicle.id]) {
-            map.removeLayer(routes[selectedVehicle.id]);
+        // Clean the trace: sort by time, drop spikes/teleports
+        const clean = filterValidRoutePoints(data.points);
+        if (clean.length < 2) {
+            alert('Not enough valid position data to show route');
+            return;
         }
 
-        // Create polyline
-        const points = data.points.map(p => [p.lat, p.lng]);
-        const polyline = L.polyline(points, {
-            color: '#00d4ff',
-            weight: 4,
-            opacity: 0.7
-        }).addTo(map);
+        // Clear existing route (handles both array and single layer)
+        if (routes[selectedVehicle.id]) {
+            if (Array.isArray(routes[selectedVehicle.id])) {
+                routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+            } else {
+                try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+            }
+        }
 
-        routes[selectedVehicle.id] = polyline;
+        // Snap to roads so the path follows the actual road network
+        const snapped = await snapRouteToRoad(clean);
+        let segments;
+        if (snapped && snapped.matched) {
+            segments = snapped.segments;
+            playbackRoute = [];
+            snapped.segments.forEach(seg => {
+                seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp }));
+            });
+        } else {
+            segments = splitTraceAtGaps(clean);
+            playbackRoute = clean;
+        }
+
+        const layers = [];
+        const allCoords = [];
+        segments.forEach(seg => {
+            const pl = L.polyline(seg, {
+                color: '#00d4ff',
+                weight: 4,
+                opacity: 0.85,
+                smoothFactor: 1.0,
+                lineJoin: 'round',
+                lineCap: 'round'
+            }).addTo(map);
+            layers.push(pl);
+            allCoords.push(...seg);
+        });
+
+        routes[selectedVehicle.id] = layers;
 
         // Fit map to route
-        map.fitBounds(polyline.getBounds());
-
-        // Store route for playback
-        playbackRoute = data.points;
+        if (allCoords.length > 0) map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
 
         // Show route controls
         document.getElementById('route-controls').classList.remove('hidden');
@@ -3029,6 +3072,26 @@ function splitTraceAtGaps(points, maxGapMinutes = 3) {
     }
     if (current.length > 1) segments.push(current);
     return segments;
+}
+
+// Cluster view: render each playback point as an individual dot
+// (useful for inspecting raw GPS density and spotting gaps)
+function renderClusterMode() {
+    if (!playbackRoute || playbackRoute.length === 0) return;
+
+    playbackRoute.forEach(p => {
+        if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+        const dot = L.circleMarker([p.lat, p.lng], {
+            radius: 4,
+            fillColor: '#00d4ff',
+            color: '#fff',
+            weight: 1,
+            opacity: 0.9,
+            fillOpacity: 0.8
+        }).addTo(map);
+        dot._isClusterDot = true;
+        historyMarkers.push(dot);
+    });
 }
 
 function showRoutePolyline(points) {
@@ -3645,16 +3708,11 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     // Sort points by timestamp before drawing
                     const sortedPoints = [...itemData.points].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-                    // Filter out invalid/teleport points
-                    const filteredPoints = sortedPoints.filter((p, i) => {
-                        if (!p.lat || !p.lng) return false;
-                        if (i > 0) {
-                            const prev = sortedPoints[i-1];
-                            const dist = Math.sqrt(Math.pow(p.lat-prev.lat,2)+Math.pow(p.lng-prev.lng,2));
-                            if (dist > 0.5) return false;
-                        }
-                        return true;
-                    });
+                    // Use the robust filter: drops invalid coords, exact
+                    // duplicates, and ping-pong teleport spikes (the spikes
+                    // are what create the fan/starburst pattern of straight
+                    // lines radiating from one point)
+                    const filteredPoints = filterValidRoutePoints(sortedPoints);
 
                     if (filteredPoints.length < 2) return;
 
