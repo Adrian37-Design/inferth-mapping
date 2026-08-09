@@ -48,6 +48,18 @@ class GT06Decoder(BaseDecoder):
                 "type": "location"
             }
 
+            # GPS datetime from the packet: YY MM DD HH MM SS (6 bytes at data[0:6]).
+            # Using the device-reported fix time instead of server receipt time
+            # keeps chronology correct when the tracker dumps buffered data in a
+            # burst after reconnecting (which otherwise produces fan/starburst
+            # routes because every buffered point gets the same receipt timestamp).
+            try:
+                yy, mo, dd, hh, mi, ss = data[0], data[1], data[2], data[3], data[4], data[5]
+                if 0 <= yy <= 99 and 1 <= mo <= 12 and 1 <= dd <= 31 and hh <= 23 and mi <= 59 and ss <= 59:
+                    res["gps_timestamp"] = datetime(2000 + yy, mo, dd, hh, mi, ss).isoformat()
+            except Exception:
+                pass
+
             # Optional: Terminal Info might be present in 0x16 or 0x22 depending on variant
             # Usually GPS packets don't have the status byte in the same spot, 
             # but we can try to extract from 'course_status' or extra bytes if available.

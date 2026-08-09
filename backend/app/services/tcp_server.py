@@ -224,7 +224,22 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             await db.refresh(device)
                         
                         # Create position
+                        # Prefer the device-reported GPS fix time (gt06 decoder
+                        # extracts it into gps_timestamp). When a tracker dumps
+                        # buffered data in a burst, receipt-time stamps collapse
+                        # to ~the same instant and route chronology breaks
+                        # (fan/starburst patterns in history playback).
                         timestamp = datetime.utcnow()
+                        gps_ts = decoded.get("gps_timestamp")
+                        if gps_ts:
+                            try:
+                                parsed_ts = datetime.fromisoformat(gps_ts)
+                                # Sanity check: reject obviously wrong device clocks
+                                # (more than 1 day in the future or before 2024)
+                                if parsed_ts.year >= 2024 and (parsed_ts - timestamp).days <= 1:
+                                    timestamp = parsed_ts
+                            except (ValueError, TypeError):
+                                pass
                         # Sanitize decoded dict for JSON storage
                         sanitized_decoded = sanitize_for_json(decoded)
                         
