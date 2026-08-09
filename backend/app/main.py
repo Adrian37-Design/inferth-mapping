@@ -76,7 +76,14 @@ async def run_migrations_and_branding():
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS features JSON DEFAULT '{\"reports\": false, \"advanced_rules\": false, \"geofencing\": true}'",
                     "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "CREATE TABLE IF NOT EXISTS rules (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), event_type VARCHAR, threshold FLOAT, channel VARCHAR DEFAULT 'system', contact VARCHAR, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
-                    "CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), rule_id INTEGER REFERENCES rules(id), type VARCHAR, message VARCHAR, timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, is_read BOOLEAN DEFAULT FALSE)"
+                    "CREATE TABLE IF NOT EXISTS alerts (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), rule_id INTEGER REFERENCES rules(id), type VARCHAR, message VARCHAR, timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, is_read BOOLEAN DEFAULT FALSE)",
+                    # Performance indexes — positions table grows unbounded (one row
+                    # per tracker packet, every 10-30s). Without these, /snapshot,
+                    # /analytics and /routes do full table scans and time out (503/504).
+                    "CREATE INDEX IF NOT EXISTS idx_positions_device_ts ON positions(device_id, timestamp DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_positions_ts ON positions(timestamp)",
+                    "CREATE INDEX IF NOT EXISTS idx_alerts_tenant_ts ON alerts(tenant_id, timestamp DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_devices_tenant ON devices(tenant_id)"
                 ]
                 
                 for stmt in migration_statements:

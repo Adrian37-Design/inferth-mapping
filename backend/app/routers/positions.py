@@ -437,21 +437,29 @@ async def get_fleet_analytics(
         zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Query all positions for the range (fetch wide to cover Zim transition)
+    # Only fetch the columns we actually need — the `raw` JSON column is large
+    # and loading full ORM rows for thousands of positions caused timeouts.
     fetch_start = zim_start - tz_offset
-    
+
     stmt = (
-        select(Position)
+        select(
+            Position.device_id,
+            Position.latitude,
+            Position.longitude,
+            Position.speed,
+            Position.timestamp
+        )
         .join(Device)
         .where(Position.timestamp >= fetch_start)
     )
-    
+
     if current_user.tenant_id != 1:
         stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
-        
+
     stmt = stmt.order_by(Position.timestamp.asc())
-    
+
     result = await db.execute(stmt)
-    positions = result.scalars().all()
+    positions = result.all()
     
     labels = []
     mileage_data = []
