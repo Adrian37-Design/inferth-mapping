@@ -2094,9 +2094,15 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (marker && map.hasLayer(marker)) {
         const currentLatLng = marker.getLatLng();
         const newLatLng = L.latLng(lat, lng);
+        const distMeters = currentLatLng.distanceTo(newLatLng);
         
-        // Only animate if the position actually changed
-        if (currentLatLng.distanceTo(newLatLng) > 1) { // 1 meter threshold
+        // GPS Drift Filter: When stationary (speed <= 3 km/h), ignore small
+        // position changes (< 25m) caused by GPS accuracy drift. This stops
+        // the marker from bouncing between two points while parked.
+        const isStationary = !speed || speed <= 3;
+        const driftThreshold = isStationary ? 25 : 1;
+        
+        if (distMeters > driftThreshold) {
             animateMarker(marker, currentLatLng, newLatLng, 1000);
         }
         
