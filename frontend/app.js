@@ -3056,23 +3056,48 @@ async function snapRouteToRoad(points) {
         const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
         const radiuses = chunk.map(() => '35').join(';'); // allow 35m GPS error
 
-        try {
-            const url = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=split&tidy=true&radiuses=${radiuses}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`OSRM match HTTP ${res.status}`);
-            const data = await res.json();
+        // tidy=true requires timestamps, and timestamps must be strictly
+        // increasing — buffered-burst data often has collapsed/duplicate
+        // timestamps, which makes OSRM reject the request with HTTP 400.
+        const tsRaw = chunk.map(p => Math.floor(new Date(p.timestamp).getTime() / 1000));
+        const isMonotonic = tsRaw.every((t, idx) => idx === 0 || (isFinite(t) && t > tsRaw[idx - 1]));
 
-            if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-                data.matchings.forEach(m => {
-                    if (m.geometry && m.geometry.coordinates && m.geometry.coordinates.length > 1) {
-                        // OSRM returns [lng, lat] — flip to [lat, lng]
-                        segments.push(m.geometry.coordinates.map(c => [c[1], c[0]]));
-                    }
-                });
+        // Retry ladder: richest request first, degrade on failure.
+        // (tidy+timestamps gives the cleanest matching; plain still works.)
+        const attempts = [];
+        if (isMonotonic) {
+            attempts.push(`overview=full&geometries=geojson&gaps=split&tidy=true&radiuses=${radiuses}&timestamps=${tsRaw.join(';')}`);
+        }
+        attempts.push(`overview=full&geometries=geojson&gaps=split&radiuses=${radiuses}`);
+        attempts.push(`overview=full&geometries=geojson&gaps=split`);
+
+        let matchedChunk = false;
+        for (const params of attempts) {
+            try {
+                const url = `https://router.project-osrm.org/match/v1/driving/${coords}?${params}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    console.warn(`OSRM match HTTP ${res.status}, retrying with simpler params`);
+                    continue;
+                }
+                const data = await res.json();
+
+                if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+                    data.matchings.forEach(m => {
+                        if (m.geometry && m.geometry.coordinates && m.geometry.coordinates.length > 1) {
+                            // OSRM returns [lng, lat] — flip to [lat, lng]
+                            segments.push(m.geometry.coordinates.map(c => [c[1], c[0]]));
+                        }
+                    });
+                    matchedChunk = true;
+                    break;
+                }
+            } catch (e) {
+                console.warn('OSRM match request error:', e);
             }
-        } catch (e) {
-            console.warn('Map matching failed, falling back to raw trace:', e);
-            return null;
+        }
+        if (!matchedChunk) {
+            console.warn('Map matching failed for chunk, keeping raw trace for it');
         }
     }
 
