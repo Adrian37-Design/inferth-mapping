@@ -3352,6 +3352,34 @@ if (timelineSlider) {
     });
 }
 
+// Greedy nearest-neighbor path reconstruction. Used when timestamps are
+// collapsed (buffered data dumps stamp every point with the same receipt
+// time) so chronological sort is meaningless: parked/hub points interleave
+// randomly with real trip points, producing the fan pattern. A spatial NN
+// walk groups the parked duplicates together and unrolls the drive chain
+// in travel order.
+function nearestNeighborOrder(points) {
+    const n = points.length;
+    if (n > 3000) return points; // O(n^2) — too slow beyond this, trips are smaller
+    const visited = new Array(n).fill(false);
+    const order = [0];
+    visited[0] = true;
+    for (let k = 1; k < n; k++) {
+        const last = points[order[order.length - 1]];
+        let best = -1, bestD = Infinity;
+        for (let i = 0; i < n; i++) {
+            if (visited[i]) continue;
+            const dLat = points[i].lat - last.lat;
+            const dLng = points[i].lng - last.lng;
+            const d = dLat * dLat + dLng * dLng;
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        order.push(best);
+        visited[best] = true;
+    }
+    return order.map(i => points[i]);
+}
+
 // ============================================================
 // Robust Telemetry & Route Point Filtering (Fixes Starburst Fans & Jumps)
 // ============================================================
@@ -3359,7 +3387,22 @@ function filterValidRoutePoints(points) {
     if (!Array.isArray(points) || points.length === 0) return [];
 
     // 1. Sort chronologically by timestamp
-    const sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    let sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Detect collapsed timestamps: when a tracker dumps buffered data, every
+    // point gets ~the same receipt timestamp and chronological order is
+    // meaningless (this is what produces the fan pattern). If most deltas
+    // are zero, reconstruct the path spatially instead.
+    let zeroDeltas = 0;
+    const sampleSize = Math.min(sorted.length - 1, 50);
+    for (let i = 0; i < sampleSize; i++) {
+        const dt = Math.abs(new Date(sorted[i + 1].timestamp) - new Date(sorted[i].timestamp));
+        if (dt < 1000) zeroDeltas++;
+    }
+    if (sampleSize >= 10 && zeroDeltas / sampleSize > 0.8) {
+        console.warn(`Collapsed timestamps detected (${zeroDeltas}/${sampleSize} zero deltas) — reconstructing path spatially`);
+        sorted = nearestNeighborOrder(sorted);
+    }
 
     // 2. Filter invalid / zero / NaN coords
     const validCoords = sorted.filter(p => {
@@ -3422,17 +3465,34 @@ function filterValidRoutePoints(points) {
                 }
             }
 
-            // (B) sandwiched spike: out-and-back to a lone outlier
-            if (distKm > 1 && distNextKm < (distKm * 0.3)) {
-                const dtNext = (new Date(next.timestamp) - new Date(prev.timestamp)) / 1000;
-                // Time guard: if there was genuinely enough time to drive out
-                // and back, keep the point. With collapsed timestamps (dt=0)
-                // the implied speed is always impossible, so spikes are caught.
-                const effDtNext = Math.max(dtNext, 1);
-                if (effDtNext < 600) {
-                    const outAndBackKmh = ((distKm + distNextKm) / (effDtNext / 3600));
-                    if (outAndBackKmh > 180) {
-                        continue;
+            // (B) sandwiched spike / spike run: curr is far from prev, but a
+            // point within the next few returns near prev — everything between
+            // is an outlier run. Look ahead up to 4 points because buffered
+            // bursts often contain several consecutive bad fixes.
+            if (distKm > 1) {
+                let returnIdx = -1;
+                for (let j = i + 1; j <= Math.min(i + 4, validCoords.length - 1); j++) {
+                    const np = validCoords[j];
+                    const dLa = (np.lat - prev.lat) * Math.PI / 180;
+                    const dLn = (np.lng - prev.lng) * Math.PI / 180;
+                    const aN = Math.sin(dLa / 2) * Math.sin(dLa / 2) +
+                               Math.cos(prev.lat * Math.PI / 180) * Math.cos(np.lat * Math.PI / 180) *
+                               Math.sin(dLn / 2) * Math.sin(dLn / 2);
+                    const dKm = 6371 * 2 * Math.atan2(Math.sqrt(aN), Math.sqrt(1 - aN));
+                    if (dKm < distKm * 0.3) { returnIdx = j; break; }
+                }
+
+                if (returnIdx > 0) {
+                    // Time guard: if there was genuinely enough time to drive
+                    // out and back, keep the point. With collapsed timestamps
+                    // (dt=0) the implied speed is always impossible.
+                    const dtNext = (new Date(validCoords[returnIdx].timestamp) - new Date(prev.timestamp)) / 1000;
+                    const effDtNext = Math.max(dtNext, 1);
+                    if (effDtNext < 900) {
+                        const outAndBackKmh = ((distKm * 2) / (effDtNext / 3600));
+                        if (outAndBackKmh > 180) {
+                            continue;
+                        }
                     }
                 }
             }
