@@ -3391,26 +3391,54 @@ function filterValidRoutePoints(points) {
         // Skip exact duplicate points
         if (distKm < 0.001) continue;
 
-        // If time difference < 5 mins and jump requires impossible speed > 180 km/h:
-        if (dtSeconds > 0 && dtSeconds < 300) {
-            const speedKmh = (distKm / (dtSeconds / 3600));
-            if (speedKmh > 180) {
-                // If there is a next point, check if next point returns near prev
-                if (i + 1 < validCoords.length) {
-                    const next = validCoords[i + 1];
-                    const dLatNext = (next.lat - prev.lat) * Math.PI / 180;
-                    const dLngNext = (next.lng - prev.lng) * Math.PI / 180;
-                    const aNext = Math.sin(dLatNext / 2) * Math.sin(dLatNext / 2) +
-                                  Math.cos(prev.lat * Math.PI / 180) * Math.cos(next.lat * Math.PI / 180) *
-                                  Math.sin(dLngNext / 2) * Math.sin(dLngNext / 2);
-                    const distNextKm = 6371 * 2 * Math.atan2(Math.sqrt(aNext), Math.sqrt(1 - aNext));
+        // Two anomaly signatures that produce fan/starburst artifacts:
+        //
+        // A) Impossible speed: jump requires > 180 km/h AND the next point
+        //    returns near prev (classic single ping-pong spike).
+        //    Only applied when dtSeconds > 0. NOTE: road-snapped playback
+        //    routes carry identical timestamps on every point, so a dt=0
+        //    speed check would shred legitimate snapped geometry.
+        //
+        // B) Sandwiched spike (geometric, timestamp-independent): curr is
+        //    far from prev (> 1 km), but the next point lands back near prev
+        //    — curr is a lone outlier between two points that agree. Safe
+        //    for dt=0 data because dense snapped traces are never 1 km apart
+        //    between consecutive points, while buffered-burst spikes are.
 
-                    if (distNextKm < 5) {
-                        // curr is a temporary anomalous jump! Skip it.
+        if (i + 1 < validCoords.length) {
+            const next = validCoords[i + 1];
+            const dLatNext = (next.lat - prev.lat) * Math.PI / 180;
+            const dLngNext = (next.lng - prev.lng) * Math.PI / 180;
+            const aNext = Math.sin(dLatNext / 2) * Math.sin(dLatNext / 2) +
+                          Math.cos(prev.lat * Math.PI / 180) * Math.cos(next.lat * Math.PI / 180) *
+                          Math.sin(dLngNext / 2) * Math.sin(dLngNext / 2);
+            const distNextKm = 6371 * 2 * Math.atan2(Math.sqrt(aNext), Math.sqrt(1 - aNext));
+
+            // (A) impossible-speed spike with return to prev
+            if (dtSeconds > 0 && dtSeconds < 300) {
+                const speedKmh = (distKm / (dtSeconds / 3600));
+                if (speedKmh > 180 && distNextKm < 5) {
+                    continue;
+                }
+            }
+
+            // (B) sandwiched spike: out-and-back to a lone outlier
+            if (distKm > 1 && distNextKm < (distKm * 0.3)) {
+                const dtNext = (new Date(next.timestamp) - new Date(prev.timestamp)) / 1000;
+                // Time guard: if there was genuinely enough time to drive out
+                // and back, keep the point. With collapsed timestamps (dt=0)
+                // the implied speed is always impossible, so spikes are caught.
+                const effDtNext = Math.max(dtNext, 1);
+                if (effDtNext < 600) {
+                    const outAndBackKmh = ((distKm + distNextKm) / (effDtNext / 3600));
+                    if (outAndBackKmh > 180) {
                         continue;
                     }
                 }
             }
+        } else if (dtSeconds > 0 && dtSeconds < 300 && (distKm / (dtSeconds / 3600)) > 180) {
+            // Last point with impossible speed and no next point to confirm
+            continue;
         }
 
         cleanPoints.push(curr);
