@@ -1952,15 +1952,19 @@ function animateValue(id, start, end, duration) {
 
 // Smooth marker animation function
 function animateMarker(marker, fromLatLng, toLatLng, duration) {
+    // Cancel any existing animation for this marker
+    if (marker.animationFrame) {
+        cancelAnimationFrame(marker.animationFrame);
+        marker.animationFrame = null;
+    }
+    
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
         
-        // Easing function for smooth animation
-        const easeProgress = progress < 0.5 
-            ? 2 * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        // Easing function for smooth animation (ease-out)
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
         
         const lat = fromLatLng.lat + (toLatLng.lat - fromLatLng.lat) * easeProgress;
         const lng = fromLatLng.lng + (toLatLng.lng - fromLatLng.lng) * easeProgress;
@@ -1968,10 +1972,12 @@ function animateMarker(marker, fromLatLng, toLatLng, duration) {
         marker.setLatLng([lat, lng]);
         
         if (progress < 1) {
-            window.requestAnimationFrame(step);
+            marker.animationFrame = requestAnimationFrame(step);
+        } else {
+            marker.animationFrame = null;
         }
     };
-    window.requestAnimationFrame(step);
+    marker.animationFrame = requestAnimationFrame(step);
 }
 
 // Load all vehicle positions (Optimized)
@@ -2089,8 +2095,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         const currentLatLng = marker.getLatLng();
         const newLatLng = L.latLng(lat, lng);
         
-        // Animate marker movement
-        animateMarker(marker, currentLatLng, newLatLng, 1000);
+        // Only animate if the position actually changed
+        if (currentLatLng.distanceTo(newLatLng) > 1) { // 1 meter threshold
+            animateMarker(marker, currentLatLng, newLatLng, 1000);
+        }
         
         // Update marker content without recreating
         const markerEl = document.getElementById(`marker-${imei}`);
@@ -2099,10 +2107,27 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             const speedLabel = markerEl.querySelector('.speed-label');
             if (speedLabel) speedLabel.textContent = `${Math.round(speed || 0)} km/h`;
         }
-    } else {
-        // Create new marker
-        marker = L.marker([lat, lng], { icon: icon }).addTo(map);
+        
+        // Ensure popup is bound (for markers created before smooth animation fix)
+        if (!marker.getPopup()) {
+            if (typeof marker.bindPopup === 'function') marker.bindPopup('');
+        }
+    } else if (!marker) {
+        // Create new marker with popup and click listener
+        marker = L.marker([lat, lng], { icon: icon });
+        
+        // Set up popup and click listener immediately
+        if (typeof marker.bindPopup === 'function') marker.bindPopup('');
+        if (typeof marker.on === 'function') {
+            marker.on('click', () => {
+                const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; 
+                selectVehicle(vehicleObj); 
+            });
+        }
+        
         markers[id] = marker;
+        
+        if (!isHistoryMode && typeof marker.addTo === 'function') marker.addTo(map);
     }
 
     // Handle Address Resolution (Popup Only)
@@ -2195,22 +2220,23 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     } else {
         if (lat !== null && lat !== undefined) {
-            // Marker already created in smooth animation section above
-            if (!isHistoryMode && typeof marker.addTo === 'function') marker.addTo(map);
+            // Marker already created and configured in smooth animation section above
+            // Just ensure it's on the map if not in history mode
+            if (!isHistoryMode && typeof marker.addTo === 'function' && !map.hasLayer(marker)) {
+                marker.addTo(map);
+            }
+            
+            // Set metadata for new markers
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
             marker.obdData = obdData; // Attach OBD Data for Reports
             marker.ignitionOn = ignitionOn; // Save for persistence
-
-            if (typeof marker.bindPopup === 'function') marker.bindPopup(popupContentStr);
-
-            // Click listener to select vehicle
-            if (typeof marker.on === 'function') {
-                marker.on('click', () => {
-                    const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; 
-                    selectVehicle(vehicleObj); 
-                });
+            marker.vehicleName = resolvedName; // Cache for future updates
+            
+            // Set popup content for new markers
+            if (typeof marker.setPopupContent === 'function') {
+                marker.setPopupContent(popupContentStr);
             }
         }
         // NOTE: We no longer create a "fake" object in markers[id] if lat is null.
