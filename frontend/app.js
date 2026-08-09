@@ -1879,14 +1879,20 @@ function updateDashboardKPIs(vehicles) {
             const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
 
             if (minsAgo < OFFLINE_MINS) {
-                // Use marker's persistent ignition state if available, otherwise check position data
-                const speed = pos ? pos.speed : 0;
-                const ignitionOn = marker ? marker.ignitionOn : (pos ? pos.ignition : false);
-
-                if (speed > 3) {
+                // Use the marker's resolved status (speed persistence + 30s
+                // motion grace) so KPI counts match the badge and don't
+                // flicker when OBD packets arrive without speed
+                if (marker && marker.resolvedStatus === 'Moving') {
                     moving++;
-                } else {
+                } else if (marker && marker.resolvedStatus === 'Stationary') {
                     stationary++;
+                } else {
+                    const speed = pos ? pos.speed : 0;
+                    if (speed > 3) {
+                        moving++;
+                    } else {
+                        stationary++;
+                    }
                 }
             } else {
                 offline++;
@@ -2149,7 +2155,21 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (hasValidCoords) {
             const currentLatLng = marker.getLatLng();
             const newLatLng = L.latLng(lat, lng);
-            const distMeters = currentLatLng.distanceTo(newLatLng);
+            let distMeters = currentLatLng.distanceTo(newLatLng);
+
+            // Spike filter: if the implied speed from the last accepted
+            // position to this one is physically impossible (> 250 km/h),
+            // this coordinate is a GPS teleport glitch — hold the marker in
+            // place. The next real fix will resume tracking.
+            const lastMoveTime = marker.lastMoveTime || 0;
+            const elapsedSec = (Date.now() - lastMoveTime) / 1000;
+            if (lastMoveTime > 0 && elapsedSec > 0 && elapsedSec < 120) {
+                const impliedKmh = (distMeters / 1000) / (elapsedSec / 3600);
+                if (impliedKmh > 250) {
+                    console.warn(`GPS spike rejected for ${imei}: ${Math.round(impliedKmh)} km/h implied (${Math.round(distMeters)}m in ${Math.round(elapsedSec)}s)`);
+                    distMeters = 0; // Treat as no movement
+                }
+            }
 
             // Stationary Anchor: GPS hardware drifts 5-15m on every fix even when
             // parked. When the resolved status is Stationary, freeze the marker
@@ -2170,6 +2190,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 // Vehicle is moving: clear anchor and track normally
                 marker.stationaryAnchor = null;
                 if (distMeters > 1) {
+                    marker.lastMoveTime = Date.now();
                     animateMarker(marker, currentLatLng, newLatLng, 1000);
                 }
             }
@@ -2291,9 +2312,14 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker.resolvedStatus = assetStatus; // Persist resolved status for card/detail sync
         marker.obdData = obdData; // Attach OBD Data for Reports
 
-        // Update Popup Content
+        // Update Popup Content — setPopupContent alone doesn't re-render an
+        // already-open popup in Leaflet, so force an update when it's showing
         if (typeof marker.setPopupContent === 'function') {
             marker.setPopupContent(popupContentStr);
+            const popup = marker.getPopup && marker.getPopup();
+            if (popup && typeof popup.isOpen === 'function' && popup.isOpen()) {
+                popup.update();
+            }
         }
     } else {
         if (lat !== null && lat !== undefined) {

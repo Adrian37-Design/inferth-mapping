@@ -144,21 +144,24 @@ async def get_fleet_snapshot(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get the latest position for ALL devices in one query"""
+    """Get the latest position for ALL devices in one query.
+    Only considers rows WITH coordinates — OBD/heartbeat packets are stored
+    with null lat/lng and would otherwise clobber the last known location."""
     from sqlalchemy import func
-    
-    # Subquery to find max timestamp per device
+
+    # Subquery to find max timestamp per device (location rows only)
     subq = (
         select(Position.device_id, func.max(Position.timestamp).label("max_ts"))
+        .where(Position.latitude.is_not(None), Position.longitude.is_not(None))
         .group_by(Position.device_id)
         .subquery()
     )
-    
+
     # Join to get full position details
     query = select(Position).join(Device).join(
-        subq, 
+        subq,
         (Position.device_id == subq.c.device_id) & (Position.timestamp == subq.c.max_ts)
-    )
+    ).where(Position.latitude.is_not(None), Position.longitude.is_not(None))
     
     # Filter by tenant unless global admin
     if current_user.tenant_id != 1:
