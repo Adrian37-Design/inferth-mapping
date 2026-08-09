@@ -2059,7 +2059,28 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const timeDiff = new Date() - new Date(timestamp);
     const minsOffline = timeDiff / (1000 * 60);
-    
+
+    // Robust Speed Resolution: OBD/heartbeat packets carry NO speed value
+    // (speed arrives as undefined). Persist last known speed per-marker so
+    // status doesn't flicker to "Stationary" between GPS fixes while driving.
+    const packetHasSpeed = (speed !== undefined && speed !== null && !isNaN(speed));
+    let resolvedSpeed = packetHasSpeed ? speed : 0;
+
+    if (marker) {
+        if (packetHasSpeed) {
+            marker.lastSpeed = speed;
+            marker.lastSpeedTime = new Date(timestamp).getTime();
+        } else if (marker.lastSpeed !== undefined && marker.lastSpeedTime) {
+            // Reuse last speed only if it was reported within the last 90s
+            // (trackers report every 10-30s while driving). Older = treat as stopped.
+            const speedAge = (new Date(timestamp).getTime() - marker.lastSpeedTime) / 1000;
+            if (speedAge <= 90) {
+                resolvedSpeed = marker.lastSpeed;
+            }
+        }
+    }
+    speed = resolvedSpeed;
+
     // Robust Ignition State Merging
     let ignitionOn = (rawData && rawData.ignition !== undefined) ? rawData.ignition : (marker && marker.ignitionOn);
     // Default to false if never seen
@@ -2068,13 +2089,30 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Safety: Infer ignition from speed (Moving assets MUST have ignition on)
     if (speed > 3) ignitionOn = true;
 
+    // Motion persistence: brief speed dips (0 for a few seconds at a robot)
+    // should not instantly flip status. Require speed>3 to START moving,
+    // but keep "Moving" until we've seen ~30s of consecutive low speed.
     let assetStatus = 'Offline';
     if (minsOffline < 10) {
         if (speed > 3) {
             assetStatus = 'Moving';
+            if (marker) marker.stationarySince = null;
         } else {
-            assetStatus = 'Stationary';
+            if (marker && marker.wasMoving) {
+                const now = new Date(timestamp).getTime();
+                if (!marker.stationarySince) marker.stationarySince = now;
+                const stoppedFor = (now - marker.stationarySince) / 1000;
+                if (stoppedFor < 30) {
+                    assetStatus = 'Moving'; // Grace period — probably just a traffic light
+                } else {
+                    assetStatus = 'Stationary';
+                    marker.wasMoving = false;
+                }
+            } else {
+                assetStatus = 'Stationary';
+            }
         }
+        if (assetStatus === 'Moving' && marker) marker.wasMoving = true;
     }
 
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
@@ -2100,9 +2138,12 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             const distMeters = currentLatLng.distanceTo(newLatLng);
 
             // Stationary Anchor: GPS hardware drifts 5-15m on every fix even when
-            // parked. When stationary, freeze the marker at its anchored position
-            // and ignore ALL incoming coordinates until the vehicle moves again.
-            const isStationary = !speed || speed <= 3;
+            // parked. When the resolved status is Stationary, freeze the marker
+            // at its anchored position and ignore ALL incoming coordinates until
+            // the vehicle moves again. Uses resolved status (with speed
+            // persistence + motion grace) so OBD packets can't freeze a
+            // moving vehicle or unfreeze a parked one.
+            const isStationary = assetStatus === 'Stationary';
 
             if (isStationary) {
                 // Set anchor on first stationary report; never move while stationary
@@ -2233,6 +2274,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
         marker.isOffline = assetStatus === 'Offline';
+        marker.resolvedStatus = assetStatus; // Persist resolved status for card/detail sync
         marker.obdData = obdData; // Attach OBD Data for Reports
 
         // Update Popup Content
@@ -2251,6 +2293,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
+            marker.resolvedStatus = assetStatus;
             marker.obdData = obdData; // Attach OBD Data for Reports
             marker.ignitionOn = ignitionOn; // Save for persistence
             marker.vehicleName = resolvedName; // Cache for future updates
@@ -2313,13 +2356,17 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     // Determine Status using timestamp (10-minute offline threshold)
     const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
     
-    // Get persistent ignition state from marker
+    // Get persistent state from marker (includes motion grace period)
     const marker = markers[id];
     const ignitionOn = marker ? marker.ignitionOn : false;
 
     let status, label;
     if (minsAgo >= 10) {
         status = 'offline'; label = 'Offline';
+    } else if (marker && marker.resolvedStatus) {
+        // Use the resolved status computed in addOrUpdateMarker
+        // (speed persistence + 30s motion grace) so card and marker agree
+        status = marker.resolvedStatus.toLowerCase(); label = marker.resolvedStatus;
     } else if (speed > 3) {
         status = 'moving'; label = 'Moving';
     } else {
@@ -2492,11 +2539,15 @@ function updateAssetDetailUI(id) {
     const minsAgo = (Date.now() - new Date(data.timestamp).getTime()) / 60000;
     const isOffline = minsAgo >= 10;
 
-    // Status Badge
+    // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
+    const marker = markers[id];
     let status, statusClass;
     if (isOffline) {
         status = 'Offline'; statusClass = 'badge-offline';
+    } else if (marker && marker.resolvedStatus) {
+        status = marker.resolvedStatus;
+        statusClass = `badge-${marker.resolvedStatus.toLowerCase()}`;
     } else if (data.speed > 3) {
         status = 'Moving'; statusClass = 'badge-moving';
     } else {
