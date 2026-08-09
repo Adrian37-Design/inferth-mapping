@@ -2091,31 +2091,35 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     });
 
     // Smooth marker transition
+    const hasValidCoords = typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng);
+
     if (marker && map.hasLayer(marker)) {
-        const currentLatLng = marker.getLatLng();
-        const newLatLng = L.latLng(lat, lng);
-        const distMeters = currentLatLng.distanceTo(newLatLng);
-        
-        // Stationary Anchor: GPS hardware drifts 5-15m on every fix even when
-        // parked. When stationary, freeze the marker at its anchored position
-        // and ignore ALL incoming coordinates until the vehicle moves again.
-        const isStationary = !speed || speed <= 3;
-        
-        if (isStationary) {
-            // Set anchor on first stationary report; never move while stationary
-            if (!marker.stationaryAnchor) {
-                marker.stationaryAnchor = currentLatLng;
-            }
-            // Pin marker to anchor — no animation, no movement, no bouncing
-            marker.setLatLng(marker.stationaryAnchor);
-        } else {
-            // Vehicle is moving: clear anchor and track normally
-            marker.stationaryAnchor = null;
-            if (distMeters > 1) {
-                animateMarker(marker, currentLatLng, newLatLng, 1000);
+        if (hasValidCoords) {
+            const currentLatLng = marker.getLatLng();
+            const newLatLng = L.latLng(lat, lng);
+            const distMeters = currentLatLng.distanceTo(newLatLng);
+
+            // Stationary Anchor: GPS hardware drifts 5-15m on every fix even when
+            // parked. When stationary, freeze the marker at its anchored position
+            // and ignore ALL incoming coordinates until the vehicle moves again.
+            const isStationary = !speed || speed <= 3;
+
+            if (isStationary) {
+                // Set anchor on first stationary report; never move while stationary
+                if (!marker.stationaryAnchor) {
+                    marker.stationaryAnchor = currentLatLng;
+                }
+                // Pin marker to anchor — no animation, no movement, no bouncing
+                marker.setLatLng(marker.stationaryAnchor);
+            } else {
+                // Vehicle is moving: clear anchor and track normally
+                marker.stationaryAnchor = null;
+                if (distMeters > 1) {
+                    animateMarker(marker, currentLatLng, newLatLng, 1000);
+                }
             }
         }
-        
+
         // Update marker content without recreating
         const markerEl = document.getElementById(`marker-${imei}`);
         if (markerEl) {
@@ -2123,13 +2127,14 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             const speedLabel = markerEl.querySelector('.speed-label');
             if (speedLabel) speedLabel.textContent = `${Math.round(speed || 0)} km/h`;
         }
-        
+
         // Ensure popup is bound (for markers created before smooth animation fix)
         if (!marker.getPopup()) {
             if (typeof marker.bindPopup === 'function') marker.bindPopup('');
         }
-    } else if (!marker) {
-        // Create new marker with popup and click listener
+    } else if (!marker && hasValidCoords) {
+        // Create new marker only when we have real coordinates —
+        // OBD-only packets (lat/lng null) must NOT create a ghost marker
         marker = L.marker([lat, lng], { icon: icon });
         
         // Set up popup and click listener immediately
@@ -2872,8 +2877,36 @@ async function loadTrips() {
                 const routeData = await response.json();
 
                 if (routeData.points.length > 0) {
-                    playbackRoute = routeData.points;
-                    showRoutePolyline(routeData.points);
+                    const clean = filterValidRoutePoints(routeData.points);
+
+                    // Snap to roads for realistic playback path
+                    const snapped = await snapRouteToRoad(clean);
+                    if (snapped && snapped.matched) {
+                        playbackRoute = [];
+                        snapped.segments.forEach(seg => {
+                            seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp }));
+                        });
+                        // Draw snapped segments
+                        if (routes[selectedVehicle.id]) {
+                            if (Array.isArray(routes[selectedVehicle.id])) {
+                                routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+                            } else {
+                                try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+                            }
+                        }
+                        const layers = [];
+                        const allCoords = [];
+                        snapped.segments.forEach(seg => {
+                            const pl = L.polyline(seg, { color: '#00d4ff', weight: 4, opacity: 0.85, smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+                            layers.push(pl);
+                            allCoords.push(...seg);
+                        });
+                        routes[selectedVehicle.id] = layers;
+                        if (allCoords.length > 0) map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+                    } else {
+                        playbackRoute = clean;
+                        showRoutePolyline(clean);
+                    }
                     document.getElementById('route-controls').classList.remove('hidden');
                 }
             });
@@ -2886,33 +2919,109 @@ async function loadTrips() {
     }
 }
 
+// Snap a GPS trace to the road network using OSRM Map Matching.
+// Returns { segments: [[[lat,lng],...], ...], matched: true } on success,
+// or null on failure so callers can fall back to raw points.
+// gaps=split ensures disconnected sections never get fake straight lines.
+async function snapRouteToRoad(points) {
+    if (!points || points.length < 2) return null;
+
+    const CHUNK = 80; // OSRM public API limit is ~100 coords per request
+    const segments = [];
+
+    for (let i = 0; i < points.length; i += CHUNK - 1) {
+        const chunk = points.slice(i, i + CHUNK);
+        if (chunk.length < 2) break;
+
+        const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
+        const radiuses = chunk.map(() => '35').join(';'); // allow 35m GPS error
+
+        try {
+            const url = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=split&tidy=true&radiuses=${radiuses}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`OSRM match HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+                data.matchings.forEach(m => {
+                    if (m.geometry && m.geometry.coordinates && m.geometry.coordinates.length > 1) {
+                        // OSRM returns [lng, lat] — flip to [lat, lng]
+                        segments.push(m.geometry.coordinates.map(c => [c[1], c[0]]));
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Map matching failed, falling back to raw trace:', e);
+            return null;
+        }
+    }
+
+    if (segments.length === 0) return null;
+    return { segments, matched: true };
+}
+
+// Fallback: split raw points at large time gaps so the polyline never
+// draws a straight line across a data gap (vehicle offline / parked hours).
+function splitTraceAtGaps(points, maxGapMinutes = 3) {
+    const segments = [];
+    let current = [];
+    for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (i > 0) {
+            const gap = (new Date(p.timestamp) - new Date(points[i - 1].timestamp)) / 60000;
+            if (gap > maxGapMinutes) {
+                if (current.length > 1) segments.push(current);
+                current = [];
+            }
+        }
+        current.push([p.lat, p.lng]);
+    }
+    if (current.length > 1) segments.push(current);
+    return segments;
+}
+
 function showRoutePolyline(points) {
     if (!points || points.length === 0) return;
-    
+
     // Use the robust filtering function to clean the route data
     const filtered = filterValidRoutePoints(points);
-    
+
     if (filtered.length < 2) {
         console.warn('Not enough valid points to draw route');
         return;
     }
-    
-    // Create polyline with all valid points to show actual trip path
-    const coords = filtered.map(p => [p.lat, p.lng]);
-    const polyline = L.polyline(coords, {
-        color: '#00d4ff',
-        weight: 4,
-        opacity: 0.85,
-        smoothFactor: 1.0,  // Lower value for more accurate path following
-        lineJoin: 'round',
-        lineCap: 'round'
-    }).addTo(map);
-    
+
+    // Split at time gaps — never draw straight lines across gaps
+    const segments = splitTraceAtGaps(filtered);
+
+    // Remove any previous route for this vehicle
     if (selectedVehicle && routes[selectedVehicle.id]) {
-        map.removeLayer(routes[selectedVehicle.id]);
+        if (Array.isArray(routes[selectedVehicle.id])) {
+            routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+        } else {
+            try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+        }
     }
-    if (selectedVehicle) routes[selectedVehicle.id] = polyline;
-    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+
+    const layers = [];
+    const allCoords = [];
+    segments.forEach(seg => {
+        const polyline = L.polyline(seg, {
+            color: '#00d4ff',
+            weight: 4,
+            opacity: 0.85,
+            smoothFactor: 1.0,
+            lineJoin: 'round',
+            lineCap: 'round'
+        }).addTo(map);
+        layers.push(polyline);
+        allCoords.push(...seg);
+    });
+
+    if (selectedVehicle) routes[selectedVehicle.id] = layers;
+    if (allCoords.length > 0) {
+        map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+    }
 }
 
 // Connect to WebSocket
@@ -3206,7 +3315,11 @@ function playRoute() {
 
     const speedInput = document.getElementById('playback-speed');
     const speed = speedInput ? parseFloat(speedInput.value) : 1;
-    const interval = Math.max(40, 500 / speed);
+    // Dynamic interval: target ~30s total playback regardless of point density
+    // (road-snapped routes have hundreds of points; raw traces have dozens)
+    const baseInterval = Math.min(500, Math.max(25, 30000 / playbackRoute.length));
+    const interval = Math.max(20, baseInterval / speed);
+    window.playbackAnimDuration = Math.min(250, interval);
 
     playbackInterval = setInterval(() => {
         if (playbackIndex >= playbackRoute.length - 1) {
@@ -3244,7 +3357,11 @@ function stopRouteAndExit() {
     }
 
     if (selectedVehicle && routes[selectedVehicle.id]) {
-        map.removeLayer(routes[selectedVehicle.id]);
+        if (Array.isArray(routes[selectedVehicle.id])) {
+            routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+        } else {
+            try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
+        }
         delete routes[selectedVehicle.id];
     }
 
@@ -3285,7 +3402,7 @@ function updatePlaybackMarker(index) {
 
     const startLatLng = playbackMarker.getLatLng();
     const startTime = performance.now();
-    const duration = 250;
+    const duration = window.playbackAnimDuration || 250;
 
     function step(now) {
         const progress = Math.min((now - startTime) / duration, 1);
@@ -3464,7 +3581,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     if (eEl) eEl.innerHTML = `<strong>To:</strong> ${eAddr || 'Street in area'}`;
                 }, 50);
                 
-                item.onclick = () => {
+                item.onclick = async () => {
                     document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
 
@@ -3490,11 +3607,42 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
 
                     if (filteredPoints.length < 2) return;
 
-                    if (routes[id]) map.removeLayer(routes[id]);
-                    const coords = filteredPoints.map(p => [p.lat, p.lng]);
-                    const polyline = L.polyline(coords, { color: '#00d4ff', weight: 5, opacity: 0.85, smoothFactor: 1.5 }).addTo(map);
-                    routes[id] = polyline;
-                    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                    // Remove previous route layers (may be array or single layer)
+                    if (routes[id]) {
+                        if (Array.isArray(routes[id])) {
+                            routes[id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+                        } else {
+                            try { map.removeLayer(routes[id]); } catch(e){}
+                        }
+                    }
+
+                    // Snap trace to actual roads via OSRM map matching
+                    const snapped = await snapRouteToRoad(filteredPoints);
+                    let segments;
+                    let playbackPoints;
+
+                    if (snapped && snapped.matched) {
+                        // Use road-snapped geometry for both display and playback
+                        segments = snapped.segments;
+                        playbackPoints = [];
+                        segments.forEach(seg => {
+                            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp }));
+                        });
+                    } else {
+                        // Fallback: raw trace split at time gaps (no straight lines across gaps)
+                        segments = splitTraceAtGaps(filteredPoints);
+                        playbackPoints = filteredPoints;
+                    }
+
+                    const layers = [];
+                    const allCoords = [];
+                    segments.forEach(seg => {
+                        const polyline = L.polyline(seg, { color: '#00d4ff', weight: 5, opacity: 0.85, smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+                        layers.push(polyline);
+                        allCoords.push(...seg);
+                    });
+                    routes[id] = layers;
+                    map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
 
                     // Add Start/End Dots
                     const startMarker = L.circleMarker([filteredPoints[0].lat, filteredPoints[0].lng], {
@@ -3509,7 +3657,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
 
                     isHistoryMode = true;
                     Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
-                    playbackRoute = filteredPoints;
+                    playbackRoute = playbackPoints;
                     document.getElementById('route-controls').classList.remove('hidden');
                     const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.add('collapsed');
