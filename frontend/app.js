@@ -2096,14 +2096,24 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         const newLatLng = L.latLng(lat, lng);
         const distMeters = currentLatLng.distanceTo(newLatLng);
         
-        // GPS Drift Filter: When stationary (speed <= 3 km/h), ignore small
-        // position changes (< 25m) caused by GPS accuracy drift. This stops
-        // the marker from bouncing between two points while parked.
+        // Stationary Anchor: GPS hardware drifts 5-15m on every fix even when
+        // parked. When stationary, freeze the marker at its anchored position
+        // and ignore ALL incoming coordinates until the vehicle moves again.
         const isStationary = !speed || speed <= 3;
-        const driftThreshold = isStationary ? 25 : 1;
         
-        if (distMeters > driftThreshold) {
-            animateMarker(marker, currentLatLng, newLatLng, 1000);
+        if (isStationary) {
+            // Set anchor on first stationary report; never move while stationary
+            if (!marker.stationaryAnchor) {
+                marker.stationaryAnchor = currentLatLng;
+            }
+            // Pin marker to anchor — no animation, no movement, no bouncing
+            marker.setLatLng(marker.stationaryAnchor);
+        } else {
+            // Vehicle is moving: clear anchor and track normally
+            marker.stationaryAnchor = null;
+            if (distMeters > 1) {
+                animateMarker(marker, currentLatLng, newLatLng, 1000);
+            }
         }
         
         // Update marker content without recreating
