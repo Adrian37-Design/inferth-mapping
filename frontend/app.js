@@ -1,5 +1,5 @@
 // Inferth Mapping - Fleet Tracking Platform
-console.log('%c Inferth app.js v92 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
+console.log('%c Inferth app.js v93 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
 
 // Check authentication before anything else
 if (!window.AuthManager || !window.AuthManager.checkAuth()) {
@@ -3928,7 +3928,27 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     document.getElementById('route-controls').classList.remove('hidden');
                     const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.add('collapsed');
-                    setTimeout(() => { if (map) map.invalidateSize(); playRoute(); }, 400);
+                    setTimeout(() => {
+                        if (map) map.invalidateSize();
+                        playRoute();
+                        // playRoute() re-filters playbackRoute (removing spikes
+                        // that survived the first pass, especially snapped spike
+                        // points). Redraw the route layers using the cleaned
+                        // playbackRoute so the initial draw matches what the
+                        // mode-change redraw produces — no fan pattern.
+                        if (playbackRoute && playbackRoute.length > 1 && routes[id]) {
+                            if (Array.isArray(routes[id])) {
+                                routes[id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
+                            } else {
+                                try { map.removeLayer(routes[id]); } catch(e){}
+                            }
+                            const cleanedPoints = playbackRoute.map(p => [p.lat, p.lng]);
+                            routes[id] = [L.polyline(cleanedPoints, {
+                                color: '#00d4ff', weight: 5, opacity: 0.85,
+                                smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round'
+                            }).addTo(map)];
+                        }
+                    }, 400);
                 };
             } else {
                 // Stop Item
