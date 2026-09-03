@@ -28,12 +28,18 @@ async def run_migrations_and_branding():
     import time
 
     connection_ready = False
-    max_retries = 10
-    retry_delay = 5 # seconds
+    attempt = 0
+    retry_delay = 5  # seconds
 
-    for attempt in range(1, max_retries + 1):
+    # Retry FOREVER: if Postgres restarts/recovers after the app boots
+    # (Railway dependency ordering is not guaranteed, and Postgres may go
+    # down for crash recovery for minutes), the app must eventually become
+    # ready — a finite retry budget leaves db_ready=False permanently,
+    # which blocks login with "Database is initializing" until a redeploy.
+    while not connection_ready:
+        attempt += 1
         try:
-            print(f"Connecting to Database (Attempt {attempt}/{max_retries})...")
+            print(f"Connecting to Database (Attempt {attempt})...")
             # Python 3.10 compatibility: use wait_for instead of timeout context manager
             async def do_db_init():
                 async with engine.begin() as conn:
@@ -44,14 +50,11 @@ async def run_migrations_and_branding():
             # Set ready immediately after connection/tables are verified
             # This allows login attempts to start while migrations/branding happen in background
             app.state.db_ready = True 
-            break
         except Exception as e:
             print(f"FAILED: Database attempt {attempt} failed: {e}")
-            if attempt < max_retries:
-                print(f"Retrying in {retry_delay}s...")
-                await asyncio.sleep(retry_delay)
-            else:
-                print("CRITICAL ERROR: Database unreachable after maximum retries.")
+            print(f"Retrying in {retry_delay}s...")
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 1.5, 60)  # Cap backoff at 60s
 
     if connection_ready:
         async with AsyncSessionLocal() as db:
