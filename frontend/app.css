@@ -3759,3 +3759,502 @@ body {
     transform: scale(1.05);
 }
 
+
+/* ============================================================
+   MOBILE OVERHAUL (consolidated)
+   - Full-width panel (no broken map sliver)
+   - Readable KPI grid, charts, controls
+   - Touch targets >= 44px, safe-area insets, no iOS input zoom
+   ============================================================ */
+
+/* Prevent iOS auto-zoom on input focus (inputs must be >= 16px) */
+input, select, textarea {
+    font-size: max(16px, 1em);
+}
+
+@media (max-width: 768px) {
+
+    html, body {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;               /* app-shell manages scrolling internally */
+        position: fixed;                /* stop iOS rubber-band scrolling */
+    }
+
+    /* ---------- Navbar ---------- */
+    .navbar {
+        padding: 8px 12px;
+        height: 56px;
+        gap: 8px;
+    }
+
+    .brand-logo {
+        height: 32px;
+        max-width: 110px;
+    }
+
+    .nav-brand {
+        font-size: 1.05em;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .nav-stats {
+        gap: 6px;
+        align-items: center;
+    }
+
+    .stat-item {
+        padding: 6px 10px;
+        font-size: 0.78em;
+        border-radius: 30px;
+    }
+
+    .map-btn, .logout-btn {
+        padding: 8px 12px;
+        min-height: 40px;
+    }
+
+    .role-badge {
+        display: none;                  /* too wide for mobile navbar */
+    }
+
+    /* ---------- Layout shell ---------- */
+    .main-container {
+        height: calc(100dvh - 56px);    /* dvh handles mobile browser chrome */
+        height: calc(100vh - 56px);     /* fallback */
+    }
+
+    /* ---------- Sidebar: full-bleed panel ---------- */
+    .sidebar-container {
+        z-index: 2000;
+    }
+
+    .sidebar-rail {
+        width: 56px;
+        padding-top: 12px;
+        gap: 10px;
+    }
+
+    .rail-item {
+        width: 44px;
+        min-height: 44px;               /* touch target */
+    }
+
+    .rail-item i {
+        font-size: 1.15em;
+    }
+
+    .rail-label {
+        display: none;
+    }
+
+    .sidebar-panel {
+        width: calc(100vw - 56px);      /* full width minus rail — no map sliver */
+        max-width: none;
+        box-shadow: 6px 0 24px rgba(0, 0, 0, 0.45);
+    }
+
+    .panel-header {
+        padding: 14px 14px;
+        min-height: 56px;
+    }
+
+    .panel-header h3 {
+        font-size: 1.25em;
+    }
+
+    .toggle-panel {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .tab-content {
+        padding: 12px 14px;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;   /* don't pull-map-refresh while scrolling panel */
+    }
+
+    /* Subtle mobile scrollbar (hide the loud neon-green bar) */
+    .tab-content::-webkit-scrollbar,
+    .detail-scroll-area::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .tab-content::-webkit-scrollbar-thumb,
+    .detail-scroll-area::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.18);
+        border-radius: 2px;
+    }
+
+    /* ---------- Dashboard KPIs: equal 2x2 cards ---------- */
+    .kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+    }
+
+    .kpi-card {
+        padding: 14px 10px;
+        min-height: 84px;
+        border-radius: 10px;
+    }
+
+    .kpi-card:hover {
+        transform: none;                /* no hover physics on touch */
+    }
+
+    .kpi-value {
+        font-size: 1.5em;
+    }
+
+    .kpi-label {
+        font-size: 0.68em;
+        letter-spacing: 0.04em;
+        text-align: center;
+    }
+
+    .dashboard-section {
+        margin-bottom: 18px;
+    }
+
+    .section-header-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .inline-select-small {
+        max-width: 140px;
+    }
+
+    /* ---------- Charts ---------- */
+    .chart-container, .chart-holder {
+        height: 240px;
+        width: 100%;
+        position: relative;
+    }
+
+    canvas {
+        touch-action: pan-y;            /* allow vertical scroll over charts */
+    }
+
+    /* ---------- Asset detail ---------- */
+    .detail-scroll-area {
+        padding: 12px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .asset-title-row h2 {
+        font-size: 1.15em;
+    }
+
+    #detail-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 55vw;
+    }
+
+    /* ---------- Vehicle / entity lists ---------- */
+    .vehicle-item, .alert-item, .rule-item, .user-row {
+        padding: 12px;
+        min-height: 56px;
+    }
+
+    /* ---------- Map overlays ---------- */
+    .map-controls {
+        bottom: 150px;
+        right: 10px;
+        gap: 10px;
+    }
+
+    .control-btn {
+        width: 44px;
+        height: 44px;                   /* touch target */
+    }
+
+    .map-type-control {
+        margin-right: 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Route playback bar: fit any screen, wrap gracefully */
+    .route-controls {
+        min-width: 0;
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        padding: 10px 12px 12px;
+        gap: 10px;
+        border-radius: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .route-controls button,
+    .route-controls .control-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .mode-selector, .speed-control {
+        border-left: none;
+        padding-left: 0;
+    }
+
+    #playback-speed {
+        width: 90px;
+    }
+
+    .timeline-slider-container input[type="range"] {
+        height: 10px;
+    }
+
+    .timeline-slider-container input[type="range"]::-webkit-slider-thumb {
+        width: 26px;                    /* bigger thumb for fat fingers */
+        height: 26px;
+    }
+
+    .timeline-slider-container input[type="range"]::-moz-range-thumb {
+        width: 26px;
+        height: 26px;
+        border: none;
+    }
+
+    /* Leaflet chrome on mobile */
+    .leaflet-popup-content-wrapper {
+        max-width: calc(100vw - 120px);
+    }
+
+    .leaflet-popup-content {
+        font-size: 0.85em;
+        line-height: 1.5;
+    }
+
+    .leaflet-control-attribution {
+        font-size: 8px;
+    }
+
+    .leaflet-bar a {
+        width: 34px;
+        height: 34px;
+        line-height: 34px;
+    }
+
+    /* ---------- FABs ---------- */
+    .fab-container {
+        right: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* ---------- Modals: near-fullscreen sheets ---------- */
+    .modal-overlay {
+        padding: 8px;
+        align-items: flex-end;          /* bottom-sheet feel */
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        max-height: 92dvh;
+        max-height: 92vh;
+        border-radius: 16px 16px 0 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: inherit;
+        padding: 14px 16px;
+    }
+
+    .modal-body {
+        padding: 12px 16px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Payment options stack vertically */
+    .payment-options {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* ---------- Rules / sentence builder ---------- */
+    .sentence-builder, .sentence-builder-row2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        font-size: 0.9em;
+    }
+
+    .inline-select, .inline-input {
+        flex: 1 1 120px;
+        min-width: 0;
+    }
+
+    #rule-contact {
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    #save-rule-btn {
+        width: 100%;
+        min-height: 44px;
+        justify-content: center;
+    }
+
+    /* ---------- Tables: horizontal scroll in a card ---------- */
+    .report-table-wrap, .data-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .report-table, .data-table {
+        min-width: 560px;
+    }
+
+    /* ---------- Reports & intelligence ---------- */
+    .reports-grid, .analytics-grid, .summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-metrics {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .report-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn-primary, .btn-small, .panel-btn, .popup-history-btn {
+        min-height: 44px;
+    }
+
+    /* ---------- Empty states ---------- */
+    .empty-state {
+        padding: 20px 10px;
+        text-align: center;
+        font-size: 0.85em;
+    }
+
+    /* ---------- Utility ---------- */
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+/* Small devices (<= 480px) — extra tightening */
+@media (max-width: 480px) {
+
+    .navbar {
+        padding: 6px 10px;
+        height: 52px;
+    }
+
+    .main-container {
+        height: calc(100dvh - 52px);
+        height: calc(100vh - 52px);
+    }
+
+    .stat-item {
+        padding: 5px 8px;
+        font-size: 0.72em;
+    }
+
+    .stat-item span {
+        display: none;                  /* dot only */
+    }
+
+    .sidebar-rail {
+        width: 48px;
+    }
+
+    .rail-item {
+        width: 40px;
+        min-height: 42px;
+    }
+
+    .sidebar-panel {
+        width: calc(100vw - 48px);
+    }
+
+    .panel-header h3 {
+        font-size: 1.1em;
+    }
+
+    .kpi-card {
+        min-height: 76px;
+        padding: 12px 6px;
+    }
+
+    .kpi-value {
+        font-size: 1.3em;
+    }
+
+    .kpi-label {
+        font-size: 0.62em;
+    }
+
+    .chart-container, .chart-holder {
+        height: 210px;
+    }
+
+    .route-controls {
+        width: calc(100vw - 12px);
+        max-width: calc(100vw - 12px);
+        padding: 8px 10px 10px;
+        gap: 8px;
+    }
+
+    .control-btn {
+        width: 40px;
+        height: 40px;
+    }
+
+    .map-controls {
+        bottom: 140px;
+        right: 8px;
+    }
+
+    .modal-overlay {
+        padding: 0;
+    }
+
+    .notification-toast,
+    .toast {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+}
+
+/* Landscape phones: reduce vertical chrome */
+@media (max-height: 500px) and (orientation: landscape) {
+    .navbar {
+        height: 44px;
+        padding: 4px 10px;
+    }
+
+    .main-container {
+        height: calc(100vh - 44px);
+    }
+
+    .route-controls {
+        bottom: 8px;
+    }
+
+    .map-controls {
+        bottom: 90px;
+    }
+}

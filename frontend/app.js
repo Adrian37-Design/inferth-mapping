@@ -1,5 +1,5 @@
 // Inferth Mapping - Fleet Tracking Platform
-console.log('%c Inferth app.js v93 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
+console.log('%c Inferth app.js v94 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
 
 // Check authentication before anything else
 if (!window.AuthManager || !window.AuthManager.checkAuth()) {
@@ -1269,23 +1269,23 @@ async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#888' }
+                        ticks: { color: '#888', maxRotation: 45, autoSkip: true, maxTicksLimit: 8, font: { size: 9 } }
                     },
                     y: {
                         type: 'linear',
                         display: true,
                         position: 'left',
                         grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#00d4ff' },
-                        title: { display: true, text: 'km', color: '#00d4ff' }
+                        ticks: { color: '#00d4ff', maxTicksLimit: 6, font: { size: 9 } },
+                        title: { display: window.innerWidth > 480, text: 'km', color: '#00d4ff' }
                     },
                     y1: {
                         type: 'linear',
                         display: true,
                         position: 'right',
                         grid: { drawOnChartArea: false },
-                        ticks: { color: '#ff4d4d' },
-                        title: { display: true, text: 'hrs', color: '#ff4d4d' }
+                        ticks: { color: '#ff4d4d', maxTicksLimit: 6, font: { size: 9 } },
+                        title: { display: window.innerWidth > 480, text: 'hrs', color: '#ff4d4d' }
                     }
                 }
             }
