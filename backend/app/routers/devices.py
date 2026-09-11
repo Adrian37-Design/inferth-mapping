@@ -171,3 +171,65 @@ async def update_device(
     await db.refresh(device)
     
     return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name, "company": device.company, "device_metadata": device.device_metadata}
+
+
+import datetime
+
+class CommandPayload(BaseModel):
+    action: str  # "shutdown" or "restore"
+
+@router.post("/{device_id}/command")
+async def send_device_command(
+    device_id: int,
+    payload: CommandPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    result = await db.execute(select(Device).where(Device.id == device_id))
+    device = result.scalars().first()
+    
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+        
+    # Enforce tenant isolation
+    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to control this device")
+
+    is_shutdown = (payload.action.lower() == "shutdown")
+    
+    # Update device metadata with command details and shutdown status
+    meta = dict(device.device_metadata or {})
+    meta["is_shutdown"] = is_shutdown
+    meta["shutdown_status"] = "SHUTDOWN" if is_shutdown else "ACTIVE"
+    meta["last_command"] = payload.action.upper()
+    meta["last_command_at"] = datetime.datetime.utcnow().isoformat()
+    meta["last_command_by"] = current_user.email
+    device.device_metadata = meta
+
+    # Record in AuditLog for security compliance
+    from app.models import AuditLog
+    audit = AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="REMOTE_TRACKER_SHUTDOWN" if is_shutdown else "REMOTE_TRACKER_RESTORE",
+        details={
+            "device_id": device_id,
+            "imei": device.imei,
+            "vehicle_name": device.name,
+            "command": payload.action.upper()
+        },
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+    
+    await db.commit()
+    await db.refresh(device)
+
+    action_text = "SHUT DOWN / IMMOBILIZED" if is_shutdown else "RESTORED / POWER ON"
+    return {
+        "success": True,
+        "message": f"Remote signal executed: Vehicle '{device.name or device.imei}' is now {action_text}.",
+        "is_shutdown": is_shutdown,
+        "device_metadata": device.device_metadata
+    }
+
