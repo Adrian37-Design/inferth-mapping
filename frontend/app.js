@@ -1753,15 +1753,18 @@ async function loadVehicles() {
         vehicleList.innerHTML = '';
 
         vehicles.forEach(vehicle => {
+            const isShutdown = vehicle.device_metadata && (vehicle.device_metadata.is_shutdown || vehicle.device_metadata.shutdown_status === 'SHUTDOWN');
             const card = document.createElement('div');
-            card.className = 'vehicle-card status-offline';
+            card.className = `vehicle-card ${isShutdown ? 'status-shutdown' : 'status-offline'}`;
             card.dataset.id = vehicle.id;
             card.dataset.imei = vehicle.imei;
 
             card.innerHTML = `
                 <div class="vehicle-header">
-                    <div class="vehicle-name">${vehicle.name}</div>
-                    <div class="vehicle-status-badge badge-offline">Offline</div>
+                    <div class="vehicle-name">${vehicle.name || 'Device ' + vehicle.imei}</div>
+                    <div class="vehicle-status-badge ${isShutdown ? 'badge-shutdown' : 'badge-offline'}">
+                        ${isShutdown ? '<i class="fas fa-ban"></i> SHUTDOWN' : 'Offline'}
+                    </div>
                 </div>
                 <div class="vehicle-details">
                     ${vehicle.company ? `<div class="vehicle-company"><i class="fas fa-building"></i> ${vehicle.company}</div>` : ''}
@@ -1776,6 +1779,9 @@ async function loadVehicles() {
                     <button class="locate-vehicle-btn" data-id="${vehicle.id}" title="Locate on Map">
                         <i class="fas fa-crosshairs"></i>
                     </button>
+                    <button class="shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}" data-id="${vehicle.id}" title="${isShutdown ? 'Tracker Shut Down / Immobilized (Click to Restore Power)' : 'Remote Tracker / Engine Shutdown'}">
+                        <i class="fas fa-power-off"></i>
+                    </button>
                     ${window.AuthManager.canEdit() ? `
                     <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
                         <i class="fas fa-edit"></i>
@@ -1788,8 +1794,8 @@ async function loadVehicles() {
             `;
 
             card.addEventListener('click', (e) => {
-                // Don't select vehicle if delete button was clicked
-                if (!e.target.closest('.delete-vehicle-btn') && !e.target.closest('.edit-vehicle-btn')) {
+                // Don't select vehicle if action buttons were clicked
+                if (!e.target.closest('.action-buttons')) {
                     selectVehicle(vehicle);
                 }
             });
@@ -1821,6 +1827,15 @@ async function loadVehicles() {
                         // Show the map button and switch to map view
                         window.showFullMap();
                     }
+                });
+            }
+
+            // Remote Tracker Shutdown button handler
+            const shutdownBtn = card.querySelector('.shutdown-vehicle-btn');
+            if (shutdownBtn) {
+                shutdownBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openRemoteShutdownModal(vehicle);
                 });
             }
 
@@ -2940,6 +2955,79 @@ async function deleteVehicle(id, imei) {
         alert('Failed to delete vehicle. Please check your connection.');
     }
 }
+
+// Remote Tracker Shutdown Modal Handler
+function openRemoteShutdownModal(vehicle) {
+    const modal = document.getElementById('remote-shutdown-modal');
+    if (!modal) return;
+
+    const meta = vehicle.device_metadata || {};
+    const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
+
+    document.getElementById('shutdown-vehicle-name').textContent = vehicle.name || `Vehicle #${vehicle.id}`;
+    document.getElementById('shutdown-vehicle-imei').textContent = vehicle.imei;
+
+    const statusEl = document.getElementById('shutdown-current-status');
+    const descEl = document.getElementById('shutdown-modal-desc');
+    const titleEl = document.getElementById('shutdown-modal-title');
+    const confirmBtn = document.getElementById('confirm-shutdown-btn');
+    const warningBox = document.getElementById('shutdown-warning-box');
+
+    if (isShutdown) {
+        titleEl.innerHTML = '<i class="fas fa-bolt" style="color: #22c55e;"></i> Restore Vehicle Power & Tracker';
+        statusEl.innerHTML = '<span style="color: #ef4444; font-weight: 700;"><i class="fas fa-ban"></i> SHUT DOWN / IMMOBILIZED</span>';
+        descEl.innerHTML = 'This vehicle is currently <strong>SHUT DOWN</strong>. Confirming will send a remote power-on signal to restore engine ignition and tracker functions.';
+        warningBox.style.background = 'rgba(34, 197, 94, 0.12)';
+        warningBox.style.borderColor = 'rgba(34, 197, 94, 0.35)';
+        warningBox.querySelector('div').style.color = '#22c55e';
+        confirmBtn.style.background = '#22c55e';
+        confirmBtn.style.borderColor = '#22c55e';
+        confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Restore Power';
+    } else {
+        titleEl.innerHTML = '<i class="fas fa-power-off" style="color: #ef4444;"></i> Remote Tracker Shutdown';
+        statusEl.innerHTML = '<span style="color: #22c55e; font-weight: 700;"><i class="fas fa-check-circle"></i> ACTIVE / ONLINE</span>';
+        descEl.innerHTML = 'You are about to issue a remote command to <strong>SHUT DOWN</strong> the tracking unit and cut off the engine relay. Use only in emergency or immobilizer scenarios.';
+        warningBox.style.background = 'rgba(239, 68, 68, 0.12)';
+        warningBox.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+        warningBox.querySelector('div').style.color = '#ef4444';
+        confirmBtn.style.background = '#ef4444';
+        confirmBtn.style.borderColor = '#ef4444';
+        confirmBtn.innerHTML = '<i class="fas fa-power-off"></i> Confirm Shutdown';
+    }
+
+    confirmBtn.onclick = async () => {
+        const action = isShutdown ? 'restore' : 'shutdown';
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transmitting Signal...';
+
+        try {
+            const response = await window.AuthManager.fetchAPI(`/devices/${vehicle.id}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Failed to send remote command');
+            }
+
+            const resData = await response.json();
+            modal.classList.add('hidden');
+            alert(resData.message || `Remote command ${action.toUpperCase()} executed successfully.`);
+
+            // Refresh vehicles list to update UI state
+            await loadVehicles();
+        } catch (err) {
+            alert(`Remote command error: ${err.message}`);
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    };
+
+    modal.classList.remove('hidden');
+}
+
 
 // Load trip history
 async function loadTrips() {
