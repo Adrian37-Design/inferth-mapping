@@ -246,3 +246,57 @@ input:focus+.slider {
 input:checked+.slider:before {
     transform: translateX(20px);
 }
+
+/* ================= Mobile ================= */
+@media (max-width: 768px) {
+    .users-list-container,
+    .audit-list-container {
+        padding: 12px;
+        border-radius: 12px;
+        margin-top: 12px;
+        max-height: none;           /* let tab-content handle vertical scroll */
+        overflow-x: auto;           /* horizontal scroll so columns never collapse */
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        min-width: 480px;           /* keep columns readable; user scrolls sideways */
+        font-size: 0.85rem;
+    }
+
+    .data-table thead th {
+        padding: 8px 12px;
+        font-size: 0.68rem;
+        letter-spacing: 0.6px;
+    }
+
+    .data-table td {
+        padding: 12px;
+    }
+
+    .data-table tbody tr:hover {
+        transform: none;            /* no hover physics on touch */
+        box-shadow: none;
+    }
+
+    .badge {
+        padding: 4px 10px;
+        font-size: 0.62rem;
+        min-width: 64px;
+    }
+
+    .user-email {
+        font-size: 0.88rem;
+    }
+
+    .action-buttons {
+        opacity: 1;                 /* hover doesn't exist on touch */
+        gap: 8px;
+    }
+
+    .icon-btn {
+        width: 40px;
+        height: 40px;               /* touch target */
+    }
+}
