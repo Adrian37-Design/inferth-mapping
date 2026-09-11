@@ -255,6 +255,7 @@ body {
     color: var(--primary, #00FF00) !important;
     background: none !important;
     -webkit-background-clip: unset !important;
+    background-clip: unset !important;
     -webkit-text-fill-color: var(--primary, #00FF00) !important;
     font-weight: 850;
     text-shadow: 0 0 10px var(--primary, #00FF00),
@@ -880,493 +881,658 @@ body {
     /* Above Leaflet (z-index 400 default) but below Modal (1000) */
 }
 
-/* On mobile, adjust position to not overlap with attribution or other elements */
+/* =====================================================
+   MOBILE RESPONSIVE — Primary breakpoint ≤768px
+   ===================================================== */
 @media (max-width: 768px) {
-    .map-controls {
-        bottom: 140px;
-        /* Moved up significantly to avoid mobile nav bars */
-        right: 15px;
+
+    /* ── Viewport & body ── */
+    html, body {
+        overflow-x: hidden;
     }
-    
-    /* Navbar adjustments */
+
+    /* ── Navbar ── */
     .navbar {
-        padding: 10px 15px;
-        height: 60px;
+        padding: 6px 12px;
+        height: 52px;
+        position: sticky;
+        top: 0;
+        z-index: 9000;
     }
-    
+
     .nav-brand {
-        font-size: 1.2em;
+        font-size: 1rem;
+        gap: 6px;
     }
-    
+
+    #nav-brand-name {
+        display: none; /* hide text; show logo only */
+    }
+
     .brand-logo {
-        height: 35px;
-        max-width: 120px;
+        height: 30px;
+        max-width: 110px;
     }
-    
+
+    .role-badge {
+        display: none;
+    }
+
     .nav-stats {
-        gap: 10px;
+        gap: 6px;
     }
-    
+
     .stat-item {
-        padding: 8px 12px;
-        font-size: 0.8em;
+        padding: 5px 10px;
+        font-size: 0.75em;
     }
-    
+
+    /* Show only icons on nav buttons */
     .map-btn span,
     .logout-btn span {
         display: none;
     }
-    
-    /* Sidebar adjustments */
-    .sidebar-rail {
-        width: 50px;
+
+    .map-btn, .logout-btn {
+        padding: 6px 10px;
+        font-size: 0.9em;
     }
-    
-    .rail-label {
-        display: none;
+
+    /* ── Main container ── */
+    .main-container {
+        height: calc(100dvh - 52px);
+        flex-direction: column;
     }
-    
+
+    /* ── Sidebar layout — icon rail moves to bottom ── */
+    .sidebar-container {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        height: auto;
+        flex-direction: column-reverse;
+        z-index: 3000;
+        pointer-events: none;
+    }
+
+    .sidebar-rail,
     .sidebar-panel {
-        width: 85%;
-        max-width: 350px;
+        pointer-events: auto;
     }
-    
-    /* Analytics grid mobile */
-    .analytics-grid {
-        grid-template-columns: 1fr;
+
+    /* Icon rail becomes a horizontal bottom tab bar */
+    .sidebar-rail {
+        width: 100%;
+        height: 56px;
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        padding: 0 4px;
+        gap: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-right: none;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+        background: var(--darker-bg);
     }
-    
-    .analytics-metrics {
-        grid-template-columns: 1fr;
+
+    .rail-item {
+        width: auto;
+        min-width: 48px;
+        min-height: 48px;
+        flex: 1;
+        border-radius: 8px;
+        padding: 4px 0;
+        flex-direction: column;
+        gap: 2px;
     }
-    
-    /* Reports grid mobile */
-    .reports-grid {
-        grid-template-columns: 1fr;
+
+    .rail-item i {
+        font-size: 1.15em;
     }
-    
-    /* KPI cards mobile */
+
+    /* Show labels on bottom tab bar */
+    .rail-label {
+        display: block;
+        font-size: 0.5rem;
+        line-height: 1;
+    }
+
+    .rail-badge {
+        top: 0;
+        right: 8px;
+    }
+
+    /* Sidebar panel slides up from bottom as a sheet */
+    .sidebar-panel {
+        position: fixed;
+        bottom: 56px; /* above tab bar */
+        left: 0;
+        right: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100dvh - 52px - 56px); /* full height minus navbar + tab bar */
+        border-right: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        transform: translateY(0);
+        transition: transform 0.3s ease, opacity 0.2s;
+        opacity: 1;
+    }
+
+    /* Collapsed panel hides below the fold */
+    .sidebar-container.collapsed .sidebar-panel {
+        width: 100% !important;
+        transform: translateY(100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .panel-header {
+        padding: 12px 16px;
+        min-height: 52px;
+    }
+
+    .panel-header h3 {
+        font-size: 1.2em;
+    }
+
+    /* ── Map wrapper fills full screen ── */
+    .map-wrapper {
+        position: fixed;
+        top: 52px;
+        left: 0;
+        right: 0;
+        bottom: 56px; /* room for tab bar */
+        height: auto;
+        width: 100%;
+        z-index: 1;
+    }
+
+    #map {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* ── Route controls ── */
+    .route-controls {
+        bottom: 66px; /* above tab bar */
+        left: 8px;
+        right: 8px;
+        transform: none;
+        min-width: 0;
+        max-width: 100%;
+        width: auto;
+        padding: 10px 12px 12px;
+        gap: 10px;
+        border-radius: 16px;
+        flex-wrap: wrap;
+    }
+
+    .mode-selector, .speed-control {
+        font-size: 0.78em;
+        gap: 6px;
+        padding-left: 10px;
+    }
+
+    .control-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 0.85em;
+    }
+
+    /* ── Map type toggle (compact on mobile) ── */
+    .map-type-control {
+        bottom: 70px !important;
+        right: 8px !important;
+        margin-bottom: 0 !important;
+        padding: 3px;
+        gap: 2px;
+        flex-direction: column;
+    }
+
+    .map-type-btn {
+        padding: 7px 8px;
+        font-size: 0.72rem;
+        gap: 4px;
+    }
+
+    .map-type-btn span {
+        display: none; /* icon only on mobile */
+    }
+
+    /* ── Leaflet zoom controls ── */
+    .leaflet-control-zoom {
+        margin-top: 8px !important;
+        margin-right: 8px !important;
+    }
+
+    .leaflet-control-zoom a {
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+        font-size: 16px;
+    }
+
+    .leaflet-control-attribution {
+        font-size: 8px;
+    }
+
+    /* ── Tab content ── */
+    .tab-content {
+        padding: 12px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── KPI grid ── */
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
-    
+
     .kpi-card {
-        padding: 12px;
+        padding: 12px 10px;
     }
-    
+
     .kpi-value {
-        font-size: 1.2em;
+        font-size: 1.15em;
     }
-    
+
     .kpi-label {
-        font-size: 0.7em;
+        font-size: 0.68em;
     }
-    
-    /* Timeline slider mobile */
-    .timeline-slider-container {
-        bottom: -70px;
-        height: 60px;
+
+    /* ── Analytics grids ── */
+    .analytics-grid {
+        grid-template-columns: 1fr;
     }
-    
-    /* Modal mobile */
-    .modal-content {
-        width: 95%;
-        max-height: 90vh;
-        overflow-y: auto;
+
+    .analytics-metrics {
+        grid-template-columns: 1fr 1fr;
     }
-    
-    /* Vehicle list mobile */
-    .vehicle-item {
-        padding: 12px;
-    }
-    
-    .vehicle-name {
-        font-size: 0.9em;
-    }
-    
-    /* Action buttons mobile */
-    .action-grid {
-        grid-template-columns: repeat(2, 1fr);
+
+    .analytics-controls {
+        flex-direction: column;
         gap: 8px;
     }
-    
-    .action-btn {
+
+    .analytics-control-group {
+        width: 100%;
+    }
+
+    /* ── Reports grid ── */
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .reports-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .report-control-group,
+    .report-export-group {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .report-export-group button {
+        width: 100%;
+    }
+
+    /* ── Vehicle cards ── */
+    .vehicle-list {
         padding: 10px;
-        font-size: 0.8em;
+        gap: 10px;
     }
-    
-    .action-btn span {
-        font-size: 0.75em;
+
+    .vehicle-card {
+        padding: 12px;
     }
-    
-    /* Detail view mobile */
+
+    .vehicle-name {
+        font-size: 0.95em;
+    }
+
+    .action-buttons {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    /* ── Detail scroll area ── */
     .detail-scroll-area {
         padding: 10px;
     }
-    
+
     .status-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
     }
-    
-    .status-item {
-        padding: 8px;
+
+    /* ── Data tables — make scrollable, fix overflow ── */
+    .data-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        width: 100%;
     }
-    
-    .status-value {
-        font-size: 0.9em;
+
+    .data-table {
+        font-size: 0.78em;
+        min-width: 360px; /* prevents column squish */
+        width: 100%;
     }
-    
-    /* OBD metrics mobile */
+
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
+        white-space: nowrap;
+    }
+
+    /* User management role badge — no cut off */
+    .user-role-badge,
+    .role-pill {
+        white-space: nowrap;
+        font-size: 0.7em;
+        padding: 3px 8px;
+    }
+
+    /* ── Modals ── */
+    .modal-content {
+        width: 96%;
+        max-height: 88dvh;
+        overflow-y: auto;
+        margin: auto;
+    }
+
+    /* ── OBD metrics ── */
     .obd-metrics-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
-    /* DTC list mobile */
+
+    /* ── DTC list ── */
     .dtc-item {
         padding: 6px 10px;
         font-size: 0.75em;
     }
-    
-    /* Chart containers mobile */
+
+    /* ── Chart containers ── */
     .chart-container {
         height: 200px;
     }
-    
-    /* Report controls mobile */
-    .reports-controls {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .report-control-group {
-        width: 100%;
-    }
-    
-    .report-export-group {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .report-export-group button {
-        width: 100%;
-    }
-    
-    /* Additional mobile fixes */
-    .main-container {
-        height: calc(100vh - 60px);
-    }
-    
-    /* Vehicle markers smaller on mobile */
-    .vehicle-marker {
-        width: 30px !important;
-        height: 30px !important;
-    }
-    
-    .vehicle-marker i {
-        font-size: 14px !important;
-    }
-    
-    .speed-label {
-        font-size: 0.7em !important;
-    }
-    
-    /* Route controls mobile */
-    .route-controls {
-        bottom: 120px;
-        left: 10px;
-        right: 10px;
-    }
-    
-    .control-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 0.9em;
-    }
-    
-    /* Playback controls mobile */
-    .playback-controls {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    /* Geofence form mobile */
-    .rules-builder-card {
-        margin: 10px;
-        padding: 15px;
-    }
-    
-    .form-group label {
-        font-size: 0.85em;
-    }
-    
-    .glass-input {
-        font-size: 0.85em;
-    }
-    
-    /* Alert items mobile */
+
+    /* ── Alert items ── */
     .alert-item {
-        padding: 12px;
+        padding: 10px 12px;
     }
-    
+
     .alert-content h5 {
-        font-size: 0.9em;
+        font-size: 0.88em;
     }
-    
+
     .alert-content p {
-        font-size: 0.8em;
+        font-size: 0.78em;
     }
-    
-    /* Priority alerts mobile */
-    .priority-alert-item {
-        padding: 8px;
-    }
-    
-    .p-alert-title {
-        font-size: 0.8em;
-    }
-    
-    /* User table mobile */
-    .data-table {
-        font-size: 0.75em;
-    }
-    
-    .data-table th,
-    .data-table td {
-        padding: 8px 4px;
-    }
-    
-    /* Billing cards mobile */
+
+    /* ── Billing ── */
     .billing-card {
-        padding: 15px;
+        padding: 14px;
     }
-    
+
     .billing-footer {
         flex-direction: column;
+        gap: 8px;
     }
-    
+
     .billing-footer button {
         width: 100%;
     }
-    
-    /* Feature list mobile */
-    .feature-item {
+
+    /* ── Timeline view ── */
+    .timeline-item {
         padding: 10px;
-        font-size: 0.85em;
     }
-    
-    /* Summary card mobile */
-    .summary-card-sidebar {
-        padding: 12px;
+
+    .timeline-time {
+        font-size: 0.75em;
     }
-    
-    /* Panel sections mobile */
-    .panel-section {
-        margin-bottom: 15px;
+
+    /* ── Panel header close button ── */
+    .toggle-panel {
+        font-size: 1.1em;
+        padding: 6px;
     }
-    
+
+    /* ── Section titles ── */
     .section-title {
-        font-size: 0.95em;
+        font-size: 0.9em;
     }
-    
-    /* Empty state mobile */
+
+    /* ── Empty state ── */
     .empty-state {
         font-size: 0.85em;
         padding: 20px 10px;
     }
-    
-    /* FAB mobile */
-    .fab {
-        width: 48px;
-        height: 48px;
-        font-size: 1.1em;
-    }
-    
-    /* Search input mobile */
-    .search-input {
-        font-size: 0.85em;
-        padding: 10px;
-    }
-    
-    /* Filter buttons mobile */
-    .filter-btn {
-        padding: 8px 12px;
-        font-size: 0.8em;
-    }
-    
-    /* Header buttons mobile */
-    .header-btn {
-        padding: 8px;
-        font-size: 0.85em;
-    }
-    
-    /* View controls mobile */
-    .view-controls {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    /* Timeline view mobile */
-    .timeline-item {
-        padding: 10px;
-    }
-    
-    .timeline-time {
-        font-size: 0.75em;
-    }
-    
-    .timeline-event {
-        font-size: 0.85em;
-    }
-    
-    /* Savings widget mobile */
-    .savings-widget {
-        padding: 15px;
-    }
-    
-    .savings-amount {
-        font-size: 1.5em;
-    }
-    
-    /* Compliance list mobile */
-    .compliance-item {
-        padding: 8px;
-        font-size: 0.85em;
-    }
-    
-    /* Chart placeholder mobile */
-    .chart-placeholder {
-        min-height: 150px;
-    }
-    
-    /* Report card mobile */
-    .report-card {
-        padding: 12px;
-    }
-    
-    .report-card-header h5 {
-        font-size: 0.9em;
-    }
-    
-    .report-summary {
-        font-size: 0.8em;
-    }
-    
-    /* Leaflet controls mobile */
-    .leaflet-control-zoom {
-        margin-top: 10px;
-        margin-left: 10px;
-    }
-    
-    .leaflet-control-zoom a {
-        width: 30px;
-        height: 30px;
-        line-height: 30px;
-        font-size: 16px;
-    }
-    
-    .leaflet-control-attribution {
-        font-size: 8px;
-    }
-    
-    /* Leaflet popup mobile */
-    .leaflet-popup-content-wrapper {
-        padding: 1px;
-    }
-    
+
+    /* ── Leaflet popup ── */
     .leaflet-popup-content {
         margin: 8px 12px;
         font-size: 0.85em;
     }
-    
-    /* Leaflet tooltip mobile */
-    .leaflet-tooltip {
-        font-size: 0.75em;
-        padding: 4px 8px;
+
+    /* ── Geofence form ── */
+    .rules-builder-card {
+        margin: 8px;
+        padding: 12px;
+    }
+
+    /* ── Compliance list ── */
+    .compliance-item {
+        padding: 8px;
+        font-size: 0.83em;
+    }
+
+    /* ── Savings widget ── */
+    .savings-amount {
+        font-size: 1.4em;
+    }
+
+    /* ── Intel sub-tabs (scroll if overflow) ── */
+    .intel-subtabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+    }
+
+    .intel-subtab {
+        flex-shrink: 0;
+        font-size: 0.72rem;
+        padding: 5px 10px;
+    }
+
+    /* ── Action grid ── */
+    .action-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 10px 8px;
+        font-size: 0.78em;
+    }
+
+    /* ── Vehicle markers ── */
+    .vehicle-marker {
+        width: 30px !important;
+        height: 30px !important;
+    }
+
+    .vehicle-marker i {
+        font-size: 13px !important;
+    }
+
+    .speed-label {
+        font-size: 0.68em !important;
+    }
+
+    /* ── Audit log rows ── */
+    .audit-row,
+    .log-row {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .audit-row .log-time,
+    .log-row .log-time {
+        font-size: 0.78em;
+    }
+
+    /* ── Priority alerts ── */
+    .priority-alert-item {
+        padding: 8px;
+    }
+
+    .p-alert-title {
+        font-size: 0.78em;
+    }
+
+    /* ── Map controls (top-right zoom) ── */
+    .map-controls {
+        bottom: 70px;
+        right: 12px;
     }
 }
 
+/* =====================================================
+   EXTRA SMALL PHONES — ≤480px
+   ===================================================== */
 @media (max-width: 480px) {
-    /* Extra small mobile adjustments */
+
     .navbar {
-        padding: 8px 10px;
-        height: 55px;
-    }
-    
-    .nav-brand {
-        font-size: 1em;
-    }
-    
-    .brand-logo {
-        height: 30px;
-        max-width: 100px;
-    }
-    
-    .nav-stats {
-        gap: 5px;
-    }
-    
-    .stat-item {
         padding: 6px 10px;
-        font-size: 0.75em;
+        height: 48px;
     }
-    
+
+    .brand-logo {
+        height: 26px;
+        max-width: 90px;
+    }
+
+    .nav-stats {
+        gap: 4px;
+    }
+
+    .stat-item {
+        padding: 4px 8px;
+        font-size: 0.7em;
+    }
+
     .stat-item span {
         display: none;
     }
-    
-    /* Sidebar rail minimal */
+
+    .main-container {
+        height: calc(100dvh - 48px);
+    }
+
+    .map-wrapper {
+        top: 48px;
+    }
+
+    .sidebar-panel {
+        height: calc(100dvh - 48px - 56px);
+        bottom: 56px;
+    }
+
     .sidebar-rail {
-        width: 45px;
+        height: 54px;
     }
-    
+
     .rail-item {
-        padding: 8px 0;
+        min-height: 44px;
     }
-    
+
     .rail-item i {
-        font-size: 1.2em;
+        font-size: 1em;
     }
-    
-    /* KPI cards minimal */
+
+    .rail-label {
+        font-size: 0.45rem;
+    }
+
+    .panel-header h3 {
+        font-size: 1.05em;
+    }
+
     .kpi-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 6px;
     }
-    
+
     .kpi-card {
-        padding: 10px;
+        padding: 10px 8px;
     }
-    
+
     .kpi-value {
         font-size: 1em;
     }
-    
+
     .kpi-label {
-        font-size: 0.65em;
+        font-size: 0.62em;
     }
-    
-    /* Status grid minimal */
+
+    .analytics-card {
+        padding: 10px;
+    }
+
+    .analytics-metrics {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .route-controls {
+        bottom: 62px;
+        padding: 8px 10px 10px;
+        gap: 8px;
+        border-radius: 14px;
+    }
+
+    .control-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.8em;
+    }
+
+    .mode-selector, .speed-control {
+        font-size: 0.72em;
+    }
+
+    .vehicle-card {
+        padding: 10px;
+    }
+
+    .vehicle-name {
+        font-size: 0.88em;
+    }
+
+    .tab-content {
+        padding: 10px 8px;
+    }
+
+    .obd-metrics-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .action-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
     .status-grid {
         grid-template-columns: 1fr;
-    }
-    
-    /* Analytics cards minimal */
-    .analytics-card {
-        padding: 12px;
-    }
-    
-    .analytics-card-header h5 {
-        font-size: 0.85em;
-    }
-    
-    .metric-value {
-        font-size: 0.85em;
-    }
-    
-    .metric-label {
-        font-size: 0.7em;
     }
 }
 
@@ -3461,7 +3627,7 @@ body {
 }
 
 .intel-section {
-    /* shown by default */
+    display: block; /* shown by default */
 }
 
 .intel-section.hidden {
@@ -3778,7 +3944,7 @@ input, select, textarea {
         height: 100%;
         width: 100%;
         overflow: hidden;               /* app-shell manages scrolling internally */
-        position: fixed;                /* stop iOS rubber-band scrolling */
+        overscroll-behavior: none;      /* stop rubber-band without breaking layout */
     }
 
     /* ---------- Navbar ---------- */
@@ -4111,14 +4277,42 @@ input, select, textarea {
         justify-content: center;
     }
 
-    /* ---------- Tables: horizontal scroll in a card ---------- */
-    .report-table-wrap, .data-table-wrap {
+    /* ---------- Tables: horizontal scroll, no column collapse ---------- */
+    .report-table-wrap, .data-table-wrap,
+    .users-list-container, .audit-list-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        width: 100%;
     }
 
     .report-table, .data-table {
         min-width: 560px;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
+
+    .data-table th, .data-table td,
+    .report-table th, .report-table td {
+        white-space: nowrap;            /* scroll sideways instead of squishing */
+        padding: 10px 12px;
+        font-size: 0.82rem;
+    }
+
+    .data-table td.text-truncate {
+        max-width: 180px;               /* narrower cap on mobile */
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Tab inner headers (e.g. "System Audit Logs") must not double-pad */
+    .tab-content .panel-header {
+        padding: 10px 0 14px;
+        min-height: 0;
+        border-bottom: none;
+    }
+
+    .tab-content .panel-header h2 {
+        font-size: 1.15em;
     }
 
     /* ---------- Reports & intelligence ---------- */
