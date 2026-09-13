@@ -272,6 +272,15 @@ class TCPTrackerProtocol(asyncio.Protocol):
 
                         # Sanitize decoded dict for JSON storage
                         sanitized_decoded = sanitize_for_json(decoded)
+
+                        # Extract Dedicated CAN / OBD Telemetry
+                        fuel_val = decoded.get("fuel_level") or decoded.get("fuel_consumption") or decoded.get("fuel")
+                        rpm_val = decoded.get("rpm")
+                        temp_val = decoded.get("engine_temp") or decoded.get("coolant")
+                        batt_val = decoded.get("battery_voltage") or decoded.get("battery") or decoded.get("voltage")
+                        odo_val = decoded.get("odometer") or decoded.get("mileage")
+                        ign_val = decoded.get("ignition") if "ignition" in decoded else (clean_speed > 3.0 if clean_speed is not None else None)
+                        dtc_val = decoded.get("dtc_fault_codes") or decoded.get("dtc")
                         
                         position = Position(
                             device_id=device.id,
@@ -279,6 +288,13 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             longitude=clean_lon,
                             speed=clean_speed,
                             timestamp=timestamp,
+                            fuel_level=float(fuel_val) if fuel_val is not None else None,
+                            rpm=int(rpm_val) if rpm_val is not None else None,
+                            engine_temp=float(temp_val) if temp_val is not None else None,
+                            battery_voltage=float(batt_val) if batt_val is not None else None,
+                            odometer=float(odo_val) if odo_val is not None else None,
+                            ignition=bool(ign_val) if ign_val is not None else None,
+                            dtc_fault_codes=dtc_val,
                             raw=sanitized_decoded
                         )
                         db.add(position)

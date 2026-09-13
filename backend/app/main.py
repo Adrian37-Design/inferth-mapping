@@ -86,7 +86,20 @@ async def run_migrations_and_branding():
                     "CREATE INDEX IF NOT EXISTS idx_positions_device_ts ON positions(device_id, timestamp DESC)",
                     "CREATE INDEX IF NOT EXISTS idx_positions_ts ON positions(timestamp)",
                     "CREATE INDEX IF NOT EXISTS idx_alerts_tenant_ts ON alerts(tenant_id, timestamp DESC)",
-                    "CREATE INDEX IF NOT EXISTS idx_devices_tenant ON devices(tenant_id)"
+                    "CREATE INDEX IF NOT EXISTS idx_devices_tenant ON devices(tenant_id)",
+                    # Dedicated CAN / OBD-II Telemetry Column Migrations
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS fuel_level FLOAT DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS rpm INTEGER DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS engine_temp FLOAT DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS battery_voltage FLOAT DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS odometer FLOAT DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS ignition BOOLEAN DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS dtc_fault_codes JSON DEFAULT NULL",
+                    # Performance Partial Indexes (only index valid non-zero GPS coordinates)
+                    "CREATE INDEX IF NOT EXISTS idx_positions_valid_coords ON positions(device_id, timestamp DESC) WHERE latitude IS NOT NULL AND latitude != 0.0",
+                    "CREATE INDEX IF NOT EXISTS idx_positions_routes ON positions(device_id, timestamp ASC) WHERE latitude IS NOT NULL AND latitude != 0.0",
+                    "CREATE INDEX IF NOT EXISTS idx_positions_fuel ON positions(device_id, timestamp DESC) WHERE fuel_level IS NOT NULL",
+                    "CREATE INDEX IF NOT EXISTS idx_positions_engine ON positions(device_id, timestamp DESC) WHERE rpm IS NOT NULL"
                 ]
                 
                 for stmt in migration_statements:
