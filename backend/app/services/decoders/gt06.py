@@ -39,13 +39,21 @@ class GT06Decoder(BaseDecoder):
             if (course_status & 0x0800): # 1 = West
                 lon = -lon
             
+            # Guardrail: Bit 12 (0x1000) indicates valid GPS fix; reject unpositioned and 0.0/0.0 coords
+            is_gps_positioned = bool(course_status & 0x1000)
+            if not is_gps_positioned or (abs(lat) < 0.0001 and abs(lon) < 0.0001):
+                lat = None
+                lon = None
+
+            raw_speed = min(int(data[15]), 200)
+
             res = {
                 "latitude": lat,
                 "longitude": lon,
-                "speed": data[15],
-                "ignition": data[15] > 3, # Infer ignition from speed
+                "speed": raw_speed,
+                "ignition": raw_speed > 3, # Infer ignition from speed
                 "in_motion": bool(course_status & 0x2000),
-                "type": "location"
+                "type": "location" if (lat is not None and lon is not None) else "heartbeat"
             }
 
             # GPS datetime from the packet: YY MM DD HH MM SS (6 bytes at data[0:6]).

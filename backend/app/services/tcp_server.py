@@ -23,6 +23,13 @@ def sanitize_for_json(data):
     return data
 
 from app.services.decoders.gt06 import GT06Decoder
+from app.services.data_guardrails import (
+    validate_coordinates,
+    validate_and_sanitize_speed,
+    validate_timestamp,
+    is_teleportation_jump,
+    is_duplicate_ping
+)
 from app.services.decoders.h02 import H02Decoder
 
 # Initialize multiple decoders for broad compatibility.
@@ -223,31 +230,54 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             await db.commit()
                             await db.refresh(device)
                         
-                        # Create position
-                        # Prefer the device-reported GPS fix time (gt06 decoder
-                        # extracts it into gps_timestamp). When a tracker dumps
-                        # buffered data in a burst, receipt-time stamps collapse
-                        # to ~the same instant and route chronology breaks
-                        # (fan/starburst patterns in history playback).
-                        timestamp = datetime.utcnow()
-                        gps_ts = decoded.get("gps_timestamp")
-                        if gps_ts:
-                            try:
-                                parsed_ts = datetime.fromisoformat(gps_ts)
-                                # Sanity check: reject obviously wrong device clocks
-                                # (more than 1 day in the future or before 2024)
-                                if parsed_ts.year >= 2024 and (parsed_ts - timestamp).days <= 1:
-                                    timestamp = parsed_ts
-                            except (ValueError, TypeError):
-                                pass
+                        # --- 3-STEP TELEMATICS DATA GUARDRAILS ---
+                        # Step 1: Validate Coordinates (Bounds, Null Island 0,0 rejection)
+                        clean_lat, clean_lon, has_valid_coords = validate_coordinates(
+                            decoded.get("latitude"), decoded.get("longitude")
+                        )
+
+                        # Step 2a: Validate & Clamp Speed (no negative speeds, cap sensor glitch spikes >200 km/h)
+                        clean_speed = validate_and_sanitize_speed(decoded.get("speed", 0.0))
+
+                        # Step 3a: Validate Timestamp (reject future drift or corrupted dates)
+                        timestamp = validate_timestamp(decoded.get("gps_timestamp"), fallback_now=datetime.utcnow())
+
+                        # Fetch previous position for teleportation jump and deduplication checks
+                        prev_pos_q = await db.execute(
+                            select(Position)
+                            .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None))
+                            .order_by(Position.timestamp.desc())
+                            .limit(1)
+                        )
+                        prev_pos = prev_pos_q.scalars().first()
+
+                        # Step 2b: Teleportation jump check (reject impossible velocity spikes)
+                        if has_valid_coords and prev_pos and prev_pos.latitude is not None and prev_pos.longitude is not None:
+                            if is_teleportation_jump(
+                                prev_pos.latitude, prev_pos.longitude, prev_pos.timestamp,
+                                clean_lat, clean_lon, timestamp
+                            ):
+                                print(f"[{datetime.now()}] GUARDRAIL: Teleportation jump rejected for {device.imei} ({clean_lat}, {clean_lon})")
+                                clean_lat, clean_lon = None, None
+                                has_valid_coords = False
+                                decoded["glitch_jump_rejected"] = True
+
+                        # Step 3b: Deduplication (suppress stationary duplicates within 4 seconds)
+                        if has_valid_coords and prev_pos and prev_pos.latitude is not None and prev_pos.longitude is not None:
+                            if is_duplicate_ping(
+                                prev_pos.latitude, prev_pos.longitude, prev_pos.speed or 0.0, prev_pos.timestamp,
+                                clean_lat, clean_lon, clean_speed, timestamp
+                            ):
+                                return
+
                         # Sanitize decoded dict for JSON storage
                         sanitized_decoded = sanitize_for_json(decoded)
                         
                         position = Position(
                             device_id=device.id,
-                            latitude=decoded.get("latitude"),
-                            longitude=decoded.get("longitude"),
-                            speed=decoded.get("speed", 0.0),
+                            latitude=clean_lat,
+                            longitude=clean_lon,
+                            speed=clean_speed,
                             timestamp=timestamp,
                             raw=sanitized_decoded
                         )
@@ -260,9 +290,9 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             await publish_position({
                                 "id": position.id,
                                 "imei": device.imei,
-                                "latitude": decoded.get("latitude"),
-                                "longitude": decoded.get("longitude"),
-                                "speed": decoded.get("speed", 0.0),
+                                "latitude": clean_lat,
+                                "longitude": clean_lon,
+                                "speed": clean_speed,
                                 "timestamp": timestamp.isoformat() + "Z",
                                 "raw": sanitized_decoded
                             })
@@ -272,9 +302,9 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         try:
                             # Run in background to not block the receiver
                             asyncio.create_task(AlertService.evaluate_rules(db, device.id, {
-                                "latitude": decoded.get("latitude"),
-                                "longitude": decoded.get("longitude"),
-                                "speed": decoded.get("speed", 0.0),
+                                "latitude": clean_lat,
+                                "longitude": clean_lon,
+                                "speed": clean_speed,
                                 "raw": sanitized_decoded
                             }))
                         except Exception as alert_err:

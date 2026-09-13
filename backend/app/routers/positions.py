@@ -7,6 +7,13 @@ from app.auth_middleware import get_current_user
 from sqlalchemy.future import select
 from datetime import datetime
 from app.realtime import publish_position
+from app.services.data_guardrails import (
+    validate_coordinates,
+    validate_and_sanitize_speed,
+    validate_timestamp,
+    is_teleportation_jump,
+    is_duplicate_ping
+)
 
 router = APIRouter(prefix="/positions")
 
@@ -17,22 +24,23 @@ async def create_position(payload: PositionCreate, db: AsyncSession = Depends(ge
     device = q.scalars().first()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    clean_lat, clean_lon, _ = validate_coordinates(payload.latitude, payload.longitude)
+    clean_speed = validate_and_sanitize_speed(payload.speed)
+    clean_ts = validate_timestamp(payload.timestamp, fallback_now=datetime.utcnow())
+
     pos = Position(
         device_id=device.id,
-        latitude=payload.latitude,
-        longitude=payload.longitude,
-        speed=payload.speed,
+        latitude=clean_lat,
+        longitude=clean_lon,
+        speed=clean_speed,
         course=payload.course,
-        timestamp=payload.timestamp or datetime.utcnow(),
+        timestamp=clean_ts,
         raw=payload.raw
     )
     db.add(pos)
     await db.commit()
     await db.refresh(pos)
-    db.add(pos)
-    await db.commit()
-    await db.refresh(pos)
-    # publish to redis (realtime) - omitted here; call publish_position(pos)
     return pos
 
 @router.post("/ingest")
@@ -89,33 +97,39 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             await db.commit()
             await db.refresh(device)
             
+        # Guardrails on ingested packet
+        clean_lat, clean_lon, has_coords = validate_coordinates(data.get("latitude"), data.get("longitude"))
+        clean_speed = validate_and_sanitize_speed(data.get("speed", 0))
+        clean_ts = validate_timestamp(data.get("gps_timestamp"), fallback_now=datetime.utcnow())
+
         # Sanitize for JSON
         from app.services.tcp_server import sanitize_for_json
         sanitized_data = sanitize_for_json(data)
         
         pos = Position(
             device_id=device.id,
-            latitude=data.get("latitude"),
-            longitude=data.get("longitude"),
-            speed=data.get("speed", 0),
+            latitude=clean_lat,
+            longitude=clean_lon,
+            speed=clean_speed,
             course=data.get("course", 0),
-            timestamp=datetime.utcnow(),
+            timestamp=clean_ts,
             raw=sanitized_data # Store sanitized dict
         )
         db.add(pos)
         await db.commit()
         await db.refresh(pos)
 
-        # REALTIME BROADCAST
-        await publish_position({
-            "id": pos.id,
-            "imei": device.imei,
-            "latitude": pos.latitude,
-            "longitude": pos.longitude,
-            "speed": pos.speed,
-            "timestamp": pos.timestamp.isoformat() + "Z",
-            "raw": sanitized_data
-        })
+        # REALTIME BROADCAST (broadcast valid coordinates or OBD updates)
+        if clean_lat is not None and clean_lon is not None:
+            await publish_position({
+                "id": pos.id,
+                "imei": device.imei,
+                "latitude": clean_lat,
+                "longitude": clean_lon,
+                "speed": clean_speed,
+                "timestamp": clean_ts.isoformat() + "Z",
+                "raw": sanitized_data
+            })
 
         return {"status": "ok", "id": pos.id}
         
@@ -127,7 +141,19 @@ async def latest_position(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    stmt = select(Position).join(Device).where(Device.imei == imei)
+    stmt = (
+        select(Position)
+        .join(Device)
+        .where(
+            Device.imei == imei,
+            Position.latitude.is_not(None),
+            Position.longitude.is_not(None),
+            Position.latitude != 0.0,
+            Position.longitude != 0.0,
+            Position.latitude.between(-90.0, 90.0),
+            Position.longitude.between(-180.0, 180.0)
+        )
+    )
     
     # Filter by tenant unless global admin
     if current_user.tenant_id != 1:
@@ -145,14 +171,20 @@ async def get_fleet_snapshot(
     current_user: User = Depends(get_current_user)
 ):
     """Get the latest position for ALL devices in one query.
-    Only considers rows WITH coordinates — OBD/heartbeat packets are stored
-    with null lat/lng and would otherwise clobber the last known location."""
+    Enforces Guardrail 1: Strictly ignores null, (0,0) Null Island, and out-of-range coordinates."""
     from sqlalchemy import func
 
-    # Subquery to find max timestamp per device (location rows only)
+    # Subquery to find max timestamp per device (strictly valid coordinate rows only)
     subq = (
         select(Position.device_id, func.max(Position.timestamp).label("max_ts"))
-        .where(Position.latitude.is_not(None), Position.longitude.is_not(None))
+        .where(
+            Position.latitude.is_not(None),
+            Position.longitude.is_not(None),
+            Position.latitude != 0.0,
+            Position.longitude != 0.0,
+            Position.latitude.between(-90.0, 90.0),
+            Position.longitude.between(-180.0, 180.0)
+        )
         .group_by(Position.device_id)
         .subquery()
     )
@@ -161,7 +193,14 @@ async def get_fleet_snapshot(
     query = select(Position).join(Device).join(
         subq,
         (Position.device_id == subq.c.device_id) & (Position.timestamp == subq.c.max_ts)
-    ).where(Position.latitude.is_not(None), Position.longitude.is_not(None))
+    ).where(
+        Position.latitude.is_not(None),
+        Position.longitude.is_not(None),
+        Position.latitude != 0.0,
+        Position.longitude != 0.0,
+        Position.latitude.between(-90.0, 90.0),
+        Position.longitude.between(-180.0, 180.0)
+    )
     
     # Filter by tenant unless global admin
     if current_user.tenant_id != 1:
@@ -176,7 +215,7 @@ async def get_fleet_snapshot(
             "device_id": p.device_id,
             "latitude": p.latitude,
             "longitude": p.longitude,
-            "speed": p.speed,
+            "speed": min(max(0.0, p.speed or 0.0), 200.0),
             "timestamp": p.timestamp,
             "course": p.course,
             "raw": p.raw
@@ -237,11 +276,16 @@ async def get_device_route(
         raise HTTPException(403, "Not authorized to view this device's route")
 
     from datetime import datetime
+    from app.services.data_guardrails import haversine_distance_km
     
     query = select(Position).where(
         Position.device_id == device_id,
         Position.latitude.is_not(None),
-        Position.longitude.is_not(None)
+        Position.longitude.is_not(None),
+        Position.latitude != 0.0,
+        Position.longitude != 0.0,
+        Position.latitude.between(-90.0, 90.0),
+        Position.longitude.between(-180.0, 180.0)
     )
     
     # Add date filtering
@@ -258,32 +302,47 @@ async def get_device_route(
     result = await db.execute(query)
     positions = result.scalars().all()
     
-    # Calculate route with distance
+    # Calculate route with distance and apply velocity jump / deduplication guardrail
     route_points = []
-    total_distance = 0
+    total_distance = 0.0
+    last_valid_point = None
     
-    for i, p in enumerate(positions):
+    for p in positions:
+        curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
         point = {
             "lat": p.latitude,
             "lng": p.longitude,
             "timestamp": p.timestamp.isoformat(),
-            "speed": p.speed or 0
+            "speed": curr_speed
         }
         
-        # Calculate distance from previous point
-        if i > 0:
-            from math import radians, cos, sin, asin, sqrt
-            prev = positions[i-1]
+        if last_valid_point is not None:
+            prev_lat = last_valid_point["lat"]
+            prev_lng = last_valid_point["lng"]
+            try:
+                prev_ts = datetime.fromisoformat(last_valid_point["timestamp"].replace('Z', '+00:00'))
+                curr_ts = p.timestamp.replace(tzinfo=prev_ts.tzinfo if prev_ts.tzinfo else None)
+                time_diff_sec = abs((curr_ts - prev_ts).total_seconds())
+            except Exception:
+                time_diff_sec = 10.0
+
+            km = haversine_distance_km(prev_lat, prev_lng, p.latitude, p.longitude)
             
-            # Haversine formula for distance
-            lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
-            dlon = lon2 - lon1
-            dlat = lat2 - lat1
-            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * asin(sqrt(a))
-            km = 6371 * c  # Radius of earth in kilometers
+            # Guardrail 2: Reject impossible teleportation jumps (implied speed > 250 km/h or > 10km in < 60s)
+            if time_diff_sec > 0:
+                implied_speed = km / (time_diff_sec / 3600.0)
+                if implied_speed > 250.0 and km > 0.1:
+                    continue  # Skip jump glitch point
+            elif km > 0.05:
+                continue
+
+            # Guardrail 3: Suppress exact stationary duplicates within 4 seconds
+            if curr_speed <= 3.0 and last_valid_point["speed"] <= 3.0 and km < 0.005:
+                continue
+
             total_distance += km
         
+        last_valid_point = point
         route_points.append(point)
     
     return {
