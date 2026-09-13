@@ -29,6 +29,15 @@ async def create_position(payload: PositionCreate, db: AsyncSession = Depends(ge
     clean_speed = validate_and_sanitize_speed(payload.speed)
     clean_ts = validate_timestamp(payload.timestamp, fallback_now=datetime.utcnow())
 
+    raw_dict = payload.raw if isinstance(payload.raw, dict) else {}
+    fuel_val = raw_dict.get("fuel_level") or raw_dict.get("fuel_consumption") or raw_dict.get("fuel")
+    rpm_val = raw_dict.get("rpm")
+    temp_val = raw_dict.get("engine_temp") or raw_dict.get("coolant")
+    batt_val = raw_dict.get("battery_voltage") or raw_dict.get("battery") or raw_dict.get("voltage")
+    odo_val = raw_dict.get("odometer") or raw_dict.get("mileage")
+    ign_val = raw_dict.get("ignition") if "ignition" in raw_dict else (clean_speed > 3.0 if clean_speed is not None else None)
+    dtc_val = raw_dict.get("dtc_fault_codes") or raw_dict.get("dtc")
+
     pos = Position(
         device_id=device.id,
         latitude=clean_lat,
@@ -36,6 +45,13 @@ async def create_position(payload: PositionCreate, db: AsyncSession = Depends(ge
         speed=clean_speed,
         course=payload.course,
         timestamp=clean_ts,
+        fuel_level=float(fuel_val) if fuel_val is not None else None,
+        rpm=int(rpm_val) if rpm_val is not None else None,
+        engine_temp=float(temp_val) if temp_val is not None else None,
+        battery_voltage=float(batt_val) if batt_val is not None else None,
+        odometer=float(odo_val) if odo_val is not None else None,
+        ignition=bool(ign_val) if ign_val is not None else None,
+        dtc_fault_codes=dtc_val,
         raw=payload.raw
     )
     db.add(pos)
@@ -106,6 +122,15 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
         from app.services.tcp_server import sanitize_for_json
         sanitized_data = sanitize_for_json(data)
         
+        # Extract Dedicated CAN / OBD Telemetry
+        fuel_val = data.get("fuel_level") or data.get("fuel_consumption") or data.get("fuel")
+        rpm_val = data.get("rpm")
+        temp_val = data.get("engine_temp") or data.get("coolant")
+        batt_val = data.get("battery_voltage") or data.get("battery") or data.get("voltage")
+        odo_val = data.get("odometer") or data.get("mileage")
+        ign_val = data.get("ignition") if "ignition" in data else (clean_speed > 3.0 if clean_speed is not None else None)
+        dtc_val = data.get("dtc_fault_codes") or data.get("dtc")
+
         pos = Position(
             device_id=device.id,
             latitude=clean_lat,
@@ -113,6 +138,13 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             speed=clean_speed,
             course=data.get("course", 0),
             timestamp=clean_ts,
+            fuel_level=float(fuel_val) if fuel_val is not None else None,
+            rpm=int(rpm_val) if rpm_val is not None else None,
+            engine_temp=float(temp_val) if temp_val is not None else None,
+            battery_voltage=float(batt_val) if batt_val is not None else None,
+            odometer=float(odo_val) if odo_val is not None else None,
+            ignition=bool(ign_val) if ign_val is not None else None,
+            dtc_fault_codes=dtc_val,
             raw=sanitized_data # Store sanitized dict
         )
         db.add(pos)

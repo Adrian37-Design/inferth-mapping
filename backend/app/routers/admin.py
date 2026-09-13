@@ -67,3 +67,64 @@ async def get_tracker_debug_logs():
             return prefix + content
     except Exception as e:
         return f"Error reading logs: {str(e)}"
+
+# --- DATABASE OPTIMIZATION & STORAGE MAINTENANCE ---
+from app.services.db_maintenance import get_storage_stats, optimize_database_indexes, prune_old_heartbeats
+from app.models import AuditLog
+
+@router.get("/storage/stats")
+async def storage_statistics(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Returns total rows, valid coordinates, CAN/OBD diagnostic telemetry count, and table size."""
+    stats = await get_storage_stats(db)
+    return stats
+
+@router.post("/storage/optimize")
+async def optimize_storage(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Refreshes query planner statistics and optimizes partial/composite indexes."""
+    result = await optimize_database_indexes(db)
+    
+    # Audit log
+    audit = AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="DATABASE_OPTIMIZE_INDEXES",
+        details={"result": result},
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+    await db.commit()
+    
+    return result
+
+@router.post("/storage/prune-heartbeats")
+async def prune_heartbeats(
+    days: int = 30,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Safely prunes empty heartbeat records with no GPS and no CAN/OBD diagnostics older than N days."""
+    deleted_count = await prune_old_heartbeats(db, days=days)
+    
+    # Audit log
+    audit = AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="PRUNE_OLD_HEARTBEATS",
+        details={"days_cutoff": days, "deleted_rows": deleted_count},
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Successfully pruned {deleted_count} empty heartbeat records older than {days} days.",
+        "deleted_count": deleted_count
+    }
+

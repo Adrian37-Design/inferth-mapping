@@ -99,6 +99,16 @@ class Position(Base):
     course = Column(Float, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     raw = Column(JSON, nullable=True)
+
+    # Dedicated CAN / OBD-II Telemetry (High Performance Optimization)
+    fuel_level = Column(Float, nullable=True)        # Liters or Percentage (0-100%)
+    rpm = Column(Integer, nullable=True)             # Engine RPM
+    engine_temp = Column(Float, nullable=True)       # Coolant / Engine temperature in °C
+    battery_voltage = Column(Float, nullable=True)   # Primary battery or backup voltage in V
+    odometer = Column(Float, nullable=True)          # Total accumulative mileage in km
+    ignition = Column(Boolean, nullable=True)        # True = Ignition On, False = Off
+    dtc_fault_codes = Column(JSON, nullable=True)    # Array of DTC codes e.g. ["P0300"]
+
     device = relationship("Device")
 
 
