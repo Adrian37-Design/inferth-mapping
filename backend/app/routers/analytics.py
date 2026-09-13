@@ -73,10 +73,11 @@ async def get_driver_performance(
             driver_stats[device_id]["harsh_braking"] += 1
         if raw.get("harsh_acceleration"):
             driver_stats[device_id]["harsh_acceleration"] += 1
-        if pos.speed and pos.speed > 120:  # Speeding threshold
+        valid_speed = min(max(0.0, pos.speed or 0.0), 200.0)
+        if valid_speed > 120:  # Speeding threshold
             driver_stats[device_id]["speeding_events"] += 1
-        if pos.speed and pos.speed > driver_stats[device_id]["max_speed"]:
-            driver_stats[device_id]["max_speed"] = pos.speed
+        if valid_speed > driver_stats[device_id]["max_speed"]:
+            driver_stats[device_id]["max_speed"] = round(valid_speed, 1)
     
     return list(driver_stats.values())
 

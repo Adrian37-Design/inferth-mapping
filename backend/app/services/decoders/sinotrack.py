@@ -48,12 +48,13 @@ class SinotrackDecoder(BaseDecoder):
                 if lat_lon_nmea.group(6).upper() == 'W': lon = -lon
 
             if lat is not None and lon is not None:
-                return {
-                    "imei": imei,
-                    "latitude": lat,
-                    "longitude": lon,
-                    "raw_text": text
-                }
+                if (abs(lat) > 0.0001 or abs(lon) > 0.0001) and (-90.0 <= lat <= 90.0) and (-180.0 <= lon <= 180.0):
+                    return {
+                        "imei": imei,
+                        "latitude": round(lat, 7),
+                        "longitude": round(lon, 7),
+                        "raw_text": text
+                    }
 
         # Fallback for binary header Format 1: $$<length>|<imei>|<command>|...
         if text.startswith("$$"):
@@ -65,7 +66,8 @@ class SinotrackDecoder(BaseDecoder):
                     if parts[5].upper() == 'S': lat = -lat
                     lon = float(parts[6])
                     if parts[7].upper() == 'W': lon = -lon
-                    return {"imei": imei, "latitude": lat, "longitude": lon, "raw_text": text}
+                    if (abs(lat) > 0.0001 or abs(lon) > 0.0001) and (-90.0 <= lat <= 90.0) and (-180.0 <= lon <= 180.0):
+                        return {"imei": imei, "latitude": round(lat, 7), "longitude": round(lon, 7), "raw_text": text}
                 except (ValueError, IndexError):
                     pass
 
