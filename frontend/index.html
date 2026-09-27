@@ -269,14 +269,19 @@
                     </div>
 
                     <div class="dashboard-section chart-section">
-                        <div class="section-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h4 class="section-title" id="performance-title" style="margin: 0;">Fleet Performance (Today)</h4>
-                            <select id="fleet-period-select" class="inline-select-small">
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                                <option value="custom">Custom Range</option>
-                            </select>
+                        <div class="section-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
+                            <h4 class="section-title" id="performance-title" style="margin: 0; flex-shrink: 0;">Fleet Performance (Today)</h4>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <select id="chart-vehicle-select" class="inline-select-small" title="Select vehicle">
+                                    <option value="fleet">All Vehicles</option>
+                                </select>
+                                <select id="fleet-period-select" class="inline-select-small">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="fleet-custom-controls" class="hidden" style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: flex-end; align-items: center;">
                             <span style="font-size: 0.75rem; color: var(--text-secondary);">From:</span>
