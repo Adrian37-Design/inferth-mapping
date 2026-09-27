@@ -271,6 +271,19 @@ document.addEventListener('DOMContentLoaded', () => {
         endDateInput.addEventListener('change', refreshCustom);
     }
 
+    // Vehicle selector for Performance Chart
+    const vehicleChartSelect = document.getElementById('chart-vehicle-select');
+    if (vehicleChartSelect) {
+        vehicleChartSelect.addEventListener('change', () => {
+            const period = periodSelect ? periodSelect.value : 'daily';
+            if (period === 'custom' && startDateInput && endDateInput) {
+                initFleetAnalyticsCharts('fleet-performance-chart', 'custom', startDateInput.value, endDateInput.value);
+            } else {
+                initFleetAnalyticsCharts('fleet-performance-chart', period);
+            }
+        });
+    }
+
     // Sidebar Toggle
     setupSidebarToggle();
 
@@ -1180,22 +1193,38 @@ function numberWithCommas(x) {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
-// --- Fleet Analytics Charts ---
+// --- Fleet / Vehicle Analytics Charts ---
 async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null, end = null) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
 
-    // Update title based on period
+    // Detect vehicle selection (for Dashboard chart)
+    const vehicleSelect = document.getElementById('chart-vehicle-select');
+    const selectedDeviceId = (canvasId === 'fleet-performance-chart' && vehicleSelect) ? vehicleSelect.value : 'fleet';
+
+    let targetName = 'Fleet';
+    let url = `/positions/analytics/fleet?period=${period}`;
+
+    if (selectedDeviceId && selectedDeviceId !== 'fleet') {
+        url = `/positions/analytics/device/${selectedDeviceId}/chart?period=${period}`;
+        const found = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(selectedDeviceId)) : null;
+        if (found) {
+            targetName = found.name || ('Tracker ' + found.imei);
+        } else if (vehicleSelect && vehicleSelect.selectedOptions && vehicleSelect.selectedOptions[0]) {
+            targetName = vehicleSelect.selectedOptions[0].text;
+        }
+    }
+
+    // Update title based on asset and period
     const performanceTitle = document.getElementById('performance-title');
-    if (performanceTitle) {
-        if (period === 'daily') performanceTitle.innerText = 'Fleet Performance (Today)';
-        else if (period === 'weekly') performanceTitle.innerText = 'Fleet Performance (Last 7 Days)';
-        else if (period === 'monthly') performanceTitle.innerText = 'Fleet Performance (Last 30 Days)';
-        else if (period === 'custom') performanceTitle.innerText = `Fleet Performance (${start} to ${end})`;
+    if (performanceTitle && canvasId === 'fleet-performance-chart') {
+        if (period === 'daily') performanceTitle.innerText = `${targetName} Performance (Today)`;
+        else if (period === 'weekly') performanceTitle.innerText = `${targetName} Performance (Last 7 Days)`;
+        else if (period === 'monthly') performanceTitle.innerText = `${targetName} Performance (Last 30 Days)`;
+        else if (period === 'custom') performanceTitle.innerText = `${targetName} Performance (${start} to ${end})`;
     }
 
     try {
-        let url = `/positions/analytics/fleet?period=${period}`;
         if (period === 'custom' && start && end) {
             url += `&start=${start}&end=${end}`;
         }
@@ -1203,17 +1232,18 @@ async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null
         if (!response.ok) throw new Error('Failed to fetch analytics');
         const data = await response.json();
 
-        if (!data.labels || data.labels.length === 0) {
-            canvas.parentElement.innerHTML = '<p class="empty-state">No data available for the selected period</p>';
-            return;
-        }
-
         // Destroy existing instance to prevent flicker/memory leaks
         if (canvasId === 'fleet-performance-chart' && fleetChartDashboard) {
             fleetChartDashboard.destroy();
+            fleetChartDashboard = null;
         } else if (canvasId === 'chart-usage-canvas' && fleetChartReports) {
             fleetChartReports.destroy();
+            fleetChartReports = null;
         }
+
+        const labels = (data && data.labels && data.labels.length > 0) ? data.labels : ['No Data'];
+        const mileage = (data && data.mileage && data.mileage.length > 0) ? data.mileage : [0];
+        const hours = (data && data.hours && data.hours.length > 0) ? data.hours : [0];
 
         const ctx = canvas.getContext('2d');
         const chartConfig = {
@@ -1738,6 +1768,28 @@ function updateStatus(status, text) {
     statusText.textContent = text;
 }
 
+// Populate the dashboard performance chart vehicle dropdown
+function updateChartVehicleSelector(vehicles) {
+    const sel = document.getElementById('chart-vehicle-select');
+    if (!sel) return;
+    const currentVal = sel.value;
+
+    let html = '<option value="fleet">All Vehicles (Combined)</option>';
+    if (Array.isArray(vehicles)) {
+        vehicles.forEach(v => {
+            const displayName = v.name || ('Tracker ' + v.imei);
+            html += `<option value="${v.id}">${displayName}</option>`;
+        });
+    }
+    sel.innerHTML = html;
+
+    if (currentVal && (currentVal === 'fleet' || (Array.isArray(vehicles) && vehicles.some(v => String(v.id) === String(currentVal))))) {
+        sel.value = currentVal;
+    } else {
+        sel.value = 'fleet';
+    }
+}
+
 // Load vehicles
 async function loadVehicles() {
     try {
@@ -1746,6 +1798,7 @@ async function loadVehicles() {
 
         const vehicles = await response.json();
         allVehicles = vehicles; // Store globally for geofence assignment
+        updateChartVehicleSelector(allVehicles);
 
         // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
@@ -2780,6 +2833,15 @@ function updateAssetDetailUI(id) {
 // Select vehicle (Entry Point)
 function selectVehicle(vehicle) {
     selectedVehicle = vehicle;
+
+    // Sync dashboard vehicle chart selector when a specific vehicle is chosen
+    const chartVehSel = document.getElementById('chart-vehicle-select');
+    if (chartVehSel && vehicle && vehicle.id) {
+        chartVehSel.value = String(vehicle.id);
+        const periodSelect = document.getElementById('fleet-period-select');
+        const period = periodSelect ? periodSelect.value : 'daily';
+        initFleetAnalyticsCharts('fleet-performance-chart', period);
+    }
 
     // Center map on vehicle
     if (markers[vehicle.id] && typeof markers[vehicle.id].getLatLng === 'function') {

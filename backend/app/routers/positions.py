@@ -654,6 +654,145 @@ async def get_fleet_analytics(
         "hours": hours_data
     }
 
+@router.get("/analytics/device/{device_id}/chart")
+async def get_device_chart_analytics(
+    device_id: int,
+    period: str = "daily",
+    start: str = None,
+    end: str = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get mileage and active hours chart data for a single device (Daily/Weekly/Monthly/Custom)."""
+    from sqlalchemy import select
+    from datetime import datetime, timedelta
+    from math import radians, cos, sin, asin, sqrt
+
+    tz_offset = timedelta(hours=2)
+    now_zim = datetime.utcnow() + tz_offset
+
+    if period == "weekly":
+        days_to_fetch = 7
+        zim_start = (now_zim - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "monthly":
+        days_to_fetch = 30
+        zim_start = (now_zim - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "custom" and start and end:
+        try:
+            zim_start = datetime.strptime(start, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
+            zim_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
+            if zim_end < zim_start:
+                zim_start, zim_end = zim_end, zim_start
+            days_to_fetch = (zim_end.date() - zim_start.date()).days + 1
+            if days_to_fetch > 90:
+                days_to_fetch = 90
+        except Exception:
+            days_to_fetch = 1
+            zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:  # daily
+        days_to_fetch = 1
+        zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    fetch_start = zim_start - tz_offset
+
+    stmt = (
+        select(
+            Position.device_id,
+            Position.latitude,
+            Position.longitude,
+            Position.speed,
+            Position.timestamp
+        )
+        .join(Device)
+        .where(Position.device_id == device_id)
+        .where(Position.timestamp >= fetch_start)
+    )
+
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+
+    stmt = stmt.order_by(Position.timestamp.asc())
+    result = await db.execute(stmt)
+    positions = result.all()
+
+    labels = []
+    mileage_data = []
+    hours_data = []
+
+    if period == "daily":
+        buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
+        last_pos = None
+
+        for p in positions:
+            if p.latitude is None or p.longitude is None:
+                continue
+            p_zim = p.timestamp + tz_offset
+            if p_zim.date() != now_zim.date():
+                continue
+            bucket_idx = (p_zim.hour * 2) + (1 if p_zim.minute >= 30 else 0)
+
+            if last_pos:
+                lon1, lat1, lon2, lat2 = map(radians, [last_pos.longitude, last_pos.latitude, p.longitude, p.latitude])
+                a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
+                km = 6371 * 2 * asin(sqrt(max(0, min(1, a))))
+                if 0 < km < 5 and p.speed is not None and p.speed > 3:
+                    buckets[bucket_idx]["distance"] += km
+                if p.speed is not None and p.speed > 3:
+                    gap = (p.timestamp - last_pos.timestamp).total_seconds()
+                    if 0 < gap < 600:
+                        buckets[bucket_idx]["active_seconds"] += gap
+            last_pos = p
+
+        cum_mileage = 0
+        cum_active_seconds = 0
+        current_bucket = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
+        for i in range(current_bucket + 1):
+            h = i // 2
+            m = "30" if i % 2 else "00"
+            labels.append(f"{h:02d}:{m}")
+            cum_mileage += buckets[i]["distance"]
+            cum_active_seconds += buckets[i]["active_seconds"]
+            mileage_data.append(round(cum_mileage, 1))
+            hours_data.append(round(cum_active_seconds / 3600, 1))
+    else:
+        buckets = {}
+        for i in range(days_to_fetch):
+            day = (zim_start + timedelta(days=i)).date()
+            buckets[day] = {"distance": 0, "active_seconds": 0}
+
+        last_pos = None
+        for p in positions:
+            if p.latitude is None or p.longitude is None:
+                continue
+            p_zim = p.timestamp + tz_offset
+            p_date = p_zim.date()
+            if p_date not in buckets:
+                continue
+            if last_pos and (last_pos.timestamp + tz_offset).date() == p_date:
+                lon1, lat1, lon2, lat2 = map(radians, [last_pos.longitude, last_pos.latitude, p.longitude, p.latitude])
+                a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
+                km = 6371 * 2 * asin(sqrt(max(0, min(1, a))))
+                if 0 < km < 10 and p.speed is not None and p.speed > 3:
+                    buckets[p_date]["distance"] += km
+                if p.speed is not None and p.speed > 3:
+                    gap = (p.timestamp - last_pos.timestamp).total_seconds()
+                    if 0 < gap < 600:
+                        buckets[p_date]["active_seconds"] += gap
+            last_pos = p
+
+        cum_mileage = 0
+        cum_active_seconds = 0
+        for date in sorted(buckets.keys()):
+            val = buckets[date]
+            labels.append(date.strftime("%b %d"))
+            cum_mileage += val["distance"]
+            cum_active_seconds += val["active_seconds"]
+            mileage_data.append(round(cum_mileage, 1))
+            hours_data.append(round(cum_active_seconds / 3600, 1))
+
+    return {"labels": labels, "mileage": mileage_data, "hours": hours_data}
+
+
 @router.get("/analytics/device/{device_id}/daily")
 async def get_device_daily_mileage(
     device_id: int,
