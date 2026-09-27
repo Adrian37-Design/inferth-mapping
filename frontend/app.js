@@ -2151,6 +2151,14 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (assetStatus === 'Moving' && marker) marker.wasMoving = true;
     }
 
+    // FIX: When tracker is Offline, always show 0 km/h — never show stale
+    // last-known speed from a ping that happened hours or days ago.
+    // A tracker silent for >10 minutes is not moving at 19 km/h.
+    if (assetStatus === 'Offline') {
+        speed = 0;
+        ignitionOn = false;
+    }
+
     const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
     const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
     
@@ -2278,20 +2286,40 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
     const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
-    const initialAddr = cachedAddr || "Loading location...";
+
+    // FIX: Show contextual location label depending on online/offline state
+    const isOffline = assetStatus === 'Offline';
+    const addrLabel = isOffline
+        ? (cachedAddr ? `Last Known: ${cachedAddr}` : 'Last Known Location')
+        : (cachedAddr || 'Loading location...');
+    const initialAddr = addrLabel;
+
+    // FIX: Show last-seen time for offline trackers instead of misleading "Today: 0 km"
+    const lastSeenStr = (() => {
+        if (!isOffline) return `<i class="fas fa-route"></i> Today: ${todayMileage} km`;
+        const lastSeen = new Date(timestamp);
+        const diffMs = Date.now() - lastSeen.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHrs = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHrs / 24);
+        let ago = diffDays > 0 ? `${diffDays}d ago`
+                : diffHrs > 0 ? `${diffHrs}h ago`
+                : `${diffMins}m ago`;
+        return `<i class="fas fa-clock"></i> Last seen: ${ago}`;
+    })();
 
     const popupContentStr = `
         <div style="text-align:center; min-width: 150px;">
             <strong>${resolvedName || imei}</strong><br>
             <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
             <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-            <div style="margin-bottom: 8px; color: var(--primary); font-weight: 600; font-size: 0.95em;">
+            <div style="margin-bottom: 8px; color: ${isOffline ? '#aaa' : 'var(--primary)'}; font-weight: 600; font-size: 0.95em;">
                 <i class="fas fa-map-marker-alt"></i> 
                 <span id="popup-addr-${imei}">${initialAddr}</span>
             </div>
             <div style="font-size: 0.9em; line-height: 1.4;">
-                <div style="color: #ff9800; font-weight: bold; margin-bottom: 4px;">
-                    <i class="fas fa-route"></i> Today: ${todayMileage} km
+                <div style="color: ${isOffline ? '#888' : '#ff9800'}; font-weight: bold; margin-bottom: 4px;">
+                    ${lastSeenStr}
                 </div>
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${assetStatus}<br>
@@ -2493,9 +2521,22 @@ async function getAddress(lat, lng) {
 
         const data = await response.json();
         
-        // Extract street name or neighborhood
+        // Extract street name or neighborhood — for rural/off-road coordinates
+        // Nominatim may return no road/suburb; fall through to county/state before
+        // using a generic description that avoids the confusing "Unknown Location" label.
         const addr = data.address || {};
-        const street = addr.road || addr.suburb || addr.city_district || addr.hamlet || addr.village || addr.city || "Unknown Location";
+        const street = addr.road
+            || addr.suburb
+            || addr.city_district
+            || addr.hamlet
+            || addr.village
+            || addr.town
+            || addr.city
+            || addr.county
+            || addr.state_district
+            || addr.state
+            || (addr.country ? `Rural area, ${addr.country}` : null)
+            || `${lat.toFixed(4)}, ${lng.toFixed(4)}`; // Final fallback: raw GPS coords
         
         addressCache.set(cacheKey, street);
         
