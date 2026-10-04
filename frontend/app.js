@@ -2347,17 +2347,19 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         : (cachedAddr || 'Loading location...');
     const initialAddr = addrLabel;
 
+    // Calculate offline duration
+    const lastSeenDate = new Date(timestamp);
+    const offlineDiffMs = Date.now() - lastSeenDate.getTime();
+    const offlineDiffMins = Math.floor(offlineDiffMs / 60000);
+    const offlineDiffHrs = Math.floor(offlineDiffMins / 60);
+    const offlineDiffDays = Math.floor(offlineDiffHrs / 24);
+
     // FIX: Show last-seen time for offline trackers instead of misleading "Today: 0 km"
     const lastSeenStr = (() => {
         if (!isOffline) return `<i class="fas fa-route"></i> Today: ${todayMileage} km`;
-        const lastSeen = new Date(timestamp);
-        const diffMs = Date.now() - lastSeen.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHrs = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHrs / 24);
-        let ago = diffDays > 0 ? `${diffDays}d ago`
-                : diffHrs > 0 ? `${diffHrs}h ago`
-                : `${diffMins}m ago`;
+        let ago = offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
+                : offlineDiffHrs > 0 ? `${offlineDiffHrs}h ago`
+                : `${offlineDiffMins}m ago`;
         return `<i class="fas fa-clock"></i> Last seen: ${ago}`;
     })();
 
@@ -2374,6 +2376,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 <div style="color: ${isOffline ? '#888' : '#ff9800'}; font-weight: bold; margin-bottom: 4px;">
                     ${lastSeenStr}
                 </div>
+                ${(isOffline && offlineDiffDays >= 1) ? `
+                <div style="background: rgba(255, 77, 77, 0.12); border: 1px solid rgba(255, 77, 77, 0.35); border-radius: 4px; padding: 5px 6px; margin: 6px 0; font-size: 0.8em; color: #ff6b6b; text-align: center; line-height: 1.3;">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Hardware Disconnected (${offlineDiffDays}d)</strong><br>
+                    <span style="color: #bbb; font-size: 0.9em;">Showing last recorded GPS fix. Tracker is currently not transmitting.</span>
+                </div>` : ''}
                 Speed: ${Math.round(speed || 0)} km/h<br>
                 Status: ${assetStatus}<br>
                 <div style="margin-top:4px;">
