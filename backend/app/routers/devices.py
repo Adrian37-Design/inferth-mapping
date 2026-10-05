@@ -195,7 +195,8 @@ async def send_device_command(
     if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to control this device")
 
-    is_shutdown = (payload.action.lower() == "shutdown")
+    action_lower = payload.action.lower()
+    is_shutdown = action_lower in ["shutdown", "sleep"]
     
     # Update device metadata with command details and shutdown status
     meta = dict(device.device_metadata or {})
@@ -225,10 +226,10 @@ async def send_device_command(
     await db.commit()
     await db.refresh(device)
 
-    action_text = "SHUT DOWN / IMMOBILIZED" if is_shutdown else "RESTORED / POWER ON"
+    action_text = "PUT TO SLEEP / SHUT DOWN" if is_shutdown else "POWERED ON / RESTORED"
     return {
         "success": True,
-        "message": f"Remote signal executed: Vehicle '{device.name or device.imei}' is now {action_text}.",
+        "message": f"Remote signal executed: Tracker '{device.name or device.imei}' is now {action_text}.",
         "is_shutdown": is_shutdown,
         "device_metadata": device.device_metadata
     }
