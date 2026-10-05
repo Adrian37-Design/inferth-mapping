@@ -100,12 +100,15 @@
                 <!-- Tab: Asset Detail View (STEP 5) -->
                 <div id="tab-asset-detail" class="tab-content">
                     <div class="asset-header-container">
-                        <div class="asset-title-row">
+                        <div class="asset-title-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <button class="btn-text back-btn" onclick="closeAssetDetail()">
                                 <i class="fas fa-arrow-left"></i>
                             </button>
-                            <h2 id="detail-name">Vehicle Name</h2>
+                            <h2 id="detail-name" style="margin: 0;">Vehicle Name</h2>
                             <span class="status-badge" id="detail-status">Unknown</span>
+                            <button id="detail-power-btn" class="shutdown-vehicle-btn" style="margin-left: auto; font-size: 0.82em; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px;" title="Put Tracker to Sleep / Power On">
+                                <i class="fas fa-power-off"></i> <span>Sleep</span>
+                            </button>
                         </div>
                         <div class="asset-subtitle" id="detail-driver">No Driver Assigned</div>
                     </div>

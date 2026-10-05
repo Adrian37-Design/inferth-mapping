@@ -1832,8 +1832,8 @@ async function loadVehicles() {
                     <button class="locate-vehicle-btn" data-id="${vehicle.id}" title="Locate on Map">
                         <i class="fas fa-crosshairs"></i>
                     </button>
-                    <button class="shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}" data-id="${vehicle.id}" title="${isShutdown ? 'Tracker Shut Down / Immobilized (Click to Restore Power)' : 'Remote Tracker / Engine Shutdown'}">
-                        <i class="fas fa-power-off"></i>
+                    <button class="shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}" data-id="${vehicle.id}" title="${isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown'}">
+                        <i class="fas ${isShutdown ? 'fa-bolt' : 'fa-power-off'}"></i>
                     </button>
                     ${window.AuthManager.canEdit() ? `
                     <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
@@ -2665,6 +2665,21 @@ function openAssetDetail(vehicle) {
     if (document.getElementById('detail-vin')) document.getElementById('detail-vin').textContent = meta.vin || '--';
     if (document.getElementById('detail-sim')) document.getElementById('detail-sim').textContent = meta.sim || '--';
 
+    // Configure Sleep / Power On button in asset header
+    const detailPowerBtn = document.getElementById('detail-power-btn');
+    if (detailPowerBtn) {
+        const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
+        detailPowerBtn.className = `shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}`;
+        detailPowerBtn.title = isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown';
+        detailPowerBtn.innerHTML = isShutdown
+            ? '<i class="fas fa-bolt"></i> <span>Power On</span>'
+            : '<i class="fas fa-power-off"></i> <span>Sleep</span>';
+        detailPowerBtn.onclick = (e) => {
+            e.stopPropagation();
+            openRemoteShutdownModal(vehicle);
+        };
+    }
+
     // Load History (Default: Today)
     loadAssetHistory(vehicle.id, null, null);
 }
@@ -2699,8 +2714,15 @@ function updateAssetDetailUI(id) {
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
     const marker = markers[id];
+    const vehicle = Array.isArray(allVehicles) ? allVehicles.find(v => v.id === id) : null;
+    const meta = (vehicle && vehicle.device_metadata) || {};
+    const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
+
     let status, statusClass;
-    if (isOffline) {
+    if (isShutdown) {
+        status = 'Sleeping';
+        statusClass = 'badge-shutdown';
+    } else if (isOffline) {
         status = 'Offline'; statusClass = 'badge-offline';
     } else if (marker && marker.resolvedStatus) {
         status = marker.resolvedStatus;
@@ -2713,6 +2735,19 @@ function updateAssetDetailUI(id) {
     if (statusBadge) {
         statusBadge.textContent = status;
         statusBadge.className = `status-badge ${statusClass}`;
+    }
+
+    const detailPowerBtn = document.getElementById('detail-power-btn');
+    if (detailPowerBtn && vehicle) {
+        detailPowerBtn.className = `shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}`;
+        detailPowerBtn.title = isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown';
+        detailPowerBtn.innerHTML = isShutdown
+            ? '<i class="fas fa-bolt"></i> <span>Power On</span>'
+            : '<i class="fas fa-power-off"></i> <span>Sleep</span>';
+        detailPowerBtn.onclick = (e) => {
+            e.stopPropagation();
+            openRemoteShutdownModal(vehicle);
+        };
     }
 
     // Grid Items — grey out stale values when offline
@@ -3084,25 +3119,25 @@ function openRemoteShutdownModal(vehicle) {
     const warningBox = document.getElementById('shutdown-warning-box');
 
     if (isShutdown) {
-        titleEl.innerHTML = '<i class="fas fa-bolt" style="color: #22c55e;"></i> Restore Vehicle Power & Tracker';
-        statusEl.innerHTML = '<span style="color: #ef4444; font-weight: 700;"><i class="fas fa-ban"></i> SHUT DOWN / IMMOBILIZED</span>';
-        descEl.innerHTML = 'This vehicle is currently <strong>SHUT DOWN</strong>. Confirming will send a remote power-on signal to restore engine ignition and tracker functions.';
+        titleEl.innerHTML = '<i class="fas fa-bolt" style="color: #22c55e;"></i> Power On / Wake Up Tracker';
+        statusEl.innerHTML = '<span style="color: #22c55e; font-weight: 700;"><i class="fas fa-moon"></i> SLEEPING / SHUT DOWN</span>';
+        descEl.innerHTML = 'This tracker is currently in <strong>SLEEP / SHUT DOWN</strong> mode. Confirming will send a remote wake-up signal to restore tracker power and resume active live tracking.';
         warningBox.style.background = 'rgba(34, 197, 94, 0.12)';
         warningBox.style.borderColor = 'rgba(34, 197, 94, 0.35)';
         warningBox.querySelector('div').style.color = '#22c55e';
         confirmBtn.style.background = '#22c55e';
         confirmBtn.style.borderColor = '#22c55e';
-        confirmBtn.innerHTML = '<i class="fas fa-check-circle"></i> Restore Power';
+        confirmBtn.innerHTML = '<i class="fas fa-bolt"></i> Power On Tracker';
     } else {
-        titleEl.innerHTML = '<i class="fas fa-power-off" style="color: #ef4444;"></i> Remote Tracker Shutdown';
+        titleEl.innerHTML = '<i class="fas fa-power-off" style="color: #ef4444;"></i> Remote Tracker Sleep / Shutdown';
         statusEl.innerHTML = '<span style="color: #22c55e; font-weight: 700;"><i class="fas fa-check-circle"></i> ACTIVE / ONLINE</span>';
-        descEl.innerHTML = 'You are about to issue a remote command to <strong>SHUT DOWN</strong> the tracking unit and cut off the engine relay. Use only in emergency or immobilizer scenarios.';
+        descEl.innerHTML = 'You are about to issue a remote command for the tracking unit to <strong>GO TO SLEEP / SHUT DOWN</strong>. Live telemetry transmission will be paused until powered back on.';
         warningBox.style.background = 'rgba(239, 68, 68, 0.12)';
         warningBox.style.borderColor = 'rgba(239, 68, 68, 0.35)';
         warningBox.querySelector('div').style.color = '#ef4444';
         confirmBtn.style.background = '#ef4444';
         confirmBtn.style.borderColor = '#ef4444';
-        confirmBtn.innerHTML = '<i class="fas fa-power-off"></i> Confirm Shutdown';
+        confirmBtn.innerHTML = '<i class="fas fa-power-off"></i> Put Tracker to Sleep';
     }
 
     confirmBtn.onclick = async () => {
@@ -3128,6 +3163,11 @@ function openRemoteShutdownModal(vehicle) {
 
             // Refresh vehicles list to update UI state
             await loadVehicles();
+            if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+                const refreshed = Array.isArray(allVehicles) ? allVehicles.find(v => v.id === vehicle.id) : null;
+                if (refreshed) selectedVehicle = refreshed;
+                updateAssetDetailUI(vehicle.id);
+            }
         } catch (err) {
             alert(`Remote command error: ${err.message}`);
         } finally {
