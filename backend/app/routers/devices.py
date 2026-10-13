@@ -203,6 +203,7 @@ async def send_device_command(
     meta["is_shutdown"] = is_shutdown
     meta["shutdown_status"] = "SHUTDOWN" if is_shutdown else "ACTIVE"
     meta["last_command"] = payload.action.upper()
+    meta["pending_command"] = payload.action.upper()
     meta["last_command_at"] = datetime.datetime.utcnow().isoformat()
     meta["last_command_by"] = current_user.email
     device.device_metadata = meta
