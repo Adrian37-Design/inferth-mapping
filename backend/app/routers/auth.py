@@ -8,7 +8,7 @@ from app.auth_middleware import require_admin, get_current_user, get_current_use
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from sqlalchemy import text, func
+from sqlalchemy import text, func, update
 from typing import Optional
 import asyncio
 import secrets
@@ -17,6 +17,41 @@ from pathlib import Path
 from app.utils.colors import extract_brand_colors
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+DEFAULT_INFERTH_LOGO = "/static/inferth_mapping_logo.png"
+
+def resolve_frontend_dir() -> Path:
+    current_file = Path(__file__).resolve()
+    candidates = [
+        current_file.parent.parent.parent.parent / "frontend",
+        current_file.parent.parent.parent / "frontend",
+        Path("/app/frontend"),
+        Path("frontend")
+    ]
+    for path in candidates:
+        if path.exists() and path.is_dir():
+            return path
+    static_dir = Path("static")
+    static_dir.mkdir(exist_ok=True)
+    return static_dir
+
+def get_effective_logo_url(logo_url: Optional[str]) -> str:
+    if not logo_url or not isinstance(logo_url, str):
+        return DEFAULT_INFERTH_LOGO
+    cleaned = logo_url.strip()
+    if not cleaned:
+        return DEFAULT_INFERTH_LOGO
+    if cleaned.startswith("http://") or cleaned.startswith("https://"):
+        return cleaned
+    
+    try:
+        rel_path = cleaned.replace("/static/", "").strip()
+        static_dir = resolve_frontend_dir()
+        if (static_dir / rel_path).exists():
+            return cleaned
+    except Exception:
+        pass
+    return DEFAULT_INFERTH_LOGO
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -135,38 +170,111 @@ async def get_tenants(
 
     try:
         # 2. Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
-        query = text("SELECT id, name, logo_url FROM tenants")
+        query = text("SELECT id, name, logo_url FROM tenants ORDER BY id ASC")
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
-        # 3. Filter and return
+        # 3. Format with default Inferth Mapping logo fallback
+        formatted = []
+        for t in tenants:
+            eff_logo = get_effective_logo_url(t["logo_url"])
+            has_custom = bool(t["logo_url"] and eff_logo != DEFAULT_INFERTH_LOGO)
+            formatted.append({
+                "id": t["id"],
+                "name": t["name"],
+                "logo": eff_logo,
+                "has_custom_logo": has_custom
+            })
+
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
-            return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants if t["id"] == current_user.tenant_id]
+            return [f for f in formatted if f["id"] == current_user.tenant_id]
             
-        return [{"id": t["id"], "name": t["name"], "logo": t["logo_url"]} for t in tenants]
+        return formatted
     except Exception as e:
         print(f"Tenants list fetch bypassed (DB busy/timeout): {e}")
         return []
 
-class UpdateTenantRequest(BaseModel):
-    name: Optional[str] = None
-
 @router.patch("/tenants/{tenant_id}")
 async def update_tenant(
     tenant_id: int,
-    data: UpdateTenantRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Update a tenant (admin only)"""
+    """Update a tenant name and/or logo (admin only)"""
+    from app.models import Device
+
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalars().first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Company not found")
-    if data.name:
-        tenant.name = data.name
+
+    content_type = request.headers.get("content-type", "")
+    new_name = None
+    remove_logo = False
+    logo_file = None
+
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            new_name = body.get("name")
+            remove_logo = body.get("remove_logo", False)
+        except Exception:
+            pass
+    else:
+        try:
+            form = await request.form()
+            new_name = form.get("name")
+            remove_val = form.get("remove_logo")
+            if str(remove_val).lower() in ("true", "1", "yes"):
+                remove_logo = True
+            uploaded = form.get("logo")
+            if uploaded and hasattr(uploaded, "filename") and uploaded.filename:
+                logo_file = uploaded
+        except Exception:
+            pass
+
+    if new_name and str(new_name).strip():
+        old_name = tenant.name
+        tenant.name = str(new_name).strip()
+        # Keep devices in sync if company name changed
+        if old_name != tenant.name:
+            await db.execute(
+                update(Device).where(Device.tenant_id == tenant.id).values(company=tenant.name)
+            )
+
+    if remove_logo:
+        tenant.logo_url = None
+        tenant.primary_color = "#2D5F6D"
+        tenant.secondary_color = "#EF4835"
+    elif logo_file:
+        static_dir = resolve_frontend_dir()
+        static_dir.mkdir(exist_ok=True)
+        ext = Path(logo_file.filename).suffix.lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".svg", ".webp"]:
+            ext = ".png"
+        safe_name = "".join(c if c.isalnum() else "_" for c in tenant.name.lower()).strip("_")
+        filename = f"{safe_name}_logo{ext}"
+        file_path = static_dir / filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(logo_file.file, buffer)
+        primary_color, secondary_color = extract_brand_colors(file_path)
+        tenant.logo_url = f"/static/{filename}"
+        tenant.primary_color = primary_color
+        tenant.secondary_color = secondary_color
+
     await db.commit()
-    return {"id": tenant.id, "name": tenant.name, "logo": tenant.logo_url}
+    await db.refresh(tenant)
+
+    effective_logo = get_effective_logo_url(tenant.logo_url)
+    return {
+        "id": tenant.id,
+        "name": tenant.name,
+        "logo": effective_logo,
+        "has_custom_logo": bool(tenant.logo_url and effective_logo != DEFAULT_INFERTH_LOGO),
+        "primary": tenant.primary_color,
+        "secondary": tenant.secondary_color
+    }
 
 @router.delete("/tenants/{tenant_id}", status_code=204)
 async def delete_tenant(
@@ -259,7 +367,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
             "last_login": user.last_login,
             "theme": {
-                "logo": (user.tenant.logo_url.lower().replace(" ", "_") if user.tenant.logo_url else None) if user.tenant_id == 1 else (user.tenant.logo_url if user.tenant else None),
+                "logo": get_effective_logo_url(user.tenant.logo_url if user.tenant else None),
                 "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
                 "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
                 "navbar_bg": "#ffffff" if user.tenant_id == 1 else (user.tenant.primary_color if user.tenant else "#1a1c23"),
@@ -342,7 +450,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "tenant_id": current_user.tenant_id,
         "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
         "theme": {
-            "logo": (current_user.tenant.logo_url.lower().replace(" ", "_") if current_user.tenant.logo_url else None) if current_user.tenant_id == 1 else (current_user.tenant.logo_url if current_user.tenant else None),
+            "logo": get_effective_logo_url(current_user.tenant.logo_url if current_user.tenant else None),
             "primary": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D",
             "secondary": current_user.tenant.secondary_color if current_user.tenant else "#EF4835",
             "navbar_bg": current_user.tenant.navbar_bg if current_user.tenant and current_user.tenant.navbar_bg else ("#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)"),

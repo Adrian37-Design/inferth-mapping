@@ -139,6 +139,27 @@ class AuthManager {
         return await response.json();
     }
 
+    // Update Tenant (Admin Only) - support rename, logo upload, or logo removal
+    async updateTenant(id, name, logoFile = null, removeLogo = false) {
+        const formData = new FormData();
+        if (name) formData.append('name', name);
+        if (logoFile) formData.append('logo', logoFile);
+        if (removeLogo) formData.append('remove_logo', 'true');
+
+        const response = await fetch(`${API_BASE}/auth/tenants/${id}`, {
+            method: 'PATCH',
+            headers: this.getAuthHeader(),
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update company');
+        }
+
+        return await response.json();
+    }
+
     // Get current user
     async getCurrentUser() {
         const response = await fetch(`${API_BASE}/auth/me`, {
@@ -452,19 +473,24 @@ class AuthManager {
         }
 
         // Update Logo & Favicon
-        if (theme.logo) {
-            const logos = document.querySelectorAll('.brand-logo, .auth-logo');
-            logos.forEach(img => img.src = theme.logo);
+        const defaultLogo = '/static/inferth_mapping_logo.png';
+        const brandLogo = (theme && theme.logo) ? theme.logo : defaultLogo;
+        const logos = document.querySelectorAll('.brand-logo, .auth-logo');
+        logos.forEach(img => {
+            img.src = brandLogo;
+            img.onerror = function () {
+                this.src = defaultLogo;
+            };
+        });
 
-            let favicon = document.querySelector('link[rel="icon"]');
-            if (favicon) {
-                favicon.href = theme.logo;
-            } else {
-                favicon = document.createElement('link');
-                favicon.rel = 'icon';
-                favicon.href = theme.logo;
-                document.head.appendChild(favicon);
-            }
+        let favicon = document.querySelector('link[rel="icon"]');
+        if (favicon) {
+            favicon.href = brandLogo;
+        } else {
+            favicon = document.createElement('link');
+            favicon.rel = 'icon';
+            favicon.href = brandLogo;
+            document.head.appendChild(favicon);
         }
 
         // Update User Identity Display
