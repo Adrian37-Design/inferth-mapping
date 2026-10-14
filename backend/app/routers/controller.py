@@ -154,7 +154,7 @@ async def upsert_tracking_data(
     if "ip_address" in body:
         meta["ip_address"] = body["ip_address"]
     
-    meta["last_seen"] = datetime.utcnow().isoformat()
+    meta["last_seen"] = datetime.utcnow().isoformat() + "Z"
     device.device_metadata = meta
 
     inserted_count = 0
@@ -235,7 +235,7 @@ async def upsert_tracking_data(
                 "fuel_level": fuel,
                 "battery_voltage": vbatt,
                 "ignition": ign,
-                "timestamp": timestamp.isoformat()
+                "timestamp": timestamp.isoformat() + "Z"
             })
         except Exception:
             pass

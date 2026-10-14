@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_serializer
 from typing import Optional
 from datetime import datetime
 
@@ -23,6 +23,14 @@ class PositionOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_serializer('timestamp')
+    def serialize_timestamp(self, dt: Optional[datetime], _info):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
 
 class UserBase(BaseModel):
     email: EmailStr
