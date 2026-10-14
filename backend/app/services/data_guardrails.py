@@ -79,6 +79,12 @@ def validate_and_sanitize_speed(speed: Any) -> float:
     return round(f_speed, 1)
 
 
+def _to_naive_utc(dt: Optional[datetime]) -> datetime:
+    if dt is None:
+        return datetime.utcnow()
+    return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+
 def is_teleportation_jump(
     prev_lat: float, prev_lon: float, prev_time: datetime,
     curr_lat: float, curr_lon: float, curr_time: datetime
@@ -87,7 +93,9 @@ def is_teleportation_jump(
     Guardrail 2b: Teleportation Jump Check.
     Detects impossible jumps where implied velocity exceeds realistic physical limits.
     """
-    time_diff_sec = abs((curr_time - prev_time).total_seconds())
+    t_curr = _to_naive_utc(curr_time)
+    t_prev = _to_naive_utc(prev_time)
+    time_diff_sec = abs((t_curr - t_prev).total_seconds())
     if time_diff_sec < 1.0:
         # Same instant; if distance is non-zero and significant (> 50m), it's an anomaly
         dist_km = haversine_distance_km(prev_lat, prev_lon, curr_lat, curr_lon)
@@ -115,7 +123,7 @@ def validate_timestamp(candidate_ts: Any, fallback_now: Optional[datetime] = Non
 
     ts = None
     if isinstance(candidate_ts, datetime):
-        ts = candidate_ts
+        ts = candidate_ts.replace(tzinfo=None) if candidate_ts.tzinfo else candidate_ts
     elif isinstance(candidate_ts, str):
         try:
             ts = datetime.fromisoformat(candidate_ts.replace('Z', '+00:00')).replace(tzinfo=None)
@@ -146,7 +154,9 @@ def is_duplicate_ping(
     if prev_lat is None or curr_lat is None or prev_lon is None or curr_lon is None:
         return False
 
-    time_diff_sec = abs((curr_time - prev_time).total_seconds())
+    t_curr = _to_naive_utc(curr_time)
+    t_prev = _to_naive_utc(prev_time)
+    time_diff_sec = abs((t_curr - t_prev).total_seconds())
     if time_diff_sec < 4.0:
         # Within 4 seconds and stationary / near-stationary
         if prev_speed <= 3.0 and curr_speed <= 3.0:
