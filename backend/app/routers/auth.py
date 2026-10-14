@@ -53,6 +53,57 @@ def get_effective_logo_url(logo_url: Optional[str]) -> str:
         pass
     return DEFAULT_INFERTH_LOGO
 
+INFERTH_DEFAULT_THEME = {
+    "logo": DEFAULT_INFERTH_LOGO,
+    "primary": "#ff8c00",
+    "secondary": "#ef4835",
+    "navbar_bg": "#ffffff",
+    "navbar_text": "#ff8c00",
+    "has_custom_logo": False
+}
+
+def get_field(obj, field_name, default=None):
+    if obj is None:
+        return default
+    if isinstance(obj, dict) or hasattr(obj, "__getitem__"):
+        try:
+            return obj[field_name]
+        except (KeyError, TypeError, IndexError):
+            pass
+    return getattr(obj, field_name, default)
+
+def resolve_tenant_theme(tenant) -> dict:
+    """
+    Guarantees that any company using the default logo MUST use the theme colours
+    for Inferth Mapping (#ff8c00, #ef4835, #ffffff white navbar).
+    Only companies with an actual verified custom logo file on disk use custom colors.
+    """
+    if not tenant:
+        return dict(INFERTH_DEFAULT_THEME)
+        
+    t_id = get_field(tenant, "id")
+    logo_url = get_field(tenant, "logo_url")
+    eff_logo = get_effective_logo_url(logo_url)
+    
+    has_custom = bool(logo_url and eff_logo != DEFAULT_INFERTH_LOGO and t_id != 1)
+    
+    if not has_custom:
+        return dict(INFERTH_DEFAULT_THEME)
+        
+    primary = get_field(tenant, "primary_color") or "#ff8c00"
+    secondary = get_field(tenant, "secondary_color") or "#ef4835"
+    navbar_bg = get_field(tenant, "navbar_bg") or "linear-gradient(to right, #1a1c23, #2d3139)"
+    navbar_text = get_field(tenant, "navbar_text_color") or ("#ff8c00" if navbar_bg == "#ffffff" else primary)
+    
+    return {
+        "logo": eff_logo,
+        "primary": primary,
+        "secondary": secondary,
+        "navbar_bg": navbar_bg,
+        "navbar_text": navbar_text,
+        "has_custom_logo": True
+    }
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -174,32 +225,19 @@ async def get_tenants(
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
-        # 3. Format with default Inferth Mapping logo & theme fallback
+        # 3. Format with resolve_tenant_theme (strictly enforces Inferth colors for default logo)
         formatted = []
         for t in tenants:
-            eff_logo = get_effective_logo_url(t["logo_url"])
-            has_custom = bool(t["logo_url"] and eff_logo != DEFAULT_INFERTH_LOGO)
-
-            p = t["primary_color"] or "#ff8c00"
-            s = t["secondary_color"] or "#ef4835"
-            nb = t["navbar_bg"] or ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
-            nt = t["navbar_text_color"] or (p if nb == "#ffffff" else "#ffffff")
-
-            if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or t["id"] == 1):
-                p = "#ff8c00"
-                s = "#ef4835"
-                nb = "#ffffff"
-                nt = "#ff8c00"
-
+            theme = resolve_tenant_theme(t)
             formatted.append({
                 "id": t["id"],
                 "name": t["name"],
-                "logo": eff_logo,
-                "has_custom_logo": has_custom,
-                "primary_color": p,
-                "secondary_color": s,
-                "navbar_bg": nb,
-                "navbar_text_color": nt
+                "logo": theme["logo"],
+                "has_custom_logo": theme["has_custom_logo"],
+                "primary_color": theme["primary"],
+                "secondary_color": theme["secondary"],
+                "navbar_bg": theme["navbar_bg"],
+                "navbar_text_color": theme["navbar_text"]
             })
 
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
@@ -401,18 +439,6 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         "is_admin": user.is_admin
     })
     
-    has_custom = bool(user.tenant and user.tenant.logo_url and get_effective_logo_url(user.tenant.logo_url) != DEFAULT_INFERTH_LOGO)
-    p = user.tenant.primary_color if (user.tenant and user.tenant.primary_color) else "#ff8c00"
-    s = user.tenant.secondary_color if (user.tenant and user.tenant.secondary_color) else "#ef4835"
-    nb = user.tenant.navbar_bg if (user.tenant and user.tenant.navbar_bg) else ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
-    nt = user.tenant.navbar_text_color if (user.tenant and user.tenant.navbar_text_color) else (p if nb == "#ffffff" else "#ffffff")
-
-    if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or user.tenant_id == 1):
-        p = "#ff8c00"
-        s = "#ef4835"
-        nb = "#ffffff"
-        nt = "#ff8c00"
-
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -424,13 +450,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             "tenant_id": user.tenant_id,
             "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
             "last_login": user.last_login,
-            "theme": {
-                "logo": get_effective_logo_url(user.tenant.logo_url if user.tenant else None),
-                "primary": p,
-                "secondary": s,
-                "navbar_bg": nb,
-                "navbar_text": nt
-            },
+            "theme": resolve_tenant_theme(user.tenant),
             "subscription": {
                 "plan": user.tenant.plan if user.tenant else "Basic",
                 "status": user.tenant.subscription_status if user.tenant else "active",
@@ -500,18 +520,6 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user info"""
-    has_custom = bool(current_user.tenant and current_user.tenant.logo_url and get_effective_logo_url(current_user.tenant.logo_url) != DEFAULT_INFERTH_LOGO)
-    p = current_user.tenant.primary_color if (current_user.tenant and current_user.tenant.primary_color) else "#ff8c00"
-    s = current_user.tenant.secondary_color if (current_user.tenant and current_user.tenant.secondary_color) else "#ef4835"
-    nb = current_user.tenant.navbar_bg if (current_user.tenant and current_user.tenant.navbar_bg) else ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
-    nt = current_user.tenant.navbar_text_color if (current_user.tenant and current_user.tenant.navbar_text_color) else (p if nb == "#ffffff" else "#ffffff")
-
-    if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or current_user.tenant_id == 1):
-        p = "#ff8c00"
-        s = "#ef4835"
-        nb = "#ffffff"
-        nt = "#ff8c00"
-
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -519,13 +527,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "is_admin": current_user.is_admin,
         "tenant_id": current_user.tenant_id,
         "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
-        "theme": {
-            "logo": get_effective_logo_url(current_user.tenant.logo_url if current_user.tenant else None),
-            "primary": p,
-            "secondary": s,
-            "navbar_bg": nb,
-            "navbar_text": nt
-        },
+        "theme": resolve_tenant_theme(current_user.tenant),
         "subscription": {
             "plan": current_user.tenant.plan if current_user.tenant else "Basic",
             "status": current_user.tenant.subscription_status if current_user.tenant else "active",

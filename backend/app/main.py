@@ -316,6 +316,10 @@ async def repair_production_state():
                 text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s, navbar_bg = :nb, navbar_text_color = :nt WHERE TRIM(LOWER(name)) = LOWER(:name)"),
                 {"url": "/static/inferth_mapping_logo.png", "p": "#ff8c00", "s": "#ef4835", "nb": "#ffffff", "nt": "#ff8c00", "name": "Inferth Mapping"}
             )
+            # Guarantee companies using default logo (including NetroZim) use Inferth Mapping theme colors
+            await db.execute(
+                text("UPDATE tenants SET logo_url = NULL, primary_color = '#ff8c00', secondary_color = '#ef4835', navbar_bg = '#ffffff', navbar_text_color = '#ff8c00' WHERE logo_url IS NULL OR logo_url = '/static/inferth_mapping_logo.png' OR TRIM(LOWER(name)) = 'netrozim'")
+            )
             await db.commit()
             results["steps"].append("Standardized all organization logo paths and colors in DB")
         except Exception as e:

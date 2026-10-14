@@ -427,6 +427,14 @@ async def fix_netrozim(
     else:
         report["tenant"] = f"FOUND {tenant.name} (id={tenant.id})"
 
+    # Enforce Inferth Mapping theme for NetroZim since it uses default logo
+    tenant.logo_url = None
+    tenant.primary_color = "#ff8c00"
+    tenant.secondary_color = "#ef4835"
+    tenant.navbar_bg = "#ffffff"
+    tenant.navbar_text_color = "#ff8c00"
+    report["tenant_theme"] = "INFERTH_MAPPING_THEME"
+
     # 2. Find and fix Eugene's user
     u_res = await db.execute(
         select(User).where(
