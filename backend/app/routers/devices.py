@@ -80,7 +80,9 @@ async def list_devices(
     # Global admin (tenant 1) sees ALL devices including unassigned ones (NULL tenant_id)
     # Everyone else only sees their own tenant's devices (or devices whose company name matches their tenant)
     if current_user.tenant_id != 1:
-        user_tenant_name = current_user.tenant.name if getattr(current_user, 'tenant', None) else None
+        # Query tenant name explicitly (tenant relationship not eagerly loaded)
+        t_res = await db.execute(select(Tenant.name).where(Tenant.id == current_user.tenant_id))
+        user_tenant_name = t_res.scalar()
         if user_tenant_name:
             stmt = stmt.where(
                 (Device.tenant_id == current_user.tenant_id) | 
