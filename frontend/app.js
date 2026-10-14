@@ -3539,6 +3539,18 @@ function connectWebSocket() {
                         mileage: obdData.mileage
                     });
 
+                    // Stale-replay guard: backfilled offline uploads keep their
+                    // original (older) GPS timestamps. Never let an older point
+                    // regress the live marker — it would teleport to the queued
+                    // location then snap back on the next live report.
+                    const lastAcceptedRaw = vehiclePositions[deviceId] && vehiclePositions[deviceId].timestamp;
+                    const incomingTs = parseTimestamp(data.timestamp);
+                    const lastAcceptedTs = lastAcceptedRaw ? parseTimestamp(lastAcceptedRaw) : null;
+                    if (lat && incomingTs && lastAcceptedTs && incomingTs.getTime() < lastAcceptedTs.getTime()) {
+                        console.log(`⏭️ Ignoring stale position for ${data.imei}: ${data.timestamp} < last accepted`);
+                        return;
+                    }
+
                     addOrUpdateMarker(deviceId, '', data.imei, lat, lng, data.speed, data.timestamp, obdData);
                     
                     // IF this is the selected vehicle, update the Detail UI immediately
