@@ -2530,7 +2530,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     if (timeSpan) {
         // Calculate relative time or just show time
         const date = new Date(timestamp);
-        timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeSpan.textContent = Number.isFinite(date.getTime()) ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unavailable';
     }
 
     const speedSpan = card.querySelector('.meta-speed');
@@ -3114,6 +3114,30 @@ function openRemoteShutdownModal(vehicle) {
     const confirmBtn = document.getElementById('confirm-shutdown-btn');
     const warningBox = document.getElementById('shutdown-warning-box');
     const safetyCheck = document.getElementById('engine-safety-check');
+    const previousFocus = document.activeElement;
+    const closeControlModal = () => {
+        modal.classList.add('hidden');
+        previousFocus?.focus();
+    };
+    modal.querySelector('.close-modal').onclick = closeControlModal;
+    modal.querySelector('.btn-secondary').onclick = closeControlModal;
+    modal.onkeydown = event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeControlModal();
+        } else if (event.key === 'Tab') {
+            const controls = modal.querySelectorAll('button:not(:disabled), input:not(:disabled)');
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    };
     titleEl.textContent = isShutdown ? 'Request engine unlock' : 'Request engine lock';
     statusEl.textContent = meta.last_command ? `Last request: ${meta.last_command}. Physical state unconfirmed.` : 'No command acknowledgement available.';
     descEl.textContent = 'This sends an ENGINE_LOCK or ENGINE_UN_LOCK instruction, not a tracker sleep command. Depending on the hardware, it may affect engine operation. Only request control when the vehicle is safely parked and you have confirmed the wiring and firmware. Delivery does not confirm execution.';
@@ -3146,7 +3170,7 @@ function openRemoteShutdownModal(vehicle) {
             }
 
             const resData = await response.json();
-            modal.classList.add('hidden');
+            closeControlModal();
             alert(resData.message || 'Command queued. Execution by the tracker is not confirmed.');
 
             // Refresh vehicles list to update UI state
