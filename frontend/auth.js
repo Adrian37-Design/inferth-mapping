@@ -464,15 +464,32 @@ class AuthManager {
         console.log("Applying theme:", theme);
         const root = document.documentElement;
 
-        const isConsole = (this.user && this.user.company_name === 'Console Telematics');
+        const defaultLogo = '/static/inferth_mapping_logo.png';
+        const hasCustomLogo = Boolean(theme.has_custom_logo && theme.logo && !theme.logo.includes('inferth_mapping_logo'));
+
         let primary = theme.primary;
-        if (!primary) {
-            primary = isConsole ? '#00FF00' : '#ff8c00';
+        let secondary = theme.secondary;
+        let navBg = theme.navbar_bg;
+        let navText = theme.navbar_text;
+
+        // Any company using the default logo MUST use the theme colours for Inferth Mapping
+        if (!hasCustomLogo) {
+            primary = '#ff8c00';
+            secondary = '#ef4835';
+            navBg = '#ffffff';
+            navText = '#ff8c00';
+            theme.logo = defaultLogo;
+        } else {
+            primary = primary || '#ff8c00';
+            secondary = secondary || '#ef4835';
+            navBg = navBg || 'linear-gradient(to right, #1a1c23, #2d3139)';
+            navText = navText || (navBg === '#ffffff' || navBg === 'white' ? primary : '#ffffff');
         }
-        let secondary = theme.secondary || (isConsole ? '#ADFF2F' : '#ef4835');
 
         root.style.setProperty('--primary', primary);
         root.style.setProperty('--secondary', secondary);
+        root.style.setProperty('--nav-bg', navBg);
+        root.style.setProperty('--nav-text-color', navText);
 
         // Update Brand Name Text
         const brandName = document.getElementById('nav-brand-name');
@@ -482,8 +499,7 @@ class AuthManager {
         }
 
         // Update Logo & Favicon
-        const defaultLogo = '/static/inferth_mapping_logo.png';
-        const brandLogo = (theme && theme.logo) ? theme.logo : defaultLogo;
+        const brandLogo = theme.logo || defaultLogo;
         const logos = document.querySelectorAll('.brand-logo, .auth-logo');
         logos.forEach(img => {
             img.src = brandLogo;
@@ -509,16 +525,6 @@ class AuthManager {
                 userDisplay.textContent = `${this.user.email} (${this.user.role.toUpperCase()})`;
                 userDisplay.classList.add('show');
             }
-        }
-
-        // Apply Navbar BG
-        const isWhite = (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white');
-        if (isWhite) {
-            root.style.setProperty('--nav-bg', '#ffffff');
-            root.style.setProperty('--nav-text-color', theme.navbar_text || primary || '#ff8c00');
-        } else {
-            root.style.setProperty('--nav-bg', theme.navbar_bg || 'linear-gradient(to right, #1a1c23, #2d3139)');
-            root.style.setProperty('--nav-text-color', theme.navbar_text || primary);
         }
     }
 

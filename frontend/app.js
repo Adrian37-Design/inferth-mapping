@@ -5240,10 +5240,10 @@ async function loadCompanies() {
             const hasCustom = Boolean(c.has_custom_logo);
             const safeName = (c.name || '').replace(/'/g, "\\'");
             const safeLogo = (logoPath || defaultLogo).replace(/'/g, "\\'");
-            const primaryColor = (c.primary_color || '#ff8c00').replace(/'/g, "\\'");
-            const secondaryColor = (c.secondary_color || '#ef4835').replace(/'/g, "\\'");
-            const navbarBg = (c.navbar_bg || '#ffffff').replace(/'/g, "\\'");
-            const navbarTextColor = (c.navbar_text_color || primaryColor).replace(/'/g, "\\'");
+            const primaryColor = hasCustom ? (c.primary_color || '#ff8c00').replace(/'/g, "\\'") : '#ff8c00';
+            const secondaryColor = hasCustom ? (c.secondary_color || '#ef4835').replace(/'/g, "\\'") : '#ef4835';
+            const navbarBg = hasCustom ? (c.navbar_bg || '#ffffff').replace(/'/g, "\\'") : '#ffffff';
+            const navbarTextColor = hasCustom ? (c.navbar_text_color || primaryColor).replace(/'/g, "\\'") : '#ff8c00';
 
             return `
             <tr>
@@ -5331,10 +5331,10 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryCo
     const currentLogo = (logo && logo.trim()) ? logo : defaultLogo;
     if (preview) preview.src = currentLogo;
 
-    // Theme values
-    const p = primaryColor || (hasCustomLogo ? '#2D5F6D' : '#ff8c00');
-    const s = secondaryColor || (hasCustomLogo ? '#EF4835' : '#ef4835');
-    const nb = navbarBg || (hasCustomLogo ? 'linear-gradient(to right, #1a1c23, #2d3139)' : '#ffffff');
+    // Theme values: strictly default to Inferth Mapping theme if no custom logo
+    const p = hasCustomLogo ? (primaryColor || '#ff8c00') : '#ff8c00';
+    const s = hasCustomLogo ? (secondaryColor || '#ef4835') : '#ef4835';
+    const nb = hasCustomLogo ? (navbarBg || 'linear-gradient(to right, #1a1c23, #2d3139)') : '#ffffff';
 
     const pInput = document.getElementById('edit-tenant-primary-color');
     const pHex = document.getElementById('edit-tenant-primary-hex');
