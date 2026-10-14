@@ -75,6 +75,7 @@ async def upsert_tracking_data(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
 
+    data_points = body.get("data", [])
     cookies = request.cookies
     token = cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
     jwt_plate = extract_plate_from_jwt(token)
