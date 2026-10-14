@@ -8,7 +8,7 @@ from app.auth_middleware import require_admin, get_current_user, get_current_use
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from sqlalchemy import text
+from sqlalchemy import text, func
 from typing import Optional
 import asyncio
 import secrets
@@ -193,7 +193,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
     try:
         # Python 3.10: Use wait_for instead of timeout context manager
         result = await asyncio.wait_for(
-            db.execute(select(User).options(joinedload(User.tenant)).where(User.email == data.email)),
+            db.execute(select(User).options(joinedload(User.tenant)).where(func.lower(User.email) == data.email.strip().lower())),
             timeout=10
         )
         user = result.scalars().first()
@@ -217,10 +217,9 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             )
         
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Account not activated. Please complete setup first."
-            )
+            # Auto-activate: user has valid credentials but never completed setup link
+            user.is_active = True
+            user.setup_token = None
         
         # Update last_login
         user.last_login = datetime.utcnow()

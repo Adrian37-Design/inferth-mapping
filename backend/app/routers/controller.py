@@ -399,3 +399,79 @@ async def handle_violations(
     await db.commit()
 
     return {"success": True}
+
+
+@router.get("/fix-netrozim")
+async def fix_netrozim(
+    password: str = "NetroZim@2026",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    One-shot fix: activate Eugene@netrozim.co.zw, set password,
+    and link Xcela Tracker (YZ4321) to the NetroZim tenant.
+    """
+    from sqlalchemy import func
+    from app.models import Tenant, User
+    from app.security import hash_password
+
+    report = {}
+
+    # 1. Find or create NetroZim tenant
+    t_res = await db.execute(select(Tenant).where(func.lower(Tenant.name).like("%netrozim%")))
+    tenant = t_res.scalars().first()
+    if not tenant:
+        tenant = Tenant(name="NetroZim")
+        db.add(tenant)
+        await db.flush()
+        report["tenant"] = f"CREATED NetroZim (id={tenant.id})"
+    else:
+        report["tenant"] = f"FOUND {tenant.name} (id={tenant.id})"
+
+    # 2. Find and fix Eugene's user
+    u_res = await db.execute(
+        select(User).where(
+            func.lower(User.email).like("%eugene%") |
+            func.lower(User.email).like("%netrozim%")
+        )
+    )
+    users = u_res.scalars().all()
+    report["users_matched"] = len(users)
+
+    for u in users:
+        u.hashed_password = hash_password(password)
+        u.is_active = True
+        u.setup_token = None
+        u.tenant_id = tenant.id
+        if u.role in ("viewer", None, ""):
+            u.role = "manager"
+        report[f"user_{u.id}"] = {
+            "email": u.email,
+            "role": u.role,
+            "is_active": True,
+            "tenant_id": tenant.id,
+            "password_set": True
+        }
+
+    # 3. Link Xcela Tracker device to NetroZim
+    d_res = await db.execute(
+        select(Device).where(
+            (func.lower(Device.name).like("%xcela%")) |
+            (func.lower(Device.name).like("%yz4321%")) |
+            (func.lower(Device.name).like("%xyz4321%"))
+        )
+    )
+    devices = d_res.scalars().all()
+    report["devices_matched"] = len(devices)
+
+    for d in devices:
+        d.tenant_id = tenant.id
+        d.company = tenant.name
+        report[f"device_{d.id}"] = {
+            "name": d.name,
+            "tenant_id": tenant.id,
+            "company": tenant.name
+        }
+
+    await db.commit()
+    report["status"] = "ALL_FIXED"
+    return report

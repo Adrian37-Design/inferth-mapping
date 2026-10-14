@@ -5,6 +5,7 @@ from app.models import Device, Tenant, User
 from app.auth_middleware import require_admin, require_manager, get_current_user
 from pydantic import BaseModel
 from sqlalchemy.future import select
+from sqlalchemy import func
 
 router = APIRouter(prefix="/devices")
 
@@ -26,17 +27,17 @@ async def create_device(
 
     # If company matches an existing tenant name, assign device to that tenant
     if payload.company:
-        q = await db.execute(select(Tenant).where(Tenant.name == payload.company))
+        q = await db.execute(select(Tenant).where(func.lower(Tenant.name) == payload.company.strip().lower()))
         tenant = q.scalars().first()
         if tenant:
             target_tenant_id = tenant.id
 
     # Global admins can also specify a tenant name explicitly
     if target_tenant_id is None and current_user.tenant_id == 1 and payload.tenant_name:
-        q = await db.execute(select(Tenant).where(Tenant.name == payload.tenant_name))
+        q = await db.execute(select(Tenant).where(func.lower(Tenant.name) == payload.tenant_name.strip().lower()))
         tenant = q.scalars().first()
         if not tenant:
-            tenant = Tenant(name=payload.tenant_name)
+            tenant = Tenant(name=payload.tenant_name.strip())
             db.add(tenant)
             await db.commit()
             await db.refresh(tenant)
@@ -77,9 +78,16 @@ async def list_devices(
 ):
     stmt = select(Device)
     # Global admin (tenant 1) sees ALL devices including unassigned ones (NULL tenant_id)
-    # Everyone else only sees their own tenant's devices
+    # Everyone else only sees their own tenant's devices (or devices whose company name matches their tenant)
     if current_user.tenant_id != 1:
-        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+        user_tenant_name = current_user.tenant.name if getattr(current_user, 'tenant', None) else None
+        if user_tenant_name:
+            stmt = stmt.where(
+                (Device.tenant_id == current_user.tenant_id) | 
+                (func.lower(Device.company) == user_tenant_name.lower().strip())
+            )
+        else:
+            stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
     # For admin, no filter — see everything including NULL tenant_id devices
         
     result = await db.execute(stmt)
@@ -155,6 +163,14 @@ async def update_device(
         device.driver_name = payload.driver_name
     if payload.company is not None:
         device.company = payload.company
+        # Synchronize device.tenant_id with company name if company matches a Tenant
+        if payload.company and payload.company.strip():
+            t_q = await db.execute(select(Tenant).where(func.lower(Tenant.name) == payload.company.strip().lower()))
+            matching_tenant = t_q.scalars().first()
+            if matching_tenant:
+                device.tenant_id = matching_tenant.id
+        elif payload.company.lower() in ["", "none", "unassigned", "default"]:
+            device.tenant_id = 1
         
     # Audit Log
     from app.models import AuditLog
