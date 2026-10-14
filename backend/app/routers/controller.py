@@ -165,20 +165,23 @@ async def upsert_tracking_data(
         inserted_count += 1
 
         # Realtime WebSocket broadcasting
-        publish_position(device.id, {
-            "device_id": device.id,
-            "imei": device.imei,
-            "name": device.name,
-            "latitude": clean_lat,
-            "longitude": clean_lon,
-            "speed": clean_speed,
-            "altitude": altitude,
-            "course": course,
-            "fuel_level": fuel,
-            "battery_voltage": vbatt,
-            "ignition": ign,
-            "timestamp": timestamp.isoformat()
-        })
+        try:
+            await publish_position({
+                "device_id": device.id,
+                "imei": device.imei,
+                "name": device.name,
+                "latitude": clean_lat,
+                "longitude": clean_lon,
+                "speed": clean_speed,
+                "altitude": altitude,
+                "course": course,
+                "fuel_level": fuel,
+                "battery_voltage": vbatt,
+                "ignition": ign,
+                "timestamp": timestamp.isoformat()
+            })
+        except Exception:
+            pass
 
     await db.commit()
     return {"success": True, "count": inserted_count}

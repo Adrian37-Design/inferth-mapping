@@ -34,6 +34,7 @@ async def ws_listener(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
-async def publish_position(position_dict):
+async def publish_position(arg1, arg2=None):
+    position_dict = arg2 if arg2 is not None else arg1
     await manager.broadcast(json.dumps(position_dict))
 
