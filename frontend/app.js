@@ -27,6 +27,7 @@ let ws = null;
 let playbackInterval = null;
 let playbackIndex = 0;
 let playbackRoute = null;
+let playbackSegments = null;
 let playbackMarker = null;
 let editingVehicleId = null;
 let allVehicles = [];
@@ -217,15 +218,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                 try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
                             }
                         }
-                        const points = playbackRoute.map(p => [p.lat, p.lng]);
-                        routes[selectedVehicle.id] = [L.polyline(points, {
+                        // Redraw per-segment so data-gap splits are preserved
+                        const segs = (playbackSegments && playbackSegments.length > 0)
+                            ? playbackSegments
+                            : [playbackRoute.map(p => [p.lat, p.lng])];
+                        routes[selectedVehicle.id] = segs.map(seg => L.polyline(seg, {
                             color: '#00d4ff',
                             weight: 4,
                             opacity: 0.85,
                             smoothFactor: 1.0,
                             lineJoin: 'round',
                             lineCap: 'round'
-                        }).addTo(map)];
+                        }).addTo(map));
                     }
                 }
             }
@@ -2736,6 +2740,7 @@ function closeAssetDetail() {
     if (playbackRoute) {
         stopRoute();
         playbackRoute = null;
+        playbackSegments = null;
     }
 }
 
@@ -2978,12 +2983,13 @@ async function showRoute() {
             segments = snapped.segments;
             playbackRoute = [];
             snapped.segments.forEach(seg => {
-                seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp }));
+                seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true }));
             });
         } else {
             segments = splitTraceAtGaps(clean);
             playbackRoute = clean;
         }
+        playbackSegments = segments;
 
         const layers = [];
         const allCoords = [];
@@ -3281,8 +3287,9 @@ async function loadTrips() {
                     if (snapped && snapped.matched) {
                         playbackRoute = [];
                         snapped.segments.forEach(seg => {
-                            seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp }));
+                            seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true }));
                         });
+                        playbackSegments = snapped.segments;
                         // Draw snapped segments
                         if (routes[selectedVehicle.id]) {
                             if (Array.isArray(routes[selectedVehicle.id])) {
@@ -3302,6 +3309,7 @@ async function loadTrips() {
                         if (allCoords.length > 0) map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
                     } else {
                         playbackRoute = clean;
+                        playbackSegments = splitTraceAtGaps(clean);
                         showRoutePolyline(clean);
                     }
                     document.getElementById('route-controls').classList.remove('hidden');
@@ -3375,6 +3383,8 @@ async function snapRouteToRoad(points) {
         }
         if (!matchedChunk) {
             console.warn('Map matching failed for chunk, keeping raw trace for it');
+            // Keep the raw chunk (split at time gaps) so the route has no holes
+            splitTraceAtGaps(chunk).forEach(seg => segments.push(seg));
         }
     }
 
@@ -3688,6 +3698,11 @@ function nearestNeighborOrder(points) {
 function filterValidRoutePoints(points) {
     if (!Array.isArray(points) || points.length === 0) return [];
 
+    // Road-snapped routes are already in authoritative travel order and share
+    // a single synthetic timestamp — sorting/NN-reorder/spike passes would
+    // scramble the geometry, so leave them untouched.
+    if (points.every(p => p && p.snapped)) return points;
+
     // 1. Sort chronologically by timestamp
     let sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -3920,6 +3935,7 @@ function stopRouteAndExit() {
     if (timelineSlider) timelineSlider.value = 0;
 
     playbackRoute = null;
+    playbackSegments = null;
 
     const routeControls = document.getElementById('route-controls');
     if (routeControls) routeControls.classList.add('hidden');
@@ -4223,7 +4239,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                         segments = snapped.segments;
                         playbackPoints = [];
                         segments.forEach(seg => {
-                            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp }));
+                            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp, snapped: true }));
                         });
                     } else {
                         // Fallback: raw trace split at time gaps (no straight lines across gaps)
@@ -4255,24 +4271,13 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     isHistoryMode = true;
                     Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
                     playbackRoute = playbackPoints;
+                    playbackSegments = segments;
                     document.getElementById('route-controls').classList.remove('hidden');
                     const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.add('collapsed');
                     setTimeout(() => {
                         if (map) map.invalidateSize();
                         playRoute();
-                        if (playbackRoute && playbackRoute.length > 1 && routes[id]) {
-                            if (Array.isArray(routes[id])) {
-                                routes[id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
-                            } else {
-                                try { map.removeLayer(routes[id]); } catch(e){}
-                            }
-                            const cleanedPoints = playbackRoute.map(p => [p.lat, p.lng]);
-                            routes[id] = [L.polyline(cleanedPoints, {
-                                color: '#00d4ff', weight: 5, opacity: 0.85,
-                                smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round'
-                            }).addTo(map)];
-                        }
                     }, 400);
                 };
             } else {
@@ -4366,6 +4371,7 @@ if (clearHistoryBtn) {
             delete routes[selectedVehicle.id];
         }
         playbackRoute = null;
+        playbackSegments = null;
         document.getElementById('route-controls').classList.add('hidden');
         const timeline = document.getElementById('detail-timeline');
         if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
