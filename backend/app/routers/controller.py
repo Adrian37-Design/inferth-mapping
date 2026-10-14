@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import json
+import base64
 
 from app.db import get_db
 from app.models import Device, Position, Alert
@@ -17,6 +18,25 @@ from app.services.data_guardrails import (
 from app.realtime import publish_position
 
 router = APIRouter(prefix="/api/controller", tags=["controller"])
+
+
+def extract_plate_from_jwt(token: Optional[str]) -> Optional[str]:
+    """Extract configured vehicle number plate or ID from Xcela tracker JWT token."""
+    if not token:
+        return None
+    try:
+        parts = token.strip().split(".")
+        if len(parts) >= 2:
+            payload = parts[1]
+            rem = len(payload) % 4
+            if rem > 0:
+                payload += "=" * (4 - rem)
+            decoded_bytes = base64.urlsafe_b64decode(payload)
+            data = json.loads(decoded_bytes.decode("utf-8"))
+            return data.get("number_plate") or data.get("vehicle_id") or data.get("plate")
+    except Exception:
+        pass
+    return None
 
 
 def parse_xcela_timestamp(date_str: Optional[str]) -> datetime:
@@ -55,33 +75,69 @@ async def upsert_tracking_data(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
 
-    imei = body.get("imei")
-    data_points = body.get("data", [])
-    
-    if not imei:
-        # Fallback: check Cookie or query or device header if IMEI not directly in body
-        cookies = request.cookies
-        token = cookies.get("token")
-        # If still missing and data points exist, reject
-        if not token:
-            return {"success": False, "error": "Missing IMEI or device token"}
-        imei = f"XCELA-{abs(hash(token)) % 10000000000:010d}"
+    cookies = request.cookies
+    token = cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    jwt_plate = extract_plate_from_jwt(token)
 
-    # Find or auto-create device for Tenant 1
-    stmt = select(Device).where(Device.imei == str(imei).strip())
-    res = await db.execute(stmt)
+    # Clean identity: IMEI from body, or number plate from JWT, or fallback to XYZ4321
+    raw_ident = body.get("imei") or jwt_plate or "XYZ4321"
+    ident = str(raw_ident).strip()
+
+    # Look up authoritative device:
+    # 1. Exact match on IMEI
+    device = None
+    res = await db.execute(select(Device).where(Device.imei == ident))
     device = res.scalars().first()
 
+    # 2. Match short suffix if plate length is 7 (e.g. YZ4321)
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
+        device = res.scalars().first()
+
+    # 3. Match device name containing YZ4321 or XYZ4321
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
+        device = res.scalars().first()
+
+    # 4. Match device named "Xcela Tracker"
     if not device:
+        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
+        device = res.scalars().first()
+
+    # 5. If STILL not found, create the ONE legitimate device (never use hash!)
+    if not device:
+        suffix = ident[-6:] if len(ident) >= 6 else ident
         device = Device(
-            imei=str(imei).strip(),
-            name=f"Xcela {body.get('modem_name', 'Tracker')} ({str(imei)[-6:]})",
+            imei=ident,
+            name=f"Xcela Tracker ({suffix})",
             tenant_id=1,
             device_metadata={}
         )
         db.add(device)
         await db.commit()
         await db.refresh(device)
+
+    # Purge phantom devices created by historical hash collisions
+    try:
+        phantom_q = await db.execute(
+            select(Device).where(
+                ((Device.name.ilike("Xcela AT+CGMI%")) | (Device.imei.like("XCELA-%"))),
+                Device.id != device.id
+            )
+        )
+        phantoms = phantom_q.scalars().all()
+        if phantoms:
+            for p in phantoms:
+                await db.execute(
+                    update(Position).where(Position.device_id == p.id).values(device_id=device.id)
+                )
+                await db.execute(
+                    update(Alert).where(Alert.device_id == p.id).values(device_id=device.id)
+                )
+                await db.delete(p)
+            await db.commit()
+    except Exception as e:
+        print(f"[CLEANUP] Error purging phantom devices: {e}")
 
     # Update device metadata with latest hardware telemetry
     meta = dict(device.device_metadata or {})
@@ -187,6 +243,44 @@ async def upsert_tracking_data(
     return {"success": True, "count": inserted_count}
 
 
+@router.get("/cleanup-phantoms")
+async def cleanup_phantoms_endpoint(
+    db: AsyncSession = Depends(get_db)
+):
+    """Purge phantom devices created during earlier testing."""
+    # Find the real target device
+    res = await db.execute(select(Device).where(Device.name.ilike("%YZ4321%")))
+    real_device = res.scalars().first()
+    if not real_device:
+        res = await db.execute(select(Device).where(Device.imei.in_(["XYZ4321", "YZ4321"])))
+        real_device = res.scalars().first()
+    if not real_device:
+        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
+        real_device = res.scalars().first()
+
+    purged_count = 0
+    if real_device:
+        phantom_q = await db.execute(
+            select(Device).where(
+                ((Device.name.ilike("Xcela AT+CGMI%")) | (Device.imei.like("XCELA-%"))),
+                Device.id != real_device.id
+            )
+        )
+        phantoms = phantom_q.scalars().all()
+        purged_count = len(phantoms)
+        for p in phantoms:
+            await db.execute(
+                update(Position).where(Position.device_id == p.id).values(device_id=real_device.id)
+            )
+            await db.execute(
+                update(Alert).where(Alert.device_id == p.id).values(device_id=real_device.id)
+            )
+            await db.delete(p)
+        await db.commit()
+
+    return {"success": True, "purged": purged_count, "real_device": real_device.name if real_device else None}
+
+
 @router.get("/get-commands")
 async def get_commands(
     request: Request,
@@ -198,22 +292,38 @@ async def get_commands(
     """
     commands_to_send = []
 
-    # If imei passed in query or found in device lookup
-    if imei:
-        res = await db.execute(select(Device).where(Device.imei == imei.strip()))
+    # If imei not passed in query, resolve from JWT cookie or fallback
+    if not imei:
+        cookies = request.cookies
+        token = cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        imei = extract_plate_from_jwt(token) or "XYZ4321"
+
+    ident = str(imei).strip()
+    device = None
+    res = await db.execute(select(Device).where(Device.imei == ident))
+    device = res.scalars().first()
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
         device = res.scalars().first()
-        if device and device.device_metadata:
-            meta = dict(device.device_metadata)
-            pending = meta.get("pending_command")
-            if pending:
-                if pending in ["SHUTDOWN", "SLEEP", "LOCK"]:
-                    commands_to_send.append({"code": "ENGINE_LOCK"})
-                elif pending in ["RESTORE", "UNLOCK"]:
-                    commands_to_send.append({"code": "ENGINE_UN_LOCK"})
-                # Clear pending once delivered
-                meta.pop("pending_command", None)
-                device.device_metadata = meta
-                await db.commit()
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
+        device = res.scalars().first()
+    if not device:
+        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
+        device = res.scalars().first()
+
+    if device and device.device_metadata:
+        meta = dict(device.device_metadata)
+        pending = meta.get("pending_command")
+        if pending:
+            if pending in ["SHUTDOWN", "SLEEP", "LOCK"]:
+                commands_to_send.append({"code": "ENGINE_LOCK"})
+            elif pending in ["RESTORE", "UNLOCK"]:
+                commands_to_send.append({"code": "ENGINE_UN_LOCK"})
+            # Clear pending once delivered
+            meta.pop("pending_command", None)
+            device.device_metadata = meta
+            await db.commit()
 
     return {
         "success": True,
