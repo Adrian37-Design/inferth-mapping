@@ -5197,6 +5197,8 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.innerHTML = 'Create Company &amp; Brand';
         }
     });
+
+    setupEditCompanyListeners();
 });
 
 
@@ -5226,8 +5228,8 @@ async function loadCompanies() {
         }
 
         tableBody.innerHTML = companies.map(c => {
-            // Sanitize logo path for spaces and casing
-            let logoPath = c.logo;
+            const defaultLogo = '/static/inferth_mapping_logo.png';
+            let logoPath = c.logo || defaultLogo;
             if (logoPath && typeof logoPath === 'string') {
                 logoPath = logoPath.toLowerCase().replace(/ /g, '_');
                 if (!logoPath.startsWith('/static/') && !logoPath.startsWith('http')) {
@@ -5235,23 +5237,25 @@ async function loadCompanies() {
                 }
             }
 
+            const hasCustom = Boolean(c.has_custom_logo);
+            const safeName = (c.name || '').replace(/'/g, "\\'");
+            const safeLogo = (logoPath || defaultLogo).replace(/'/g, "\\'");
+
             return `
             <tr>
                 <td>
                     <div class="user-avatar" style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        ${logoPath
-                    ? `<img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\\'fas fa-building\\' style=\\'color:#888;\\'></i>'">`
-                    : '<i class="fas fa-building" style="color:#888;"></i>'}
+                        <img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='${defaultLogo}'">
                     </div>
                 </td>
                 <td><strong>${c.name}</strong></td>
                 <td class="text-muted"><small>#${c.id}</small></td>
                 <td class="text-right">
                     <div class="action-buttons" style="justify-content:flex-end; gap:8px;">
-                        <button class="icon-btn edit-btn" title="Edit Company" onclick="editCompany(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                        <button class="icon-btn edit-btn" title="Edit Company" onclick="openEditCompanyModal(${c.id}, '${safeName}', '${safeLogo}', ${hasCustom})">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="icon-btn delete-btn" title="Delete Company" onclick="deleteCompany(${c.id}, '${c.name.replace(/'/g, "\\'")}')">
+                        <button class="icon-btn delete-btn" title="Delete Company" onclick="deleteCompany(${c.id}, '${safeName}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -5266,27 +5270,152 @@ async function loadCompanies() {
     }
 }
 
+// Open Edit Company Modal
+window.openEditCompanyModal = function (id, name, logo, hasCustomLogo) {
+    const modal = document.getElementById('edit-company-modal');
+    if (!modal) return;
 
+    document.getElementById('edit-tenant-id').value = id;
+    document.getElementById('edit-tenant-name').value = name;
+    document.getElementById('edit-tenant-remove-logo').value = '0';
 
-// Edit Company (rename)
-window.editCompany = async function (id, currentName) {
-    const newName = prompt(`Rename company "${currentName}" to:`, currentName);
-    if (!newName || newName.trim() === currentName) return;
+    const fileInput = document.getElementById('edit-tenant-logo');
+    if (fileInput) fileInput.value = '';
 
-    try {
-        const response = await window.AuthManager.fetchAPI(`/auth/tenants/${id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ name: newName.trim() })
-        });
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Failed to update company');
+    const fileLabel = document.getElementById('edit-tenant-file-label');
+    if (fileLabel) fileLabel.textContent = 'Choose new logo';
+
+    const preview = document.getElementById('edit-tenant-logo-preview');
+    const badge = document.getElementById('edit-tenant-logo-badge');
+    const hint = document.getElementById('edit-tenant-logo-hint');
+    const removeBtn = document.getElementById('edit-tenant-remove-logo-btn');
+    const defaultLogo = '/static/inferth_mapping_logo.png';
+
+    const currentLogo = (logo && logo.trim()) ? logo : defaultLogo;
+    if (preview) preview.src = currentLogo;
+
+    if (hasCustomLogo) {
+        if (badge) {
+            badge.textContent = 'Custom Logo';
+            badge.style.background = 'rgba(0, 255, 0, 0.1)';
+            badge.style.color = '#00ff00';
         }
-        loadCompanies();
-    } catch (e) {
-        alert('Error: ' + e.message);
+        if (hint) hint.textContent = 'Custom company branding active';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+    } else {
+        if (badge) {
+            badge.textContent = 'Default Inferth Logo';
+            badge.style.background = 'rgba(255, 140, 0, 0.1)';
+            badge.style.color = '#ff8c00';
+        }
+        if (hint) hint.textContent = 'Using default Inferth Mapping logo';
+        if (removeBtn) removeBtn.style.display = 'none';
     }
+
+    modal.classList.remove('hidden');
 };
+
+// Fallback alias
+window.editCompany = function (id, currentName) {
+    window.openEditCompanyModal(id, currentName, '/static/inferth_mapping_logo.png', false);
+};
+
+// Setup Edit Company modal form handlers
+function setupEditCompanyListeners() {
+    const fileInput = document.getElementById('edit-tenant-logo');
+    const preview = document.getElementById('edit-tenant-logo-preview');
+    const badge = document.getElementById('edit-tenant-logo-badge');
+    const hint = document.getElementById('edit-tenant-logo-hint');
+    const removeBtn = document.getElementById('edit-tenant-remove-logo-btn');
+    const fileLabel = document.getElementById('edit-tenant-file-label');
+    const defaultLogo = '/static/inferth_mapping_logo.png';
+
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (fileLabel) fileLabel.textContent = file.name;
+                document.getElementById('edit-tenant-remove-logo').value = '0';
+                const reader = new FileReader();
+                reader.onload = (re) => {
+                    if (preview) preview.src = re.target.result;
+                };
+                reader.readAsDataURL(file);
+                if (badge) {
+                    badge.textContent = 'New Logo Selected';
+                    badge.style.background = 'rgba(0, 255, 0, 0.15)';
+                    badge.style.color = '#00ff00';
+                }
+                if (hint) hint.textContent = 'Will be uploaded upon saving';
+                if (removeBtn) removeBtn.style.display = 'inline-block';
+            }
+        });
+    }
+
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            document.getElementById('edit-tenant-remove-logo').value = '1';
+            if (fileInput) fileInput.value = '';
+            if (fileLabel) fileLabel.textContent = 'Choose new logo';
+            if (preview) preview.src = defaultLogo;
+            if (badge) {
+                badge.textContent = 'Reverted to Default';
+                badge.style.background = 'rgba(255, 140, 0, 0.15)';
+                badge.style.color = '#ff8c00';
+            }
+            if (hint) hint.textContent = 'Logo removed — will use Inferth Mapping logo';
+            removeBtn.style.display = 'none';
+        });
+    }
+
+    const editForm = document.getElementById('edit-tenant-form');
+    if (editForm) {
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-tenant-id').value;
+            const name = document.getElementById('edit-tenant-name').value.trim();
+            const removeLogo = document.getElementById('edit-tenant-remove-logo').value === '1';
+            const logoFile = fileInput && fileInput.files ? fileInput.files[0] : null;
+            const submitBtn = document.getElementById('edit-tenant-submit-btn');
+
+            if (!name) {
+                alert('Please enter a company name.');
+                return;
+            }
+
+            try {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                }
+
+                await window.AuthManager.updateTenant(id, name, logoFile, removeLogo);
+
+                document.getElementById('edit-company-modal').classList.add('hidden');
+                loadCompanies();
+
+                // If user edited their own company, reload current theme
+                if (window.AuthManager && window.AuthManager.user && window.AuthManager.user.tenant_id == id) {
+                    try {
+                        const me = await window.AuthManager.getCurrentUser();
+                        if (me && me.theme) {
+                            window.AuthManager.applyTheme(me.theme);
+                        }
+                    } catch (err) {
+                        console.warn('Could not reload theme after company update:', err);
+                    }
+                }
+            } catch (err) {
+                alert('Failed to update company: ' + err.message);
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Save Changes';
+                }
+            }
+        });
+    }
+}
 
 // Delete Company
 window.deleteCompany = async function (id, name) {

@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
 from app.config import settings
 from app.db import get_db
 from app.models import User
@@ -50,7 +51,10 @@ async def get_current_user(
     # 2. Get user from database with strict timeout
     try:
         # Python 3.10: Use wait_for instead of timeout context manager
-        result = await asyncio.wait_for(db.execute(select(User).where(User.id == user_id)), timeout=5)
+        result = await asyncio.wait_for(
+            db.execute(select(User).options(joinedload(User.tenant)).where(User.id == user_id)),
+            timeout=5
+        )
         user = result.scalars().first()
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Identity verification timed out")

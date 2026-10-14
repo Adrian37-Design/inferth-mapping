@@ -963,6 +963,61 @@
         </div>
     </div>
 
+    <!-- Edit Company Modal -->
+    <div class="modal hidden" id="edit-company-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-building"></i> Edit Company</h3>
+                <button class="close-modal" id="close-edit-company"
+                    onclick="document.getElementById('edit-company-modal').classList.add('hidden')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-tenant-form">
+                    <input type="hidden" id="edit-tenant-id">
+                    <input type="hidden" id="edit-tenant-remove-logo" value="0">
+                    
+                    <div class="form-group">
+                        <label for="edit-tenant-name">Company Name</label>
+                        <input type="text" id="edit-tenant-name" placeholder="e.g., Acme Logistics" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Company Logo</label>
+                        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                            <div style="width: 50px; height: 50px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;">
+                                <img id="edit-tenant-logo-preview" src="/static/inferth_mapping_logo.png" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.src='/static/inferth_mapping_logo.png'">
+                            </div>
+                            <div style="flex-grow: 1;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span id="edit-tenant-logo-badge" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; background: rgba(0, 255, 0, 0.1); color: #00ff00; font-weight: 500;">Default Inferth Logo</span>
+                                    <button type="button" id="edit-tenant-remove-logo-btn" style="font-size: 11px; padding: 4px 10px; background: rgba(239, 72, 53, 0.15); color: #ef4835; border: 1px solid rgba(239, 72, 53, 0.4); border-radius: 4px; cursor: pointer; display: none;">
+                                        <i class="fas fa-trash-alt"></i> Remove Logo
+                                    </button>
+                                </div>
+                                <small id="edit-tenant-logo-hint" style="color: #888; font-size: 11px; display: block; margin-top: 5px;">Using default Inferth Mapping logo</small>
+                            </div>
+                        </div>
+
+                        <div class="file-input-wrapper">
+                            <input type="file" id="edit-tenant-logo" accept="image/*">
+                            <label for="edit-tenant-logo" class="file-label">
+                                <i class="fas fa-cloud-upload-alt"></i> <span id="edit-tenant-file-label">Choose new logo</span>
+                            </label>
+                        </div>
+                        <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">Upload a PNG/JPG. If removed or not provided, the default Inferth Mapping logo is used.</small>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                        <button type="button" class="btn-secondary" onclick="document.getElementById('edit-company-modal').classList.add('hidden')">Cancel</button>
+                        <button type="submit" class="btn-primary" id="edit-tenant-submit-btn">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Vehicle Modal -->
     <div class="modal hidden" id="add-vehicle-modal">
         <div class="modal-content">
