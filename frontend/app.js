@@ -5240,6 +5240,10 @@ async function loadCompanies() {
             const hasCustom = Boolean(c.has_custom_logo);
             const safeName = (c.name || '').replace(/'/g, "\\'");
             const safeLogo = (logoPath || defaultLogo).replace(/'/g, "\\'");
+            const primaryColor = (c.primary_color || '#ff8c00').replace(/'/g, "\\'");
+            const secondaryColor = (c.secondary_color || '#ef4835').replace(/'/g, "\\'");
+            const navbarBg = (c.navbar_bg || '#ffffff').replace(/'/g, "\\'");
+            const navbarTextColor = (c.navbar_text_color || primaryColor).replace(/'/g, "\\'");
 
             return `
             <tr>
@@ -5248,11 +5252,17 @@ async function loadCompanies() {
                         <img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='${defaultLogo}'">
                     </div>
                 </td>
-                <td><strong>${c.name}</strong></td>
+                <td>
+                    <strong>${c.name}</strong>
+                    <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.primary_color || '#ff8c00'};"></span>
+                        <small class="text-muted" style="font-size:10px;">${hasCustom ? 'Custom Theme' : 'Inferth Theme'}</small>
+                    </div>
+                </td>
                 <td class="text-muted"><small>#${c.id}</small></td>
                 <td class="text-right">
                     <div class="action-buttons" style="justify-content:flex-end; gap:8px;">
-                        <button class="icon-btn edit-btn" title="Edit Company" onclick="openEditCompanyModal(${c.id}, '${safeName}', '${safeLogo}', ${hasCustom})">
+                        <button class="icon-btn edit-btn" title="Edit Company & Theme" onclick="openEditCompanyModal(${c.id}, '${safeName}', '${safeLogo}', ${hasCustom}, '${primaryColor}', '${secondaryColor}', '${navbarBg}', '${navbarTextColor}')">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="icon-btn delete-btn" title="Delete Company" onclick="deleteCompany(${c.id}, '${safeName}')">
@@ -5270,8 +5280,35 @@ async function loadCompanies() {
     }
 }
 
+// Function to update the live mini preview inside Edit Company modal
+function updateEditThemePreview() {
+    const name = document.getElementById('edit-tenant-name')?.value || 'Company';
+    const primary = document.getElementById('edit-tenant-primary-color')?.value || '#ff8c00';
+    let navBg = document.getElementById('edit-tenant-navbar-style')?.value || '#ffffff';
+    if (navBg === 'primary') navBg = primary;
+
+    const previewBar = document.getElementById('edit-theme-preview-bar');
+    const previewName = document.getElementById('edit-theme-preview-name');
+    const previewBadge = document.getElementById('edit-theme-preview-badge');
+    const previewLogo = document.getElementById('edit-theme-preview-logo');
+    const logoImg = document.getElementById('edit-tenant-logo-preview');
+
+    if (previewBar) previewBar.style.background = navBg;
+    if (previewName) {
+        previewName.textContent = name;
+        previewName.style.color = (navBg === '#ffffff' || navBg === 'white') ? primary : '#ffffff';
+    }
+    if (previewBadge) {
+        previewBadge.style.background = primary;
+        previewBadge.style.color = (primary === '#00FF00' || primary === '#ADFF2F') ? '#000000' : '#ffffff';
+    }
+    if (previewLogo && logoImg) {
+        previewLogo.src = logoImg.src;
+    }
+}
+
 // Open Edit Company Modal
-window.openEditCompanyModal = function (id, name, logo, hasCustomLogo) {
+window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryColor, secondaryColor, navbarBg, navbarTextColor) {
     const modal = document.getElementById('edit-company-modal');
     if (!modal) return;
 
@@ -5294,6 +5331,35 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo) {
     const currentLogo = (logo && logo.trim()) ? logo : defaultLogo;
     if (preview) preview.src = currentLogo;
 
+    // Theme values
+    const p = primaryColor || (hasCustomLogo ? '#2D5F6D' : '#ff8c00');
+    const s = secondaryColor || (hasCustomLogo ? '#EF4835' : '#ef4835');
+    const nb = navbarBg || (hasCustomLogo ? 'linear-gradient(to right, #1a1c23, #2d3139)' : '#ffffff');
+
+    const pInput = document.getElementById('edit-tenant-primary-color');
+    const pHex = document.getElementById('edit-tenant-primary-hex');
+    const sInput = document.getElementById('edit-tenant-secondary-color');
+    const sHex = document.getElementById('edit-tenant-secondary-hex');
+    const nbSelect = document.getElementById('edit-tenant-navbar-style');
+    const statusPill = document.getElementById('theme-status-pill');
+
+    if (pInput) pInput.value = p.startsWith('#') && p.length === 7 ? p : '#ff8c00';
+    if (pHex) pHex.textContent = pInput ? pInput.value : '#ff8c00';
+    if (sInput) sInput.value = s.startsWith('#') && s.length === 7 ? s : '#ef4835';
+    if (sHex) sHex.textContent = sInput ? sInput.value : '#ef4835';
+
+    if (nbSelect) {
+        if (nb === '#ffffff' || nb === 'white') {
+            nbSelect.value = '#ffffff';
+        } else if (nb.includes('gradient')) {
+            nbSelect.value = 'linear-gradient(to right, #1a1c23, #2d3139)';
+        } else if (nb === '#1a1c23') {
+            nbSelect.value = '#1a1c23';
+        } else {
+            nbSelect.value = 'primary';
+        }
+    }
+
     if (hasCustomLogo) {
         if (badge) {
             badge.textContent = 'Custom Logo';
@@ -5302,22 +5368,33 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo) {
         }
         if (hint) hint.textContent = 'Custom company branding active';
         if (removeBtn) removeBtn.style.display = 'inline-block';
+        if (statusPill) {
+            statusPill.textContent = 'Custom Branding';
+            statusPill.style.background = 'rgba(0, 255, 0, 0.15)';
+            statusPill.style.color = '#00ff00';
+        }
     } else {
         if (badge) {
             badge.textContent = 'Default Inferth Logo';
             badge.style.background = 'rgba(255, 140, 0, 0.1)';
             badge.style.color = '#ff8c00';
         }
-        if (hint) hint.textContent = 'Using default Inferth Mapping logo';
+        if (hint) hint.textContent = 'Using default Inferth Mapping logo & theme';
         if (removeBtn) removeBtn.style.display = 'none';
+        if (statusPill) {
+            statusPill.textContent = 'Inferth Theme';
+            statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
+            statusPill.style.color = '#ff8c00';
+        }
     }
 
+    updateEditThemePreview();
     modal.classList.remove('hidden');
 };
 
 // Fallback alias
 window.editCompany = function (id, currentName) {
-    window.openEditCompanyModal(id, currentName, '/static/inferth_mapping_logo.png', false);
+    window.openEditCompanyModal(id, currentName, '/static/inferth_mapping_logo.png', false, '#ff8c00', '#ef4835', '#ffffff', '#ff8c00');
 };
 
 // Setup Edit Company modal form handlers
@@ -5330,6 +5407,95 @@ function setupEditCompanyListeners() {
     const fileLabel = document.getElementById('edit-tenant-file-label');
     const defaultLogo = '/static/inferth_mapping_logo.png';
 
+    const pInput = document.getElementById('edit-tenant-primary-color');
+    const pHex = document.getElementById('edit-tenant-primary-hex');
+    const sInput = document.getElementById('edit-tenant-secondary-color');
+    const sHex = document.getElementById('edit-tenant-secondary-hex');
+    const nbSelect = document.getElementById('edit-tenant-navbar-style');
+    const statusPill = document.getElementById('theme-status-pill');
+
+    const nameInput = document.getElementById('edit-tenant-name');
+    if (nameInput) {
+        nameInput.addEventListener('input', updateEditThemePreview);
+    }
+
+    // Color inputs
+    if (pInput) {
+        pInput.addEventListener('input', (e) => {
+            if (pHex) pHex.textContent = e.target.value;
+            if (statusPill) {
+                statusPill.textContent = 'Custom Colors';
+                statusPill.style.background = 'rgba(255, 255, 255, 0.1)';
+                statusPill.style.color = '#ffffff';
+            }
+            updateEditThemePreview();
+        });
+    }
+
+    if (sInput) {
+        sInput.addEventListener('input', (e) => {
+            if (sHex) sHex.textContent = e.target.value;
+            updateEditThemePreview();
+        });
+    }
+
+    if (nbSelect) {
+        nbSelect.addEventListener('change', updateEditThemePreview);
+    }
+
+    // Preset Buttons
+    const presetInferth = document.getElementById('preset-inferth-btn');
+    if (presetInferth) {
+        presetInferth.addEventListener('click', () => {
+            if (pInput) pInput.value = '#ff8c00';
+            if (pHex) pHex.textContent = '#ff8c00';
+            if (sInput) sInput.value = '#ef4835';
+            if (sHex) sHex.textContent = '#ef4835';
+            if (nbSelect) nbSelect.value = '#ffffff';
+            if (statusPill) {
+                statusPill.textContent = 'Inferth Theme';
+                statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
+                statusPill.style.color = '#ff8c00';
+            }
+            updateEditThemePreview();
+        });
+    }
+
+    const presetConsole = document.getElementById('preset-console-btn');
+    if (presetConsole) {
+        presetConsole.addEventListener('click', () => {
+            if (pInput) pInput.value = '#00FF00';
+            if (pHex) pHex.textContent = '#00FF00';
+            if (sInput) sInput.value = '#ADFF2F';
+            if (sHex) sHex.textContent = '#ADFF2F';
+            if (nbSelect) nbSelect.value = 'linear-gradient(to right, #1a1c23, #2d3139)';
+            if (statusPill) {
+                statusPill.textContent = 'Console Neon';
+                statusPill.style.background = 'rgba(0, 255, 0, 0.15)';
+                statusPill.style.color = '#00ff00';
+            }
+            updateEditThemePreview();
+        });
+    }
+
+    const presetCustom = document.getElementById('preset-custom-btn');
+    if (presetCustom) {
+        presetCustom.addEventListener('click', () => {
+            if (pInput) pInput.value = '#2D5F6D';
+            if (pHex) pHex.textContent = '#2D5F6D';
+            if (sInput) sInput.value = '#EF4835';
+            if (sHex) sHex.textContent = '#EF4835';
+            if (nbSelect) nbSelect.value = 'linear-gradient(to right, #1a1c23, #2d3139)';
+            if (statusPill) {
+                statusPill.textContent = 'Custom Colors';
+                statusPill.style.background = 'rgba(255, 255, 255, 0.1)';
+                statusPill.style.color = '#ffffff';
+            }
+            updateEditThemePreview();
+        });
+    }
+
+    // File input
     if (fileInput) {
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -5339,6 +5505,7 @@ function setupEditCompanyListeners() {
                 const reader = new FileReader();
                 reader.onload = (re) => {
                     if (preview) preview.src = re.target.result;
+                    updateEditThemePreview();
                 };
                 reader.readAsDataURL(file);
                 if (badge) {
@@ -5346,12 +5513,13 @@ function setupEditCompanyListeners() {
                     badge.style.background = 'rgba(0, 255, 0, 0.15)';
                     badge.style.color = '#00ff00';
                 }
-                if (hint) hint.textContent = 'Will be uploaded upon saving';
+                if (hint) hint.textContent = 'Will be uploaded and brand colors extracted';
                 if (removeBtn) removeBtn.style.display = 'inline-block';
             }
         });
     }
 
+    // Remove logo button
     if (removeBtn) {
         removeBtn.addEventListener('click', () => {
             document.getElementById('edit-tenant-remove-logo').value = '1';
@@ -5363,11 +5531,25 @@ function setupEditCompanyListeners() {
                 badge.style.background = 'rgba(255, 140, 0, 0.15)';
                 badge.style.color = '#ff8c00';
             }
-            if (hint) hint.textContent = 'Logo removed — will use Inferth Mapping logo';
+            if (hint) hint.textContent = 'Logo removed — will use Inferth Mapping logo & theme';
             removeBtn.style.display = 'none';
+
+            // Auto-revert theme to Inferth
+            if (pInput) pInput.value = '#ff8c00';
+            if (pHex) pHex.textContent = '#ff8c00';
+            if (sInput) sInput.value = '#ef4835';
+            if (sHex) sHex.textContent = '#ef4835';
+            if (nbSelect) nbSelect.value = '#ffffff';
+            if (statusPill) {
+                statusPill.textContent = 'Inferth Theme';
+                statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
+                statusPill.style.color = '#ff8c00';
+            }
+            updateEditThemePreview();
         });
     }
 
+    // Form submit
     const editForm = document.getElementById('edit-tenant-form');
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
@@ -5383,13 +5565,26 @@ function setupEditCompanyListeners() {
                 return;
             }
 
+            const primaryColor = pInput ? pInput.value : '#ff8c00';
+            const secondaryColor = sInput ? sInput.value : '#ef4835';
+            let navStyle = nbSelect ? nbSelect.value : '#ffffff';
+            if (navStyle === 'primary') navStyle = primaryColor;
+            const navText = (navStyle === '#ffffff' || navStyle === 'white') ? primaryColor : '#ffffff';
+
+            const themeData = {
+                primary_color: primaryColor,
+                secondary_color: secondaryColor,
+                navbar_bg: navStyle,
+                navbar_text_color: navText
+            };
+
             try {
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
                 }
 
-                await window.AuthManager.updateTenant(id, name, logoFile, removeLogo);
+                await window.AuthManager.updateTenant(id, name, logoFile, removeLogo, themeData);
 
                 document.getElementById('edit-company-modal').classList.add('hidden');
                 loadCompanies();

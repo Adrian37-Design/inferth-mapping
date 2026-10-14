@@ -139,12 +139,18 @@ class AuthManager {
         return await response.json();
     }
 
-    // Update Tenant (Admin Only) - support rename, logo upload, or logo removal
-    async updateTenant(id, name, logoFile = null, removeLogo = false) {
+    // Update Tenant (Admin Only) - support rename, logo upload, logo removal, and theme colors
+    async updateTenant(id, name, logoFile = null, removeLogo = false, themeData = null) {
         const formData = new FormData();
         if (name) formData.append('name', name);
         if (logoFile) formData.append('logo', logoFile);
         if (removeLogo) formData.append('remove_logo', 'true');
+        if (themeData) {
+            if (themeData.primary_color) formData.append('primary_color', themeData.primary_color);
+            if (themeData.secondary_color) formData.append('secondary_color', themeData.secondary_color);
+            if (themeData.navbar_bg) formData.append('navbar_bg', themeData.navbar_bg);
+            if (themeData.navbar_text_color) formData.append('navbar_text_color', themeData.navbar_text_color);
+        }
 
         const response = await fetch(`${API_BASE}/auth/tenants/${id}`, {
             method: 'PATCH',
@@ -458,17 +464,20 @@ class AuthManager {
         console.log("Applying theme:", theme);
         const root = document.documentElement;
 
-        // Solid Pure Neon Green for branding elements
-        const primary = (theme.primary === '#00FF00' || theme.primary === '#05FFA1' || (this.user && this.user.company_name === 'Console Telematics')) ? '#00FF00' : (theme.primary || '#00FF00');
-        const secondary = theme.secondary || '#ADFF2F';
+        const isConsole = (this.user && this.user.company_name === 'Console Telematics');
+        let primary = theme.primary;
+        if (!primary) {
+            primary = isConsole ? '#00FF00' : '#ff8c00';
+        }
+        let secondary = theme.secondary || (isConsole ? '#ADFF2F' : '#ef4835');
 
         root.style.setProperty('--primary', primary);
         root.style.setProperty('--secondary', secondary);
 
-        // Update Brand Name Text (Isolating color here)
+        // Update Brand Name Text
         const brandName = document.getElementById('nav-brand-name');
         if (brandName) {
-            brandName.textContent = this.user.company_name || 'Console Telematics';
+            brandName.textContent = this.user.company_name || 'Inferth Mapping';
             brandName.style.color = primary;
         }
 
@@ -502,14 +511,14 @@ class AuthManager {
             }
         }
 
-        // Apply Navbar BG only if explicitly white (Inferth default)
-        if (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white') {
+        // Apply Navbar BG
+        const isWhite = (theme.navbar_bg === '#ffffff' || theme.navbar_bg === 'white');
+        if (isWhite) {
             root.style.setProperty('--nav-bg', '#ffffff');
-            root.style.setProperty('--nav-text-color', theme.primary || '#2D5F6D');
+            root.style.setProperty('--nav-text-color', theme.navbar_text || primary || '#ff8c00');
         } else {
-            // Force dark grey for corporate tenants
-            root.style.setProperty('--nav-bg', 'linear-gradient(to right, #1a1c23, #2d3139)');
-            root.style.setProperty('--nav-text-color', primary);
+            root.style.setProperty('--nav-bg', theme.navbar_bg || 'linear-gradient(to right, #1a1c23, #2d3139)');
+            root.style.setProperty('--nav-text-color', theme.navbar_text || primary);
         }
     }
 
