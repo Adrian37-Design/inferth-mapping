@@ -94,6 +94,28 @@ test('an empty fleet offers onboarding rather than an endless loading message', 
     assert.equal(get('fleet-result-count').textContent, '0 of 0 assets');
 });
 
+test('read-only viewers do not get asset creation controls or onboarding prompts', () => {
+    const { context, get } = workspace();
+    context.AuthManager.canEdit = () => false;
+    get('add-vehicle-modal').classList.add('hidden');
+    context.setupFleetFilters();
+    assert.equal(get('add-vehicle-sidebar').hidden, true);
+    get('add-vehicle-sidebar').onclick();
+    assert.equal(get('add-vehicle-modal').classList.contains('hidden'), true);
+    context.applyFleetFilters();
+    assert.match(get('fleet-empty-state').textContent, /Contact your fleet manager/);
+    assert.doesNotMatch(get('fleet-empty-state').textContent, /Add your first tracker/);
+});
+
+test('managers can open asset creation from the fleet toolbar', () => {
+    const { context, get } = workspace();
+    get('add-vehicle-modal').classList.add('hidden');
+    context.setupFleetFilters();
+    assert.equal(get('add-vehicle-sidebar').hidden, false);
+    get('add-vehicle-sidebar').onclick();
+    assert.equal(get('add-vehicle-modal').classList.contains('hidden'), false);
+});
+
 test('fleet loading errors leave a retry state and clear the busy indicator', async () => {
     const { context, get } = workspace();
     context.AuthManager.fetchAPI = async () => { throw new Error('Network unavailable'); };
