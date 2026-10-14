@@ -52,6 +52,9 @@ function parseTimestamp(timestamp) {
     if (typeof timestamp === 'number') return new Date(timestamp);
     let s = String(timestamp).trim();
     if (!s) return null;
+    // A 'Z' appended after an explicit numeric offset ('+00:00Z') is invalid
+    // ISO-8601 — drop the 'Z' so the numeric offset wins.
+    if (/[+-]\d{2}(:\d{2})?Z$/.test(s)) s = s.slice(0, -1);
     if (s.endsWith('Z') || /[+-]\d{2}(:\d{2})?$/.test(s)) {
         return new Date(s);
     }
@@ -2389,9 +2392,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         : (cachedAddr || 'Loading location...');
     const initialAddr = addrLabel;
 
-    // Calculate offline duration
+    // Calculate offline duration (Invalid Date is truthy — must check isNaN
+    // explicitly or NaN propagates into the "Xm ago" label)
     const lastSeenDate = parseTimestamp(timestamp);
-    const offlineDiffMs = Math.max(0, Date.now() - (lastSeenDate ? lastSeenDate.getTime() : Date.now()));
+    const lastSeenValid = lastSeenDate && !isNaN(lastSeenDate.getTime());
+    const offlineDiffMs = lastSeenValid ? Math.max(0, Date.now() - lastSeenDate.getTime()) : 0;
     const offlineDiffMins = Math.floor(offlineDiffMs / 60000);
     const offlineDiffHrs = Math.floor(offlineDiffMins / 60);
     const offlineDiffDays = Math.floor(offlineDiffHrs / 24);
@@ -2399,7 +2404,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // FIX: Show last-seen time for offline trackers instead of misleading "Today: 0 km"
     const lastSeenStr = (() => {
         if (!isOffline) return `<i class="fas fa-route"></i> Today: ${todayMileage} km`;
-        let ago = offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
+        let ago = !lastSeenValid ? 'unknown'
+                : offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
                 : offlineDiffHrs > 0 ? `${offlineDiffHrs}h ago`
                 : `${offlineDiffMins}m ago`;
         return `<i class="fas fa-clock"></i> Last seen: ${ago}`;

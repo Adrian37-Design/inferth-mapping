@@ -17,6 +17,19 @@ from app.services.data_guardrails import (
 
 router = APIRouter(prefix="/positions")
 
+
+def _iso_utc(dt):
+    """Serialize a datetime for the frontend with an explicit UTC marker.
+    Naive datetimes are UTC by convention ('Z' appended); aware datetimes
+    (e.g. timestamptz reads) already carry a numeric offset — appending 'Z'
+    would produce an invalid '...T...+00:00Z' string that JS cannot parse."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.isoformat() + "Z"
+    return dt.isoformat()
+
+
 @router.post("/", response_model=PositionOut)
 async def create_position(payload: PositionCreate, db: AsyncSession = Depends(get_db)):
     # find device by IMEI
@@ -248,7 +261,7 @@ async def get_fleet_snapshot(
             "latitude": p.latitude,
             "longitude": p.longitude,
             "speed": min(max(0.0, p.speed or 0.0), 200.0),
-            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
+            "timestamp": _iso_utc(p.timestamp),
             "course": p.course,
             "raw": p.raw
         }
@@ -283,7 +296,7 @@ async def list_positions(
             "latitude": p.latitude,
             "longitude": p.longitude,
             "speed": p.speed,
-            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
+            "timestamp": _iso_utc(p.timestamp),
             "raw": p.raw
         }
         for p in positions
@@ -344,7 +357,7 @@ async def get_device_route(
         point = {
             "lat": p.latitude,
             "lng": p.longitude,
-            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
+            "timestamp": _iso_utc(p.timestamp),
             "speed": curr_speed
         }
         
