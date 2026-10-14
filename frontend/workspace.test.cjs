@@ -48,7 +48,7 @@ function workspace() {
         head: { appendChild() {} }
     };
     const context = vm.createContext({
-        document, console: { log() {} },
+        document, console: { log() {}, error() {}, warn() {} }, alert() {},
         location: { protocol: 'http:', host: 'localhost', hostname: 'localhost' },
         AuthManager: { checkAuth: () => true, canEdit: () => true },
         addEventListener() {}, setTimeout() {},
@@ -92,6 +92,15 @@ test('an empty fleet offers onboarding rather than an endless loading message', 
     context.applyFleetFilters();
     assert.match(get('fleet-empty-state').textContent, /Add your first tracker/);
     assert.equal(get('fleet-result-count').textContent, '0 of 0 assets');
+});
+
+test('fleet loading errors leave a retry state and clear the busy indicator', async () => {
+    const { context, get } = workspace();
+    context.AuthManager.fetchAPI = async () => { throw new Error('Network unavailable'); };
+    await context.loadVehicles();
+    assert.equal(get('fleet-result-count').textContent, 'Fleet unavailable');
+    assert.equal(get('fleet-load-error').classList.contains('hidden'), false);
+    assert.equal(get('vehicle-list').getAttribute('aria-busy'), 'false');
 });
 
 test('collapsed workspace is inert and can be reopened from the header', () => {
@@ -161,6 +170,16 @@ test('invalid timestamps are offline, not a false stationary/live status', () =>
     assert.equal(card.dataset.status, 'offline');
 });
 
+test('asset details also treat invalid timestamps as offline and hide stale speed', () => {
+    const { context, get } = workspace();
+    vm.runInContext("vehiclePositions[1] = { timestamp: 'invalid', speed: 50 };", context);
+    get('tab-asset-detail').querySelectorAll = () => [];
+    context.updateAssetDetailUI(1);
+    assert.equal(get('detail-status').textContent, 'Offline');
+    assert.equal(get('detail-speed').textContent, '--');
+    assert.equal(get('detail-last-seen').textContent, 'Unavailable');
+});
+
 test('viewer accounts cannot open engine control', () => {
     const { context, get } = workspace();
     context.AuthManager.canEdit = () => false;
@@ -183,5 +202,30 @@ test('engine control requires a safety acknowledgement and never claims tracker 
     assert.equal(requests, 0);
     get('engine-safety-check').checked = true;
     get('engine-safety-check').onchange();
+    assert.equal(get('confirm-shutdown-btn').disabled, false);
+});
+
+test('engine control cannot queue duplicate requests while one is in flight', async () => {
+    const { context, get } = workspace();
+    get('shutdown-warning-box').querySelector = () => element();
+    get('remote-shutdown-modal').querySelector = () => element();
+    let requests = 0;
+    let finish;
+    context.AuthManager.fetchAPI = () => {
+        requests++;
+        return new Promise(resolve => { finish = resolve; });
+    };
+    context.openRemoteShutdownModal({ id: 1, imei: '12345' });
+    get('engine-safety-check').checked = true;
+    get('engine-safety-check').onchange();
+    const pending = get('confirm-shutdown-btn').onclick();
+    get('engine-safety-check').onchange();
+    await get('confirm-shutdown-btn').onclick();
+    assert.equal(requests, 1);
+    assert.equal(get('confirm-shutdown-btn').disabled, true);
+    assert.equal(get('engine-safety-check').disabled, true);
+    finish({ ok: false, json: async () => ({ detail: 'Simulated failure' }) });
+    await pending;
+    assert.equal(get('engine-safety-check').disabled, false);
     assert.equal(get('confirm-shutdown-btn').disabled, false);
 });

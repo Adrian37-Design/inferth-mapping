@@ -2706,7 +2706,7 @@ function updateAssetDetailUI(id) {
     const obd = obdDataMap[id] || {}; // Consistently scoped for the whole function
 
     const minsAgo = (Date.now() - new Date(data.timestamp).getTime()) / 60000;
-    const isOffline = minsAgo >= 10;
+    const isOffline = !Number.isFinite(minsAgo) || minsAgo >= 10;
 
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
@@ -2773,7 +2773,7 @@ function updateAssetDetailUI(id) {
 
     const timeDiff = Math.floor(minsAgo);
     const lastSeenEl = document.getElementById('detail-last-seen');
-    if (lastSeenEl) lastSeenEl.textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
+    if (lastSeenEl) lastSeenEl.textContent = !Number.isFinite(timeDiff) ? 'Unavailable' : (timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`);
 
     // 5. Vehicle Overview: Total Mileage
     const mileageEl = document.getElementById('detail-mileage');
@@ -3119,12 +3119,16 @@ function openRemoteShutdownModal(vehicle) {
     descEl.textContent = 'This sends an ENGINE_LOCK or ENGINE_UN_LOCK instruction, not a tracker sleep command. Depending on the hardware, it may affect engine operation. Only request control when the vehicle is safely parked and you have confirmed the wiring and firmware. Delivery does not confirm execution.';
     warningBox.querySelector('div').textContent = 'ENGINE CONTROL — SAFETY CRITICAL';
     confirmBtn.textContent = isShutdown ? 'Queue unlock request' : 'Queue lock request';
+    let requestInFlight = false;
+    safetyCheck.disabled = false;
     safetyCheck.checked = false;
     confirmBtn.disabled = true;
-    safetyCheck.onchange = () => { confirmBtn.disabled = !safetyCheck.checked; };
+    safetyCheck.onchange = () => { confirmBtn.disabled = requestInFlight || !safetyCheck.checked; };
 
     confirmBtn.onclick = async () => {
-        if (!safetyCheck.checked) return;
+        if (requestInFlight || !safetyCheck.checked) return;
+        requestInFlight = true;
+        safetyCheck.disabled = true;
         const action = isShutdown ? 'restore' : 'shutdown';
         confirmBtn.disabled = true;
         confirmBtn.textContent = 'Queuing request…';
@@ -3155,7 +3159,9 @@ function openRemoteShutdownModal(vehicle) {
         } catch (err) {
             alert(`Remote command error: ${err.message}`);
         } finally {
-            confirmBtn.disabled = false;
+            requestInFlight = false;
+            safetyCheck.disabled = false;
+            confirmBtn.disabled = !safetyCheck.checked;
             confirmBtn.textContent = isShutdown ? 'Queue unlock request' : 'Queue lock request';
         }
     };
