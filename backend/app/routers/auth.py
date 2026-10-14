@@ -170,20 +170,36 @@ async def get_tenants(
 
     try:
         # 2. Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
-        query = text("SELECT id, name, logo_url FROM tenants ORDER BY id ASC")
+        query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color FROM tenants ORDER BY id ASC")
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
-        # 3. Format with default Inferth Mapping logo fallback
+        # 3. Format with default Inferth Mapping logo & theme fallback
         formatted = []
         for t in tenants:
             eff_logo = get_effective_logo_url(t["logo_url"])
             has_custom = bool(t["logo_url"] and eff_logo != DEFAULT_INFERTH_LOGO)
+
+            p = t["primary_color"] or "#ff8c00"
+            s = t["secondary_color"] or "#ef4835"
+            nb = t["navbar_bg"] or ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
+            nt = t["navbar_text_color"] or (p if nb == "#ffffff" else "#ffffff")
+
+            if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or t["id"] == 1):
+                p = "#ff8c00"
+                s = "#ef4835"
+                nb = "#ffffff"
+                nt = "#ff8c00"
+
             formatted.append({
                 "id": t["id"],
                 "name": t["name"],
                 "logo": eff_logo,
-                "has_custom_logo": has_custom
+                "has_custom_logo": has_custom,
+                "primary_color": p,
+                "secondary_color": s,
+                "navbar_bg": nb,
+                "navbar_text_color": nt
             })
 
         if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
@@ -201,7 +217,7 @@ async def update_tenant(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Update a tenant name and/or logo (admin only)"""
+    """Update a tenant name, logo, and theme colors (admin only)"""
     from app.models import Device
 
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
@@ -213,12 +229,20 @@ async def update_tenant(
     new_name = None
     remove_logo = False
     logo_file = None
+    primary_color = None
+    secondary_color = None
+    navbar_bg = None
+    navbar_text_color = None
 
     if "application/json" in content_type:
         try:
             body = await request.json()
             new_name = body.get("name")
             remove_logo = body.get("remove_logo", False)
+            primary_color = body.get("primary_color")
+            secondary_color = body.get("secondary_color")
+            navbar_bg = body.get("navbar_bg")
+            navbar_text_color = body.get("navbar_text_color")
         except Exception:
             pass
     else:
@@ -231,6 +255,10 @@ async def update_tenant(
             uploaded = form.get("logo")
             if uploaded and hasattr(uploaded, "filename") and uploaded.filename:
                 logo_file = uploaded
+            primary_color = form.get("primary_color")
+            secondary_color = form.get("secondary_color")
+            navbar_bg = form.get("navbar_bg")
+            navbar_text_color = form.get("navbar_text_color")
         except Exception:
             pass
 
@@ -245,8 +273,10 @@ async def update_tenant(
 
     if remove_logo:
         tenant.logo_url = None
-        tenant.primary_color = "#2D5F6D"
-        tenant.secondary_color = "#EF4835"
+        tenant.primary_color = primary_color or "#ff8c00"
+        tenant.secondary_color = secondary_color or "#ef4835"
+        tenant.navbar_bg = navbar_bg or "#ffffff"
+        tenant.navbar_text_color = navbar_text_color or "#ff8c00"
     elif logo_file:
         static_dir = resolve_frontend_dir()
         static_dir.mkdir(exist_ok=True)
@@ -258,10 +288,24 @@ async def update_tenant(
         file_path = static_dir / filename
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(logo_file.file, buffer)
-        primary_color, secondary_color = extract_brand_colors(file_path)
+        primary_color_extracted, secondary_color_extracted = extract_brand_colors(file_path)
         tenant.logo_url = f"/static/{filename}"
-        tenant.primary_color = primary_color
-        tenant.secondary_color = secondary_color
+        tenant.primary_color = primary_color or primary_color_extracted
+        tenant.secondary_color = secondary_color or secondary_color_extracted
+        if navbar_bg:
+            tenant.navbar_bg = navbar_bg
+        if navbar_text_color:
+            tenant.navbar_text_color = navbar_text_color
+    else:
+        # Color-only update
+        if primary_color:
+            tenant.primary_color = str(primary_color).strip()
+        if secondary_color:
+            tenant.secondary_color = str(secondary_color).strip()
+        if navbar_bg:
+            tenant.navbar_bg = str(navbar_bg).strip()
+        if navbar_text_color:
+            tenant.navbar_text_color = str(navbar_text_color).strip()
 
     await db.commit()
     await db.refresh(tenant)
@@ -273,7 +317,9 @@ async def update_tenant(
         "logo": effective_logo,
         "has_custom_logo": bool(tenant.logo_url and effective_logo != DEFAULT_INFERTH_LOGO),
         "primary": tenant.primary_color,
-        "secondary": tenant.secondary_color
+        "secondary": tenant.secondary_color,
+        "navbar_bg": tenant.navbar_bg,
+        "navbar_text_color": tenant.navbar_text_color
     }
 
 @router.delete("/tenants/{tenant_id}", status_code=204)
@@ -355,6 +401,18 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         "is_admin": user.is_admin
     })
     
+    has_custom = bool(user.tenant and user.tenant.logo_url and get_effective_logo_url(user.tenant.logo_url) != DEFAULT_INFERTH_LOGO)
+    p = user.tenant.primary_color if (user.tenant and user.tenant.primary_color) else "#ff8c00"
+    s = user.tenant.secondary_color if (user.tenant and user.tenant.secondary_color) else "#ef4835"
+    nb = user.tenant.navbar_bg if (user.tenant and user.tenant.navbar_bg) else ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
+    nt = user.tenant.navbar_text_color if (user.tenant and user.tenant.navbar_text_color) else (p if nb == "#ffffff" else "#ffffff")
+
+    if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or user.tenant_id == 1):
+        p = "#ff8c00"
+        s = "#ef4835"
+        nb = "#ffffff"
+        nt = "#ff8c00"
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -368,10 +426,10 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             "last_login": user.last_login,
             "theme": {
                 "logo": get_effective_logo_url(user.tenant.logo_url if user.tenant else None),
-                "primary": user.tenant.primary_color if user.tenant else "#2D5F6D",
-                "secondary": user.tenant.secondary_color if user.tenant else "#EF4835",
-                "navbar_bg": "#ffffff" if user.tenant_id == 1 else (user.tenant.primary_color if user.tenant else "#1a1c23"),
-                "navbar_text": user.tenant.primary_color if user.tenant_id == 1 else "#ffffff"
+                "primary": p,
+                "secondary": s,
+                "navbar_bg": nb,
+                "navbar_text": nt
             },
             "subscription": {
                 "plan": user.tenant.plan if user.tenant else "Basic",
@@ -442,6 +500,18 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """Get current user info"""
+    has_custom = bool(current_user.tenant and current_user.tenant.logo_url and get_effective_logo_url(current_user.tenant.logo_url) != DEFAULT_INFERTH_LOGO)
+    p = current_user.tenant.primary_color if (current_user.tenant and current_user.tenant.primary_color) else "#ff8c00"
+    s = current_user.tenant.secondary_color if (current_user.tenant and current_user.tenant.secondary_color) else "#ef4835"
+    nb = current_user.tenant.navbar_bg if (current_user.tenant and current_user.tenant.navbar_bg) else ("#ffffff" if not has_custom else "linear-gradient(to right, #1a1c23, #2d3139)")
+    nt = current_user.tenant.navbar_text_color if (current_user.tenant and current_user.tenant.navbar_text_color) else (p if nb == "#ffffff" else "#ffffff")
+
+    if not has_custom and (p in ["#2D5F6D", "#285e6f", None] or current_user.tenant_id == 1):
+        p = "#ff8c00"
+        s = "#ef4835"
+        nb = "#ffffff"
+        nt = "#ff8c00"
+
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -451,10 +521,10 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
         "theme": {
             "logo": get_effective_logo_url(current_user.tenant.logo_url if current_user.tenant else None),
-            "primary": current_user.tenant.primary_color if current_user.tenant else "#2D5F6D",
-            "secondary": current_user.tenant.secondary_color if current_user.tenant else "#EF4835",
-            "navbar_bg": current_user.tenant.navbar_bg if current_user.tenant and current_user.tenant.navbar_bg else ("#ffffff" if current_user.tenant_id == 1 else "linear-gradient(to right, #1a1c23, #2d3139)"),
-            "navbar_text": current_user.tenant.navbar_text_color if current_user.tenant and current_user.tenant.navbar_text_color else (current_user.tenant.primary_color if current_user.tenant else "#2D5F6D")
+            "primary": p,
+            "secondary": s,
+            "navbar_bg": nb,
+            "navbar_text": nt
         },
         "subscription": {
             "plan": current_user.tenant.plan if current_user.tenant else "Basic",

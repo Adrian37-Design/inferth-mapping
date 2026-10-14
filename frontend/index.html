@@ -1006,7 +1006,78 @@
                                 <i class="fas fa-cloud-upload-alt"></i> <span id="edit-tenant-file-label">Choose new logo</span>
                             </label>
                         </div>
-                        <small style="color: #888; font-size: 11px; display: block; margin-top: 5px;">Upload a PNG/JPG. If removed or not provided, the default Inferth Mapping logo is used.</small>
+                    <!-- Theme & Branding Section -->
+                    <div class="form-group" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 15px;">
+                        <label style="font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fas fa-palette"></i> Branding &amp; Theme</span>
+                            <span id="theme-status-pill" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255, 140, 0, 0.15); color: #ff8c00;">Inferth Theme</span>
+                        </label>
+                        
+                        <!-- Theme Presets -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0 14px 0;">
+                            <button type="button" class="theme-preset-btn" id="preset-inferth-btn" style="padding: 8px 6px; border-radius: 6px; border: 1px solid rgba(255,140,0,0.4); background: rgba(255,140,0,0.1); color: #fff; font-size: 11px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                <div style="display:flex; justify-content:center; gap:4px; margin-bottom:4px;">
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#ff8c00; display:inline-block;"></span>
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#ffffff; display:inline-block; border:1px solid #666;"></span>
+                                </div>
+                                Inferth (Default)
+                            </button>
+                            <button type="button" class="theme-preset-btn" id="preset-console-btn" style="padding: 8px 6px; border-radius: 6px; border: 1px solid rgba(0,255,0,0.3); background: rgba(0,255,0,0.05); color: #fff; font-size: 11px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                <div style="display:flex; justify-content:center; gap:4px; margin-bottom:4px;">
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#00FF00; display:inline-block;"></span>
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#1a1c23; display:inline-block; border:1px solid #444;"></span>
+                                </div>
+                                Console Neon
+                            </button>
+                            <button type="button" class="theme-preset-btn" id="preset-custom-btn" style="padding: 8px 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); color: #fff; font-size: 11px; cursor: pointer; text-align: center; transition: all 0.2s;">
+                                <div style="display:flex; justify-content:center; gap:4px; margin-bottom:4px;">
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#2D5F6D; display:inline-block;"></span>
+                                    <span style="width:12px; height:12px; border-radius:50%; background:#EF4835; display:inline-block;"></span>
+                                </div>
+                                Custom Colors
+                            </button>
+                        </div>
+
+                        <!-- Color Pickers Row -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size: 11px; color: #aaa; margin-bottom: 4px; display: block;">Primary Brand Color</label>
+                                <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                                    <input type="color" id="edit-tenant-primary-color" value="#ff8c00" style="width: 28px; height: 28px; border: none; background: transparent; cursor: pointer; border-radius: 4px;">
+                                    <span id="edit-tenant-primary-hex" style="font-family: monospace; font-size: 12px; color: #fff;">#ff8c00</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #aaa; margin-bottom: 4px; display: block;">Secondary Color</label>
+                                <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);">
+                                    <input type="color" id="edit-tenant-secondary-color" value="#ef4835" style="width: 28px; height: 28px; border: none; background: transparent; cursor: pointer; border-radius: 4px;">
+                                    <span id="edit-tenant-secondary-hex" style="font-family: monospace; font-size: 12px; color: #fff;">#ef4835</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Navbar Style -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 11px; color: #aaa; margin-bottom: 4px; display: block;">Navbar Background Style</label>
+                            <select id="edit-tenant-navbar-style" style="width: 100%; padding: 8px; background: #1a1c23; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 12px;">
+                                <option value="#ffffff">Light / White Navbar (Inferth Default)</option>
+                                <option value="linear-gradient(to right, #1a1c23, #2d3139)">Dark Grey Gradient</option>
+                                <option value="#1a1c23">Deep Charcoal Black</option>
+                                <option value="primary">Match Primary Brand Color</option>
+                            </select>
+                        </div>
+
+                        <!-- Live Mini Preview -->
+                        <div style="padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2);">
+                            <span style="font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">Theme Live Preview</span>
+                            <div id="edit-theme-preview-bar" style="padding: 8px 12px; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; background: #ffffff;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <img id="edit-theme-preview-logo" src="/static/inferth_mapping_logo.png" style="height: 20px; width: 20px; object-fit: contain;">
+                                    <span id="edit-theme-preview-name" style="font-weight: 600; font-size: 12px; color: #ff8c00;">Company</span>
+                                </div>
+                                <span id="edit-theme-preview-badge" style="font-size: 10px; padding: 2px 6px; border-radius: 3px; background: #ff8c00; color: #fff;">Active</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
