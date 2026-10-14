@@ -425,6 +425,8 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         )
         db.add(audit)
         await db.commit()
+    except HTTPException:
+        raise
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Database connection timed out")
     except Exception as e:
