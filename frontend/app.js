@@ -38,6 +38,44 @@ let historyMarkers = []; // Track markers added during history view
 let playbackViewMode = 'standard';
 let geocodingRateLimitExpiry = 0; // Back-off timer for reverse geocoding
 let obdDataMap = {}; // Global persistence for telemetry independently of map markers
+
+// Centralized timezone-aware timestamp parser:
+// All backend timestamps are recorded in UTC. If a timestamp string has no timezone
+// suffix (e.g. '2026-10-14T17:15:00' or '2026-10-14 17:15:00'), standard JavaScript
+// Date() interprets it as LOCAL time (e.g. UTC+2 in Zimbabwe), causing a 2-hour offset
+// and falsely showing devices as "Offline 2 hours ago".
+// parseTimestamp guarantees the timestamp is interpreted strictly in UTC.
+function parseTimestamp(timestamp) {
+    if (!timestamp) return null;
+    if (timestamp instanceof Date) return timestamp;
+    if (typeof timestamp === 'number') return new Date(timestamp);
+    let s = String(timestamp).trim();
+    if (!s) return null;
+    if (s.endsWith('Z') || /[+-]\d{2}(:\d{2})?$/.test(s)) {
+        return new Date(s);
+    }
+    if (s.includes('T')) {
+        return new Date(s + 'Z');
+    }
+    if (s.includes(' ') && s.includes('-')) {
+        return new Date(s.replace(' ', 'T') + 'Z');
+    }
+    return new Date(s);
+}
+window.parseTimestamp = parseTimestamp;
+
+function haversineDistanceKm(lat1, lon1, lat2, lon2) {
+    if (lat1 === undefined || lon1 === undefined || lat2 === undefined || lon2 === undefined) return 0;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+window.haversineDistanceKm = haversineDistanceKm;
+
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
@@ -908,7 +946,7 @@ function loadReports() {
                 const lastUpdate = vehiclePositions[v.id] ? vehiclePositions[v.id].timestamp : null;
                 if (!lastUpdate) return;
                 
-                const timeDiff = new Date() - new Date(lastUpdate);
+                const timeDiff = Math.max(0, Date.now() - parseTimestamp(lastUpdate).getTime());
                 const minsOffline = timeDiff / (1000 * 60);
 
                 if (minsOffline < 15) {
@@ -1945,7 +1983,7 @@ function updateDashboardKPIs(vehicles) {
         const timestamp = pos ? pos.timestamp : (marker ? marker.lastUpdate : null);
 
         if (timestamp) {
-            const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
+            const minsAgo = (Date.now() - parseTimestamp(timestamp).getTime()) / 60000;
 
             if (minsAgo < OFFLINE_MINS) {
                 // Use the marker's resolved status (speed persistence + 30s
@@ -2146,7 +2184,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         resolvedName = marker.vehicleName;
     }
 
-    const timeDiff = new Date() - new Date(timestamp);
+    const timeDiff = Math.max(0, Date.now() - parseTimestamp(timestamp).getTime());
     const minsOffline = timeDiff / (1000 * 60);
 
     // Robust Speed Resolution: OBD/heartbeat packets carry NO speed value
@@ -2158,11 +2196,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (marker) {
         if (packetHasSpeed) {
             marker.lastSpeed = speed;
-            marker.lastSpeedTime = new Date(timestamp).getTime();
+            marker.lastSpeedTime = parseTimestamp(timestamp).getTime();
         } else if (marker.lastSpeed !== undefined && marker.lastSpeedTime) {
             // Reuse last speed only if it was reported within the last 90s
             // (trackers report every 10-30s while driving). Older = treat as stopped.
-            const speedAge = (new Date(timestamp).getTime() - marker.lastSpeedTime) / 1000;
+            const speedAge = (parseTimestamp(timestamp).getTime() - marker.lastSpeedTime) / 1000;
             if (speedAge <= 90) {
                 resolvedSpeed = marker.lastSpeed;
             }
@@ -2188,7 +2226,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             if (marker) marker.stationarySince = null;
         } else {
             if (marker && marker.wasMoving) {
-                const now = new Date(timestamp).getTime();
+                const now = parseTimestamp(timestamp).getTime();
                 if (!marker.stationarySince) marker.stationarySince = now;
                 const stoppedFor = (now - marker.stationarySince) / 1000;
                 if (stoppedFor < 30) {
@@ -2348,8 +2386,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const initialAddr = addrLabel;
 
     // Calculate offline duration
-    const lastSeenDate = new Date(timestamp);
-    const offlineDiffMs = Date.now() - lastSeenDate.getTime();
+    const lastSeenDate = parseTimestamp(timestamp);
+    const offlineDiffMs = Math.max(0, Date.now() - (lastSeenDate ? lastSeenDate.getTime() : Date.now()));
     const offlineDiffMins = Math.floor(offlineDiffMs / 60000);
     const offlineDiffHrs = Math.floor(offlineDiffMins / 60);
     const offlineDiffDays = Math.floor(offlineDiffHrs / 24);
@@ -2498,7 +2536,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     if (!card) return;
 
     // Determine Status using timestamp (10-minute offline threshold)
-    const minsAgo = (Date.now() - new Date(timestamp).getTime()) / 60000;
+    const minsAgo = (Date.now() - parseTimestamp(timestamp).getTime()) / 60000;
     
     // Get persistent state from marker (includes motion grace period)
     const marker = markers[id];
@@ -2532,8 +2570,8 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     const timeSpan = card.querySelector('.meta-time');
     if (timeSpan) {
         // Calculate relative time or just show time
-        const date = new Date(timestamp);
-        timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const date = parseTimestamp(timestamp);
+        timeSpan.textContent = date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
     }
 
     const speedSpan = card.querySelector('.meta-speed');
@@ -2708,7 +2746,7 @@ function updateAssetDetailUI(id) {
 
     const obd = obdDataMap[id] || {}; // Consistently scoped for the whole function
 
-    const minsAgo = (Date.now() - new Date(data.timestamp).getTime()) / 60000;
+    const minsAgo = Math.max(0, (Date.now() - parseTimestamp(data.timestamp).getTime()) / 60000);
     const isOffline = minsAgo >= 10;
 
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
@@ -4007,62 +4045,113 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             return;
         }
 
-        // Group route points into logical "trips" on the frontend
-        // Assuming > 30 mins gap = new trip
-        const trips = [];
-        let currentTrip = [];
+        // 1. Filter out invalid/Null-Island coordinates and sort chronologically using parseTimestamp
+        const points = data.points
+            .filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
+            .sort((a,b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
-        for (let i = 0; i < data.points.length; i++) {
-            const p = data.points[i];
-            if (i === 0) {
-                currentTrip.push(p);
+        if (points.length === 0) {
+            timeline.innerHTML = '<p class="empty-state">No valid route points recorded for this date range</p>';
+            return;
+        }
+
+        // 2. Classify points and segment into logical Driving and Stationary periods
+        // A point is driving/moving if speed > 3.0 km/h
+        const rawSegments = [];
+        let curSegmentPoints = [];
+        let curIsMoving = false;
+
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            const pMoving = (Number(p.speed) || 0) > 3.0;
+
+            if (curSegmentPoints.length === 0) {
+                curSegmentPoints.push(p);
+                curIsMoving = pMoving;
             } else {
-                const prev = data.points[i - 1];
-                const timeGap = (new Date(p.timestamp) - new Date(prev.timestamp)) / 60000; // minutes
+                const prev = curSegmentPoints[curSegmentPoints.length - 1];
+                const timeGapMins = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 60000);
 
-                if (timeGap > 30) {
-                    if (currentTrip.length > 0) trips.push(currentTrip);
-                    currentTrip = [p];
+                // Split segment if movement state changed or large time gap (> 15 mins)
+                if (timeGapMins > 15 || pMoving !== curIsMoving) {
+                    rawSegments.push({
+                        isMoving: curIsMoving,
+                        points: curSegmentPoints
+                    });
+                    curSegmentPoints = [p];
+                    curIsMoving = pMoving;
                 } else {
-                    currentTrip.push(p);
+                    curSegmentPoints.push(p);
                 }
             }
         }
-        if (currentTrip.length > 0) trips.push(currentTrip);
-
-        // Render the processed trips AND injected stops
-        const timelineData = []; // Combined array of {type, points, duration, start, end}
-        
-        trips.forEach((tripPoints, idx) => {
-            const startP = tripPoints[0];
-            const endP = tripPoints[tripPoints.length - 1];
-            const duration = ((new Date(endP.timestamp) - new Date(startP.timestamp)) / 60000).toFixed(0);
-            
-            timelineData.push({
-                type: 'trip',
-                points: tripPoints,
-                duration: duration,
-                start: startP,
-                end: endP,
-                id: `timeline-trip-${idx}`
+        if (curSegmentPoints.length > 0) {
+            rawSegments.push({
+                isMoving: curIsMoving,
+                points: curSegmentPoints
             });
-            
-            // Check for stop AFTER this trip (unless it's the last trip)
-            if (idx < trips.length - 1) {
-                const nextTripStart = trips[idx+1][0];
-                const stopDur = ((new Date(nextTripStart.timestamp) - new Date(endP.timestamp)) / 60000).toFixed(0);
-                
-                if (stopDur >= 10) { // Only log stops > 10 mins
-                    timelineData.push({
-                        type: 'stop',
-                        lat: endP.lat,
-                        lng: endP.lng,
-                        duration: stopDur,
-                        start: endP,
-                        end: nextTripStart,
-                        id: `timeline-stop-${idx}`
-                    });
+        }
+
+        // 3. Merge momentary traffic stops (< 5 mins) between moving segments so a single trip isn't fragmented
+        const mergedSegments = [];
+        for (let i = 0; i < rawSegments.length; i++) {
+            const seg = rawSegments[i];
+            const startT = parseTimestamp(seg.points[0].timestamp);
+            const endT = parseTimestamp(seg.points[seg.points.length - 1].timestamp);
+            const durMins = Math.abs((endT - startT) / 60000);
+
+            if (!seg.isMoving && durMins < 5 && mergedSegments.length > 0 && mergedSegments[mergedSegments.length - 1].isMoving && (i + 1 < rawSegments.length && rawSegments[i + 1].isMoving)) {
+                mergedSegments[mergedSegments.length - 1].points.push(...seg.points);
+            } else {
+                mergedSegments.push(seg);
+            }
+        }
+
+        // 4. Construct timeline data items with strict velocity and displacement validation
+        const timelineData = [];
+        mergedSegments.forEach((seg, idx) => {
+            const startP = seg.points[0];
+            const endP = seg.points[seg.points.length - 1];
+            const duration = Math.max(1, Math.round(Math.abs((parseTimestamp(endP.timestamp) - parseTimestamp(startP.timestamp)) / 60000)));
+
+            let distKm = 0;
+            let maxSpd = 0;
+            for (let j = 0; j < seg.points.length; j++) {
+                const spd = Number(seg.points[j].speed) || 0;
+                if (spd > maxSpd) maxSpd = spd;
+                if (j > 0) {
+                    distKm += haversineDistanceKm(seg.points[j-1].lat, seg.points[j-1].lng, seg.points[j].lat, seg.points[j].lng);
                 }
+            }
+
+            // CRITICAL FIX: To be classified as a Driving Period, the vehicle MUST have:
+            // 1. Reported speed > 3.0 km/h (isMoving)
+            // 2. Recorded max speed > 3.0 km/h
+            // 3. Actually traversed at least 150 meters (distKm >= 0.15)
+            // If it stayed stationary (GPS jitter < 150m or speed <= 3 km/h), it is strictly a Stationary Period!
+            const isDrivingTrip = seg.isMoving && maxSpd > 3.0 && distKm >= 0.15;
+
+            if (isDrivingTrip) {
+                timelineData.push({
+                    type: 'trip',
+                    points: seg.points,
+                    duration: duration,
+                    distance: distKm.toFixed(1),
+                    start: startP,
+                    end: endP,
+                    id: `timeline-trip-${idx}`
+                });
+            } else {
+                timelineData.push({
+                    type: 'stop',
+                    points: seg.points,
+                    lat: startP.lat,
+                    lng: startP.lng,
+                    duration: duration,
+                    start: startP,
+                    end: endP,
+                    id: `timeline-stop-${idx}`
+                });
             }
         });
 
@@ -4070,12 +4159,15 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             const item = document.createElement('div');
             item.className = `timeline-item timeline-${itemData.type}`;
             
+            const startFormatted = parseTimestamp(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const endFormatted = parseTimestamp(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
             if (itemData.type === 'trip') {
                 item.innerHTML = `
                     <div class="timeline-icon"><i class="fas fa-route"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-time">${new Date(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div class="timeline-title">Driving Period (${itemData.duration} min)</div>
+                        <div class="timeline-time">${startFormatted} - ${endFormatted}</div>
+                        <div class="timeline-title">Driving Period (${itemData.duration} min, ${itemData.distance} km)</div>
                         <div class="timeline-desc" id="addr-trip-start-${itemData.id}">Resolving start...</div>
                         <div class="timeline-desc" id="addr-trip-end-${itemData.id}">Resolving destination...</div>
                     </div>
@@ -4102,7 +4194,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
 
                     // Sort points by timestamp before drawing
-                    const sortedPoints = [...itemData.points].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+                    const sortedPoints = [...itemData.points].sort((a,b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
                     // Use the robust filter: drops invalid coords, exact
                     // duplicates, and ping-pong teleport spikes (the spikes
@@ -4152,11 +4244,11 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     // Add Start/End Dots
                     const startMarker = L.circleMarker([filteredPoints[0].lat, filteredPoints[0].lng], {
                         radius: 9, fillColor: '#00ff88', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
-                    }).bindPopup('<b>Start:</b> ' + new Date(filteredPoints[0].timestamp).toLocaleTimeString()).addTo(map);
+                    }).bindPopup('<b>Start:</b> ' + parseTimestamp(filteredPoints[0].timestamp).toLocaleTimeString()).addTo(map);
 
                     const endMarker = L.circleMarker([filteredPoints[filteredPoints.length-1].lat, filteredPoints[filteredPoints.length-1].lng], {
                         radius: 9, fillColor: '#ff4444', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
-                    }).bindPopup('<b>Destination:</b> ' + new Date(filteredPoints[filteredPoints.length-1].timestamp).toLocaleTimeString()).addTo(map);
+                    }).bindPopup('<b>Destination:</b> ' + parseTimestamp(filteredPoints[filteredPoints.length-1].timestamp).toLocaleTimeString()).addTo(map);
 
                     historyMarkers.push(startMarker, endMarker);
 
@@ -4169,11 +4261,6 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     setTimeout(() => {
                         if (map) map.invalidateSize();
                         playRoute();
-                        // playRoute() re-filters playbackRoute (removing spikes
-                        // that survived the first pass, especially snapped spike
-                        // points). Redraw the route layers using the cleaned
-                        // playbackRoute so the initial draw matches what the
-                        // mode-change redraw produces — no fan pattern.
                         if (playbackRoute && playbackRoute.length > 1 && routes[id]) {
                             if (Array.isArray(routes[id])) {
                                 routes[id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
@@ -4189,12 +4276,12 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     }, 400);
                 };
             } else {
-                // Stop Item
+                // Stationary / Stop Item
                 item.innerHTML = `
                     <div class="timeline-icon" style="background: var(--warning);"><i class="fas fa-parking"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-time">${new Date(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                        <div class="timeline-title">Stop Detected (${itemData.duration} min)</div>
+                        <div class="timeline-time">${startFormatted} - ${endFormatted}</div>
+                        <div class="timeline-title">Stationary Period (${itemData.duration} min)</div>
                         <div class="timeline-desc" id="addr-stop-${itemData.id}">Resolving location...</div>
                     </div>
                 `;
@@ -4220,7 +4307,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                         weight: 3,
                         opacity: 1,
                         fillOpacity: 1
-                    }).bindPopup(`<b>Stop Duration:</b> ${itemData.duration} min`).addTo(map);
+                    }).bindPopup(`<b>Stationary Duration:</b> ${itemData.duration} min`).addTo(map);
 
                     historyMarkers.push(stopMarker);
 
@@ -4709,7 +4796,7 @@ async function loadFleetHealthForIntel() {
     allVehicles.forEach(v => {
         const pos = vehiclePositions ? vehiclePositions[v.id] : null;
         if (!pos) { offline++; return; }
-        const age = (new Date() - new Date(pos.timestamp)) / 60000;
+        const age = Math.max(0, Date.now() - parseTimestamp(pos.timestamp).getTime()) / 60000;
         if (age > 30) { offline++; }
         else if (pos.speed > 5) { moving++; }
         else if (pos.ignition) { idle++; }

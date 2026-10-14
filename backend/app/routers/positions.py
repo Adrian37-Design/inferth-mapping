@@ -248,7 +248,7 @@ async def get_fleet_snapshot(
             "latitude": p.latitude,
             "longitude": p.longitude,
             "speed": min(max(0.0, p.speed or 0.0), 200.0),
-            "timestamp": p.timestamp,
+            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
             "course": p.course,
             "raw": p.raw
         }
@@ -283,7 +283,7 @@ async def list_positions(
             "latitude": p.latitude,
             "longitude": p.longitude,
             "speed": p.speed,
-            "timestamp": p.timestamp,
+            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
             "raw": p.raw
         }
         for p in positions
@@ -344,7 +344,7 @@ async def get_device_route(
         point = {
             "lat": p.latitude,
             "lng": p.longitude,
-            "timestamp": p.timestamp.isoformat(),
+            "timestamp": (p.timestamp.isoformat() + "Z") if p.timestamp else None,
             "speed": curr_speed
         }
         
