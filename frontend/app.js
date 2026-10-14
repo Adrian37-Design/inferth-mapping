@@ -325,12 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     // Removed duplicate listeners
 
-    if (document.getElementById('add-vehicle-sidebar')) {
-        document.getElementById('add-vehicle-sidebar').addEventListener('click', () => {
-            document.getElementById('add-vehicle-modal').classList.remove('hidden');
-        });
-    }
-
     if (document.getElementById('show-trips-sidebar')) {
         document.getElementById('show-trips-sidebar').addEventListener('click', () => {
             document.getElementById('trip-modal').classList.remove('hidden');
@@ -1749,6 +1743,11 @@ function setupFleetFilters() {
     document.getElementById('fleet-search').addEventListener('input', applyFleetFilters);
     document.getElementById('fleet-status-filter').addEventListener('change', applyFleetFilters);
     document.getElementById('retry-fleet').addEventListener('click', loadVehicles);
+    const addAssetButton = document.getElementById('add-vehicle-sidebar');
+    addAssetButton.hidden = !window.AuthManager.canEdit();
+    addAssetButton.addEventListener('click', () => {
+        if (window.AuthManager.canEdit()) document.getElementById('add-vehicle-modal').classList.remove('hidden');
+    });
 }
 
 function applyFleetFilters() {
@@ -1764,7 +1763,7 @@ function applyFleetFilters() {
     document.getElementById('fleet-result-count').textContent = `${visible} of ${cards.length} assets`;
     const emptyState = document.getElementById('fleet-empty-state');
     emptyState.classList.toggle('hidden', visible > 0);
-    emptyState.textContent = cards.length ? 'No matching assets. Try another search or status.' : 'No assets yet. Add your first tracker to start monitoring your fleet.';
+    emptyState.textContent = cards.length ? 'No matching assets. Try another search or status.' : (window.AuthManager.canEdit() ? 'No assets yet. Add your first tracker to start monitoring your fleet.' : 'No assets are assigned to your account. Contact your fleet manager.');
 }
 
 async function loadVehicles() {

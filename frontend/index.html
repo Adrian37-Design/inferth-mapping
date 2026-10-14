@@ -235,8 +235,7 @@
                 <div id="tab-fleet" class="tab-content active">
                     <div class="fleet-toolbar">
                         <div class="fleet-heading"><div><h4>Your assets</h4><p id="fleet-result-count" role="status">Loading fleet…</p></div>
-                        <button class="btn-small" id="add-vehicle-sidebar"
-                            onclick="document.getElementById('add-vehicle-modal').classList.remove('hidden')"><i
+                        <button type="button" class="btn-small" id="add-vehicle-sidebar" hidden><i
                                 class="fas fa-plus"></i> Add asset</button></div>
                         <label class="fleet-search" for="fleet-search"><i class="fas fa-search" aria-hidden="true"></i><input id="fleet-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off"><span class="sr-only">Search fleet</span></label>
                         <label class="fleet-status-label" for="fleet-status-filter">Asset status<select id="fleet-status-filter"><option value="all">All statuses</option><option value="moving">Moving</option><option value="stationary">Stationary</option><option value="offline">Offline</option></select></label>
