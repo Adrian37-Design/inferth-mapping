@@ -17,6 +17,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     role: str = "viewer"
     tenant_id: int
+    password: Optional[str] = None
 
 class UserUpdate(BaseModel):
     role: Optional[str] = None
@@ -88,14 +89,26 @@ async def create_user(
             detail="You do not have permission to create Administrator accounts"
         )
     
-    new_user = User(
-        email=user_in.email,
-        role=user_in.role,
-        tenant_id=user_in.tenant_id,
-        is_active=False,
-        setup_token=setup_token,
-        accessible_assets=["*"] # Default to all
-    )
+    # If password provided, create pre-activated user; otherwise use invite flow
+    if user_in.password:
+        new_user = User(
+            email=user_in.email,
+            role=user_in.role,
+            tenant_id=user_in.tenant_id,
+            hashed_password=hash_password(user_in.password),
+            is_active=True,
+            setup_token=None,
+            accessible_assets=["*"]
+        )
+    else:
+        new_user = User(
+            email=user_in.email,
+            role=user_in.role,
+            tenant_id=user_in.tenant_id,
+            is_active=False,
+            setup_token=setup_token,
+            accessible_assets=["*"]  # Default to all
+        )
     
     # Enforce tenant isolation: Can only create users in your same tenant 
     # (unless global admin)
