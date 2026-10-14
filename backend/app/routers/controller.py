@@ -13,7 +13,8 @@ from app.services.data_guardrails import (
     validate_and_sanitize_speed,
     validate_timestamp,
     is_teleportation_jump,
-    is_duplicate_ping
+    is_duplicate_ping,
+    _to_naive_utc
 )
 from app.realtime import publish_position
 
@@ -221,24 +222,29 @@ async def upsert_tracking_data(
         db.add(pos)
         inserted_count += 1
 
-        # Realtime WebSocket broadcasting
-        try:
-            await publish_position({
-                "device_id": device.id,
-                "imei": device.imei,
-                "name": device.name,
-                "latitude": clean_lat,
-                "longitude": clean_lon,
-                "speed": clean_speed,
-                "altitude": altitude,
-                "course": course,
-                "fuel_level": fuel,
-                "battery_voltage": vbatt,
-                "ignition": ign,
-                "timestamp": timestamp.isoformat() + "Z"
-            })
-        except Exception:
-            pass
+        # Realtime WebSocket broadcasting — only for fresh positions.
+        # Backfilled offline rows keep their original (older) timestamps;
+        # broadcasting them makes the live marker jump backwards to stale
+        # coordinates. They are still stored above for history/route playback.
+        prev_ts = _to_naive_utc(prev_pos.timestamp) if (prev_pos and prev_pos.timestamp) else None
+        if prev_ts is None or timestamp >= prev_ts:
+            try:
+                await publish_position({
+                    "device_id": device.id,
+                    "imei": device.imei,
+                    "name": device.name,
+                    "latitude": clean_lat,
+                    "longitude": clean_lon,
+                    "speed": clean_speed,
+                    "altitude": altitude,
+                    "course": course,
+                    "fuel_level": fuel,
+                    "battery_voltage": vbatt,
+                    "ignition": ign,
+                    "timestamp": timestamp.isoformat() + "Z"
+                })
+            except Exception:
+                pass
 
     await db.commit()
     return {"success": True, "count": inserted_count}
