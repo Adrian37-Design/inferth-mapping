@@ -1,5 +1,5 @@
 // Inferth Mapping - Fleet Tracking Platform
-console.log('%c Inferth app.js v94 loaded ', 'background:#00d4ff;color:#000;font-weight:bold');
+console.log('Inferth workspace v99 loaded');
 
 // Check authentication before anything else
 if (!window.AuthManager || !window.AuthManager.checkAuth()) {
@@ -80,6 +80,7 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 }
 window.haversineDistanceKm = haversineDistanceKm;
 
+let fleetFilterFrame = null;
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
@@ -108,14 +109,11 @@ window.openAssignDriver = async function () {
 
 window.triggerReportAction = function () {
     if (!selectedVehicle) return;
-    alert('Downloading CSV Report for ' + (selectedVehicle.name || selectedVehicle.imei) + '...');
+    window.switchTab('tab-reports');
 };
 
 window.triggerAlertAction = function () {
-    const type = prompt('Set Alert Type (speed, geofence, offline):', 'speed');
-    if (type) {
-        alert('Alert for ' + type + ' configured successfully!');
-    }
+    window.switchTab('tab-alerts');
 };
 
 // Initialize map
@@ -269,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Tab Switching Logic
     setupTabs();
-    initFleetAnalyticsCharts('fleet-performance-chart');
+    setupFleetFilters();
     
     // Load analytics data when Intel tab is opened
     const intelTab = document.querySelector('[data-tab="tab-reports"]');
@@ -372,12 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     // Removed duplicate listeners
 
-    if (document.getElementById('add-vehicle-sidebar')) {
-        document.getElementById('add-vehicle-sidebar').addEventListener('click', () => {
-            document.getElementById('add-vehicle-modal').classList.remove('hidden');
-        });
-    }
-
     if (document.getElementById('show-trips-sidebar')) {
         document.getElementById('show-trips-sidebar').addEventListener('click', () => {
             document.getElementById('trip-modal').classList.remove('hidden');
@@ -415,81 +407,35 @@ function setupTabs() {
     const railItems = document.querySelectorAll('.rail-item');
     railItems.forEach(item => {
         item.addEventListener('click', () => {
-            // 1. Activate Rail Item
-            railItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-
-            // 2. Show Sidebar Content
-            const targetId = item.getAttribute('data-tab');
-
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-                content.style.display = '';
-            });
-
-            // Show target
-            const targetContent = document.getElementById(targetId);
-            if (targetContent) {
-                targetContent.classList.add('active');
-
-                // UI FIX: If switching to Geofence tab, force map to recalculate size
-                if (targetId === 'tab-geofence' && miniMap) {
-                    // Try immediately and again after transition
-                    miniMap.invalidateSize();
-                    setTimeout(() => miniMap.invalidateSize(), 300);
-                    setTimeout(() => miniMap.invalidateSize(), 600);
-                }
-            }
-
-            // 3. Update Header Title
-            const title = item.getAttribute('title');
-            const headerTitle = document.getElementById('panel-title');
-            if (headerTitle) headerTitle.innerText = title;
-
-            // 4. Mobile Handling
-            const sidebar = document.querySelector('.sidebar-container');
-            if (window.innerWidth < 768 && sidebar) {
-                sidebar.classList.remove('collapsed');
-            }
-            if (sidebar) sidebar.classList.remove('collapsed');
-
-            // Lazy Load Users
-            if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isManager()) {
-                loadUsers();
-                usersLoaded = true;
-            }
-
-            if (targetId === 'tab-reports') {
-                loadReports();
-                initReportControls();
-                initFleetAnalyticsCharts('chart-usage-canvas');
-            }
-
-            if (targetId === 'tab-dashboard') {
-                initFleetAnalyticsCharts('fleet-performance-chart');
-            }
-            if (targetId === 'tab-audit') {
-                loadAuditLogs();
-            }
-
-            if (targetId === 'tab-companies') {
-                loadCompanies();
-            }
-
-            if (targetId === 'tab-billing') {
-                loadBillingData();
-            }
+            window.switchTab(item.dataset.tab);
         });
     });
 }
 
-// Global function to switch tabs programmatically
+function syncWorkspaceLayout() {
+    const sidebar = document.getElementById('sidebar');
+    const active = document.querySelector('.tab-content.active');
+    const collapsed = sidebar.classList.contains('collapsed');
+    document.querySelector('.main-container').dataset.workspace = active ? active.id : 'tab-fleet';
+    document.querySelector('.main-container').classList.toggle('panel-collapsed', collapsed);
+    document.getElementById('workspace-panel').inert = collapsed;
+    ['workspace-toggle', 'toggle-sidebar-btn'].forEach(id => {
+        const button = document.getElementById(id);
+        button.setAttribute('aria-expanded', String(!collapsed));
+        button.setAttribute('aria-label', collapsed ? 'Show workspace panel' : 'Hide workspace panel');
+    });
+    document.querySelectorAll('.rail-item').forEach(item => {
+        if (item.classList.contains('active')) item.setAttribute('aria-current', 'page');
+        else item.removeAttribute('aria-current');
+    });
+    setTimeout(() => { if (map) map.invalidateSize(); }, 250);
+}
+
 window.switchTab = function(targetId) {
     const railItems = document.querySelectorAll('.rail-item');
     const targetRail = document.querySelector(`.rail-item[data-tab="${targetId}"]`);
     
-    if (targetRail) {
+    if (targetRail && !targetRail.classList.contains('hidden')) {
         // 1. Activate Rail Item
         railItems.forEach(i => i.classList.remove('active'));
         targetRail.classList.add('active');
@@ -552,6 +498,7 @@ window.switchTab = function(targetId) {
         if (targetId === 'tab-billing') {
             loadBillingData();
         }
+        syncWorkspaceLayout();
     }
 };
 
@@ -560,13 +507,16 @@ window.showFullMap = function() {
     const sidebar = document.querySelector('.sidebar-container');
     if (sidebar) {
         sidebar.classList.add('collapsed');
+        syncWorkspaceLayout();
     }
     
     // Fit map to show all vehicles
-    if (map && Object.keys(markers).length > 0) {
-        const group = new L.featureGroup(Object.values(markers));
-        map.fitBounds(group.getBounds());
-    }
+    setTimeout(() => {
+        if (map && Object.keys(markers).length > 0) {
+            const group = new L.featureGroup(Object.values(markers));
+            map.fitBounds(group.getBounds(), { padding: [32, 32], maxZoom: 16 });
+        }
+    }, 250);
 };
 
 // --- Billing & Subscription Logic (Step 10) ---
@@ -770,22 +720,14 @@ function setupSidebarToggle() {
     const sidebar = document.querySelector('.sidebar-container');
 
     if (btn && sidebar) {
-        btn.addEventListener('click', () => {
+        const toggle = () => {
             sidebar.classList.toggle('collapsed');
-
-            const icon = btn.querySelector('i');
-            if (icon) {
-                if (sidebar.classList.contains('collapsed')) {
-                    icon.className = 'fas fa-chevron-right';
-                } else {
-                    icon.className = 'fas fa-chevron-left';
-                }
-            }
-
-            setTimeout(() => {
-                if (map) map.invalidateSize();
-            }, 350);
-        });
+            if (sidebar.classList.contains('collapsed')) document.getElementById('workspace-toggle').focus();
+            syncWorkspaceLayout();
+        };
+        btn.addEventListener('click', toggle);
+        document.getElementById('workspace-toggle').addEventListener('click', toggle);
+        syncWorkspaceLayout();
     }
 }
 
@@ -1836,7 +1778,44 @@ function updateChartVehicleSelector(vehicles) {
 }
 
 // Load vehicles
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+}
+
+function setupFleetFilters() {
+    document.getElementById('fleet-search').addEventListener('input', applyFleetFilters);
+    document.getElementById('fleet-status-filter').addEventListener('change', applyFleetFilters);
+    document.getElementById('retry-fleet').addEventListener('click', loadVehicles);
+    const addAssetButton = document.getElementById('add-vehicle-sidebar');
+    addAssetButton.hidden = !window.AuthManager.canEdit();
+    addAssetButton.addEventListener('click', () => {
+        if (window.AuthManager.canEdit()) document.getElementById('add-vehicle-modal').classList.remove('hidden');
+    });
+}
+
+function applyFleetFilters() {
+    const query = document.getElementById('fleet-search').value.trim().toLowerCase();
+    const status = document.getElementById('fleet-status-filter').value;
+    const cards = document.querySelectorAll('#vehicle-list .vehicle-card');
+    let visible = 0;
+    cards.forEach(card => {
+        const matches = card.dataset.search.includes(query) && (status === 'all' || card.dataset.status === status);
+        card.classList.toggle('hidden', !matches);
+        if (matches) visible++;
+    });
+    document.getElementById('fleet-result-count').textContent = `${visible} of ${cards.length} assets`;
+    const emptyState = document.getElementById('fleet-empty-state');
+    emptyState.classList.toggle('hidden', visible > 0);
+    emptyState.textContent = cards.length ? 'No matching assets. Try another search or status.' : (window.AuthManager.canEdit() ? 'No assets yet. Add your first tracker to start monitoring your fleet.' : 'No assets are assigned to your account. Contact your fleet manager.');
+}
+
 async function loadVehicles() {
+    const vehicleList = document.getElementById('vehicle-list');
+    document.getElementById('fleet-load-error').classList.add('hidden');
+    document.getElementById('fleet-empty-state').classList.add('hidden');
+    vehicleList.setAttribute('aria-busy', 'true');
     try {
         const response = await window.AuthManager.fetchAPI('/devices/');
         if (!response.ok) throw new Error('Failed to load vehicles');
@@ -1847,26 +1826,27 @@ async function loadVehicles() {
 
         // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
-        const vehicleList = document.getElementById('vehicle-list');
         vehicleList.innerHTML = '';
 
         vehicles.forEach(vehicle => {
-            const isShutdown = vehicle.device_metadata && (vehicle.device_metadata.is_shutdown || vehicle.device_metadata.shutdown_status === 'SHUTDOWN');
             const card = document.createElement('div');
-            card.className = `vehicle-card ${isShutdown ? 'status-shutdown' : 'status-offline'}`;
+            card.className = 'vehicle-card status-offline';
             card.dataset.id = vehicle.id;
             card.dataset.imei = vehicle.imei;
+            card.dataset.status = 'offline';
+            card.dataset.search = [vehicle.name, vehicle.imei, vehicle.driver_name, vehicle.company].filter(Boolean).join(' ').toLowerCase();
 
             card.innerHTML = `
                 <div class="vehicle-header">
-                    <div class="vehicle-name">${vehicle.name || 'Device ' + vehicle.imei}</div>
-                    <div class="vehicle-status-badge ${isShutdown ? 'badge-shutdown' : 'badge-offline'}">
-                        ${isShutdown ? '<i class="fas fa-ban"></i> SHUTDOWN' : 'Offline'}
+                    <div class="vehicle-name"><button type="button" class="vehicle-open-btn">${escapeHTML(vehicle.name || 'Device ' + vehicle.imei)}</button></div>
+                    <div class="vehicle-status-badge badge-offline">
+                        Offline
                     </div>
                 </div>
                 <div class="vehicle-details">
-                    ${vehicle.company ? `<div class="vehicle-company"><i class="fas fa-building"></i> ${vehicle.company}</div>` : ''}
-                    <div>IMEI: ${vehicle.imei}</div>
+                    ${vehicle.company ? `<div class="vehicle-company"><i class="fas fa-building"></i> ${escapeHTML(vehicle.company)}</div>` : ''}
+                    ${vehicle.driver_name ? `<div class="vehicle-driver"><i class="fas fa-user"></i> ${escapeHTML(vehicle.driver_name)}</div>` : ''}
+                    <div>IMEI: ${escapeHTML(vehicle.imei)}</div>
                     <div class="vehicle-meta-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; color: var(--text-muted); margin-top: 5px;">
                         <div><i class="fas fa-clock"></i> <span class="meta-time">--:--</span></div>
                         <div><i class="fas fa-tachometer-alt"></i> <span class="meta-speed">0 km/h</span></div>
@@ -1877,15 +1857,15 @@ async function loadVehicles() {
                     <button class="locate-vehicle-btn" data-id="${vehicle.id}" title="Locate on Map">
                         <i class="fas fa-crosshairs"></i>
                     </button>
-                    <button class="shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}" data-id="${vehicle.id}" title="${isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown'}">
-                        <i class="fas ${isShutdown ? 'fa-bolt' : 'fa-power-off'}"></i>
-                    </button>
+                    ${window.AuthManager.canEdit() ? `<button class="shutdown-vehicle-btn" data-id="${vehicle.id}" title="Engine control — not tracker sleep" aria-label="Engine control">
+                        <i class="fas fa-lock"></i>
+                    </button>` : ''}
                     ${window.AuthManager.canEdit() ? `
-                    <button class="edit-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" data-name="${vehicle.name}" title="Edit Vehicle">
+                    <button class="edit-vehicle-btn" data-id="${vehicle.id}" title="Edit Vehicle">
                         <i class="fas fa-edit"></i>
                     </button>` : ''}
                     ${window.AuthManager.isAdmin() ? `
-                    <button class="delete-vehicle-btn" data-id="${vehicle.id}" data-imei="${vehicle.imei}" title="Delete Vehicle">
+                    <button class="delete-vehicle-btn" data-id="${vehicle.id}" title="Delete Vehicle">
                         <i class="fas fa-trash"></i>
                     </button>` : ''}
                 </div>
@@ -1916,6 +1896,7 @@ async function loadVehicles() {
                         // Collapse sidebar, fly to vehicle
                         const sidebar = document.getElementById('sidebar');
                         if (sidebar) sidebar.classList.add('collapsed');
+                        syncWorkspaceLayout();
                         setTimeout(() => {
                             if (map) map.invalidateSize();
                             map.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
@@ -1957,6 +1938,7 @@ async function loadVehicles() {
 
             vehicleList.appendChild(card);
         });
+        applyFleetFilters();
 
         // Load positions for all vehicles
         await loadAllPositions(vehicles); // Wait for positions to load stats
@@ -1965,12 +1947,15 @@ async function loadVehicles() {
         updateDashboardKPIs(vehicles);
 
         // Update status to show we're connected to API
-        if (vehicles.length > 0) {
-            updateStatus('connected', 'Live');
-        }
+        updateStatus('connected', 'Connected');
     } catch (error) {
         console.error('Error loading vehicles:', error);
         updateStatus('disconnected', 'Failed to load vehicles');
+        vehicleList.querySelector('.loading')?.remove();
+        document.getElementById('fleet-result-count').textContent = 'Fleet unavailable';
+        document.getElementById('fleet-load-error').classList.remove('hidden');
+    } finally {
+        vehicleList.setAttribute('aria-busy', 'false');
     }
 }
 
@@ -2067,6 +2052,8 @@ function animateValue(id, start, end, duration) {
     // When the value is already the target, skip re-animating — this prevents
     // dashboard KPIs from flickering 0->1 every second when live updates arrive.
     const currentValue = parseInt(obj.innerHTML, 10) || 0;
+    if (start === null) start = currentValue;
+    if (obj.animationFrame) cancelAnimationFrame(obj.animationFrame);
     if (currentValue === end) {
         obj.innerHTML = end;
         return;
@@ -2078,10 +2065,12 @@ function animateValue(id, start, end, duration) {
         const value = Math.floor(progress * (end - start) + start);
         obj.textContent = value;
         if (progress < 1) {
-            window.requestAnimationFrame(step);
+            obj.animationFrame = window.requestAnimationFrame(step);
+        } else {
+            obj.animationFrame = null;
         }
     };
-    window.requestAnimationFrame(step);
+    obj.animationFrame = window.requestAnimationFrame(step);
 }
 
 // Smooth marker animation function
@@ -2553,7 +2542,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     const ignitionOn = marker ? marker.ignitionOn : false;
 
     let status, label;
-    if (minsAgo >= 10) {
+    if (!Number.isFinite(minsAgo) || minsAgo >= 10) {
         status = 'offline'; label = 'Offline';
     } else if (marker && marker.resolvedStatus) {
         // Use the resolved status computed in addOrUpdateMarker
@@ -2568,6 +2557,13 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     // Update Classes
     card.classList.remove('status-offline', 'status-idle', 'status-moving', 'status-idling', 'status-stationary');
     card.classList.add(`status-${status}`);
+    card.dataset.status = status;
+    if (fleetFilterFrame === null) {
+        fleetFilterFrame = requestAnimationFrame(() => {
+            fleetFilterFrame = null;
+            applyFleetFilters();
+        });
+    }
 
     // Update Badge
     const badge = card.querySelector('.vehicle-status-badge');
@@ -2581,7 +2577,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     if (timeSpan) {
         // Calculate relative time or just show time
         const date = parseTimestamp(timestamp);
-        timeSpan.textContent = date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+        timeSpan.textContent = date && Number.isFinite(date.getTime()) ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unavailable';
     }
 
     const speedSpan = card.querySelector('.meta-speed');
@@ -2669,6 +2665,7 @@ window.openHistorySearch = (id, imei) => {
     // 2. Ensure sidebar is not collapsed (if on mobile)
     const sidebar = document.querySelector('.sidebar-container');
     if (sidebar) sidebar.classList.remove('collapsed');
+    syncWorkspaceLayout();
 
     // 3. Highlight the History & Timeline section
     const historySection = document.querySelector('.history-controls');
@@ -2696,6 +2693,9 @@ function openAssetDetail(vehicle) {
     // Switch Tabs
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-asset-detail').classList.add('active');
+    document.getElementById('sidebar').classList.remove('collapsed');
+    document.querySelectorAll('.rail-item').forEach(item => item.classList.toggle('active', item.dataset.tab === 'tab-fleet'));
+    syncWorkspaceLayout();
 
     // Update Header
     document.getElementById('panel-title').textContent = 'Asset Details';
@@ -2713,15 +2713,16 @@ function openAssetDetail(vehicle) {
     if (document.getElementById('detail-vin')) document.getElementById('detail-vin').textContent = meta.vin || '--';
     if (document.getElementById('detail-sim')) document.getElementById('detail-sim').textContent = meta.sim || '--';
 
-    // Configure Sleep / Power On button in asset header
+    // Command requests are not acknowledgements of the physical engine state.
     const detailPowerBtn = document.getElementById('detail-power-btn');
     if (detailPowerBtn) {
         const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
         detailPowerBtn.className = `shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}`;
-        detailPowerBtn.title = isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown';
+        detailPowerBtn.hidden = !window.AuthManager.canEdit();
+        detailPowerBtn.title = 'Engine control — not tracker sleep';
         detailPowerBtn.innerHTML = isShutdown
-            ? '<i class="fas fa-bolt"></i> <span>Power On</span>'
-            : '<i class="fas fa-power-off"></i> <span>Sleep</span>';
+            ? '<i class="fas fa-unlock"></i> <span>Request unlock</span>'
+            : '<i class="fas fa-lock"></i> <span>Engine control</span>';
         detailPowerBtn.onclick = (e) => {
             e.stopPropagation();
             openRemoteShutdownModal(vehicle);
@@ -2734,12 +2735,7 @@ function openAssetDetail(vehicle) {
 
 // Close Asset Detail View
 function closeAssetDetail() {
-    // Switch Tabs
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById('tab-fleet').classList.add('active'); // Back to fleet list
-
-    // Reset Header
-    document.getElementById('panel-title').textContent = 'Dashboard';
+    window.switchTab('tab-fleet');
     selectedVehicle = null;
 
     // Clear map route if any
@@ -2757,8 +2753,9 @@ function updateAssetDetailUI(id) {
 
     const obd = obdDataMap[id] || {}; // Consistently scoped for the whole function
 
-    const minsAgo = Math.max(0, (Date.now() - parseTimestamp(data.timestamp).getTime()) / 60000);
-    const isOffline = minsAgo >= 10;
+    const parsedTs = parseTimestamp(data.timestamp);
+    const minsAgo = parsedTs ? Math.max(0, (Date.now() - parsedTs.getTime()) / 60000) : NaN;
+    const isOffline = !Number.isFinite(minsAgo) || minsAgo >= 10;
 
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
@@ -2768,10 +2765,7 @@ function updateAssetDetailUI(id) {
     const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
 
     let status, statusClass;
-    if (isShutdown) {
-        status = 'Sleeping';
-        statusClass = 'badge-shutdown';
-    } else if (isOffline) {
+    if (isOffline) {
         status = 'Offline'; statusClass = 'badge-offline';
     } else if (marker && marker.resolvedStatus) {
         status = marker.resolvedStatus;
@@ -2789,10 +2783,11 @@ function updateAssetDetailUI(id) {
     const detailPowerBtn = document.getElementById('detail-power-btn');
     if (detailPowerBtn && vehicle) {
         detailPowerBtn.className = `shutdown-vehicle-btn ${isShutdown ? 'is-shutdown' : ''}`;
-        detailPowerBtn.title = isShutdown ? 'Tracker is Sleeping — Click to Power On' : 'Put Tracker to Sleep / Remote Shutdown';
+        detailPowerBtn.hidden = !window.AuthManager.canEdit();
+        detailPowerBtn.title = 'Engine control — not tracker sleep';
         detailPowerBtn.innerHTML = isShutdown
-            ? '<i class="fas fa-bolt"></i> <span>Power On</span>'
-            : '<i class="fas fa-power-off"></i> <span>Sleep</span>';
+            ? '<i class="fas fa-unlock"></i> <span>Request unlock</span>'
+            : '<i class="fas fa-lock"></i> <span>Engine control</span>';
         detailPowerBtn.onclick = (e) => {
             e.stopPropagation();
             openRemoteShutdownModal(vehicle);
@@ -2827,7 +2822,7 @@ function updateAssetDetailUI(id) {
 
     const timeDiff = Math.floor(minsAgo);
     const lastSeenEl = document.getElementById('detail-last-seen');
-    if (lastSeenEl) lastSeenEl.textContent = timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`;
+    if (lastSeenEl) lastSeenEl.textContent = !Number.isFinite(timeDiff) ? 'Unavailable' : (timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`);
 
     // 5. Vehicle Overview: Total Mileage
     const mileageEl = document.getElementById('detail-mileage');
@@ -3153,6 +3148,7 @@ async function deleteVehicle(id, imei) {
 
 // Remote Tracker Shutdown Modal Handler
 function openRemoteShutdownModal(vehicle) {
+    if (!window.AuthManager.canEdit()) return;
     const modal = document.getElementById('remote-shutdown-modal');
     if (!modal) return;
 
@@ -3167,33 +3163,49 @@ function openRemoteShutdownModal(vehicle) {
     const titleEl = document.getElementById('shutdown-modal-title');
     const confirmBtn = document.getElementById('confirm-shutdown-btn');
     const warningBox = document.getElementById('shutdown-warning-box');
-
-    if (isShutdown) {
-        titleEl.innerHTML = '<i class="fas fa-bolt" style="color: #22c55e;"></i> Power On / Wake Up Tracker';
-        statusEl.innerHTML = '<span style="color: #22c55e; font-weight: 700;"><i class="fas fa-moon"></i> SLEEPING / SHUT DOWN</span>';
-        descEl.innerHTML = 'This tracker is currently in <strong>SLEEP / SHUT DOWN</strong> mode. Confirming will send a remote wake-up signal to restore tracker power and resume active live tracking.';
-        warningBox.style.background = 'rgba(34, 197, 94, 0.12)';
-        warningBox.style.borderColor = 'rgba(34, 197, 94, 0.35)';
-        warningBox.querySelector('div').style.color = '#22c55e';
-        confirmBtn.style.background = '#22c55e';
-        confirmBtn.style.borderColor = '#22c55e';
-        confirmBtn.innerHTML = '<i class="fas fa-bolt"></i> Power On Tracker';
-    } else {
-        titleEl.innerHTML = '<i class="fas fa-power-off" style="color: #ef4444;"></i> Remote Tracker Sleep / Shutdown';
-        statusEl.innerHTML = '<span style="color: #22c55e; font-weight: 700;"><i class="fas fa-check-circle"></i> ACTIVE / ONLINE</span>';
-        descEl.innerHTML = 'You are about to issue a remote command for the tracking unit to <strong>GO TO SLEEP / SHUT DOWN</strong>. Live telemetry transmission will be paused until powered back on.';
-        warningBox.style.background = 'rgba(239, 68, 68, 0.12)';
-        warningBox.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-        warningBox.querySelector('div').style.color = '#ef4444';
-        confirmBtn.style.background = '#ef4444';
-        confirmBtn.style.borderColor = '#ef4444';
-        confirmBtn.innerHTML = '<i class="fas fa-power-off"></i> Put Tracker to Sleep';
-    }
+    const safetyCheck = document.getElementById('engine-safety-check');
+    const previousFocus = document.activeElement;
+    const closeControlModal = () => {
+        modal.classList.add('hidden');
+        previousFocus?.focus();
+    };
+    modal.querySelector('.close-modal').onclick = closeControlModal;
+    modal.querySelector('.btn-secondary').onclick = closeControlModal;
+    modal.onkeydown = event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeControlModal();
+        } else if (event.key === 'Tab') {
+            const controls = modal.querySelectorAll('button:not(:disabled), input:not(:disabled)');
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    };
+    titleEl.textContent = isShutdown ? 'Request engine unlock' : 'Request engine lock';
+    statusEl.textContent = meta.last_command ? `Last request: ${meta.last_command}. Physical state unconfirmed.` : 'No command acknowledgement available.';
+    descEl.textContent = 'This sends an ENGINE_LOCK or ENGINE_UN_LOCK instruction, not a tracker sleep command. Depending on the hardware, it may affect engine operation. Only request control when the vehicle is safely parked and you have confirmed the wiring and firmware. Delivery does not confirm execution.';
+    warningBox.querySelector('div').textContent = 'ENGINE CONTROL — SAFETY CRITICAL';
+    confirmBtn.textContent = isShutdown ? 'Queue unlock request' : 'Queue lock request';
+    let requestInFlight = false;
+    safetyCheck.disabled = false;
+    safetyCheck.checked = false;
+    confirmBtn.disabled = true;
+    safetyCheck.onchange = () => { confirmBtn.disabled = requestInFlight || !safetyCheck.checked; };
 
     confirmBtn.onclick = async () => {
+        if (requestInFlight || !safetyCheck.checked) return;
+        requestInFlight = true;
+        safetyCheck.disabled = true;
         const action = isShutdown ? 'restore' : 'shutdown';
         confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Transmitting Signal...';
+        confirmBtn.textContent = 'Queuing request…';
 
         try {
             const response = await window.AuthManager.fetchAPI(`/devices/${vehicle.id}/command`, {
@@ -3208,8 +3220,8 @@ function openRemoteShutdownModal(vehicle) {
             }
 
             const resData = await response.json();
-            modal.classList.add('hidden');
-            alert(resData.message || `Remote command ${action.toUpperCase()} executed successfully.`);
+            closeControlModal();
+            alert(resData.message || 'Command queued. Execution by the tracker is not confirmed.');
 
             // Refresh vehicles list to update UI state
             await loadVehicles();
@@ -3221,11 +3233,15 @@ function openRemoteShutdownModal(vehicle) {
         } catch (err) {
             alert(`Remote command error: ${err.message}`);
         } finally {
-            confirmBtn.disabled = false;
+            requestInFlight = false;
+            safetyCheck.disabled = false;
+            confirmBtn.disabled = !safetyCheck.checked;
+            confirmBtn.textContent = isShutdown ? 'Queue unlock request' : 'Queue lock request';
         }
     };
 
     modal.classList.remove('hidden');
+    modal.querySelector('.close-modal').focus();
 }
 
 
@@ -3970,6 +3986,7 @@ function stopRouteAndExit() {
 
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.remove('collapsed');
+    syncWorkspaceLayout();
     setTimeout(() => { if (map) map.invalidateSize(); }, 350);
 }
 
@@ -4293,6 +4310,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     document.getElementById('route-controls').classList.remove('hidden');
                     const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.add('collapsed');
+                    syncWorkspaceLayout();
                     setTimeout(() => {
                         if (map) map.invalidateSize();
                         playRoute();
@@ -6162,4 +6180,3 @@ function setupPaymentListeners() {
         };
     }
 }
-

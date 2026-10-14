@@ -6,6 +6,7 @@ from app.auth_middleware import require_admin, require_manager, get_current_user
 from pydantic import BaseModel
 from sqlalchemy.future import select
 from sqlalchemy import func
+from typing import Literal
 
 router = APIRouter(prefix="/devices")
 
@@ -194,7 +195,7 @@ async def update_device(
 import datetime
 
 class CommandPayload(BaseModel):
-    action: str  # "shutdown" or "restore"
+    action: Literal["shutdown", "sleep", "lock", "restore", "unlock"]
 
 @router.post("/{device_id}/command")
 async def send_device_command(
@@ -214,7 +215,7 @@ async def send_device_command(
         raise HTTPException(status_code=403, detail="Not authorized to control this device")
 
     action_lower = payload.action.lower()
-    is_shutdown = action_lower in ["shutdown", "sleep"]
+    is_shutdown = action_lower in ["shutdown", "sleep", "lock"]
     
     # Update device metadata with command details and shutdown status
     meta = dict(device.device_metadata or {})
@@ -245,11 +246,11 @@ async def send_device_command(
     await db.commit()
     await db.refresh(device)
 
-    action_text = "PUT TO SLEEP / SHUT DOWN" if is_shutdown else "POWERED ON / RESTORED"
+    action_text = "ENGINE_LOCK" if is_shutdown else "ENGINE_UN_LOCK"
     return {
         "success": True,
-        "message": f"Remote signal executed: Tracker '{device.name or device.imei}' is now {action_text}.",
+        "message": f"{action_text} queued for '{device.name or device.imei}'. Delivery and physical execution are not confirmed. This is not a tracker sleep command.",
+        "command_status": "queued",
         "is_shutdown": is_shutdown,
         "device_metadata": device.device_metadata
     }
-
