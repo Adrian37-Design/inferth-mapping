@@ -26,6 +26,7 @@ def parse_xcela_timestamp(date_str: Optional[str]) -> datetime:
     
     clean = date_str.replace(" GMT", "").replace(" UTC", "").strip()
     formats = [
+        "%m/%d/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M:%S",
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
