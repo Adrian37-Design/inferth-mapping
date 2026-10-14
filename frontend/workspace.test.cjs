@@ -162,12 +162,15 @@ test('a newer KPI update cancels the previous animation', () => {
     assert.deepEqual(canceled, [previous]);
 });
 
-test('invalid timestamps are offline, not a false stationary/live status', () => {
+test('invalid timestamps are offline with an explicit unavailable time', () => {
     const { context, selectors } = workspace();
     const card = element();
+    const time = element();
+    card.querySelector = selector => selector === '.meta-time' ? time : null;
     selectors.set('.vehicle-card[data-id="1"]', card);
     context.updateVehicleCard(1, 0, 'invalid', null, null);
     assert.equal(card.dataset.status, 'offline');
+    assert.equal(time.textContent, 'Unavailable');
 });
 
 test('asset details also treat invalid timestamps as offline and hide stale speed', () => {
@@ -228,4 +231,29 @@ test('engine control cannot queue duplicate requests while one is in flight', as
     await pending;
     assert.equal(get('engine-safety-check').disabled, false);
     assert.equal(get('confirm-shutdown-btn').disabled, false);
+});
+
+test('engine control traps keyboard focus and restores it when dismissed', () => {
+    const { context, get } = workspace();
+    const trigger = element();
+    const close = element();
+    const confirm = get('confirm-shutdown-btn');
+    const modal = get('remote-shutdown-modal');
+    get('shutdown-warning-box').querySelector = () => element();
+    modal.querySelector = selector => selector === '.close-modal' ? close : element();
+    modal.querySelectorAll = () => [close, confirm];
+    context.document.activeElement = trigger;
+    context.openRemoteShutdownModal({ id: 1, imei: '12345' });
+    assert.equal(close.focused, true);
+    let prevented = 0;
+    const preventDefault = () => { prevented++; };
+    context.document.activeElement = confirm;
+    modal.onkeydown({ key: 'Tab', preventDefault });
+    assert.equal(prevented, 1);
+    context.document.activeElement = close;
+    modal.onkeydown({ key: 'Tab', shiftKey: true, preventDefault });
+    assert.equal(confirm.focused, true);
+    modal.onkeydown({ key: 'Escape', preventDefault });
+    assert.equal(modal.classList.contains('hidden'), true);
+    assert.equal(trigger.focused, true);
 });
