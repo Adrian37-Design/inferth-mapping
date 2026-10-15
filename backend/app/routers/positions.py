@@ -378,14 +378,22 @@ async def get_device_route(
                 implied_speed = km / (time_diff_sec / 3600.0)
                 if implied_speed > 250.0 and km > 0.1:
                     continue  # Skip jump glitch point
+                # Recover realistic travel speed when firmware reports speed=0
+                # despite moving >=25m between consecutive fixes
+                if curr_speed <= 3.0 and km >= 0.025 and 4.0 <= implied_speed <= 160.0 and time_diff_sec <= 900.0:
+                    curr_speed = round(implied_speed, 1)
+                    point["speed"] = curr_speed
             elif km > 0.05:
                 continue
 
-            # Guardrail 3: Suppress exact stationary duplicates within 4 seconds
-            if curr_speed <= 3.0 and last_valid_point["speed"] <= 3.0 and km < 0.005:
+            # Guardrail 3: Suppress consecutive stationary duplicates within 60s
+            # (keep periodic anchor points >=60s apart so parked periods don't
+            # fragment into artificial multi-hour gaps on the timeline)
+            if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_valid_point["speed"] <= 3.0 and km < 0.005:
                 continue
 
-            total_distance += km
+            if km >= 0.015 or curr_speed > 3.0:
+                total_distance += km
         
         last_valid_point = point
         route_points.append(point)
