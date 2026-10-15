@@ -6,76 +6,504 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Inferth Mapping</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="auth.css">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
+    <style>
+        :root {
+            --fire-from: #ff5a00;
+            --fire-to: #dc2626;
+            --fire-hover-from: #ea580c;
+            --fire-hover-to: #b91c1c;
+            --fire-glow: rgba(255, 90, 0, 0.35);
+            --fire-soft: #fff7ed;
+            --fire-soft-end: #fee2e2;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--fire-soft) 0%, var(--fire-soft-end) 100%);
+            padding: 1rem;
+            color: #1f2937;
+        }
+
+        .signin-card {
+            width: 100%;
+            max-width: 56rem;
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            background: #ffffff;
+            box-shadow: 0 20px 25px -5px rgba(220, 38, 38, 0.12), 0 8px 10px -6px rgba(255, 90, 0, 0.08);
+            animation: cardIn 0.5s ease-out both;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Left panel — animated dot-map */
+        .map-pane {
+            display: none;
+            width: 50%;
+            height: 600px;
+            position: relative;
+            overflow: hidden;
+            border-right: 1px solid #f3f4f6;
+            background: linear-gradient(135deg, var(--fire-soft) 0%, var(--fire-soft-end) 100%);
+        }
+
+        @media (min-width: 768px) {
+            .map-pane { display: block; }
+            .form-pane { width: 50%; padding: 2.5rem; }
+        }
+
+        #dot-map-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .brand-badge {
+            height: 3.5rem;
+            width: 3.5rem;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, var(--fire-from), var(--fire-to));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(255, 90, 0, 0.35);
+            margin-bottom: 1.5rem;
+            animation: fadeDown 0.5s ease-out 0.6s both;
+        }
+
+        .brand-badge img {
+            width: 2.25rem;
+            height: 2.25rem;
+            object-fit: contain;
+            border-radius: 9999px;
+        }
+
+        .brand-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--fire-from), var(--fire-to));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: fadeDown 0.5s ease-out 0.7s both;
+        }
+
+        .brand-sub {
+            font-size: 0.875rem;
+            color: #4b5563;
+            max-width: 20rem;
+            line-height: 1.45;
+            animation: fadeDown 0.5s ease-out 0.8s both;
+        }
+
+        /* Right panel — form */
+        .form-pane {
+            width: 100%;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: #ffffff;
+        }
+
+        .form-inner {
+            animation: fadeUp 0.5s ease-out both;
+        }
+
+        .welcome-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .welcome-sub {
+            color: #6b7280;
+            margin-bottom: 1.75rem;
+            font-size: 0.95rem;
+        }
+
+        .google-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            color: #374151;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .google-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+        .divider {
+            position: relative;
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .divider span {
+            position: relative;
+            background: #ffffff;
+            padding: 0 0.5rem;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .field { margin-bottom: 1.25rem; }
+
+        .field label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+
+        .field label .req { color: var(--fire-from); }
+
+        .input-wrap { position: relative; }
+
+        .field input {
+            display: flex;
+            height: 2.5rem;
+            width: 100%;
+            border-radius: 0.375rem;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            color: #1f2937;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .field input::placeholder { color: #9ca3af; }
+
+        .field input:focus {
+            border-color: var(--fire-from);
+            box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.18);
+            background: #ffffff;
+        }
+
+        #password { padding-right: 2.5rem; }
+
+        .toggle-password {
+            position: absolute;
+            inset: 0 0 0 auto;
+            display: flex;
+            align-items: center;
+            padding-right: 0.75rem;
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        .toggle-password:hover { color: #374151; }
+
+        .error-message {
+            display: none;
+            padding: 0.625rem 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.825rem;
+            background: rgba(239, 68, 68, 0.08);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .error-message.show { display: block; }
+
+        .submit-btn {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: linear-gradient(90deg, var(--fire-from), var(--fire-to));
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.65rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: linear-gradient(90deg, var(--fire-hover-from), var(--fire-hover-to));
+            box-shadow: 0 10px 15px -3px var(--fire-glow);
+            transform: scale(1.01);
+        }
+
+        .submit-btn:active:not(:disabled) { transform: scale(0.98); }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .submit-btn .shimmer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -100%;
+            width: 5rem;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            filter: blur(6px);
+            pointer-events: none;
+        }
+
+        .submit-btn:hover .shimmer {
+            animation: shimmerSweep 1s ease-in-out infinite;
+        }
+
+        @keyframes shimmerSweep {
+            from { left: -100%; }
+            to { left: 120%; }
+        }
+
+        .forgot-row {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .forgot-row a {
+            color: var(--fire-to);
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .forgot-row a:hover { color: var(--fire-hover-to); text-decoration: underline; }
+    </style>
 </head>
 
 <body>
-    <video class="login-video" autoplay muted loop playsinline>
-        <source src="/static/login-bg.mp4" type="video/mp4">
-    </video>
-    <div class="video-overlay"></div>
-
-    <div class="auth-background">
-        <div class="gradient-orb orb-1"></div>
-        <div class="gradient-orb orb-2"></div>
-        <div class="gradient-orb orb-3"></div>
-    </div>
-
-    <div class="auth-container">
-
-        <div class="auth-card">
-            <div class="auth-header">
-                <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo" class="auth-logo">
-                <h1>Inferth Mapping</h1>
-                <p>Fleet Tracking Platform</p>
-            </div>
-
-            <form id="login-form" class="auth-form">
-                <div class="form-group">
-                    <label for="email">
-                        <i class="fas fa-envelope"></i>
-                        Email Address
-                    </label>
-                    <input type="email" id="email" name="email" required placeholder="you@example.com"
-                        autocomplete="email">
+    <div class="signin-card">
+        <!-- Left side — Animated Dot Map -->
+        <div class="map-pane">
+            <canvas id="dot-map-canvas"></canvas>
+            <div class="map-overlay">
+                <div class="brand-badge">
+                    <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo">
                 </div>
-
-                <div class="form-group">
-                    <label for="password">
-                        <i class="fas fa-lock"></i>
-                        Password
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="password" name="password" required placeholder="Enter your password"
-                            autocomplete="current-password">
-                        <button type="button" class="toggle-password" id="toggle-password">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="error-message" id="error-message"></div>
-
-                <button type="submit" class="btn-primary" id="login-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Sign In
-                </button>
-            </form>
-
-            <div class="auth-footer">
-                <p>New user? Check your email for setup instructions</p>
+                <h2 class="brand-title">Inferth Mapping</h2>
+                <p class="brand-sub">Sign in to access your real-time fleet dashboard and track vehicles across the region</p>
             </div>
         </div>
 
+        <!-- Right side — Sign In Form -->
+        <div class="form-pane">
+            <div class="form-inner">
+                <h1 class="welcome-title">Welcome back</h1>
+                <p class="welcome-sub">Sign in to your account</p>
+
+                <button type="button" class="google-btn" onclick="document.getElementById('email').focus()">
+                    <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="currentColor" fill-opacity=".54" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#4285F4" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#34A853" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#FBBC05" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Login with Google</span>
+                </button>
+
+                <div class="divider"><span>or</span></div>
+
+                <form id="login-form">
+                    <div class="field">
+                        <label for="email">Email <span class="req">*</span></label>
+                        <input type="email" id="email" name="email" required placeholder="Enter your email address" autocomplete="email">
+                    </div>
+
+                    <div class="field">
+                        <label for="password">Password <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
+                            <button type="button" class="toggle-password" id="toggle-password" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="error-message" id="error-message"></div>
+
+                    <button type="submit" class="submit-btn" id="login-btn">
+                        <span>Sign in</span>
+                        <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i>
+                        <span class="shimmer"></span>
+                    </button>
+
+                    <div class="forgot-row">
+                        <a href="#">Forgot password?</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script src="auth.js"></script>
     <script>
-        // Initialize login page
         if (window.AuthManager) {
             window.AuthManager.initLoginPage();
         }
+
+        // Animated DotMap (ported from travel-connect-signin-1, fire palette)
+        (function initDotMap() {
+            const canvas = document.getElementById('dot-map-canvas');
+            if (!canvas || !canvas.parentElement) return;
+            const ctx = canvas.getContext('2d');
+
+            const routes = [
+                { start: { x: 100, y: 150, delay: 0 },   end: { x: 200, y: 80,  delay: 2 },   color: '#dc2626' },
+                { start: { x: 200, y: 80,  delay: 2 },   end: { x: 260, y: 120, delay: 4 },   color: '#dc2626' },
+                { start: { x: 50,  y: 50,  delay: 1 },   end: { x: 150, y: 180, delay: 3 },   color: '#ea580c' },
+                { start: { x: 280, y: 60,  delay: 0.5 }, end: { x: 180, y: 180, delay: 2.5 }, color: '#ff5a00' }
+            ];
+
+            let width = 0, height = 0, dots = [];
+
+            function generateDots(w, h) {
+                const out = [];
+                const gap = 12;
+                for (let x = 0; x < w; x += gap) {
+                    for (let y = 0; y < h; y += gap) {
+                        const isInMapShape =
+                            ((x < w * 0.25 && x > w * 0.05) && (y < h * 0.4  && y > h * 0.1))  ||
+                            ((x < w * 0.25 && x > w * 0.15) && (y < h * 0.8  && y > h * 0.4))  ||
+                            ((x < w * 0.45 && x > w * 0.3)  && (y < h * 0.35 && y > h * 0.15)) ||
+                            ((x < w * 0.5  && x > w * 0.35) && (y < h * 0.65 && y > h * 0.35)) ||
+                            ((x < w * 0.7  && x > w * 0.45) && (y < h * 0.5  && y > h * 0.1))  ||
+                            ((x < w * 0.8  && x > w * 0.65) && (y < h * 0.8  && y > h * 0.6));
+                        if (isInMapShape && Math.random() > 0.3) {
+                            out.push({ x, y, radius: 1, opacity: Math.random() * 0.5 + 0.2 });
+                        }
+                    }
+                }
+                return out;
+            }
+
+            const ro = new ResizeObserver(entries => {
+                const rect = entries[0].contentRect;
+                width = rect.width;
+                height = rect.height;
+                canvas.width = width;
+                canvas.height = height;
+                dots = generateDots(width, height);
+            });
+            ro.observe(canvas.parentElement);
+
+            let startTime = Date.now();
+            function animate() {
+                if (width && height) {
+                    ctx.clearRect(0, 0, width, height);
+                    for (let i = 0; i < dots.length; i++) {
+                        const d = dots[i];
+                        ctx.beginPath();
+                        ctx.arc(d.x, d.y, d.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(234, 88, 12, ${d.opacity})`;
+                        ctx.fill();
+                    }
+
+                    const currentTime = (Date.now() - startTime) / 1000;
+                    for (let i = 0; i < routes.length; i++) {
+                        const route = routes[i];
+                        const elapsed = currentTime - route.start.delay;
+                        if (elapsed <= 0) continue;
+                        const progress = Math.min(elapsed / 3, 1);
+                        const x = route.start.x + (route.end.x - route.start.x) * progress;
+                        const y = route.start.y + (route.end.y - route.start.y) * progress;
+
+                        ctx.beginPath();
+                        ctx.moveTo(route.start.x, route.start.y);
+                        ctx.lineTo(x, y);
+                        ctx.strokeStyle = route.color;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(route.start.x, route.start.y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = route.color;
+                        ctx.fill();
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ff5a00';
+                        ctx.fill();
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 6, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 90, 0, 0.4)';
+                        ctx.fill();
+
+                        if (progress === 1) {
+                            ctx.beginPath();
+                            ctx.arc(route.end.x, route.end.y, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = route.color;
+                            ctx.fill();
+                        }
+                    }
+
+                    if (currentTime > 15) startTime = Date.now();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
     </script>
 </body>
 
