@@ -2161,6 +2161,17 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             }
         });
 
+        // Persist tracker telemetry too (satellites/hdop/state/geofence/signal)
+        // so the detail panel can read them from obdDataMap
+        const trackerFields = ['satellites', 'hdop', 'age', 'state', 'geofence_violation_state', 'geofence_id',
+            'battery_percentage', 'vbatt', 'fuel_level', 'signal_quality', 'operator_name', 'ip_address',
+            'is_engine_locked', 'time_from', 'time_to'];
+        trackerFields.forEach(field => {
+            if (rawData[field] !== undefined) {
+                obdData[field] = rawData[field];
+            }
+        });
+
         // Update global persistence map
         obdDataMap[id] = obdData;
 
@@ -2369,6 +2380,50 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     }
 
+    // Tracker hardware telemetry — per-row fields (satellites/hdop/state/geofence)
+    // live in `raw`; modem envelope fields (signal/operator/engine lock) live in
+    // device_metadata. Merge all three so both REST loads and live WS updates render.
+    const trackerVehicle = Array.isArray(allVehicles) ? allVehicles.find(v => v.id === id || (imei && v.imei === imei)) : null;
+    const tracker = { ...((trackerVehicle && trackerVehicle.device_metadata) || {}), ...(obdData || {}), ...(rawData || {}) };
+    const trackerRows = [];
+    if (tracker.is_engine_locked !== undefined) {
+        trackerRows.push(tracker.is_engine_locked
+            ? `<div style="font-size:0.85em; color:#ff9800; font-weight:bold;"><i class="fas fa-lock"></i> Engine Locked</div>`
+            : `<div style="font-size:0.85em; color:#9e9e9e;"><i class="fas fa-lock-open"></i> Engine Unlocked</div>`);
+    }
+    if (tracker.state) {
+        trackerRows.push(`<div style="font-size:0.85em; color:#03a9f4;"><i class="fas fa-microchip"></i> Tracker: ${String(tracker.state).replace(/_/g, ' ')}</div>`);
+    }
+    if (tracker.satellites !== undefined || tracker.hdop !== undefined) {
+        const gpsParts = [];
+        if (tracker.satellites !== undefined) gpsParts.push(`${tracker.satellites} sats`);
+        if (tracker.hdop !== undefined) gpsParts.push(`HDOP ${tracker.hdop}`);
+        if (tracker.age !== undefined && tracker.age !== null) gpsParts.push(`fix ${tracker.age}s old`);
+        trackerRows.push(`<div style="font-size:0.85em; color:#4caf50;"><i class="fas fa-satellite"></i> ${gpsParts.join(' · ')}</div>`);
+    }
+    if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) {
+        trackerRows.push(`<div style="font-size:0.85em; color:#00bcd4;"><i class="fas fa-signal"></i> GSM: ${tracker.signal_quality}/31</div>`);
+    }
+    if (tracker.operator_name) {
+        trackerRows.push(`<div style="font-size:0.85em; color:#8bc34a;"><i class="fas fa-broadcast-tower"></i> ${tracker.operator_name}</div>`);
+    }
+    const battParts = [];
+    if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V ext`);
+    if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}% int`);
+    if (battParts.length) trackerRows.push(`<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
+    if (tracker.fuel_level !== undefined && tracker.fuel_level !== null) {
+        trackerRows.push(`<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${tracker.fuel_level}</div>`);
+    }
+    if (tracker.geofence_violation_state) {
+        const gs = String(tracker.geofence_violation_state);
+        const noFence = gs === 'INVALID_POLYGON' || gs === 'NO_POLYGON';
+        const isViolation = !noFence && /VIOLATION|OUTSIDE|BREACH/i.test(gs);
+        trackerRows.push(`<div style="font-size:0.85em; color:${isViolation ? '#ef4835' : '#9e9e9e'};"><i class="fas fa-draw-polygon"></i> Geofence: ${noFence ? 'Not configured' : gs.replace(/_/g, ' ')}</div>`);
+    }
+    const trackerHtml = trackerRows.length
+        ? `<div style="margin-top:6px; padding-top:5px; border-top:1px solid #eee; text-align:left;">${trackerRows.join('')}</div>`
+        : '';
+
     const todayMileage = dailyMileageCache.get(String(id)) || 0;
 
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
@@ -2426,6 +2481,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                     ${rawData && rawData.sos ? '<br><span style="color:#ef4835; font-weight:bold; animation: pulse 1s infinite;"><i class="fas fa-sos"></i> SOS ALERT!</span>' : ''}
                 </div>
                 ${diagnosticHtml}
+                ${trackerHtml}
             </div>
             <button class="popup-history-btn" onclick="window.openHistorySearch('${id}', '${imei}')">
                 <i class="fas fa-history"></i> View History
@@ -2507,8 +2563,9 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         });
     }
 
-    // Store latest data (including ignition)
-    vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn };
+    // Store latest data (including ignition) — keep raw so the detail
+    // panel can read tracker telemetry (satellites/hdop/state/geofence)
+    vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn, raw: rawData };
 
     // Update Detail View if open
     if (selectedVehicle && selectedVehicle.id === id) {
@@ -2823,6 +2880,37 @@ function updateAssetDetailUI(id) {
     const timeDiff = Math.floor(minsAgo);
     const lastSeenEl = document.getElementById('detail-last-seen');
     if (lastSeenEl) lastSeenEl.textContent = !Number.isFinite(timeDiff) ? 'Unavailable' : (timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`);
+
+    // Tracker hardware telemetry — merge device_metadata (envelope fields),
+    // persisted telemetry cache (obdDataMap) and the latest raw row
+    const rawRow = (data && data.raw) ? data.raw : {};
+    const t = { ...meta, ...obd, ...rawRow };
+    const setDetail = (elId, text) => {
+        const el = document.getElementById(elId);
+        if (el) { el.textContent = text; el.style = greyStyle; }
+    };
+
+    setDetail('detail-tracker-state', t.state ? String(t.state).replace(/_/g, ' ') : '--');
+    const gpsParts = [];
+    if (t.satellites !== undefined) gpsParts.push(`${t.satellites} sats`);
+    if (t.hdop !== undefined) gpsParts.push(`HDOP ${t.hdop}`);
+    setDetail('detail-gpsfix', gpsParts.length ? gpsParts.join(' · ') : '--');
+    setDetail('detail-gsignal', (t.signal_quality !== undefined && t.signal_quality !== null) ? `${t.signal_quality}/31` : '--');
+    setDetail('detail-operator', t.operator_name || '--');
+    const vbattParts = [];
+    if (t.vbatt !== undefined && t.vbatt !== null) vbattParts.push(`${Number(t.vbatt).toFixed(1)}V`);
+    if (t.battery_percentage !== undefined && t.battery_percentage !== null) vbattParts.push(`${t.battery_percentage}%`);
+    setDetail('detail-vbatt', vbattParts.length ? vbattParts.join(' · ') : '--');
+    setDetail('detail-fuel', (t.fuel_level !== undefined && t.fuel_level !== null) ? `${t.fuel_level}` : '--');
+    const lockedState = t.is_engine_locked !== undefined ? t.is_engine_locked : (isShutdown ? true : undefined);
+    setDetail('detail-engine-lock', lockedState === undefined ? '--' : (lockedState ? 'Locked' : 'Unlocked'));
+    if (t.geofence_violation_state) {
+        const gs = String(t.geofence_violation_state);
+        const noFence = gs === 'INVALID_POLYGON' || gs === 'NO_POLYGON';
+        setDetail('detail-geofence', noFence ? 'Not configured' : gs.replace(/_/g, ' '));
+    } else {
+        setDetail('detail-geofence', '--');
+    }
 
     // 5. Vehicle Overview: Total Mileage
     const mileageEl = document.getElementById('detail-mileage');
@@ -3546,7 +3634,12 @@ function connectWebSocket() {
 
                     // MERGE OBD Data
                     const existingObd = (m && m.obdData) ? m.obdData : {};
-                    const incomingObd = data.raw || {};
+                    const incomingObd = { ...(data.raw || {}) };
+                    // Envelope-level tracker fields are broadcast top-level,
+                    // not inside the per-row raw payload
+                    ['signal_quality', 'operator_name', 'ip_address', 'is_engine_locked'].forEach(f => {
+                        if (data[f] !== undefined && data[f] !== null) incomingObd[f] = data[f];
+                    });
                     const obdData = { ...existingObd, ...incomingObd };
 
                     console.log('📡 Engine Data Sync:', data.imei, {
