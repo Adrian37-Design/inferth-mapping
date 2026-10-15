@@ -30,6 +30,20 @@ def _iso_utc(dt):
     return dt.isoformat()
 
 
+def _is_coarse_lbs_row(raw) -> bool:
+    """True when Xcela R19 firmware encoded a coarse cell-tower LBS fallback
+    (satellites >= 200) or an unfixed/zero-satellite row (satellites == 0).
+    In R19 (GPS.ino:2846), `sendSatellites = 200 + reportedSatellites` marks
+    AT+CLBS cell-tower coordinates which can be 500m-8km off the true GPS spot."""
+    if not isinstance(raw, dict) or "satellites" not in raw:
+        return False
+    try:
+        sats = int(raw.get("satellites") or 0)
+        return sats == 0 or sats >= 200
+    except (ValueError, TypeError):
+        return False
+
+
 @router.post("/", response_model=PositionOut)
 async def create_position(payload: PositionCreate, db: AsyncSession = Depends(get_db)):
     # find device by IMEI
@@ -253,20 +267,46 @@ async def get_fleet_snapshot(
     
     result = await db.execute(query)
     positions = result.scalars().all()
-    
-    return [
-        {
+
+    out = []
+    for p in positions:
+        lat = p.latitude
+        lon = p.longitude
+        course = p.course
+        # If the latest row is a coarse cell-tower LBS fallback (satellites >= 200
+        # or 0), pin the map coordinates to the device's most recent real GNSS
+        # satellite fix so the marker never jumps to a cell tower on the highway.
+        if _is_coarse_lbs_row(p.raw):
+            recent_q = await db.execute(
+                select(Position)
+                .where(
+                    Position.device_id == p.device_id,
+                    Position.latitude.is_not(None),
+                    Position.longitude.is_not(None),
+                    Position.latitude != 0.0,
+                    Position.longitude != 0.0
+                )
+                .order_by(Position.timestamp.desc())
+                .limit(50)
+            )
+            for cand in recent_q.scalars().all():
+                if not _is_coarse_lbs_row(cand.raw):
+                    lat = cand.latitude
+                    lon = cand.longitude
+                    course = cand.course
+                    break
+
+        out.append({
             "id": p.id,
             "device_id": p.device_id,
-            "latitude": p.latitude,
-            "longitude": p.longitude,
+            "latitude": lat,
+            "longitude": lon,
             "speed": min(max(0.0, p.speed or 0.0), 200.0),
             "timestamp": _iso_utc(p.timestamp),
-            "course": p.course,
+            "course": course,
             "raw": p.raw
-        }
-        for p in positions
-    ]
+        })
+    return out
 
 @router.get("/")
 async def list_positions(
@@ -346,6 +386,13 @@ async def get_device_route(
     
     result = await db.execute(query)
     positions = result.scalars().all()
+
+    # Exclude coarse cell-tower LBS fallback rows (satellites >= 200 or 0) when
+    # real GNSS fixes exist in the window — cell-tower triangulation jumps 1-8km
+    # to nearby base stations and creates false trips/locations.
+    gnss_positions = [p for p in positions if not _is_coarse_lbs_row(p.raw)]
+    if gnss_positions:
+        positions = gnss_positions
     
     # Calculate route with distance and apply velocity jump / deduplication guardrail
     route_points = []

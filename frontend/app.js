@@ -94,6 +94,25 @@ function formatOperatorName(op) {
     return map[s] || s;
 }
 
+// Decode Xcela R19 satellite encoding (GPS.ino:637, 2846):
+// - 200+N = LBS cell-tower fallback while N satellites visible
+// - 100+N = low-confidence/poor GPS fix with N satellites
+// - 0..99 = direct GNSS satellite count
+function formatSatellitesLabel(rawSats) {
+    if (rawSats === undefined || rawSats === null) return '--';
+    const n = Number(rawSats);
+    if (!Number.isFinite(n)) return '--';
+    if (n >= 200) {
+        const actual = Math.max(0, n - 200);
+        return `${actual} sats (LBS)`;
+    }
+    if (n >= 100) {
+        const actual = Math.max(0, n - 100);
+        return `${actual} sats (weak)`;
+    }
+    return `${n} sats`;
+}
+
 function formatDurationMins(mins) {
     const m = Math.max(1, Math.round(Number(mins) || 0));
     if (m < 60) return `${m} min`;
@@ -2511,7 +2530,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (tracker.operator_name) netParts.push(formatOperatorName(tracker.operator_name));
     if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) netParts.push(`${tracker.signal_quality}/31`);
     const netDisplay = netParts.length ? netParts.join(' · ') : '--';
-    const satsDisplay = tracker.satellites !== undefined ? `${tracker.satellites} sats` : '--';
+    const satsDisplay = formatSatellitesLabel(tracker.satellites);
 
     const gs = tracker.geofence_violation_state ? String(tracker.geofence_violation_state) : '';
     const isGeofenceBreach = Boolean(gs && !['NO_VIOLATION', 'INVALID_POLYGON', 'NO_POLYGON', 'INSIDE'].includes(gs.toUpperCase()) && /VIOLATION|OUTSIDE|BREACH/i.test(gs));
@@ -2974,8 +2993,8 @@ function updateAssetDetailUI(id) {
     };
 
     const gpsParts = [];
-    if (t.satellites !== undefined) gpsParts.push(`${t.satellites} sats`);
-    if (t.hdop !== undefined) gpsParts.push(`HDOP ${t.hdop}`);
+    if (t.satellites !== undefined) gpsParts.push(formatSatellitesLabel(t.satellites));
+    if (t.hdop !== undefined && Number(t.satellites) < 200) gpsParts.push(`HDOP ${t.hdop}`);
     setDetail('detail-gpsfix', gpsParts.length ? gpsParts.join(' · ') : '--');
     setDetail('detail-gsignal', (t.signal_quality !== undefined && t.signal_quality !== null) ? `${t.signal_quality}/31` : '--');
     setDetail('detail-operator', formatOperatorName(t.operator_name) || '--');
@@ -3806,6 +3825,24 @@ function connectWebSocket() {
                         if (data[f] !== undefined && data[f] !== null) incomingObd[f] = data[f];
                     });
                     const obdData = { ...existingObd, ...incomingObd };
+
+                    // LBS cell-tower guard: in Xcela R19 (GPS.ino:2846),
+                    // satellites >= 200 (or 0) indicates a coarse AT+CLBS
+                    // cell-tower fallback coordinate. Never let a cell-tower
+                    // fallback pull an existing marker away from its real GPS fix.
+                    const rawSatsNum = Number(incomingObd.satellites);
+                    if (m && Number.isFinite(rawSatsNum) && (rawSatsNum === 0 || rawSatsNum >= 200)) {
+                        try {
+                            if (typeof m.getLatLng === 'function') {
+                                const ll = m.getLatLng();
+                                lat = ll.lat;
+                                lng = ll.lng;
+                            } else if (m._latlng) {
+                                lat = m._latlng.lat;
+                                lng = m._latlng.lng;
+                            }
+                        } catch (e) {}
+                    }
 
                     console.log('📡 Engine Data Sync:', data.imei, {
                         rpm: obdData.rpm,

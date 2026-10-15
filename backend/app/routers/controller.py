@@ -182,6 +182,44 @@ async def upsert_tracking_data(
         # 2. Speed clamping
         clean_speed = validate_and_sanitize_speed(row.get("speed", 0.0))
 
+        # 2b. R19 LBS / no-fix coordinate guard:
+        # In GPS.ino:2846, `satellites = 200 + reportedSatellites` marks an
+        # AT+CLBS cell-tower fallback coordinate (and `satellites == 0` marks
+        # no GNSS fix). Cell-tower coordinates in Harare jump 500m-8km to the
+        # serving base station (e.g. Joshua Nkomo Rd / Harare CBD). If the
+        # device already has a trusted GNSS fix (1 <= satellites < 200), pin
+        # lat/lon to that last real GNSS coordinate while still recording the
+        # fresh telemetry & heartbeat.
+        try:
+            raw_sats = int(row.get("satellites") if row.get("satellites") is not None else -1)
+        except (ValueError, TypeError):
+            raw_sats = -1
+        is_coarse_lbs = (raw_sats == 0 or raw_sats >= 200)
+        if is_coarse_lbs:
+            gnss_q = await db.execute(
+                select(Position)
+                .where(
+                    Position.device_id == device.id,
+                    Position.latitude.is_not(None),
+                    Position.longitude.is_not(None),
+                    Position.latitude != 0.0,
+                    Position.longitude != 0.0
+                )
+                .order_by(Position.timestamp.desc())
+                .limit(50)
+            )
+            for cand in gnss_q.scalars().all():
+                cand_raw = cand.raw if isinstance(cand.raw, dict) else {}
+                try:
+                    c_sats = int(cand_raw.get("satellites") if cand_raw.get("satellites") is not None else 8)
+                except (ValueError, TypeError):
+                    c_sats = 8
+                if 1 <= c_sats < 200:
+                    clean_lat = cand.latitude
+                    clean_lon = cand.longitude
+                    clean_speed = 0.0
+                    break
+
         # 3. Timestamp validation
         dt_cand = parse_xcela_timestamp(row.get("time_to") or row.get("time_from"))
         timestamp = validate_timestamp(dt_cand, fallback_now=now)
