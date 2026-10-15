@@ -384,8 +384,9 @@ async def get_commands(
         res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
         device = res.scalars().first()
 
-    if device and device.device_metadata:
-        meta = dict(device.device_metadata)
+    if device:
+        now = datetime.utcnow()
+        meta = dict(device.device_metadata or {})
         pending = meta.get("pending_command")
         if pending:
             if pending in ["SHUTDOWN", "SLEEP", "LOCK"]:
@@ -394,7 +395,46 @@ async def get_commands(
                 commands_to_send.append({"code": "ENGINE_UN_LOCK"})
             # Clear pending once delivered
             meta.pop("pending_command", None)
-            device.device_metadata = meta
+        meta["last_seen"] = now.isoformat() + "Z"
+        device.device_metadata = meta
+
+        # Stationary trackers skip /upsert for up to 6 min but poll /get-commands
+        # every 60s. Refresh latest position timestamp and broadcast a heartbeat
+        # so the platform knows the device is plugged in, and can mark it Offline
+        # within ~90s as soon as it is unplugged.
+        latest_q = await db.execute(
+            select(Position)
+            .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None))
+            .order_by(Position.timestamp.desc())
+            .limit(1)
+        )
+        latest_pos = latest_q.scalars().first()
+        if latest_pos:
+            latest_pos.timestamp = now
+            await db.commit()
+            try:
+                await publish_position({
+                    "device_id": device.id,
+                    "imei": device.imei,
+                    "name": device.name,
+                    "latitude": latest_pos.latitude,
+                    "longitude": latest_pos.longitude,
+                    "speed": latest_pos.speed or 0.0,
+                    "altitude": latest_pos.altitude,
+                    "course": latest_pos.course,
+                    "fuel_level": latest_pos.fuel_level,
+                    "battery_voltage": latest_pos.battery_voltage,
+                    "ignition": latest_pos.ignition,
+                    "is_engine_locked": meta.get("is_engine_locked"),
+                    "signal_quality": meta.get("signal_quality"),
+                    "operator_name": meta.get("operator_name"),
+                    "ip_address": meta.get("ip_address"),
+                    "raw": latest_pos.raw or {},
+                    "timestamp": now.isoformat() + "Z"
+                })
+            except Exception:
+                pass
+        else:
             await db.commit()
 
     return {

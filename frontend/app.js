@@ -81,6 +81,11 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 window.haversineDistanceKm = haversineDistanceKm;
 
 let fleetFilterFrame = null;
+// Offline threshold in minutes: plugged-in trackers heartbeat at least every
+// 20-60s (via /upsert or /get-commands). 1.5 min (90s) marks unplugged devices
+// Offline promptly without false-alarming between stationary command polls.
+const OFFLINE_THRESHOLD_MINS = 1.5;
+const dailyMileageFetchedAt = new Map();
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
@@ -237,8 +242,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Silent background auto-refresh every 30 seconds
-    // Keeps KPIs, status badges and "Last Seen" timers accurate without a page reload
+    // Continuous local status tick every 5 seconds (zero network traffic, zero flicker):
+    // Re-evaluates timestamp age in place so unplugging a tracker smoothly flips
+    // its marker, popup, sidebar card, KPIs and detail panel from Stationary -> Offline
+    // as soon as OFFLINE_THRESHOLD_MINS elapses — without pressing Refresh.
+    setInterval(() => {
+        try {
+            Object.keys(vehiclePositions).forEach(id => {
+                const pos = vehiclePositions[id];
+                if (!pos) return;
+                const m = markers[id];
+                const vObj = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id)) : null;
+                const vName = m && m.vehicleName ? m.vehicleName : (vObj ? vObj.name : '');
+                const vImei = m && m.vehicleIMEI ? m.vehicleIMEI : (vObj ? vObj.imei : '');
+                addOrUpdateMarker(vObj ? vObj.id : id, vName, vImei, pos.lat, pos.lng, pos.speed, pos.timestamp, pos.raw || (m && m.obdData) || null);
+            });
+            if (allVehicles.length > 0) updateDashboardKPIs(allVehicles);
+            if (selectedVehicle) updateAssetDetailUI(selectedVehicle.id);
+        } catch (e) { /* silent */ }
+    }, 5000);
+
+    // Silent background snapshot sync every 10 seconds
     setInterval(async () => {
         try {
             const resp = await window.AuthManager.fetchAPI('/positions/snapshot');
@@ -270,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedVehicle) updateAssetDetailUI(selectedVehicle.id);
 
         } catch (e) { /* silent — don't disrupt user if network blips */ }
-    }, 30000);
+    }, 10000);
 
     // Tab Switching Logic
     setupTabs();
@@ -1974,7 +1998,7 @@ function updateDashboardKPIs(vehicles) {
     let offline = 0;
     let alertsCount = (typeof alerts !== 'undefined' && alerts) ? alerts.filter(a => !a.read).length : 0;
 
-    const OFFLINE_MINS = 10;
+    const OFFLINE_MINS = OFFLINE_THRESHOLD_MINS;
     vehicles.forEach(v => {
         // Find marker or position data
         const marker = markers[v.id];
@@ -2236,7 +2260,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // but keep "Moving" until we've seen ~30s of consecutive low speed.
     const hardwareMoving = Boolean(rawData && String(rawData.state || '').toUpperCase() === 'MOVING');
     let assetStatus = 'Offline';
-    if (minsOffline < 10) {
+    if (minsOffline < OFFLINE_THRESHOLD_MINS) {
         if (speed > 3 || hardwareMoving) {
             assetStatus = 'Moving';
             if (marker) marker.stationarySince = null;
@@ -2266,8 +2290,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         ignitionOn = false;
     }
 
-    const ignitionLabel = assetStatus === 'Offline' ? 'Off (Offline)' : (ignitionOn ? '🔑 On' : '⚫ Off');
-    const ignitionColor = ignitionOn ? '#00ff88' : '#aaa';
+    const ignitionLabel = assetStatus === 'Offline' ? 'Offline' : (ignitionOn ? 'On' : 'Off');
+    const ignitionColor = ignitionOn ? '#10b981' : '#64748b';
     
     // 1. Update Map Marker with smooth animation
     const icon = L.divIcon({
@@ -2335,17 +2359,19 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             }
         }
 
-        // Update marker content without recreating
+        // Update marker content without recreating or dirtying unchanged DOM
         const markerEl = document.getElementById(`marker-${imei}`);
         if (markerEl) {
-            markerEl.className = `vehicle-marker ${assetStatus.toLowerCase()}-marker`;
+            const nextMarkerClass = `vehicle-marker ${assetStatus.toLowerCase()}-marker`;
+            if (markerEl.className !== nextMarkerClass) markerEl.className = nextMarkerClass;
             const speedLabel = markerEl.querySelector('.speed-label');
-            if (speedLabel) speedLabel.textContent = `${Math.round(speed || 0)} km/h`;
+            const nextSpeedText = `${Math.round(speed || 0)} km/h`;
+            if (speedLabel && speedLabel.textContent !== nextSpeedText) speedLabel.textContent = nextSpeedText;
         }
 
-        // Ensure popup is bound (for markers created before smooth animation fix)
+        // Ensure popup is bound (disable autoPan on live content updates so map doesn't jump)
         if (!marker.getPopup()) {
-            if (typeof marker.bindPopup === 'function') marker.bindPopup('');
+            if (typeof marker.bindPopup === 'function') marker.bindPopup('', { autoPan: false });
         }
     } else if (!marker && hasValidCoords) {
         // Create new marker only when we have real coordinates —
@@ -2353,7 +2379,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         marker = L.marker([lat, lng], { icon: icon });
         
         // Set up popup and click listener immediately
-        if (typeof marker.bindPopup === 'function') marker.bindPopup('');
+        if (typeof marker.bindPopup === 'function') marker.bindPopup('', { autoPan: false });
         if (typeof marker.on === 'function') {
             marker.on('click', () => {
                 const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; 
@@ -2400,176 +2426,193 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Tracker hardware telemetry — per-row fields (satellites/hdop/state/geofence)
     // live in `raw`; modem envelope fields (signal/operator/engine lock) live in
     // device_metadata. Merge all three so both REST loads and live WS updates render.
-    const trackerVehicle = Array.isArray(allVehicles) ? allVehicles.find(v => v.id === id || (imei && v.imei === imei)) : null;
+    const trackerVehicle = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id) || (imei && v.imei === imei)) : null;
     const tracker = { ...((trackerVehicle && trackerVehicle.device_metadata) || {}), ...(obdData || {}), ...(rawData || {}) };
-    const trackerRows = [];
-    if (tracker.is_engine_locked !== undefined) {
-        trackerRows.push(tracker.is_engine_locked
-            ? `<div style="font-size:0.85em; font-weight:bold;"><i class="fas fa-lock"></i> Engine Locked</div>`
-            : `<div style="font-size:0.85em;"><i class="fas fa-lock-open"></i> Engine Unlocked</div>`);
-    }
-    if (tracker.satellites !== undefined) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-satellite"></i> ${tracker.satellites} sats</div>`);
-    }
-    if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-signal"></i> GSM: ${tracker.signal_quality}/31</div>`);
-    }
-    if (tracker.operator_name) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-broadcast-tower"></i> ${tracker.operator_name}</div>`);
-    }
-    const battParts = [];
-    if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V ext`);
-    if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}% int`);
-    if (battParts.length) trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
-    // Fuel in litres — fuel_volume is the true computed litres; fuel_level
-    // is the scaled product, kept as fallback for older firmware rows
-    const fuelLitres = (tracker.fuel_volume !== undefined && tracker.fuel_volume !== null)
-        ? tracker.fuel_volume : tracker.fuel_level;
-    if (fuelLitres !== undefined && fuelLitres !== null) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> Fuel Level: ${Math.round(fuelLitres)}L</div>`);
-    }
-    if (tracker.geofence_violation_state) {
-        const gs = String(tracker.geofence_violation_state);
-        const noFence = gs === 'INVALID_POLYGON' || gs === 'NO_POLYGON';
-        const isViolation = !noFence && /VIOLATION|OUTSIDE|BREACH/i.test(gs);
-        trackerRows.push(`<div style="font-size:0.85em;${isViolation ? ' font-weight:bold;' : ''}"><i class="fas fa-draw-polygon"></i> Geofence: ${noFence ? 'Not configured' : gs.replace(/_/g, ' ')}</div>`);
-    }
-    const trackerHtml = trackerRows.length
-        ? `<div style="margin-top:6px; padding-top:5px; border-top:1px solid #eee; text-align:left;">${trackerRows.join('')}</div>`
-        : '';
 
     const todayMileage = dailyMileageCache.get(String(id)) || 0;
-
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
     const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
 
-    // FIX: Show contextual location label depending on online/offline state
     const isOffline = assetStatus === 'Offline';
-    const addrLabel = isOffline
-        ? (cachedAddr ? `Last Known: ${cachedAddr}` : 'Last Known Location')
-        : (cachedAddr || 'Loading location...');
-    const initialAddr = addrLabel;
+    const initialAddr = cachedAddr || ((lat && lng) ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'Location unavailable');
 
-    // Calculate offline duration (Invalid Date is truthy — must check isNaN
-    // explicitly or NaN propagates into the "Xm ago" label)
     const lastSeenDate = parseTimestamp(timestamp);
     const lastSeenValid = lastSeenDate && !isNaN(lastSeenDate.getTime());
     const offlineDiffMs = lastSeenValid ? Math.max(0, Date.now() - lastSeenDate.getTime()) : 0;
+    const offlineDiffSecs = Math.floor(offlineDiffMs / 1000);
     const offlineDiffMins = Math.floor(offlineDiffMs / 60000);
     const offlineDiffHrs = Math.floor(offlineDiffMins / 60);
     const offlineDiffDays = Math.floor(offlineDiffHrs / 24);
 
-    // FIX: Show last-seen time for offline trackers instead of misleading "Today: 0 km"
-    const lastSeenStr = (() => {
-        if (!isOffline) return `<i class="fas fa-route"></i> Today: ${todayMileage} km`;
-        let ago = !lastSeenValid ? 'unknown'
-                : offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
-                : offlineDiffHrs > 0 ? `${offlineDiffHrs}h ago`
-                : `${offlineDiffMins}m ago`;
-        return `<i class="fas fa-clock"></i> Last seen: ${ago}`;
-    })();
+    const updatedAgoLabel = !lastSeenValid ? 'Unavailable'
+        : offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
+        : offlineDiffHrs > 0 ? `${offlineDiffHrs}h ago`
+        : offlineDiffMins > 0 ? `${offlineDiffMins}m ago`
+        : offlineDiffSecs > 15 ? `${offlineDiffSecs}s ago`
+        : 'Just now';
+
+    const statusBadgeColors = {
+        Moving: { bg: '#dcfce7', fg: '#15803d', dot: '#16a34a' },
+        Stationary: { bg: '#e0f2fe', fg: '#0369a1', dot: '#0284c7' },
+        Offline: { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' }
+    };
+    const sb = statusBadgeColors[assetStatus] || statusBadgeColors.Offline;
+
+    const fuelLitres = (tracker.fuel_volume !== undefined && tracker.fuel_volume !== null)
+        ? tracker.fuel_volume : tracker.fuel_level;
+    const fuelDisplay = (fuelLitres !== undefined && fuelLitres !== null) ? `${Math.round(fuelLitres)} L` : '--';
+
+    const battParts = [];
+    if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V`);
+    if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}%`);
+    const battDisplay = battParts.length ? battParts.join(' · ') : '--';
+
+    const engineDisplay = tracker.is_engine_locked === undefined ? 'Unlocked' : (tracker.is_engine_locked ? 'Locked' : 'Unlocked');
+    const netParts = [];
+    if (tracker.operator_name) netParts.push(String(tracker.operator_name));
+    if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) netParts.push(`${tracker.signal_quality}/31`);
+    const netDisplay = netParts.length ? netParts.join(' · ') : '--';
+    const satsDisplay = tracker.satellites !== undefined ? `${tracker.satellites} sats` : '--';
+
+    const gs = tracker.geofence_violation_state ? String(tracker.geofence_violation_state) : '';
+    const isGeofenceBreach = Boolean(gs && !['NO_VIOLATION', 'INVALID_POLYGON', 'NO_POLYGON', 'INSIDE'].includes(gs.toUpperCase()) && /VIOLATION|OUTSIDE|BREACH/i.test(gs));
 
     const popupContentStr = `
-        <div style="text-align:center; min-width: 150px;">
-            <strong>${resolvedName || imei}</strong><br>
-            <span style="color:#aaa; font-size:0.8em;">${imei}</span><br>
-            <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-            <div style="margin-bottom: 8px; color: ${isOffline ? '#aaa' : 'var(--primary)'}; font-weight: 600; font-size: 0.95em;">
-                <i class="fas fa-map-marker-alt"></i> 
-                <span id="popup-addr-${imei}">${initialAddr}</span>
-            </div>
-            <div style="font-size: 0.9em; line-height: 1.4;">
-                <div style="color: ${isOffline ? '#888' : '#ff9800'}; font-weight: bold; margin-bottom: 4px;">
-                    ${lastSeenStr}
+        <div class="pro-popup">
+            <div class="pro-popup-header">
+                <div class="pro-popup-title-wrap">
+                    <div class="pro-popup-title">${escapeHTML(resolvedName || imei)}</div>
+                    <div class="pro-popup-sub">IMEI ${escapeHTML(imei)} · ${updatedAgoLabel}</div>
                 </div>
-                ${(isOffline && offlineDiffDays >= 1) ? `
-                <div style="background: rgba(255, 77, 77, 0.12); border: 1px solid rgba(255, 77, 77, 0.35); border-radius: 4px; padding: 5px 6px; margin: 6px 0; font-size: 0.8em; color: #ff6b6b; text-align: center; line-height: 1.3;">
-                    <i class="fas fa-exclamation-triangle"></i> <strong>Hardware Disconnected (${offlineDiffDays}d)</strong><br>
-                    <span style="color: #bbb; font-size: 0.9em;">Showing last recorded GPS fix. Tracker is currently not transmitting.</span>
-                </div>` : ''}
-                Speed: ${Math.round(speed || 0)} km/h<br>
-                Status: ${assetStatus}<br>
-                <div style="margin-top:4px;">
-                    <span style="color:${ignitionColor};"><i class="fas fa-key"></i> Ignition: ${ignitionLabel}</span>
-                    ${rawData && rawData.main_power_cut ? '<br><span style="color:#ef4835; font-weight:bold;"><i class="fas fa-plug"></i> MAIN POWER CUT!</span>' : ''}
-                    ${rawData && rawData.sos ? '<br><span style="color:#ef4835; font-weight:bold; animation: pulse 1s infinite;"><i class="fas fa-sos"></i> SOS ALERT!</span>' : ''}
-                </div>
-                ${diagnosticHtml}
-                ${trackerHtml}
+                <span class="pro-popup-badge" style="background:${sb.bg};color:${sb.fg};">
+                    <span class="pro-popup-dot" style="background:${sb.dot};"></span>${assetStatus}
+                </span>
             </div>
+            <div class="pro-popup-addr">
+                <i class="fas fa-location-dot"></i>
+                <span id="popup-addr-${imei}">${escapeHTML(initialAddr)}</span>
+            </div>
+            ${(rawData && (rawData.main_power_cut || rawData.sos)) || isGeofenceBreach ? `
+            <div class="pro-popup-alert">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>${rawData && rawData.sos ? 'SOS alert active' : (rawData && rawData.main_power_cut ? 'Main power disconnected' : 'Geofence breach')}</span>
+            </div>` : ''}
+            <div class="pro-popup-grid">
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Speed</span>
+                    <span class="pro-popup-val">${Math.round(speed || 0)} km/h</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Ignition</span>
+                    <span class="pro-popup-val" style="color:${ignitionColor};">${ignitionLabel}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Fuel Level</span>
+                    <span class="pro-popup-val">${fuelDisplay}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Engine</span>
+                    <span class="pro-popup-val" style="${tracker.is_engine_locked ? 'color:#dc2626;font-weight:700;' : ''}">${engineDisplay}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Battery</span>
+                    <span class="pro-popup-val">${battDisplay}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Network</span>
+                    <span class="pro-popup-val">${escapeHTML(netDisplay)}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">GPS Fix</span>
+                    <span class="pro-popup-val">${satsDisplay}</span>
+                </div>
+                <div class="pro-popup-cell">
+                    <span class="pro-popup-label">Today</span>
+                    <span class="pro-popup-val">${todayMileage} km</span>
+                </div>
+            </div>
+            ${diagnosticHtml ? `<div class="pro-popup-obd">${diagnosticHtml}</div>` : ''}
             <button class="popup-history-btn" onclick="window.openHistorySearch('${id}', '${imei}')">
-                <i class="fas fa-history"></i> View History
+                <i class="fas fa-clock-rotate-left"></i> Route History
             </button>
         </div>
     `;
 
     if (marker) {
         if (lat !== null && lat !== undefined) {
-            marker.vehicleName = resolvedName; // Cache for future updates
-            marker.ignitionOn = ignitionOn; // Save for persistence
+            marker.vehicleName = resolvedName;
+            marker.ignitionOn = ignitionOn;
         }
 
-        // Ensure visibility state matches history mode
         if (isHistoryMode && map.hasLayer(marker)) {
             if (typeof map.removeLayer === 'function') map.removeLayer(marker);
         } else if (!isHistoryMode && !map.hasLayer(marker)) {
             if (typeof marker.addTo === 'function') marker.addTo(map);
         }
 
-        // Update Metadata
         marker.vehicleIMEI = imei;
         marker.vehicleId = id;
         marker.isOffline = assetStatus === 'Offline';
-        marker.resolvedStatus = assetStatus; // Persist resolved status for card/detail sync
-        marker.obdData = obdData; // Attach OBD Data for Reports
+        marker.resolvedStatus = assetStatus;
+        marker.obdData = obdData;
 
-        // Update Popup Content — setPopupContent alone doesn't re-render an
-        // already-open popup in Leaflet, so force an update when it's showing
-        if (typeof marker.setPopupContent === 'function') {
-            marker.setPopupContent(popupContentStr);
+        // Glitch-free popup update: only touch the DOM when HTML actually changed,
+        // and mutate the open popup's content node directly without calling
+        // popup.update() (which recalculates layout and makes the popup jump).
+        if (marker._lastPopupHtml !== popupContentStr) {
+            marker._lastPopupHtml = popupContentStr;
             const popup = marker.getPopup && marker.getPopup();
-            if (popup && typeof popup.isOpen === 'function' && popup.isOpen()) {
-                popup.update();
+            const isOpen = popup && typeof popup.isOpen === 'function' && popup.isOpen();
+            if (isOpen && popup.getElement) {
+                const contentNode = popup.getElement()?.querySelector('.leaflet-popup-content');
+                if (contentNode) {
+                    contentNode.innerHTML = popupContentStr;
+                } else if (typeof marker.setPopupContent === 'function') {
+                    marker.setPopupContent(popupContentStr);
+                }
+            } else if (typeof marker.setPopupContent === 'function') {
+                marker.setPopupContent(popupContentStr);
             }
         }
     } else {
         if (lat !== null && lat !== undefined) {
-            // Marker already created and configured in smooth animation section above
-            // Just ensure it's on the map if not in history mode
             if (!isHistoryMode && typeof marker.addTo === 'function' && !map.hasLayer(marker)) {
                 marker.addTo(map);
             }
-            
-            // Set metadata for new markers
             marker.vehicleIMEI = imei;
             marker.vehicleId = id;
             marker.isOffline = assetStatus === 'Offline';
             marker.resolvedStatus = assetStatus;
-            marker.obdData = obdData; // Attach OBD Data for Reports
-            marker.ignitionOn = ignitionOn; // Save for persistence
-            marker.vehicleName = resolvedName; // Cache for future updates
-            
-            // Set popup content for new markers
+            marker.obdData = obdData;
+            marker.ignitionOn = ignitionOn;
+            marker.vehicleName = resolvedName;
+            marker._lastPopupHtml = popupContentStr;
             if (typeof marker.setPopupContent === 'function') {
                 marker.setPopupContent(popupContentStr);
             }
         }
-        // NOTE: We no longer create a "fake" object in markers[id] if lat is null.
-        // The telemetry is now safely stored in obdDataMap[id].
     }
 
-    // Refresh Daily Mileage on Popup Open
-    if (marker && typeof marker.on === 'function') {
-        marker.off('popupopen').on('popupopen', async () => {
+    // Bind popupopen listener once per marker (never call marker.openPopup() inside
+    // popupopen — that re-triggers open animation and causes popup flicker)
+    if (marker && typeof marker.on === 'function' && !marker._mileageListenerBound) {
+        marker._mileageListenerBound = true;
+        marker.on('popupopen', async () => {
+            const key = String(id);
+            const lastFetch = dailyMileageFetchedAt.get(key) || 0;
+            if (Date.now() - lastFetch < 60000) return;
+            dailyMileageFetchedAt.set(key, Date.now());
             try {
                 const response = await window.AuthManager.fetchAPI(`/positions/analytics/device/${id}/daily`);
                 if (response.ok) {
                     const data = await response.json();
-                    dailyMileageCache.set(String(id), data.daily_mileage);
-                    
-                    // Re-render popup content with fresh mileage
-                    addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData);
-                    if (typeof marker.openPopup === 'function') marker.openPopup();
+                    if (dailyMileageCache.get(key) !== data.daily_mileage) {
+                        dailyMileageCache.set(key, data.daily_mileage);
+                        const pos = vehiclePositions[id];
+                        if (pos) {
+                            addOrUpdateMarker(id, marker.vehicleName || name, imei, pos.lat, pos.lng, pos.speed, pos.timestamp, pos.raw || rawData);
+                        }
+                    }
                 }
             } catch (e) {
                 console.warn("Failed to fetch daily mileage", e);
@@ -2613,7 +2656,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     const ignitionOn = marker ? marker.ignitionOn : false;
 
     let status, label;
-    if (!Number.isFinite(minsAgo) || minsAgo >= 10) {
+    if (!Number.isFinite(minsAgo) || minsAgo >= OFFLINE_THRESHOLD_MINS) {
         status = 'offline'; label = 'Offline';
     } else if (marker && marker.resolvedStatus) {
         // Use the resolved status computed in addOrUpdateMarker
@@ -2826,7 +2869,7 @@ function updateAssetDetailUI(id) {
 
     const parsedTs = parseTimestamp(data.timestamp);
     const minsAgo = parsedTs ? Math.max(0, (Date.now() - parsedTs.getTime()) / 60000) : NaN;
-    const isOffline = !Number.isFinite(minsAgo) || minsAgo >= 10;
+    const isOffline = !Number.isFinite(minsAgo) || minsAgo >= OFFLINE_THRESHOLD_MINS;
 
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
@@ -2942,12 +2985,16 @@ function updateAssetDetailUI(id) {
     const detailContainer = document.getElementById('tab-asset-detail');
     if (!detailContainer) return;
 
-    // 1. Remove existing dynamic panels to re-render
+    const raw = (data && data.raw) ? data.raw : (obd || {});
+    const panelSig = JSON.stringify([id, Boolean(raw.main_power_cut), Boolean(raw.sos), obd.rpm, obd.battery, obd.coolant, obd.voltage, obd.engine_load]);
+    if (detailContainer._lastPanelSig === panelSig) return;
+    detailContainer._lastPanelSig = panelSig;
+
+    // 1. Remove existing dynamic panels to re-render only when state changed
     const existingPanels = detailContainer.querySelectorAll('.diagnostic-container, .intel-alert');
     existingPanels.forEach(p => p.remove());
 
     // 2. Hardware Alerts (Power Cut / SOS)
-    const raw = (data && data.raw) ? data.raw : (obd || {});
     
     if (raw.main_power_cut || raw.sos) {
         const alertDiv = document.createElement('div');
