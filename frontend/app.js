@@ -2388,37 +2388,34 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const trackerRows = [];
     if (tracker.is_engine_locked !== undefined) {
         trackerRows.push(tracker.is_engine_locked
-            ? `<div style="font-size:0.85em; color:#ff9800; font-weight:bold;"><i class="fas fa-lock"></i> Engine Locked</div>`
-            : `<div style="font-size:0.85em; color:#9e9e9e;"><i class="fas fa-lock-open"></i> Engine Unlocked</div>`);
-    }
-    if (tracker.state) {
-        trackerRows.push(`<div style="font-size:0.85em; color:#03a9f4;"><i class="fas fa-microchip"></i> Tracker: ${String(tracker.state).replace(/_/g, ' ')}</div>`);
+            ? `<div style="font-size:0.85em; font-weight:bold;"><i class="fas fa-lock"></i> Engine Locked</div>`
+            : `<div style="font-size:0.85em;"><i class="fas fa-lock-open"></i> Engine Unlocked</div>`);
     }
     if (tracker.satellites !== undefined || tracker.hdop !== undefined) {
         const gpsParts = [];
         if (tracker.satellites !== undefined) gpsParts.push(`${tracker.satellites} sats`);
         if (tracker.hdop !== undefined) gpsParts.push(`HDOP ${tracker.hdop}`);
         if (tracker.age !== undefined && tracker.age !== null) gpsParts.push(`fix ${tracker.age}s old`);
-        trackerRows.push(`<div style="font-size:0.85em; color:#4caf50;"><i class="fas fa-satellite"></i> ${gpsParts.join(' · ')}</div>`);
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-satellite"></i> ${gpsParts.join(' · ')}</div>`);
     }
     if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) {
-        trackerRows.push(`<div style="font-size:0.85em; color:#00bcd4;"><i class="fas fa-signal"></i> GSM: ${tracker.signal_quality}/31</div>`);
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-signal"></i> GSM: ${tracker.signal_quality}/31</div>`);
     }
     if (tracker.operator_name) {
-        trackerRows.push(`<div style="font-size:0.85em; color:#8bc34a;"><i class="fas fa-broadcast-tower"></i> ${tracker.operator_name}</div>`);
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-broadcast-tower"></i> ${tracker.operator_name}</div>`);
     }
     const battParts = [];
     if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V ext`);
     if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}% int`);
-    if (battParts.length) trackerRows.push(`<div style="font-size:0.85em; color:#ffc107;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
+    if (battParts.length) trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
     if (tracker.fuel_level !== undefined && tracker.fuel_level !== null) {
-        trackerRows.push(`<div style="font-size:0.85em; color:#00d9ff;"><i class="fas fa-gas-pump"></i> Fuel: ${tracker.fuel_level}</div>`);
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> Fuel: ${tracker.fuel_level}</div>`);
     }
     if (tracker.geofence_violation_state) {
         const gs = String(tracker.geofence_violation_state);
         const noFence = gs === 'INVALID_POLYGON' || gs === 'NO_POLYGON';
         const isViolation = !noFence && /VIOLATION|OUTSIDE|BREACH/i.test(gs);
-        trackerRows.push(`<div style="font-size:0.85em; color:${isViolation ? '#ef4835' : '#9e9e9e'};"><i class="fas fa-draw-polygon"></i> Geofence: ${noFence ? 'Not configured' : gs.replace(/_/g, ' ')}</div>`);
+        trackerRows.push(`<div style="font-size:0.85em;${isViolation ? ' font-weight:bold;' : ''}"><i class="fas fa-draw-polygon"></i> Geofence: ${noFence ? 'Not configured' : gs.replace(/_/g, ' ')}</div>`);
     }
     const trackerHtml = trackerRows.length
         ? `<div style="margin-top:6px; padding-top:5px; border-top:1px solid #eee; text-align:left;">${trackerRows.join('')}</div>`
@@ -2890,7 +2887,6 @@ function updateAssetDetailUI(id) {
         if (el) { el.textContent = text; el.style = greyStyle; }
     };
 
-    setDetail('detail-tracker-state', t.state ? String(t.state).replace(/_/g, ' ') : '--');
     const gpsParts = [];
     if (t.satellites !== undefined) gpsParts.push(`${t.satellites} sats`);
     if (t.hdop !== undefined) gpsParts.push(`HDOP ${t.hdop}`);
