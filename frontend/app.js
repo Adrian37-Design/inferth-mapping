@@ -2408,13 +2408,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V ext`);
     if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}% int`);
     if (battParts.length) trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
-    // Show every fuel-related variable actually received, keyed by name —
-    // makes it obvious which fields the tracker is transmitting vs omitting
-    const fuelVars = ['fuel_level', 'fuel', 'fuel_height', 'fuel_volume', 'fuel_adc', 'fuel_raw', 'fuel_percent']
-        .filter(k => tracker[k] !== undefined && tracker[k] !== null)
-        .map(k => `${k}=${tracker[k]}`);
-    if (fuelVars.length) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> ${fuelVars.join(' · ')}</div>`);
+    if (tracker.fuel_level !== undefined && tracker.fuel_level !== null) {
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> Fuel: ${tracker.fuel_level}</div>`);
     }
     if (tracker.geofence_violation_state) {
         const gs = String(tracker.geofence_violation_state);
@@ -2902,10 +2897,7 @@ function updateAssetDetailUI(id) {
     if (t.vbatt !== undefined && t.vbatt !== null) vbattParts.push(`${Number(t.vbatt).toFixed(1)}V`);
     if (t.battery_percentage !== undefined && t.battery_percentage !== null) vbattParts.push(`${t.battery_percentage}%`);
     setDetail('detail-vbatt', vbattParts.length ? vbattParts.join(' · ') : '--');
-    const detailFuelVars = ['fuel_level', 'fuel', 'fuel_height', 'fuel_volume', 'fuel_adc', 'fuel_raw', 'fuel_percent']
-        .filter(k => t[k] !== undefined && t[k] !== null)
-        .map(k => `${k}=${t[k]}`);
-    setDetail('detail-fuel', detailFuelVars.length ? detailFuelVars.join(' · ') : '--');
+    setDetail('detail-fuel', (t.fuel_level !== undefined && t.fuel_level !== null) ? `${t.fuel_level}` : '--');
     const lockedState = t.is_engine_locked !== undefined ? t.is_engine_locked : (isShutdown ? true : undefined);
     setDetail('detail-engine-lock', lockedState === undefined ? '--' : (lockedState ? 'Locked' : 'Unlocked'));
     if (t.geofence_violation_state) {
