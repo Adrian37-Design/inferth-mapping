@@ -883,80 +883,87 @@ async def get_device_daily_mileage(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get the total mileage for a specific device today (Zimbabwean Time)"""
+    """Get today's mileage and all-time total mileage for a device (Zimbabwean Time)"""
     from sqlalchemy import select
     from datetime import datetime, timedelta
-    from math import radians, cos, sin, asin, sqrt
-    
+
     # Zimbabwe is UTC+2
     tz_offset = timedelta(hours=2)
     now_zim = datetime.utcnow() + tz_offset
-    zim_today_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Fetch start in UTC
-    fetch_start = zim_today_start - tz_offset
-    
-    # Query positions
+
+    # Single ordered scan of the device's full position history — the same row
+    # set feeds both the all-time total and today's subset so the numbers can
+    # never disagree with each other or with Route History.
     stmt = (
         select(Position)
         .join(Device)
         .where(Position.device_id == device_id)
-        .where(Position.timestamp >= fetch_start)
+        .order_by(Position.timestamp.asc())
     )
-    
+
     if current_user.tenant_id != 1:
         stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
-        
-    stmt = stmt.order_by(Position.timestamp.asc())
-    
+
     result = await db.execute(stmt)
     positions = result.scalars().all()
 
-    # Use the exact same GNSS filtering & implied-speed distance logic as
-    # get_device_route so Today's km in the popup and Route History always match
     from app.services.data_guardrails import haversine_distance_km
-    valid_positions = [
+
+    valid_all = [
         p for p in positions
         if p.latitude is not None and p.longitude is not None
         and abs(p.latitude) > 0.0001 and abs(p.longitude) > 0.0001
-        and (p.timestamp + tz_offset).date() == now_zim.date()
     ]
-    gnss_only = [p for p in valid_positions if not _is_coarse_lbs_row(p.raw)]
-    if gnss_only:
-        valid_positions = gnss_only
+    gnss_all = [p for p in valid_all if not _is_coarse_lbs_row(p.raw)]
+    if gnss_all:
+        valid_all = gnss_all
 
-    total_distance = 0.0
-    last_p = None
-    last_speed = 0.0
+    def _accumulate_distance(rows):
+        """Same haversine + guardrail chain as get_device_route."""
+        total = 0.0
+        last_p = None
+        last_speed = 0.0
+        for p in rows:
+            curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
+            if last_p is not None:
+                try:
+                    t1 = p.timestamp.replace(tzinfo=None) if p.timestamp.tzinfo else p.timestamp
+                    t0 = last_p.timestamp.replace(tzinfo=None) if last_p.timestamp.tzinfo else last_p.timestamp
+                    time_diff_sec = abs((t1 - t0).total_seconds())
+                except Exception:
+                    time_diff_sec = 10.0
 
-    for p in valid_positions:
-        curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
-        if last_p is not None:
-            try:
-                t1 = p.timestamp.replace(tzinfo=None) if p.timestamp.tzinfo else p.timestamp
-                t0 = last_p.timestamp.replace(tzinfo=None) if last_p.timestamp.tzinfo else last_p.timestamp
-                time_diff_sec = abs((t1 - t0).total_seconds())
-            except Exception:
-                time_diff_sec = 10.0
+                km = haversine_distance_km(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
 
-            km = haversine_distance_km(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
-
-            if time_diff_sec > 0:
-                implied_speed = km / (time_diff_sec / 3600.0)
-                if implied_speed > 250.0 and km > 0.1:
+                if time_diff_sec > 0:
+                    implied_speed = km / (time_diff_sec / 3600.0)
+                    if implied_speed > 250.0 and km > 0.1:
+                        continue
+                    if curr_speed <= 3.0 and km >= 0.025 and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
+                        curr_speed = round(implied_speed, 1)
+                elif km > 0.05:
                     continue
-                if curr_speed <= 3.0 and km >= 0.025 and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
-                    curr_speed = round(implied_speed, 1)
-            elif km > 0.05:
-                continue
 
-            if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_speed <= 3.0 and km < 0.005:
-                continue
+                if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_speed <= 3.0 and km < 0.005:
+                    continue
 
-            if km >= 0.015 or curr_speed > 3.0:
-                total_distance += km
+                if km >= 0.015 or curr_speed > 3.0:
+                    total += km
 
-        last_p = p
-        last_speed = curr_speed
+            last_p = p
+            last_speed = curr_speed
+        return total
 
-    return {"device_id": device_id, "daily_mileage": round(total_distance, 1)}
+    total_mileage = _accumulate_distance(valid_all)
+
+    today_rows = [
+        p for p in valid_all
+        if (p.timestamp + tz_offset).date() == now_zim.date()
+    ]
+    daily_mileage = _accumulate_distance(today_rows)
+
+    return {
+        "device_id": device_id,
+        "daily_mileage": round(daily_mileage, 1),
+        "total_mileage": round(total_mileage, 1)
+    }
