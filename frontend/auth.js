@@ -451,7 +451,7 @@ class AuthManager {
             } catch (error) {
                 this.showError(errorMessage, error.message);
                 loginBtn.disabled = false;
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                loginBtn.innerHTML = '<span>Sign in</span> <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i><span class="shimmer"></span>';
             }
         });
     }
