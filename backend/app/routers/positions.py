@@ -387,27 +387,43 @@ async def get_device_route(
     result = await db.execute(query)
     positions = result.scalars().all()
 
-    # Exclude coarse cell-tower LBS fallback rows (satellites >= 200 or 0) when
-    # real GNSS fixes exist in the window — cell-tower triangulation jumps 1-8km
-    # to nearby base stations and creates false trips/locations.
-    gnss_positions = [p for p in positions if not _is_coarse_lbs_row(p.raw)]
-    if gnss_positions:
-        positions = gnss_positions
-    
+    # Find first real GNSS coordinate in window (if any) so coarse LBS rows
+    # (satellites >= 200 or 0) keep their timestamps (preserving parked/stationary
+    # coverage up to the current time) while pinning coordinates to the last
+    # real GNSS fix instead of jumping to cell towers.
+    first_gnss = next((p for p in positions if not _is_coarse_lbs_row(p.raw)), None)
+    last_gnss_lat = first_gnss.latitude if first_gnss else None
+    last_gnss_lng = first_gnss.longitude if first_gnss else None
+
     # Calculate route with distance and apply velocity jump / deduplication guardrail
     route_points = []
     total_distance = 0.0
     last_valid_point = None
-    
+
     for p in positions:
-        curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
+        is_lbs = _is_coarse_lbs_row(p.raw)
+        if not is_lbs:
+            last_gnss_lat = p.latitude
+            last_gnss_lng = p.longitude
+            p_lat = p.latitude
+            p_lng = p.longitude
+            curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
+        elif last_gnss_lat is not None and last_gnss_lng is not None:
+            p_lat = last_gnss_lat
+            p_lng = last_gnss_lng
+            curr_speed = 0.0
+        else:
+            p_lat = p.latitude
+            p_lng = p.longitude
+            curr_speed = 0.0
+
         point = {
-            "lat": p.latitude,
-            "lng": p.longitude,
+            "lat": p_lat,
+            "lng": p_lng,
             "timestamp": _iso_utc(p.timestamp),
             "speed": curr_speed
         }
-        
+
         if last_valid_point is not None:
             prev_lat = last_valid_point["lat"]
             prev_lng = last_valid_point["lng"]
@@ -418,7 +434,7 @@ async def get_device_route(
             except Exception:
                 time_diff_sec = 10.0
 
-            km = haversine_distance_km(prev_lat, prev_lng, p.latitude, p.longitude)
+            km = haversine_distance_km(prev_lat, prev_lng, p_lat, p_lng)
             
             # Guardrail 2: Reject impossible teleportation jumps (implied speed > 250 km/h or > 10km in < 60s)
             if time_diff_sec > 0:

@@ -1099,11 +1099,12 @@ body {
         font-size: 0.85em;
     }
 
-    /* ── Map type toggle (compact on mobile) ── */
+    /* ── Map type toggle (compact on mobile, top-left under zoom) ── */
     .map-type-control {
-        bottom: 70px !important;
-        right: 8px !important;
+        margin-top: 8px !important;
+        margin-left: 8px !important;
         margin-bottom: 0 !important;
+        margin-right: 0 !important;
         padding: 3px;
         gap: 2px;
         flex-direction: column;
@@ -3883,18 +3884,20 @@ body {
     margin-top: 3px;
 }
 
-/* ===== Map Type Control (Streets / Satellite / Terrain) ===== */
+/* ===== Map Type Control (Streets / Satellite / Terrain) — placed top-left ===== */
 .map-type-control {
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(15, 23, 42, 0.9);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 4px;
     display: flex;
     gap: 4px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    margin-bottom: 25px !important;
-    margin-right: 15px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    margin-top: 12px !important;
+    margin-left: 12px !important;
+    margin-bottom: 0 !important;
+    margin-right: 0 !important;
 }
 
 .map-type-btn {
@@ -4224,8 +4227,10 @@ input, select, textarea {
     }
 
     .map-type-control {
-        margin-right: 10px !important;
-        margin-bottom: 12px !important;
+        margin-top: 10px !important;
+        margin-left: 10px !important;
+        margin-right: 0 !important;
+        margin-bottom: 0 !important;
     }
 
     /* Route playback bar: fit any screen, wrap gracefully */

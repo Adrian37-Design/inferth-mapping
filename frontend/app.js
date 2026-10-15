@@ -184,9 +184,10 @@ function initMap() {
     // Add default layer
     tileLayers['Streets'].addTo(map);
 
-    // --- Custom Map Type Toggle Button ---
+    // --- Custom Map Type Toggle Button (placed top-left so it never overlaps
+    // the bottom playback slider or top-right zoom controls) ---
     const MapTypeControl = L.Control.extend({
-        options: { position: 'bottomright' },
+        options: { position: 'topleft' },
         onAdd: function () {
             const container = L.DomUtil.create('div', 'map-type-control');
             const layers = Object.keys(tileLayers);
@@ -4601,15 +4602,30 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         }
 
         // 3. Merge brief traffic stops (<5m) between moving segments, and merge
-        // adjacent stationary segments at the same spot (<100m)
+        // adjacent stationary segments at the same spot (<100m).
+        // IMPORTANT: while parked, the tracker skips stationary uploads for up to
+        // 6 min (or longer indoors), so a stationary segment's true end time is the
+        // start of the NEXT segment — never swallow a 60-80m parking stop into a trip
+        // just because only 1-2 stationary pings arrived at the start of the stop!
         const mergedSegments = [];
         for (let i = 0; i < rawSegments.length; i++) {
             const seg = rawSegments[i];
             const startT = parseTimestamp(seg.points[0].timestamp);
-            const endT = parseTimestamp(seg.points[seg.points.length - 1].timestamp);
-            const durMins = Math.abs((endT - startT) / 60000);
+            const nextSeg = (i + 1 < rawSegments.length) ? rawSegments[i + 1] : null;
+            const effectiveEndT = nextSeg
+                ? parseTimestamp(nextSeg.points[0].timestamp)
+                : parseTimestamp(seg.points[seg.points.length - 1].timestamp);
+            const durMins = Math.abs((effectiveEndT - startT) / 60000);
+            const distToNextKm = nextSeg
+                ? haversineDistanceKm(
+                    seg.points[seg.points.length - 1].lat,
+                    seg.points[seg.points.length - 1].lng,
+                    nextSeg.points[0].lat,
+                    nextSeg.points[0].lng
+                  )
+                : 0;
 
-            if (!seg.isMoving && durMins < 5 && mergedSegments.length > 0 && mergedSegments[mergedSegments.length - 1].isMoving && (i + 1 < rawSegments.length && rawSegments[i + 1].isMoving)) {
+            if (!seg.isMoving && durMins < 5 && distToNextKm < 0.15 && mergedSegments.length > 0 && mergedSegments[mergedSegments.length - 1].isMoving && nextSeg && nextSeg.isMoving) {
                 mergedSegments[mergedSegments.length - 1].points.push(...seg.points);
             } else if (!seg.isMoving && mergedSegments.length > 0 && !mergedSegments[mergedSegments.length - 1].isMoving) {
                 const prevSeg = mergedSegments[mergedSegments.length - 1];
@@ -4679,19 +4695,111 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             }
         });
 
-        // Consolidate consecutive stops that fell below the trip threshold at the same spot
-        const consolidatedTimeline = [];
+        // 5. Consolidate consecutive stops at the same location AND stitch every
+        // gap between sessions so the timeline is 100% continuous in time and space
+        // (no missing hours between 12:50 and 14:10, no spatial jump between a stop
+        // destination and the next trip origin, and ongoing parked state extended up
+        // to the current time when viewing Today).
+        const mergedStopsTimeline = [];
         for (const item of timelineData) {
-            const prev = consolidatedTimeline[consolidatedTimeline.length - 1];
+            const prev = mergedStopsTimeline[mergedStopsTimeline.length - 1];
             if (item.type === 'stop' && prev && prev.type === 'stop' && haversineDistanceKm(prev.lat, prev.lng, item.lat, item.lng) < 0.10) {
                 prev.end = item.end;
                 prev.points.push(...item.points);
                 prev.duration = Math.max(1, Math.round(Math.abs((parseTimestamp(prev.end.timestamp) - parseTimestamp(prev.start.timestamp)) / 60000)));
-                stopsCount = Math.max(1, stopsCount - 1);
             } else {
-                consolidatedTimeline.push(item);
+                mergedStopsTimeline.push(item);
             }
         }
+
+        const consolidatedTimeline = [];
+        for (let i = 0; i < mergedStopsTimeline.length; i++) {
+            const curr = mergedStopsTimeline[i];
+            const prev = consolidatedTimeline[consolidatedTimeline.length - 1];
+
+            if (prev) {
+                const prevEndTs = parseTimestamp(prev.end.timestamp);
+                const currStartTs = parseTimestamp(curr.start.timestamp);
+                const gapMins = (currStartTs - prevEndTs) / 60000;
+
+                if (prev.type === 'stop' && gapMins > 0) {
+                    // Vehicle remained parked at `prev` until `curr` began
+                    prev.end = { ...prev.end, timestamp: curr.start.timestamp };
+                    prev.duration = Math.max(1, Math.round((currStartTs - parseTimestamp(prev.start.timestamp)) / 60000));
+                } else if (prev.type === 'trip' && curr.type === 'stop' && gapMins > 0) {
+                    // Stop began immediately when the previous trip ended
+                    curr.start = { ...curr.start, timestamp: prev.end.timestamp };
+                    curr.duration = Math.max(1, Math.round((parseTimestamp(curr.end.timestamp) - prevEndTs) / 60000));
+                } else if (prev.type === 'trip' && curr.type === 'trip' && gapMins >= 2) {
+                    // Insert the parked interval at `prev.end` between the two trips
+                    consolidatedTimeline.push({
+                        type: 'stop',
+                        points: [prev.end],
+                        lat: prev.end.lat,
+                        lng: prev.end.lng,
+                        duration: Math.max(1, Math.round(gapMins)),
+                        start: { ...prev.end },
+                        end: { ...prev.end, timestamp: curr.start.timestamp },
+                        id: `timeline-stop-gap-${i}`
+                    });
+                }
+
+                // Ensure a trip's origin connects spatially to the previous session's
+                // end location so there is never an unexplained spatial jump (e.g.
+                // Harare Street -> Paisley Road)
+                const lastItem = consolidatedTimeline[consolidatedTimeline.length - 1];
+                const anchorPt = lastItem.type === 'stop' ? { lat: lastItem.lat, lng: lastItem.lng } : lastItem.end;
+                if (curr.type === 'trip' && anchorPt) {
+                    const jumpKm = haversineDistanceKm(anchorPt.lat, anchorPt.lng, curr.start.lat, curr.start.lng);
+                    if (jumpKm >= 0.05 && jumpKm <= 30.0) {
+                        const originPt = { lat: anchorPt.lat, lng: anchorPt.lng, timestamp: curr.start.timestamp, speed: 0 };
+                        curr.points = [originPt, ...curr.points];
+                        curr.start = originPt;
+                        let recalcKm = 0;
+                        for (let j = 1; j < curr.points.length; j++) {
+                            recalcKm += haversineDistanceKm(curr.points[j - 1].lat, curr.points[j - 1].lng, curr.points[j].lat, curr.points[j].lng);
+                        }
+                        curr.distance = recalcKm.toFixed(1);
+                    }
+                }
+            }
+            consolidatedTimeline.push(curr);
+        }
+
+        // Extend the timeline up to the current time when viewing a window that
+        // covers `now` (e.g. Today 00:00 - 23:59) so post-trip parked time (like
+        // 14:19 -> 16:04) is always visible on the timeline.
+        const nowCheck = new Date();
+        if (consolidatedTimeline.length > 0 && sd <= nowCheck && nowCheck <= ed) {
+            const lastItem = consolidatedTimeline[consolidatedTimeline.length - 1];
+            const lastEndTs = parseTimestamp(lastItem.end.timestamp);
+            const minsSinceLast = (nowCheck.getTime() - lastEndTs.getTime()) / 60000;
+            const nowIso = nowCheck.toISOString();
+
+            if (minsSinceLast >= 1) {
+                if (lastItem.type === 'stop') {
+                    lastItem.end = { ...lastItem.end, timestamp: nowIso };
+                    lastItem.duration = Math.max(1, Math.round((nowCheck.getTime() - parseTimestamp(lastItem.start.timestamp).getTime()) / 60000));
+                } else if (lastItem.type === 'trip') {
+                    consolidatedTimeline.push({
+                        type: 'stop',
+                        points: [lastItem.end],
+                        lat: lastItem.end.lat,
+                        lng: lastItem.end.lng,
+                        duration: Math.max(1, Math.round(minsSinceLast)),
+                        start: { ...lastItem.end },
+                        end: { ...lastItem.end, timestamp: nowIso },
+                        id: 'timeline-stop-current'
+                    });
+                }
+            }
+        }
+
+        tripsCount = consolidatedTimeline.filter(x => x.type === 'trip').length;
+        stopsCount = consolidatedTimeline.filter(x => x.type === 'stop').length;
+        totalTripDistKm = consolidatedTimeline
+            .filter(x => x.type === 'trip')
+            .reduce((acc, x) => acc + ( parseFloat(x.distance) || 0 ), 0);
 
         const displayDistKm = Number(data.total_distance_km) > 0 ? Number(data.total_distance_km) : totalTripDistKm;
         updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, overallMaxSpeed);
