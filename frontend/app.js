@@ -28,6 +28,7 @@ let ws = null;
 let playbackInterval = null;
 let playbackIndex = 0;
 let playbackRoute = null;
+let routeDrawSeq = 0; // generation token — stale async route renders abort after stop/clear
 let playbackSegments = null;
 let playbackMarker = null;
 let editingVehicleId = null;
@@ -3153,6 +3154,7 @@ async function showRoute() {
         return;
     }
 
+    const drawSeq = ++routeDrawSeq;
     try {
         const response = await fetch(`${API_URL}/positions/routes/${selectedVehicle.id}`);
         const data = await response.json();
@@ -3180,6 +3182,7 @@ async function showRoute() {
 
         // Snap to roads so the path follows the actual road network
         const snapped = await snapRouteToRoad(clean);
+        if (drawSeq !== routeDrawSeq) return; // stopped/cleared while OSRM fetch was in flight
         let segments;
         if (snapped && snapped.matched) {
             segments = snapped.segments;
@@ -3499,14 +3502,17 @@ async function loadTrips() {
                 const end = trip.end_time;
                 document.getElementById('trip-modal').classList.add('hidden');
 
+                const drawSeq = ++routeDrawSeq;
                 const response = await fetch(`${API_URL}/positions/routes/${selectedVehicle.id}?start_date=${start}&end_date=${end}`);
                 const routeData = await response.json();
+                if (drawSeq !== routeDrawSeq) return;
 
                 if (routeData.points.length > 0) {
                     const clean = filterValidRoutePoints(routeData.points);
 
                     // Snap to roads for realistic playback path
                     const snapped = await snapRouteToRoad(clean);
+                    if (drawSeq !== routeDrawSeq) return;
                     if (snapped && snapped.matched) {
                         playbackRoute = [];
                         snapped.segments.forEach(seg => {
@@ -4254,6 +4260,7 @@ function clearAllRoutePolylines() {
 }
 
 function stopRouteAndExit(opts = {}) {
+    routeDrawSeq++; // invalidate any in-flight OSRM/render — it must not draw after this
     pauseRoute();
     playbackIndex = 0;
 
@@ -4401,6 +4408,7 @@ function updateHistorySummaryStrip(distKm, tripsCount, stopsCount, maxSpeed) {
 async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
     if (!Array.isArray(inputPoints) || inputPoints.length === 0) return false;
 
+    const drawSeq = ++routeDrawSeq; // this render supersedes any in-flight render
     pauseRoute();
     playbackIndex = 0;
     historyMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
@@ -4414,6 +4422,7 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
 
     const waypoints = extractTravelWaypoints(filteredPoints);
     const snapped = await snapRouteToRoad(filteredPoints);
+    if (drawSeq !== routeDrawSeq) return false; // stopped/cleared while OSRM fetch was in flight
     let segments;
     let playbackPoints;
 
@@ -4477,6 +4486,7 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
             syncWorkspaceLayout();
         }
         setTimeout(() => {
+            if (drawSeq !== routeDrawSeq) return;
             if (map) map.invalidateSize();
             playRoute();
         }, 250);
@@ -4488,6 +4498,8 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
 async function loadAssetHistory(id, startDateStr, endDateStr) {
     const timeline = document.getElementById('detail-timeline');
     if (!timeline || !id) return;
+
+    const drawSeq = ++routeDrawSeq; // newest history load wins; stale loads must not repaint
 
     const matched = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id)) : null;
     if (matched) selectedVehicle = matched;
@@ -4533,6 +4545,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         }
 
         const data = await response.json();
+        if (drawSeq !== routeDrawSeq) return; // cleared or superseded while fetching
         timeline.innerHTML = '';
 
         if (!data.points || data.points.length === 0) {
