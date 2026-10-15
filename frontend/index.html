@@ -179,6 +179,53 @@
                             </div>
                         </div>
 
+                        <!-- Section 1b: Tracker Hardware Telemetry -->
+                        <div class="detail-section">
+                            <h4 class="section-title">Tracker</h4>
+                            <div class="status-grid">
+                                <div class="status-item">
+                                    <i class="fas fa-microchip"></i>
+                                    <span class="status-label">Tracker State</span>
+                                    <span class="status-value" id="detail-tracker-state">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-satellite"></i>
+                                    <span class="status-label">GPS Fix</span>
+                                    <span class="status-value" id="detail-gpsfix">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-signal"></i>
+                                    <span class="status-label">GSM Signal</span>
+                                    <span class="status-value" id="detail-gsignal">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-broadcast-tower"></i>
+                                    <span class="status-label">Network</span>
+                                    <span class="status-value" id="detail-operator">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-battery-three-quarters"></i>
+                                    <span class="status-label">Battery</span>
+                                    <span class="status-value" id="detail-vbatt">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-gas-pump"></i>
+                                    <span class="status-label">Fuel</span>
+                                    <span class="status-value" id="detail-fuel">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-lock"></i>
+                                    <span class="status-label">Engine</span>
+                                    <span class="status-value" id="detail-engine-lock">--</span>
+                                </div>
+                                <div class="status-item">
+                                    <i class="fas fa-draw-polygon"></i>
+                                    <span class="status-label">Geofence</span>
+                                    <span class="status-value" id="detail-geofence">--</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Section 2: Timeline & History -->
                         <div class="detail-section">
                             <div class="section-header"
@@ -1173,7 +1220,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=102"></script>
+    <script src="/static/app.js?v=103"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

@@ -241,6 +241,11 @@ async def upsert_tracking_data(
                     "fuel_level": fuel,
                     "battery_voltage": vbatt,
                     "ignition": ign,
+                    "is_engine_locked": body.get("is_engine_locked"),
+                    "signal_quality": body.get("signal_quality"),
+                    "operator_name": body.get("operator_name"),
+                    "ip_address": body.get("ip_address"),
+                    "raw": row,
                     "timestamp": timestamp.isoformat() + "Z"
                 })
             except Exception:
