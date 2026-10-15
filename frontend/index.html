@@ -3,14 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=1280, viewport-fit=cover">
     <title>Inferth Mapping - Fleet Tracking</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=116">
+    <link rel="stylesheet" href="/static/app.css?v=117">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -19,7 +19,7 @@
     <!-- Navigation -->
     <nav class="navbar" aria-label="Application controls">
         <div class="nav-brand">
-            <button type="button" class="workspace-toggle" id="workspace-toggle" aria-label="Hide workspace panel" aria-controls="workspace-panel" aria-expanded="true"><i class="fas fa-bars" aria-hidden="true"></i></button>
+            <button type="button" class="workspace-toggle" id="workspace-toggle" aria-label="Show workspace panel" aria-controls="workspace-panel" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
             <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo" class="brand-logo">
             <span id="nav-brand-name">Inferth Mapping</span>
             <span class="role-badge" id="user-role-display"></span>
@@ -42,9 +42,9 @@
     </nav>
 
     <!-- Main Container -->
-    <div class="main-container" data-workspace="tab-fleet">
+    <div class="main-container panel-collapsed" data-workspace="tab-fleet">
         <!-- Tabbed Sidebar -->
-        <aside class="sidebar-container" id="sidebar">
+        <aside class="sidebar-container collapsed" id="sidebar">
             <!-- Icon Rail -->
             <div class="sidebar-rail" aria-label="Main navigation">
 
@@ -94,10 +94,10 @@
             </div>
 
             <!-- Panel Content -->
-            <div class="sidebar-panel" id="workspace-panel">
+            <div class="sidebar-panel" id="workspace-panel" inert>
                 <div class="panel-header">
                     <div><p class="workspace-eyebrow">Operations workspace</p><h3 id="panel-title">Live fleet</h3></div>
-                    <button class="toggle-panel" id="toggle-sidebar-btn" aria-label="Hide workspace panel" aria-controls="workspace-panel" aria-expanded="true">
+                    <button class="toggle-panel" id="toggle-sidebar-btn" aria-label="Show workspace panel" aria-controls="workspace-panel" aria-expanded="false">
                         <i class="fas fa-chevron-left"></i>
                     </button>
                 </div>
@@ -1257,7 +1257,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=116"></script>
+    <script src="/static/app.js?v=117"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

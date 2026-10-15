@@ -2448,12 +2448,12 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // OBD-only packets (lat/lng null) must NOT create a ghost marker
         marker = L.marker([lat, lng], { icon: icon });
         
-        // Set up popup and click listener immediately
+        // Set up popup and click listener immediately — marker click shows the
+        // popup only; it must NOT pop out the Asset Details panel.
         if (typeof marker.bindPopup === 'function') marker.bindPopup('', { autoPan: false });
         if (typeof marker.on === 'function') {
             marker.on('click', () => {
-                const vehicleObj = { id, name, imei, driver_name: 'Unknown' }; 
-                selectVehicle(vehicleObj); 
+                selectedVehicle = { id, name, imei, driver_name: 'Unknown' };
             });
         }
         
