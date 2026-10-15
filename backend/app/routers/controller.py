@@ -46,9 +46,17 @@ def parse_xcela_timestamp(date_str: Optional[str]) -> datetime:
         return datetime.utcnow()
     
     clean = date_str.replace(" GMT", "").replace(" UTC", "").strip()
+    # Firmware no-clock sentinel timestamps (GPS.ino:2815 / 1_utils.ino:591):
+    # treat as 'clock unavailable' so live pings before UTC lock use server time
+    # instead of being stamped months in the past and suppressed from WebSocket.
+    if clean.startswith(("01/01/2026 00:00:00", "07/07/2026 00:00:00", "01/01/26 00:00:00", "07/07/26 00:00:00")):
+        return datetime.utcnow()
+
     formats = [
         "%m/%d/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M:%S",
+        "%m/%d/%y %H:%M:%S",
+        "%d/%m/%y %H:%M:%S",
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
         "%d-%m-%Y %H:%M:%S"
@@ -179,13 +187,40 @@ async def upsert_tracking_data(
         timestamp = validate_timestamp(dt_cand, fallback_now=now)
 
         # Teleportation and deduplication checks
-        prev_q = await db.execute(
+        latest_q = await db.execute(
             select(Position)
             .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None))
             .order_by(Position.timestamp.desc())
             .limit(1)
         )
-        prev_pos = prev_q.scalars().first()
+        latest_pos = latest_q.scalars().first()
+        latest_ts = _to_naive_utc(latest_pos.timestamp) if (latest_pos and latest_pos.timestamp) else None
+        is_fresh_ping = latest_ts is None or timestamp >= latest_ts
+
+        # Compare against the chronologically preceding point (not latest_pos when
+        # replaying older offline rows, which would compare across different times)
+        if is_fresh_ping:
+            prev_pos = latest_pos
+        else:
+            adj_q = await db.execute(
+                select(Position)
+                .where(
+                    Position.device_id == device.id,
+                    Position.latitude.is_not(None),
+                    Position.longitude.is_not(None),
+                    Position.timestamp <= timestamp
+                )
+                .order_by(Position.timestamp.desc())
+                .limit(1)
+            )
+            prev_pos = adj_q.scalars().first()
+
+        # Extract CAN/telemetry fields
+        fuel = row.get("fuel_level")
+        vbatt = row.get("vbatt")
+        ign = row.get("ignition")
+        altitude = row.get("altitude")
+        course = row.get("course")
 
         if prev_pos and prev_pos.latitude and prev_pos.longitude:
             if is_teleportation_jump(
@@ -197,14 +232,40 @@ async def upsert_tracking_data(
                 prev_pos.latitude, prev_pos.longitude, prev_pos.speed or 0.0, prev_pos.timestamp,
                 clean_lat, clean_lon, clean_speed, timestamp
             ):
+                # Stationary duplicate within 4s: avoid row bloat, but still
+                # refresh telemetry on latest_pos and broadcast if this is live
+                if is_fresh_ping and latest_pos:
+                    latest_pos.timestamp = timestamp
+                    if fuel is not None:
+                        latest_pos.fuel_level = float(fuel)
+                    if vbatt is not None:
+                        latest_pos.battery_voltage = float(vbatt)
+                    if ign is not None:
+                        latest_pos.ignition = bool(ign)
+                    latest_pos.raw = row
+                    try:
+                        await publish_position({
+                            "device_id": device.id,
+                            "imei": device.imei,
+                            "name": device.name,
+                            "latitude": clean_lat,
+                            "longitude": clean_lon,
+                            "speed": clean_speed,
+                            "altitude": altitude,
+                            "course": course,
+                            "fuel_level": fuel,
+                            "battery_voltage": vbatt,
+                            "ignition": ign,
+                            "is_engine_locked": body.get("is_engine_locked"),
+                            "signal_quality": body.get("signal_quality"),
+                            "operator_name": body.get("operator_name"),
+                            "ip_address": body.get("ip_address"),
+                            "raw": row,
+                            "timestamp": timestamp.isoformat() + "Z"
+                        })
+                    except Exception:
+                        pass
                 continue
-
-        # Extract CAN/telemetry fields
-        fuel = row.get("fuel_level")
-        vbatt = row.get("vbatt")
-        ign = row.get("ignition")
-        altitude = row.get("altitude")
-        course = row.get("course")
 
         pos = Position(
             device_id=device.id,
@@ -226,8 +287,7 @@ async def upsert_tracking_data(
         # Backfilled offline rows keep their original (older) timestamps;
         # broadcasting them makes the live marker jump backwards to stale
         # coordinates. They are still stored above for history/route playback.
-        prev_ts = _to_naive_utc(prev_pos.timestamp) if (prev_pos and prev_pos.timestamp) else None
-        if prev_ts is None or timestamp >= prev_ts:
+        if is_fresh_ping:
             try:
                 await publish_position({
                     "device_id": device.id,
