@@ -351,11 +351,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     setupFleetFilters();
     
-    // Load analytics data when Intel tab is opened
-    const intelTab = document.querySelector('[data-tab="tab-reports"]');
-    if (intelTab) {
-        intelTab.addEventListener('click', () => {
-            setTimeout(() => loadIntelAnalytics(), 100);
+    // Load analytics + OBD data when the Insights tab is opened
+    const insightsTab = document.querySelector('[data-tab="tab-insights"]');
+    if (insightsTab) {
+        insightsTab.addEventListener('click', () => {
+            setTimeout(() => {
+                loadIntelAnalytics();
+                const obdBtn = document.getElementById('intel-tab-obd');
+                if (obdBtn && obdBtn.classList.contains('active')) {
+                    renderOBDVehicleCards();
+                    refreshDTCCodes();
+                }
+            }, 100);
         });
     }
 

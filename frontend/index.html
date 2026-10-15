@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=117">
+    <link rel="stylesheet" href="/static/app.css?v=118">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -66,10 +66,15 @@
                     <span class="rail-label">Alerts</span>
                     <span class="rail-badge hidden" id="rail-alerts-count">0</span>
                 </button>
-                <!-- Reports & Intelligence Tab -->
-                <button type="button" class="rail-item" data-tab="tab-reports" title="Reports & insights" aria-controls="tab-reports">
+                <!-- Reports Tab -->
+                <button type="button" class="rail-item" data-tab="tab-reports" title="Reports" aria-controls="tab-reports">
                     <i class="fas fa-chart-pie"></i>
                     <span class="rail-label">Reports</span>
+                </button>
+                <!-- Insights Tab: CAN/OBD diagnostics & fleet analytics -->
+                <button type="button" class="rail-item" data-tab="tab-insights" title="Insights" aria-controls="tab-insights" id="rail-insights-btn">
+                    <i class="fas fa-microchip"></i>
+                    <span class="rail-label">Insights</span>
                 </button>
                 <button type="button" class="rail-item hidden" data-tab="tab-users" title="Team management" id="rail-users-btn" aria-controls="tab-users">
                     <i class="fas fa-users-cog"></i>
@@ -511,6 +516,10 @@
                     <div class="report-output" id="report-output">
                         <p class="empty-state">Select a vehicle and report type, then click Run.</p>
                     </div>
+                </div>
+
+                <!-- Tab: Insights — CAN/OBD diagnostics, fleet analytics & savings -->
+                <div id="tab-insights" class="tab-content">
 
                     <!-- Monetization Hook: Savings Widget -->
                     <div class="savings-widget">
@@ -519,18 +528,18 @@
                         <p class="savings-subtext">Based on reduced idling &amp; optimized routes</p>
                     </div>
 
-                    <!-- Intel Sub-tabs: Fleet Analytics | OBD Diagnostics -->
+                    <!-- Intel Sub-tabs: CAN / OBD | Fleet Analytics -->
                     <div class="intel-subtabs">
-                        <button class="intel-subtab active" id="intel-tab-analytics" onclick="switchIntelSubTab('analytics')">
-                            <i class="fas fa-chart-bar"></i> Fleet Analytics
-                        </button>
-                        <button class="intel-subtab" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
+                        <button class="intel-subtab active" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
                             <i class="fas fa-microchip"></i> CAN / OBD
+                        </button>
+                        <button class="intel-subtab" id="intel-tab-analytics" onclick="switchIntelSubTab('analytics')">
+                            <i class="fas fa-chart-bar"></i> Fleet Analytics
                         </button>
                     </div>
 
-                    <!-- ===== Phase 8: Fleet Analytics ===== -->
-                    <div id="intel-section-analytics" class="intel-section">
+                    <!-- ===== Fleet Analytics ===== -->
+                    <div id="intel-section-analytics" class="intel-section hidden">
                         <div class="reports-grid">
 
                             <!-- Fleet Health -->
@@ -586,8 +595,8 @@
                         </div>
                     </div>
 
-                    <!-- ===== Phase 7: CAN / OBD Diagnostics ===== -->
-                    <div id="intel-section-obd" class="intel-section hidden">
+                    <!-- ===== CAN / OBD Diagnostics ===== -->
+                    <div id="intel-section-obd" class="intel-section">
 
                         <!-- Compatibility Notice -->
                         <div class="obd-notice">
@@ -1257,7 +1266,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=117"></script>
+    <script src="/static/app.js?v=118"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
