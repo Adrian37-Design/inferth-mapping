@@ -224,6 +224,15 @@ async def upsert_tracking_data(
         dt_cand = parse_xcela_timestamp(row.get("time_to") or row.get("time_from"))
         timestamp = validate_timestamp(dt_cand, fallback_now=now)
 
+        # When the tracker has no GNSS satellite lock (is_coarse_lbs: satellites==0
+        # or >=200), TinyGPSPlus on the ESP32 keeps returning the frozen timestamp
+        # from when the last satellite was seen (minutes ago). Offline SPIFFS queues
+        # never store invalid/LBS rows (GPRS.ino:176), so any is_coarse_lbs row is
+        # guaranteed to be a live heartbeat — stamp it with server `now` so it is
+        # never dropped as stale or shown as "9m ago · Offline".
+        if is_coarse_lbs:
+            timestamp = now
+
         # Teleportation and deduplication checks
         latest_q = await db.execute(
             select(Position)
@@ -233,7 +242,19 @@ async def upsert_tracking_data(
         )
         latest_pos = latest_q.scalars().first()
         latest_ts = _to_naive_utc(latest_pos.timestamp) if (latest_pos and latest_pos.timestamp) else None
-        is_fresh_ping = latest_ts is None or timestamp >= latest_ts
+
+        # A row is a live ping if its timestamp is >= latest_ts OR within 90s of
+        # server `now` (cellular HTTP POST transit takes 3-6s, so a live GPS fix
+        # captured just before POST can be a few seconds behind a /get-commands
+        # heartbeat timestamp). Advance live timestamps monotonically so they
+        # always update latest_pos and broadcast over WebSocket.
+        is_fresh_ping = (
+            latest_ts is None
+            or timestamp >= latest_ts
+            or abs((now - timestamp).total_seconds()) <= 90.0
+        )
+        if is_fresh_ping and latest_ts is not None and timestamp < latest_ts:
+            timestamp = now
 
         # Compare against the chronologically preceding point (not latest_pos when
         # replaying older offline rows, which would compare across different times)

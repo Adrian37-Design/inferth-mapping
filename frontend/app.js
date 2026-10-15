@@ -2586,7 +2586,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 </div>
                 <div class="pro-popup-cell">
                     <span class="pro-popup-label">Today</span>
-                    <span class="pro-popup-val">${todayMileage} km</span>
+                    <span class="pro-popup-val">${Number(todayMileage || 0).toFixed(1)} km</span>
                 </div>
             </div>
             ${diagnosticHtml ? `<div class="pro-popup-obd">${diagnosticHtml}</div>` : ''}
@@ -4693,8 +4693,22 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             }
         }
 
-        const displayDistKm = totalTripDistKm > 0 ? totalTripDistKm : (Number(data.total_distance_km) || 0);
+        const displayDistKm = Number(data.total_distance_km) > 0 ? Number(data.total_distance_km) : totalTripDistKm;
         updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, overallMaxSpeed);
+
+        // If viewing Today's history, sync dailyMileageCache with the exact route
+        // distance so the marker popup 'Today' km and Route History 'Distance' km
+        // always match identically.
+        if (startDateStr === todayStart && endDateStr === todayEnd) {
+            const syncedKm = Number(displayDistKm.toFixed(1));
+            dailyMileageCache.set(String(id), syncedKm);
+            dailyMileageFetchedAt.set(String(id), Date.now());
+            const pos = vehiclePositions[id];
+            const m = markers[id];
+            if (pos && m) {
+                addOrUpdateMarker(id, m.vehicleName || '', m.vehicleIMEI || '', pos.lat, pos.lng, pos.speed, pos.timestamp, pos.raw || m.obdData || null);
+            }
+        }
 
         if (playAllBtn && points.length >= 2) {
             playAllBtn.disabled = false;
