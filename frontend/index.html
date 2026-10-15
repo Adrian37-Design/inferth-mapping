@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=110">
+    <link rel="stylesheet" href="/static/app.css?v=111">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -52,6 +52,10 @@
                 <button type="button" class="rail-item active" data-tab="tab-fleet" title="Live fleet" aria-current="page" aria-controls="tab-fleet">
                     <i class="fas fa-map-marker-alt"></i>
                     <span class="rail-label">Live fleet</span>
+                </button>
+                <button type="button" class="rail-item" data-tab="tab-history" title="Route history" aria-controls="tab-history" id="rail-history-btn">
+                    <i class="fas fa-route"></i>
+                    <span class="rail-label">History</span>
                 </button>
                 <button type="button" class="rail-item" data-tab="tab-dashboard" title="Overview" aria-controls="tab-dashboard">
                     <i class="fas fa-tachometer-alt"></i>
@@ -221,33 +225,15 @@
                             </div>
                         </div>
 
-                        <!-- Section 2: Timeline & History -->
-                        <div class="detail-section">
-                            <div class="section-header"
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <h4 class="section-title" style="margin: 0;">History & Timeline</h4>
-                                <button class="btn-icon-small" id="clear-history-btn" title="Clear History"
-                                    style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
-                                    <i class="fas fa-times-circle"></i>
-                                </button>
-                            </div>
-                            <div class="history-controls"
-                                style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
-                                <input type="datetime-local" id="history-start-date" class="form-select-small"
-                                    style="flex: 2; min-width: 140px;">
-                                <span style="color:#888; font-size: 0.8rem;">to</span>
-                                <input type="datetime-local" id="history-end-date" class="form-select-small"
-                                    style="flex: 2; min-width: 140px;">
-                            </div>
-                            <div class="timeline-view" id="detail-timeline">
-                                <p class="empty-state">Select a range to view history</p>
-                            </div>
-                        </div>
-
                         <!-- Section 3: Quick Actions -->
                         <div class="detail-section">
                             <h4 class="section-title">Quick Actions</h4>
                             <div class="action-grid">
+                                <button class="action-btn" id="action-history" title="View Route History"
+                                    onclick="if (selectedVehicle) window.openHistorySearch(selectedVehicle.id, selectedVehicle.imei)">
+                                    <div class="action-icon"><i class="fas fa-route"></i></div>
+                                    <span>History</span>
+                                </button>
                                 <button class="action-btn" id="action-geofence" title="Create Geofence"
                                     onclick="window.triggerGeofenceAction()">
                                     <div class="action-icon"><i class="fas fa-draw-polygon"></i></div>
@@ -258,11 +244,6 @@
                                     <div class="action-icon"><i class="fas fa-file-download"></i></div>
                                     <span>Report</span>
                                 </button>
-                                <button class="action-btn" id="action-alert" title="Set Alert"
-                                    onclick="window.triggerAlertAction()">
-                                    <div class="action-icon"><i class="fas fa-bell"></i></div>
-                                    <span>Alert</span>
-                                </button>
                                 <button class="action-btn" id="action-driver" title="Assign Driver"
                                     onclick="window.openAssignDriver()">
                                     <div class="action-icon"><i class="fas fa-id-card"></i></div>
@@ -270,6 +251,67 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Route History & Playback -->
+                <div id="tab-history" class="tab-content">
+                    <div class="history-panel-toolbar">
+                        <div class="history-field-group">
+                            <label class="history-field-label" for="history-vehicle-select">Asset</label>
+                            <select id="history-vehicle-select" class="history-select">
+                                <option value="">Select an asset…</option>
+                            </select>
+                        </div>
+
+                        <div class="history-presets" role="group" aria-label="Date range presets">
+                            <button type="button" class="history-preset-btn active" data-preset="today">Today</button>
+                            <button type="button" class="history-preset-btn" data-preset="yesterday">Yesterday</button>
+                            <button type="button" class="history-preset-btn" data-preset="7d">Last 7 Days</button>
+                        </div>
+
+                        <div class="history-controls">
+                            <div class="history-date-field">
+                                <label for="history-start-date">From</label>
+                                <input type="datetime-local" id="history-start-date" class="form-select-small">
+                            </div>
+                            <div class="history-date-field">
+                                <label for="history-end-date">To</label>
+                                <input type="datetime-local" id="history-end-date" class="form-select-small">
+                            </div>
+                        </div>
+
+                        <div class="history-action-row">
+                            <button type="button" class="btn-small history-play-all-btn" id="history-play-all-btn" disabled>
+                                <i class="fas fa-play"></i> Play Full Route
+                            </button>
+                            <button type="button" class="btn-small history-clear-btn" id="clear-history-btn" title="Clear route from map">
+                                <i class="fas fa-xmark"></i> Clear
+                            </button>
+                        </div>
+
+                        <div class="history-summary-strip" id="history-summary-strip">
+                            <div class="history-stat-chip">
+                                <span class="history-stat-val" id="hist-stat-dist">0.0 km</span>
+                                <span class="history-stat-lbl">Distance</span>
+                            </div>
+                            <div class="history-stat-chip">
+                                <span class="history-stat-val" id="hist-stat-trips">0</span>
+                                <span class="history-stat-lbl">Trips</span>
+                            </div>
+                            <div class="history-stat-chip">
+                                <span class="history-stat-val" id="hist-stat-stops">0</span>
+                                <span class="history-stat-lbl">Stops</span>
+                            </div>
+                            <div class="history-stat-chip">
+                                <span class="history-stat-val" id="hist-stat-maxspd">0 km/h</span>
+                                <span class="history-stat-lbl">Max Speed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-view" id="detail-timeline">
+                        <p class="empty-state">Select an asset and date range to view route history</p>
                     </div>
                 </div>
 
@@ -1215,7 +1257,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=110"></script>
+    <script src="/static/app.js?v=111"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

@@ -86,6 +86,26 @@ let fleetFilterFrame = null;
 // Offline promptly without false-alarming between stationary command polls.
 const OFFLINE_THRESHOLD_MINS = 1.5;
 const dailyMileageFetchedAt = new Map();
+
+function formatOperatorName(op) {
+    if (!op) return '';
+    const s = String(op).trim();
+    const map = { '64804': 'Econet', '648-04': 'Econet', '64801': 'NetOne', '648-01': 'NetOne', '64803': 'Telecel', '648-03': 'Telecel' };
+    return map[s] || s;
+}
+
+function formatDurationMins(mins) {
+    const m = Math.max(1, Math.round(Number(mins) || 0));
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem > 0 ? `${h}h ${rem}m` : `${h}h`;
+}
+
+function formatLocalDT(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 // --- Quick Actions Logic (Global Scope) ---
 
 window.openAssignDriver = async function () {
@@ -528,6 +548,24 @@ window.switchTab = function(targetId) {
 
         if (targetId === 'tab-billing') {
             loadBillingData();
+        }
+
+        if (targetId === 'tab-history') {
+            populateHistoryVehicleSelect();
+            const histSelect = document.getElementById('history-vehicle-select');
+            if (!selectedVehicle && Array.isArray(allVehicles) && allVehicles.length > 0) {
+                selectedVehicle = allVehicles[0];
+            }
+            if (selectedVehicle && histSelect) {
+                histSelect.value = String(selectedVehicle.id);
+            }
+            if (selectedVehicle) {
+                const sp = document.getElementById('history-start-date');
+                const ep = document.getElementById('history-end-date');
+                loadAssetHistory(selectedVehicle.id, sp ? sp.value : null, ep ? ep.value : null);
+            }
+        } else if (isHistoryMode && targetId === 'tab-fleet') {
+            stopRouteAndExit();
         }
         syncWorkspaceLayout();
     }
@@ -1854,6 +1892,7 @@ async function loadVehicles() {
         const vehicles = await response.json();
         allVehicles = vehicles; // Store globally for geofence assignment
         updateChartVehicleSelector(allVehicles);
+        populateHistoryVehicleSelect();
 
         // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
@@ -2469,7 +2508,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     const engineDisplay = tracker.is_engine_locked === undefined ? 'Unlocked' : (tracker.is_engine_locked ? 'Locked' : 'Unlocked');
     const netParts = [];
-    if (tracker.operator_name) netParts.push(String(tracker.operator_name));
+    if (tracker.operator_name) netParts.push(formatOperatorName(tracker.operator_name));
     if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) netParts.push(`${tracker.signal_quality}/31`);
     const netDisplay = netParts.length ? netParts.join(' · ') : '--';
     const satsDisplay = tracker.satellites !== undefined ? `${tracker.satellites} sats` : '--';
@@ -2771,23 +2810,13 @@ async function getAddress(lat, lng) {
     }
 }
 
-// Quick History Search from Map
+// Quick History Search from Map or Asset Detail
 window.openHistorySearch = (id, imei) => {
-    // 1. Select the vehicle (this handles tab switching and centering)
-    selectVehicle({ id, imei });
-
-    // 2. Ensure sidebar is not collapsed (if on mobile)
-    const sidebar = document.querySelector('.sidebar-container');
-    if (sidebar) sidebar.classList.remove('collapsed');
-    syncWorkspaceLayout();
-
-    // 3. Highlight the History & Timeline section
-    const historySection = document.querySelector('.history-controls');
-    if (historySection) {
-        historySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        historySection.classList.add('history-pulse-highlight');
-        setTimeout(() => historySection.classList.remove('history-pulse-highlight'), 3000);
-    }
+    const matched = Array.isArray(allVehicles)
+        ? allVehicles.find(v => String(v.id) === String(id) || (imei && v.imei === imei))
+        : null;
+    selectedVehicle = matched || { id, imei };
+    window.switchTab('tab-history');
 };
 
 // Select Vehicle Helper
@@ -2842,9 +2871,6 @@ function openAssetDetail(vehicle) {
             openRemoteShutdownModal(vehicle);
         };
     }
-
-    // Load History (Default: Today)
-    loadAssetHistory(vehicle.id, null, null);
 }
 
 // Close Asset Detail View
@@ -2952,7 +2978,7 @@ function updateAssetDetailUI(id) {
     if (t.hdop !== undefined) gpsParts.push(`HDOP ${t.hdop}`);
     setDetail('detail-gpsfix', gpsParts.length ? gpsParts.join(' · ') : '--');
     setDetail('detail-gsignal', (t.signal_quality !== undefined && t.signal_quality !== null) ? `${t.signal_quality}/31` : '--');
-    setDetail('detail-operator', t.operator_name || '--');
+    setDetail('detail-operator', formatOperatorName(t.operator_name) || '--');
     const vbattParts = [];
     if (t.vbatt !== undefined && t.vbatt !== null) vbattParts.push(`${Number(t.vbatt).toFixed(1)}V`);
     if (t.battery_percentage !== undefined && t.battery_percentage !== null) vbattParts.push(`${t.battery_percentage}%`);
@@ -4116,7 +4142,19 @@ function pauseRoute() {
     }
 }
 
-function stopRouteAndExit() {
+function clearAllRoutePolylines() {
+    Object.keys(routes).forEach(vid => {
+        const entry = routes[vid];
+        if (Array.isArray(entry)) {
+            entry.forEach(l => { try { map.removeLayer(l); } catch (e) {} });
+        } else if (entry) {
+            try { map.removeLayer(entry); } catch (e) {}
+        }
+        delete routes[vid];
+    });
+}
+
+function stopRouteAndExit(opts = {}) {
     pauseRoute();
     playbackIndex = 0;
 
@@ -4126,20 +4164,13 @@ function stopRouteAndExit() {
     }
 
     if (playbackMarker) {
-        map.removeLayer(playbackMarker);
+        try { map.removeLayer(playbackMarker); } catch (e) {}
         playbackMarker = null;
     }
 
-    if (selectedVehicle && routes[selectedVehicle.id]) {
-        if (Array.isArray(routes[selectedVehicle.id])) {
-            routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
-        } else {
-            try { map.removeLayer(routes[selectedVehicle.id]); } catch(e){}
-        }
-        delete routes[selectedVehicle.id];
-    }
+    clearAllRoutePolylines();
 
-    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch(e){} });
+    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
     historyMarkers = [];
 
     const timelineSlider = document.getElementById('timeline-slider');
@@ -4154,12 +4185,14 @@ function stopRouteAndExit() {
     isHistoryMode = false;
     Object.values(markers).forEach(m => {
         if (m instanceof L.Marker && !map.hasLayer(m)) {
-            try { m.addTo(map); } catch(e){}
+            try { m.addTo(map); } catch (e) {}
         }
     });
 
-    const timeline = document.getElementById('detail-timeline');
-    if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+    if (opts.clearTimeline) {
+        const timeline = document.getElementById('detail-timeline');
+        if (timeline) timeline.innerHTML = '<p class="empty-state">Route cleared from map. Click a trip or Play Full Route to view again.</p>';
+    }
 
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.remove('collapsed');
@@ -4232,40 +4265,171 @@ if (addVehicleBtn) {
 
 
 
+function populateHistoryVehicleSelect() {
+    const sel = document.getElementById('history-vehicle-select');
+    if (!sel) return;
+    const prevVal = sel.value || (selectedVehicle ? String(selectedVehicle.id) : '');
+    const list = Array.isArray(allVehicles) ? allVehicles : [];
+    if (list.length === 0) {
+        sel.innerHTML = '<option value="">No assets available</option>';
+        return;
+    }
+    sel.innerHTML = list.map(v => {
+        const label = escapeHTML(v.name || `Device ${v.imei}`);
+        const imei = escapeHTML(v.imei || '');
+        return `<option value="${v.id}">${label} (${imei})</option>`;
+    }).join('');
+    if (prevVal && list.some(v => String(v.id) === String(prevVal))) {
+        sel.value = String(prevVal);
+    } else if (selectedVehicle && list.some(v => String(v.id) === String(selectedVehicle.id))) {
+        sel.value = String(selectedVehicle.id);
+    } else {
+        sel.value = String(list[0].id);
+    }
+}
+
+function updateHistorySummaryStrip(distKm, tripsCount, stopsCount, maxSpeed) {
+    const setEl = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    setEl('hist-stat-dist', `${Number(distKm || 0).toFixed(1)} km`);
+    setEl('hist-stat-trips', String(tripsCount || 0));
+    setEl('hist-stat-stops', String(stopsCount || 0));
+    setEl('hist-stat-maxspd', `${Math.round(maxSpeed || 0)} km/h`);
+}
+
+async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
+    if (!Array.isArray(inputPoints) || inputPoints.length === 0) return false;
+
+    pauseRoute();
+    playbackIndex = 0;
+    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
+    historyMarkers = [];
+    if (playbackMarker) { try { map.removeLayer(playbackMarker); } catch (e) {} playbackMarker = null; }
+    clearAllRoutePolylines();
+
+    const sortedPoints = [...inputPoints].sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+    const filteredPoints = filterValidRoutePoints(sortedPoints);
+    if (filteredPoints.length < 2) return false;
+
+    const snapped = await snapRouteToRoad(filteredPoints);
+    let segments;
+    let playbackPoints;
+
+    if (snapped && snapped.matched) {
+        segments = snapped.segments;
+        playbackPoints = [];
+        segments.forEach(seg => {
+            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp, snapped: true }));
+        });
+    } else {
+        segments = splitTraceAtGaps(filteredPoints);
+        playbackPoints = filteredPoints;
+    }
+
+    const layers = [];
+    const allCoords = [];
+    segments.forEach(seg => {
+        const polyline = L.polyline(seg, {
+            color: '#0284c7',
+            weight: 5,
+            opacity: 0.9,
+            smoothFactor: 1.0,
+            lineJoin: 'round',
+            lineCap: 'round'
+        }).addTo(map);
+        layers.push(polyline);
+        allCoords.push(...seg);
+    });
+    routes[id] = layers;
+    if (allCoords.length > 0 && map) {
+        map.fitBounds(L.latLngBounds(allCoords), { padding: [55, 55] });
+    }
+
+    const startPt = filteredPoints[0];
+    const endPt = filteredPoints[filteredPoints.length - 1];
+    const startMarker = L.circleMarker([startPt.lat, startPt.lng], {
+        radius: 8, fillColor: '#10b981', color: '#fff', weight: 2.5, opacity: 1, fillOpacity: 1
+    }).bindPopup('<b>Start:</b> ' + parseTimestamp(startPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })).addTo(map);
+
+    const endMarker = L.circleMarker([endPt.lat, endPt.lng], {
+        radius: 8, fillColor: '#ef4444', color: '#fff', weight: 2.5, opacity: 1, fillOpacity: 1
+    }).bindPopup('<b>Destination:</b> ' + parseTimestamp(endPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })).addTo(map);
+
+    historyMarkers.push(startMarker, endMarker);
+
+    isHistoryMode = true;
+    Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
+    playbackRoute = playbackPoints;
+    playbackSegments = segments;
+
+    const routeControls = document.getElementById('route-controls');
+    if (routeControls) routeControls.classList.remove('hidden');
+
+    if (autoPlay) {
+        if (window.innerWidth < 768) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.add('collapsed');
+            syncWorkspaceLayout();
+        }
+        setTimeout(() => {
+            if (map) map.invalidateSize();
+            playRoute();
+        }, 250);
+    }
+    return true;
+}
+
 // Load Asset History
 async function loadAssetHistory(id, startDateStr, endDateStr) {
     const timeline = document.getElementById('detail-timeline');
-    if (!timeline) return;
+    if (!timeline || !id) return;
 
-    timeline.innerHTML = '<p class="loading">Loading history...</p>';
+    const matched = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id)) : null;
+    if (matched) selectedVehicle = matched;
+    const histSelect = document.getElementById('history-vehicle-select');
+    if (histSelect && String(histSelect.value) !== String(id)) {
+        populateHistoryVehicleSelect();
+        histSelect.value = String(id);
+    }
 
-    // Default to today if no dates provided (format correctly for datetime-local)
-    const today = new Date().toISOString().split('T')[0];
-    if (!startDateStr || startDateStr === 'today') startDateStr = `${today}T00:00`;
-    if (!endDateStr || endDateStr === 'today') endDateStr = `${today}T23:59`;
+    timeline.innerHTML = '<p class="loading">Loading route history…</p>';
+    const playAllBtn = document.getElementById('history-play-all-btn');
+    if (playAllBtn) {
+        playAllBtn.disabled = true;
+        playAllBtn.onclick = null;
+    }
+    updateHistorySummaryStrip(0, 0, 0, 0);
 
-    // Update picker visual
+    // Default to local calendar today (00:00 to 23:59)
+    const now = new Date();
+    const todayStart = formatLocalDT(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0));
+    const todayEnd = formatLocalDT(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59));
+    if (!startDateStr || startDateStr === 'today') startDateStr = todayStart;
+    if (!endDateStr || endDateStr === 'today') endDateStr = todayEnd;
+
     const startPicker = document.getElementById('history-start-date');
     const endPicker = document.getElementById('history-end-date');
     if (startPicker) startPicker.value = startDateStr;
     if (endPicker) endPicker.value = endDateStr;
 
     try {
-        // datetime-local values are already in a compatible string format or YYYY-MM-DDTHH:MM
-        let sd = new Date(startDateStr);
-        let ed = new Date(endDateStr);
+        const sd = new Date(startDateStr);
+        const ed = new Date(endDateStr);
+        const urlPath = `/positions/routes/${id}?start_date=${encodeURIComponent(sd.toISOString())}&end_date=${encodeURIComponent(ed.toISOString())}`;
 
-        // Fetch using the routes endpoint which cleanly supports start/end dates
-        const response = await fetch(`${API_URL}/positions/routes/${id}?start_date=${sd.toISOString()}&end_date=${ed.toISOString()}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-        });
+        const response = (window.AuthManager && typeof window.AuthManager.fetchAPI === 'function')
+            ? await window.AuthManager.fetchAPI(urlPath)
+            : await fetch(`${API_URL}${urlPath}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+            });
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-
         timeline.innerHTML = '';
 
         if (!data.points || data.points.length === 0) {
@@ -4276,22 +4440,38 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // 1. Filter out invalid/Null-Island coordinates and sort chronologically using parseTimestamp
         const points = data.points
             .filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
-            .sort((a,b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+            .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
         if (points.length === 0) {
             timeline.innerHTML = '<p class="empty-state">No valid route points recorded for this date range</p>';
             return;
         }
 
-        // 2. Classify points and segment into logical Driving and Stationary periods
-        // A point is driving/moving if speed > 3.0 km/h
+        // Compute effective speed for each point (recovers movement when tracker
+        // reports speed=0 while moving across town)
+        for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            let spd = Number(p.speed) || 0;
+            if (spd <= 3.0 && i > 0) {
+                const prev = points[i - 1];
+                const dtSec = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000);
+                const dKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
+                if (dtSec > 0 && dtSec <= 900 && dKm >= 0.025) {
+                    const implied = dKm / (dtSec / 3600);
+                    if (implied >= 4.0 && implied <= 160.0) spd = Math.round(implied * 10) / 10;
+                }
+            }
+            p._effectiveSpeed = spd;
+        }
+
+        // 2. Segment into Moving vs Stationary periods
         const rawSegments = [];
         let curSegmentPoints = [];
         let curIsMoving = false;
 
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
-            const pMoving = (Number(p.speed) || 0) > 3.0;
+            const pMoving = p._effectiveSpeed > 3.0;
 
             if (curSegmentPoints.length === 0) {
                 curSegmentPoints.push(p);
@@ -4299,13 +4479,17 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             } else {
                 const prev = curSegmentPoints[curSegmentPoints.length - 1];
                 const timeGapMins = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 60000);
+                const distFromPrevKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
 
-                // Split segment if movement state changed or large time gap (> 15 mins)
-                if (timeGapMins > 15 || pMoving !== curIsMoving) {
-                    rawSegments.push({
-                        isMoving: curIsMoving,
-                        points: curSegmentPoints
-                    });
+                // For moving segments, split on >15m gap or state change;
+                // for stationary segments at the same location (<100m), do NOT split
+                // just because stationary heartbeats were >15m apart!
+                const shouldSplit = (pMoving !== curIsMoving) ||
+                    (curIsMoving && timeGapMins > 15) ||
+                    (!curIsMoving && distFromPrevKm > 0.10);
+
+                if (shouldSplit) {
+                    rawSegments.push({ isMoving: curIsMoving, points: curSegmentPoints });
                     curSegmentPoints = [p];
                     curIsMoving = pMoving;
                 } else {
@@ -4314,13 +4498,11 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             }
         }
         if (curSegmentPoints.length > 0) {
-            rawSegments.push({
-                isMoving: curIsMoving,
-                points: curSegmentPoints
-            });
+            rawSegments.push({ isMoving: curIsMoving, points: curSegmentPoints });
         }
 
-        // 3. Merge momentary traffic stops (< 5 mins) between moving segments so a single trip isn't fragmented
+        // 3. Merge brief traffic stops (<5m) between moving segments, and merge
+        // adjacent stationary segments at the same spot (<100m)
         const mergedSegments = [];
         for (let i = 0; i < rawSegments.length; i++) {
             const seg = rawSegments[i];
@@ -4330,13 +4512,26 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
 
             if (!seg.isMoving && durMins < 5 && mergedSegments.length > 0 && mergedSegments[mergedSegments.length - 1].isMoving && (i + 1 < rawSegments.length && rawSegments[i + 1].isMoving)) {
                 mergedSegments[mergedSegments.length - 1].points.push(...seg.points);
+            } else if (!seg.isMoving && mergedSegments.length > 0 && !mergedSegments[mergedSegments.length - 1].isMoving) {
+                const prevSeg = mergedSegments[mergedSegments.length - 1];
+                const prevEnd = prevSeg.points[prevSeg.points.length - 1];
+                if (haversineDistanceKm(prevEnd.lat, prevEnd.lng, seg.points[0].lat, seg.points[0].lng) < 0.10) {
+                    prevSeg.points.push(...seg.points);
+                } else {
+                    mergedSegments.push(seg);
+                }
             } else {
                 mergedSegments.push(seg);
             }
         }
 
-        // 4. Construct timeline data items with strict velocity and displacement validation
+        // 4. Construct timeline items & summary totals
         const timelineData = [];
+        let totalTripDistKm = 0;
+        let overallMaxSpeed = 0;
+        let tripsCount = 0;
+        let stopsCount = 0;
+
         mergedSegments.forEach((seg, idx) => {
             const startP = seg.points[0];
             const endP = seg.points[seg.points.length - 1];
@@ -4345,37 +4540,39 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             let distKm = 0;
             let maxSpd = 0;
             for (let j = 0; j < seg.points.length; j++) {
-                const spd = Number(seg.points[j].speed) || 0;
+                const spd = Number(seg.points[j]._effectiveSpeed || seg.points[j].speed) || 0;
                 if (spd > maxSpd) maxSpd = spd;
                 if (j > 0) {
-                    distKm += haversineDistanceKm(seg.points[j-1].lat, seg.points[j-1].lng, seg.points[j].lat, seg.points[j].lng);
+                    distKm += haversineDistanceKm(seg.points[j - 1].lat, seg.points[j - 1].lng, seg.points[j].lat, seg.points[j].lng);
                 }
             }
+            const netDispKm = haversineDistanceKm(startP.lat, startP.lng, endP.lat, endP.lng);
+            if (maxSpd > overallMaxSpeed) overallMaxSpeed = maxSpd;
 
-            // CRITICAL FIX: To be classified as a Driving Period, the vehicle MUST have:
-            // 1. Reported speed > 3.0 km/h (isMoving)
-            // 2. Recorded max speed > 3.0 km/h
-            // 3. Actually traversed at least 150 meters (distKm >= 0.15)
-            // If it stayed stationary (GPS jitter < 150m or speed <= 3 km/h), it is strictly a Stationary Period!
-            const isDrivingTrip = seg.isMoving && maxSpd > 3.0 && distKm >= 0.15;
+            // Classify as Driving Trip if moving with >=150m path OR net displacement >=200m
+            const isDrivingTrip = (seg.isMoving && maxSpd > 3.0 && distKm >= 0.15) || (distKm >= 0.20 && netDispKm >= 0.15);
 
             if (isDrivingTrip) {
+                tripsCount++;
+                totalTripDistKm += distKm;
                 timelineData.push({
                     type: 'trip',
                     points: seg.points,
-                    duration: duration,
+                    duration,
+                    maxSpeed: Math.round(maxSpd),
                     distance: distKm.toFixed(1),
                     start: startP,
                     end: endP,
                     id: `timeline-trip-${idx}`
                 });
             } else {
+                stopsCount++;
                 timelineData.push({
                     type: 'stop',
                     points: seg.points,
                     lat: startP.lat,
                     lng: startP.lng,
-                    duration: duration,
+                    duration,
                     start: startP,
                     end: endP,
                     id: `timeline-stop-${idx}`
@@ -4383,152 +4580,103 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             }
         });
 
-        timelineData.forEach(itemData => {
+        // Consolidate consecutive stops that fell below the trip threshold at the same spot
+        const consolidatedTimeline = [];
+        for (const item of timelineData) {
+            const prev = consolidatedTimeline[consolidatedTimeline.length - 1];
+            if (item.type === 'stop' && prev && prev.type === 'stop' && haversineDistanceKm(prev.lat, prev.lng, item.lat, item.lng) < 0.10) {
+                prev.end = item.end;
+                prev.points.push(...item.points);
+                prev.duration = Math.max(1, Math.round(Math.abs((parseTimestamp(prev.end.timestamp) - parseTimestamp(prev.start.timestamp)) / 60000)));
+                stopsCount = Math.max(1, stopsCount - 1);
+            } else {
+                consolidatedTimeline.push(item);
+            }
+        }
+
+        const displayDistKm = totalTripDistKm > 0 ? totalTripDistKm : (Number(data.total_distance_km) || 0);
+        updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, overallMaxSpeed);
+
+        if (playAllBtn && points.length >= 2) {
+            playAllBtn.disabled = false;
+            playAllBtn.onclick = async () => {
+                document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
+                await renderAndPrepareRouteOnMap(id, points, true);
+            };
+        }
+
+        consolidatedTimeline.forEach((itemData, tIdx) => {
             const item = document.createElement('div');
             item.className = `timeline-item timeline-${itemData.type}`;
-            
+
             const startFormatted = parseTimestamp(itemData.start.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const endFormatted = parseTimestamp(itemData.end.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const durText = formatDurationMins(itemData.duration);
 
             if (itemData.type === 'trip') {
                 item.innerHTML = `
                     <div class="timeline-icon"><i class="fas fa-route"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-time">${startFormatted} - ${endFormatted}</div>
-                        <div class="timeline-title">Driving Period (${itemData.duration} min, ${itemData.distance} km)</div>
-                        <div class="timeline-desc" id="addr-trip-start-${itemData.id}">Resolving start...</div>
-                        <div class="timeline-desc" id="addr-trip-end-${itemData.id}">Resolving destination...</div>
+                        <div class="timeline-top-row">
+                            <span class="timeline-time">${startFormatted} – ${endFormatted}</span>
+                            <span class="timeline-play-pill"><i class="fas fa-play"></i> Play</span>
+                        </div>
+                        <div class="timeline-title">Trip · ${itemData.distance} km · ${durText}</div>
+                        <div class="timeline-desc" id="addr-trip-start-${itemData.id}">Resolving origin…</div>
+                        <div class="timeline-desc" id="addr-trip-end-${itemData.id}">Resolving destination…</div>
                     </div>
                 `;
-                
-                // Address Resolution
+
                 setTimeout(async () => {
                     const sAddr = await getAddress(itemData.start.lat, itemData.start.lng);
                     const eAddr = await getAddress(itemData.end.lat, itemData.end.lng);
                     const sEl = document.getElementById(`addr-trip-start-${itemData.id}`);
                     const eEl = document.getElementById(`addr-trip-end-${itemData.id}`);
-                    if (sEl) sEl.innerHTML = `<strong>From:</strong> ${sAddr || 'Street in area'}`;
-                    if (eEl) eEl.innerHTML = `<strong>To:</strong> ${eAddr || 'Street in area'}`;
-                }, 50);
-                
+                    if (sEl) sEl.innerHTML = `<strong>From:</strong> ${escapeHTML(sAddr || 'Recorded coordinates')}`;
+                    if (eEl) eEl.innerHTML = `<strong>To:</strong> ${escapeHTML(eAddr || 'Recorded coordinates')}`;
+                }, 40 * (tIdx + 1));
+
                 item.onclick = async () => {
-                    document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-
-                    // Clear previous history state
-                    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch(e){} });
-                    historyMarkers = [];
-                    if (playbackMarker) { map.removeLayer(playbackMarker); playbackMarker = null; }
-                    if (playbackInterval) { clearInterval(playbackInterval); playbackInterval = null; }
-
-                    // Sort points by timestamp before drawing
-                    const sortedPoints = [...itemData.points].sort((a,b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
-
-                    // Use the robust filter: drops invalid coords, exact
-                    // duplicates, and ping-pong teleport spikes (the spikes
-                    // are what create the fan/starburst pattern of straight
-                    // lines radiating from one point)
-                    const filteredPoints = filterValidRoutePoints(sortedPoints);
-
-                    if (filteredPoints.length < 2) return;
-
-                    // Remove previous route layers (may be array or single layer)
-                    if (routes[id]) {
-                        if (Array.isArray(routes[id])) {
-                            routes[id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
-                        } else {
-                            try { map.removeLayer(routes[id]); } catch(e){}
-                        }
-                    }
-
-                    // Snap trace to actual roads via OSRM map matching
-                    const snapped = await snapRouteToRoad(filteredPoints);
-                    let segments;
-                    let playbackPoints;
-
-                    if (snapped && snapped.matched) {
-                        // Use road-snapped geometry for both display and playback
-                        segments = snapped.segments;
-                        playbackPoints = [];
-                        segments.forEach(seg => {
-                            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp, snapped: true }));
-                        });
-                    } else {
-                        // Fallback: raw trace split at time gaps (no straight lines across gaps)
-                        segments = splitTraceAtGaps(filteredPoints);
-                        playbackPoints = filteredPoints;
-                    }
-
-                    const layers = [];
-                    const allCoords = [];
-                    segments.forEach(seg => {
-                        const polyline = L.polyline(seg, { color: '#00d4ff', weight: 5, opacity: 0.85, smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round' }).addTo(map);
-                        layers.push(polyline);
-                        allCoords.push(...seg);
-                    });
-                    routes[id] = layers;
-                    map.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
-
-                    // Add Start/End Dots
-                    const startMarker = L.circleMarker([filteredPoints[0].lat, filteredPoints[0].lng], {
-                        radius: 9, fillColor: '#00ff88', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
-                    }).bindPopup('<b>Start:</b> ' + parseTimestamp(filteredPoints[0].timestamp).toLocaleTimeString()).addTo(map);
-
-                    const endMarker = L.circleMarker([filteredPoints[filteredPoints.length-1].lat, filteredPoints[filteredPoints.length-1].lng], {
-                        radius: 9, fillColor: '#ff4444', color: '#fff', weight: 2, opacity: 1, fillOpacity: 1
-                    }).bindPopup('<b>Destination:</b> ' + parseTimestamp(filteredPoints[filteredPoints.length-1].timestamp).toLocaleTimeString()).addTo(map);
-
-                    historyMarkers.push(startMarker, endMarker);
-
-                    isHistoryMode = true;
-                    Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
-                    playbackRoute = playbackPoints;
-                    playbackSegments = segments;
-                    document.getElementById('route-controls').classList.remove('hidden');
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) sidebar.classList.add('collapsed');
-                    syncWorkspaceLayout();
-                    setTimeout(() => {
-                        if (map) map.invalidateSize();
-                        playRoute();
-                    }, 400);
+                    await renderAndPrepareRouteOnMap(id, itemData.points, true);
                 };
             } else {
-                // Stationary / Stop Item
                 item.innerHTML = `
-                    <div class="timeline-icon" style="background: var(--warning);"><i class="fas fa-parking"></i></div>
+                    <div class="timeline-icon"><i class="fas fa-parking"></i></div>
                     <div class="timeline-content">
-                        <div class="timeline-time">${startFormatted} - ${endFormatted}</div>
-                        <div class="timeline-title">Stationary Period (${itemData.duration} min)</div>
-                        <div class="timeline-desc" id="addr-stop-${itemData.id}">Resolving location...</div>
+                        <div class="timeline-top-row">
+                            <span class="timeline-time">${startFormatted} – ${endFormatted}</span>
+                            <span class="timeline-stop-pill">${durText}</span>
+                        </div>
+                        <div class="timeline-title">Parked / Stationary</div>
+                        <div class="timeline-desc" id="addr-stop-${itemData.id}">Resolving location…</div>
                     </div>
                 `;
-                
+
                 setTimeout(async () => {
                     const addr = await getAddress(itemData.lat, itemData.lng);
                     const el = document.getElementById(`addr-stop-${itemData.id}`);
-                    if (el) el.innerHTML = `<strong>Location:</strong> ${addr || 'Street in area'}`;
-                }, 50);
-                
+                    if (el) el.innerHTML = `<strong>At:</strong> ${escapeHTML(addr || `${itemData.lat.toFixed(4)}, ${itemData.lng.toFixed(4)}`)}`;
+                }, 40 * (tIdx + 1));
+
                 item.onclick = () => {
-                    document.querySelectorAll('.timeline-item').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
 
-                    // Clear Previous
-                    historyMarkers.forEach(m => map.removeLayer(m));
+                    historyMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
                     historyMarkers = [];
 
                     const stopMarker = L.circleMarker([itemData.lat, itemData.lng], {
-                        radius: 10,
-                        fillColor: "var(--warning)",
-                        color: "#fff",
-                        weight: 3,
+                        radius: 9,
+                        fillColor: '#f59e0b',
+                        color: '#fff',
+                        weight: 2.5,
                         opacity: 1,
                         fillOpacity: 1
-                    }).bindPopup(`<b>Stationary Duration:</b> ${itemData.duration} min`).addTo(map);
+                    }).bindPopup(`<b>Parked Duration:</b> ${durText}<br><small>${startFormatted} – ${endFormatted}</small>`).addTo(map);
 
                     historyMarkers.push(stopMarker);
-
                     map.flyTo([itemData.lat, itemData.lng], 17);
                     stopMarker.openPopup();
                 };
@@ -4536,58 +4684,90 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             timeline.appendChild(item);
         });
 
+        // Automatically render the route on the map when trips exist so the
+        // user sees the path immediately upon selecting the asset/date range
+        if (tripsCount > 0 && points.length >= 2) {
+            await renderAndPrepareRouteOnMap(id, points, false);
+        }
+
     } catch (e) {
         console.error("History load error", e);
-        timeline.innerHTML = '<p class="empty-state">Failed to load history endpoints</p>';
+        timeline.innerHTML = '<p class="empty-state">Failed to load route history. Check your connection and retry.</p>';
     }
 }
 
-// ... inside document ready ...
-// History Filter Listener (Date Picker)
+// History Toolbar Listeners (Asset Selector, Presets, Date Pickers, Clear)
+const historyVehicleSelect = document.getElementById('history-vehicle-select');
 const historyStartPicker = document.getElementById('history-start-date');
 const historyEndPicker = document.getElementById('history-end-date');
 
+function applyHistoryPreset(preset) {
+    const now = new Date();
+    let startD, endD;
+    if (preset === 'yesterday') {
+        const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        startD = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0);
+        endD = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59);
+    } else if (preset === '7d') {
+        const w = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        startD = new Date(w.getFullYear(), w.getMonth(), w.getDate(), 0, 0);
+        endD = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+    } else {
+        startD = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
+        endD = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
+    }
+    if (historyStartPicker) historyStartPicker.value = formatLocalDT(startD);
+    if (historyEndPicker) historyEndPicker.value = formatLocalDT(endD);
+    document.querySelectorAll('.history-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === preset);
+    });
+    const vid = (historyVehicleSelect && historyVehicleSelect.value) || (selectedVehicle && selectedVehicle.id);
+    if (vid) {
+        loadAssetHistory(vid, historyStartPicker ? historyStartPicker.value : null, historyEndPicker ? historyEndPicker.value : null);
+    }
+}
+
+if (historyVehicleSelect) {
+    historyVehicleSelect.addEventListener('change', () => {
+        const vid = historyVehicleSelect.value;
+        if (!vid) return;
+        const matched = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(vid)) : null;
+        if (matched) selectedVehicle = matched;
+        stopRouteAndExit();
+        loadAssetHistory(vid, historyStartPicker ? historyStartPicker.value : null, historyEndPicker ? historyEndPicker.value : null);
+    });
+}
+
+document.querySelectorAll('.history-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyHistoryPreset(btn.dataset.preset));
+});
+
 if (historyStartPicker && historyEndPicker) {
-    // Set default to today (00:00 to 23:59)
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0);
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59);
 
-    // Format to YYYY-MM-DDTHH:mm for datetime-local
-    const formatDT = (d) => {
-        const offset = d.getTimezoneOffset();
-        const local = new Date(d.getTime() - (offset * 60 * 1000));
-        return local.toISOString().slice(0, 16);
-    };
-
-    historyStartPicker.value = formatDT(startOfDay);
-    historyEndPicker.value = formatDT(endOfDay);
+    historyStartPicker.value = formatLocalDT(startOfDay);
+    historyEndPicker.value = formatLocalDT(endOfDay);
 
     const historyOnChange = () => {
-        if (selectedVehicle) {
-            loadAssetHistory(selectedVehicle.id, historyStartPicker.value, historyEndPicker.value);
+        document.querySelectorAll('.history-preset-btn').forEach(b => b.classList.remove('active'));
+        const vid = (historyVehicleSelect && historyVehicleSelect.value) || (selectedVehicle && selectedVehicle.id);
+        if (vid) {
+            loadAssetHistory(vid, historyStartPicker.value, historyEndPicker.value);
         }
     };
 
-    // Auto load when dates change
     historyStartPicker.addEventListener('change', historyOnChange);
     historyEndPicker.addEventListener('change', historyOnChange);
 }
-
 
 // Clear History Handler
 const clearHistoryBtn = document.getElementById('clear-history-btn');
 if (clearHistoryBtn) {
     clearHistoryBtn.addEventListener('click', () => {
-        if (selectedVehicle && routes[selectedVehicle.id]) {
-            map.removeLayer(routes[selectedVehicle.id]);
-            delete routes[selectedVehicle.id];
-        }
-        playbackRoute = null;
-        playbackSegments = null;
-        document.getElementById('route-controls').classList.add('hidden');
-        const timeline = document.getElementById('detail-timeline');
-        if (timeline) timeline.innerHTML = '<p class="empty-state">History cleared. Select a range to reload.</p>';
+        stopRouteAndExit({ clearTimeline: false });
+        document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
     });
 }
 
