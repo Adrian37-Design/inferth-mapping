@@ -2164,7 +2164,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // Persist tracker telemetry too (satellites/hdop/state/geofence/signal)
         // so the detail panel can read them from obdDataMap
         const trackerFields = ['satellites', 'hdop', 'age', 'state', 'geofence_violation_state', 'geofence_id',
-            'battery_percentage', 'vbatt', 'fuel_level', 'signal_quality', 'operator_name', 'ip_address',
+            'battery_percentage', 'vbatt', 'fuel_level', 'fuel_adc', 'fuel_height', 'fuel_volume',
+            'signal_quality', 'operator_name', 'ip_address',
             'is_engine_locked', 'time_from', 'time_to'];
         trackerFields.forEach(field => {
             if (rawData[field] !== undefined) {
@@ -2408,8 +2409,12 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V ext`);
     if (tracker.battery_percentage !== undefined && tracker.battery_percentage !== null) battParts.push(`${tracker.battery_percentage}% int`);
     if (battParts.length) trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-battery-three-quarters"></i> ${battParts.join(' · ')}</div>`);
-    if (tracker.fuel_level !== undefined && tracker.fuel_level !== null) {
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> Fuel: ${tracker.fuel_level}</div>`);
+    // Fuel in litres — fuel_volume is the true computed litres; fuel_level
+    // is the scaled product, kept as fallback for older firmware rows
+    const fuelLitres = (tracker.fuel_volume !== undefined && tracker.fuel_volume !== null)
+        ? tracker.fuel_volume : tracker.fuel_level;
+    if (fuelLitres !== undefined && fuelLitres !== null) {
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-gas-pump"></i> Fuel Level: ${Math.round(fuelLitres)}L</div>`);
     }
     if (tracker.geofence_violation_state) {
         const gs = String(tracker.geofence_violation_state);
@@ -2897,7 +2902,8 @@ function updateAssetDetailUI(id) {
     if (t.vbatt !== undefined && t.vbatt !== null) vbattParts.push(`${Number(t.vbatt).toFixed(1)}V`);
     if (t.battery_percentage !== undefined && t.battery_percentage !== null) vbattParts.push(`${t.battery_percentage}%`);
     setDetail('detail-vbatt', vbattParts.length ? vbattParts.join(' · ') : '--');
-    setDetail('detail-fuel', (t.fuel_level !== undefined && t.fuel_level !== null) ? `${t.fuel_level}` : '--');
+    const detailFuelL = (t.fuel_volume !== undefined && t.fuel_volume !== null) ? t.fuel_volume : t.fuel_level;
+    setDetail('detail-fuel', (detailFuelL !== undefined && detailFuelL !== null) ? `${Math.round(detailFuelL)}L` : '--');
     const lockedState = t.is_engine_locked !== undefined ? t.is_engine_locked : (isShutdown ? true : undefined);
     setDetail('detail-engine-lock', lockedState === undefined ? '--' : (lockedState ? 'Locked' : 'Unlocked'));
     if (t.geofence_violation_state) {
