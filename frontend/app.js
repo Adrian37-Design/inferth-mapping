@@ -247,13 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const posMap = {};
             positions.forEach(p => posMap[p.device_id] = p);
 
-            // Update each marker in place
+            // Update each marker in place (never regress a fresher WS update)
             Object.values(posMap).forEach(pos => {
                 const rawData = pos.raw || {};
-                // Find vehicle name and imei from existing marker
+                const lastAcceptedRaw = vehiclePositions[pos.device_id] && vehiclePositions[pos.device_id].timestamp;
+                const incomingTs = parseTimestamp(pos.timestamp);
+                const lastAcceptedTs = lastAcceptedRaw ? parseTimestamp(lastAcceptedRaw) : null;
+                if (incomingTs && lastAcceptedTs && incomingTs.getTime() < lastAcceptedTs.getTime()) {
+                    return;
+                }
                 const m = markers[pos.device_id];
-                const vImei = m ? m.vehicleIMEI : (rawData.imei || '');
-                addOrUpdateMarker(pos.device_id, '', vImei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
+                const vObj = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(pos.device_id)) : null;
+                const vName = m && m.vehicleName ? m.vehicleName : (vObj ? vObj.name : '');
+                const vImei = m && m.vehicleIMEI ? m.vehicleIMEI : (vObj ? vObj.imei : (rawData.imei || ''));
+                addOrUpdateMarker(pos.device_id, vName, vImei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
             });
 
             // Collect current vehicle list and refresh KPIs
@@ -2227,9 +2234,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Motion persistence: brief speed dips (0 for a few seconds at a robot)
     // should not instantly flip status. Require speed>3 to START moving,
     // but keep "Moving" until we've seen ~30s of consecutive low speed.
+    const hardwareMoving = Boolean(rawData && String(rawData.state || '').toUpperCase() === 'MOVING');
     let assetStatus = 'Offline';
     if (minsOffline < 10) {
-        if (speed > 3) {
+        if (speed > 3 || hardwareMoving) {
             assetStatus = 'Moving';
             if (marker) marker.stationarySince = null;
         } else {
@@ -2303,12 +2311,20 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             const isStationary = assetStatus === 'Stationary';
 
             if (isStationary) {
-                // Set anchor on first stationary report; never move while stationary
+                // Set anchor on first stationary report; suppress small GPS drift (<= 25m)
+                // but allow real relocations (> 25m) so low-speed moves or final stop
+                // pings at a new location update the marker immediately.
                 if (!marker.stationaryAnchor) {
                     marker.stationaryAnchor = currentLatLng;
                 }
-                // Pin marker to anchor — no animation, no movement, no bouncing
-                marker.setLatLng(marker.stationaryAnchor);
+                const anchorDist = marker.stationaryAnchor.distanceTo(newLatLng);
+                if (distMeters > 0 && anchorDist > 25) {
+                    marker.stationaryAnchor = newLatLng;
+                    marker.lastMoveTime = Date.now();
+                    animateMarker(marker, currentLatLng, newLatLng, 1000);
+                } else {
+                    marker.setLatLng(marker.stationaryAnchor);
+                }
             } else {
                 // Vehicle is moving: clear anchor and track normally
                 marker.stationaryAnchor = null;
@@ -2565,8 +2581,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // panel can read tracker telemetry (satellites/hdop/state/geofence)
     vehiclePositions[id] = { lat, lng, speed, timestamp, ignition: ignitionOn, raw: rawData };
 
-    // Update Detail View if open
-    if (selectedVehicle && selectedVehicle.id === id) {
+    // Update Detail View if open (compare via String so WS string keys match numeric IDs)
+    if (selectedVehicle && String(selectedVehicle.id) === String(id)) {
         const statusEl = document.getElementById('detail-status');
         if (statusEl) {
             statusEl.textContent = assetStatus;
@@ -2815,7 +2831,7 @@ function updateAssetDetailUI(id) {
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
     const marker = markers[id];
-    const vehicle = Array.isArray(allVehicles) ? allVehicles.find(v => v.id === id) : null;
+    const vehicle = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id)) : null;
     const meta = (vehicle && vehicle.device_metadata) || {};
     const isShutdown = meta.is_shutdown || meta.shutdown_status === 'SHUTDOWN';
 
@@ -3601,15 +3617,38 @@ function connectWebSocket() {
             if (data.imei && (data.latitude || isObd)) {
                 console.log('📡 Real-time update:', data.imei, isObd ? 'OBD' : 'Location');
 
-                // Find device by IMEI
-                let deviceId = Object.keys(markers).find(id => markers[id].vehicleIMEI === data.imei);
-
-                // If not found in markers, check if we have a pending vehicle object
-                if (!deviceId && selectedVehicle && selectedVehicle.imei === data.imei) {
+                // Resolve deviceId: prefer authoritative device_id from WS payload,
+                // then allVehicles by IMEI, then existing markers, then selectedVehicle
+                let deviceId = data.device_id !== undefined && data.device_id !== null ? data.device_id : null;
+                const matchedVehicle = Array.isArray(allVehicles)
+                    ? allVehicles.find(v => (deviceId !== null && String(v.id) === String(deviceId)) || (data.imei && v.imei === data.imei))
+                    : null;
+                if (matchedVehicle) {
+                    deviceId = matchedVehicle.id;
+                    // Keep device_metadata synced on live WS packets so engine lock
+                    // button and detail telemetry update without a page reload
+                    const meta = { ...(matchedVehicle.device_metadata || {}) };
+                    if (data.is_engine_locked !== undefined && data.is_engine_locked !== null) {
+                        meta.is_engine_locked = data.is_engine_locked;
+                        meta.is_shutdown = Boolean(data.is_engine_locked);
+                    }
+                    ['signal_quality', 'operator_name', 'ip_address'].forEach(f => {
+                        if (data[f] !== undefined && data[f] !== null) meta[f] = data[f];
+                    });
+                    matchedVehicle.device_metadata = meta;
+                }
+                if (deviceId === null || deviceId === undefined) {
+                    const markerKey = Object.keys(markers).find(id => markers[id].vehicleIMEI === data.imei);
+                    if (markerKey !== undefined) {
+                        const numKey = Number(markerKey);
+                        deviceId = Number.isFinite(numKey) ? numKey : markerKey;
+                    }
+                }
+                if ((deviceId === null || deviceId === undefined) && selectedVehicle && selectedVehicle.imei === data.imei) {
                     deviceId = selectedVehicle.id;
                 }
 
-                if (deviceId) {
+                if (deviceId !== null && deviceId !== undefined) {
                     const m = markers[deviceId];
                     let lat = data.latitude;
                     let lng = data.longitude;
