@@ -916,12 +916,9 @@ body {
     }
 
     .nav-brand {
-        font-size: 1rem;
+        font-size: 0.95rem;
         gap: 6px;
-    }
-
-    #nav-brand-name {
-        display: none; /* hide text; show logo only */
+        min-width: 0;
     }
 
     .brand-logo {
@@ -929,12 +926,9 @@ body {
         max-width: 110px;
     }
 
-    .role-badge {
-        display: none;
-    }
-
     .nav-stats {
         gap: 6px;
+        flex-shrink: 0;
     }
 
     .stat-item {
@@ -942,108 +936,14 @@ body {
         font-size: 0.75em;
     }
 
-    /* Show only icons on nav buttons */
-    .map-btn span,
-    .logout-btn span {
-        display: none;
-    }
-
     .map-btn, .logout-btn {
         padding: 6px 10px;
         font-size: 0.9em;
     }
 
-    /* ── Main container ── */
+    /* ── Main container — same row layout as desktop ── */
     .main-container {
         height: calc(100dvh - 52px);
-        flex-direction: column;
-    }
-
-    /* ── Sidebar layout — icon rail moves to bottom ── */
-    .sidebar-container {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        top: auto;
-        height: auto;
-        flex-direction: column-reverse;
-        z-index: 3000;
-        pointer-events: none;
-    }
-
-    .sidebar-rail,
-    .sidebar-panel {
-        pointer-events: auto;
-    }
-
-    /* Icon rail becomes a horizontal bottom tab bar */
-    .sidebar-rail {
-        width: 100%;
-        height: 56px;
-        flex-direction: row;
-        justify-content: space-around;
-        align-items: center;
-        padding: 0 4px;
-        gap: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        border-right: none;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
-        background: var(--darker-bg);
-    }
-
-    .rail-item {
-        width: auto;
-        min-width: 48px;
-        min-height: 48px;
-        flex: 1;
-        border-radius: 8px;
-        padding: 4px 0;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .rail-item i {
-        font-size: 1.15em;
-    }
-
-    /* Show labels on bottom tab bar */
-    .rail-label {
-        display: block;
-        font-size: 0.5rem;
-        line-height: 1;
-    }
-
-    .rail-badge {
-        top: 0;
-        right: 8px;
-    }
-
-    /* Sidebar panel slides up from bottom as a sheet */
-    .sidebar-panel {
-        position: fixed;
-        bottom: 56px; /* above tab bar */
-        left: 0;
-        right: 0;
-        width: 100% !important;
-        max-width: 100% !important;
-        height: calc(100dvh - 52px - 56px); /* full height minus navbar + tab bar */
-        border-right: none;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-        overflow: hidden;
-        transform: translateY(0);
-        transition: transform 0.3s ease, opacity 0.2s;
-        opacity: 1;
-    }
-
-    /* Collapsed panel hides below the fold */
-    .sidebar-container.collapsed .sidebar-panel {
-        width: 100% !important;
-        transform: translateY(100%);
-        opacity: 0;
-        pointer-events: none;
     }
 
     .panel-header {
@@ -1055,36 +955,9 @@ body {
         font-size: 1.2em;
     }
 
-    /* ── Map wrapper fills full screen ── */
-    .map-wrapper {
-        position: fixed;
-        top: 52px;
-        left: 0;
-        right: 0;
-        bottom: 56px; /* room for tab bar */
-        height: auto;
-        width: 100%;
-        z-index: 1;
-    }
-
     #map {
         width: 100%;
         height: 100%;
-    }
-
-    /* ── Route controls ── */
-    .route-controls {
-        bottom: 66px; /* above tab bar */
-        left: 8px;
-        right: 8px;
-        transform: none;
-        min-width: 0;
-        max-width: 100%;
-        width: auto;
-        padding: 10px 12px 12px;
-        gap: 10px;
-        border-radius: 16px;
-        flex-wrap: wrap;
     }
 
     .mode-selector, .speed-control {
@@ -1097,27 +970,6 @@ body {
         width: 40px;
         height: 40px;
         font-size: 0.85em;
-    }
-
-    /* ── Map type toggle (compact on mobile, top-left under zoom) ── */
-    .map-type-control {
-        margin-top: 8px !important;
-        margin-left: 8px !important;
-        margin-bottom: 0 !important;
-        margin-right: 0 !important;
-        padding: 3px;
-        gap: 2px;
-        flex-direction: column;
-    }
-
-    .map-type-btn {
-        padding: 7px 8px;
-        font-size: 0.72rem;
-        gap: 4px;
-    }
-
-    .map-type-btn span {
-        display: none; /* icon only on mobile */
     }
 
     /* ── Leaflet zoom controls ── */
@@ -1448,37 +1300,8 @@ body {
         font-size: 0.7em;
     }
 
-    .stat-item span {
-        display: none;
-    }
-
     .main-container {
         height: calc(100dvh - 48px);
-    }
-
-    .map-wrapper {
-        top: 48px;
-    }
-
-    .sidebar-panel {
-        height: calc(100dvh - 48px - 56px);
-        bottom: 56px;
-    }
-
-    .sidebar-rail {
-        height: 54px;
-    }
-
-    .rail-item {
-        min-height: 44px;
-    }
-
-    .rail-item i {
-        font-size: 1em;
-    }
-
-    .rail-label {
-        font-size: 0.45rem;
     }
 
     .panel-header h3 {
@@ -1511,7 +1334,7 @@ body {
     }
 
     .route-controls {
-        bottom: 62px;
+        bottom: 20px;
         padding: 8px 10px 10px;
         gap: 8px;
         border-radius: 14px;
@@ -3884,46 +3707,52 @@ body {
     margin-top: 3px;
 }
 
-/* ===== Map Type Control (Streets / Satellite / Terrain) — placed top-left ===== */
-.map-type-control {
-    background: rgba(15, 23, 42, 0.9);
+/* ===== Leaflet Layers control (Map / Satellite / Terrain) — top-left ===== */
+.leaflet-control-layers {
+    background: rgba(15, 23, 42, 0.94);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 10px;
-    padding: 4px;
-    display: flex;
-    gap: 4px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
     margin-top: 12px !important;
     margin-left: 12px !important;
     margin-bottom: 0 !important;
     margin-right: 0 !important;
+    color: var(--text-primary, #e2e8f0);
+    font-family: inherit;
 }
 
-.map-type-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary, #94a3b8);
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
+a.leaflet-control-layers-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background-position: center;
+    filter: invert(0.9);
+}
+
+.leaflet-control-layers.leaflet-control-layers-expanded {
+    padding: 8px 12px;
+    min-width: 118px;
+}
+
+.leaflet-control-layers .leaflet-control-layers-list label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
+    gap: 8px;
+    padding: 5px 2px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary, #e2e8f0);
+    cursor: pointer;
 }
 
-.map-type-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+.leaflet-control-layers .leaflet-control-layers-selector {
+    accent-color: var(--primary, #ff5a00);
+    margin: 0;
 }
 
-.map-type-btn.active {
-    background: linear-gradient(135deg, var(--primary, #00d4ff), #0088ff);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+.leaflet-control-layers .leaflet-control-layers-list label span {
+    line-height: 1.2;
 }
 
 /* ===== Locate Vehicle Button in Fleet List ===== */
@@ -4064,44 +3893,14 @@ input, select, textarea {
         min-height: 40px;
     }
 
-    .role-badge {
-        display: none;                  /* too wide for mobile navbar */
-    }
-
     /* ---------- Layout shell ---------- */
     .main-container {
         height: calc(100dvh - 56px);    /* dvh handles mobile browser chrome */
         height: calc(100vh - 56px);     /* fallback */
     }
 
-    /* ---------- Sidebar: full-bleed panel ---------- */
     .sidebar-container {
         z-index: 2000;
-    }
-
-    .sidebar-rail {
-        width: 56px;
-        padding-top: 12px;
-        gap: 10px;
-    }
-
-    .rail-item {
-        width: 44px;
-        min-height: 44px;               /* touch target */
-    }
-
-    .rail-item i {
-        font-size: 1.15em;
-    }
-
-    .rail-label {
-        display: none;
-    }
-
-    .sidebar-panel {
-        width: calc(100vw - 56px);      /* full width minus rail — no map sliver */
-        max-width: none;
-        box-shadow: 6px 0 24px rgba(0, 0, 0, 0.45);
     }
 
     .panel-header {
@@ -4226,19 +4025,12 @@ input, select, textarea {
         height: 44px;                   /* touch target */
     }
 
-    .map-type-control {
-        margin-top: 10px !important;
-        margin-left: 10px !important;
-        margin-right: 0 !important;
-        margin-bottom: 0 !important;
-    }
-
     /* Route playback bar: fit any screen, wrap gracefully */
     .route-controls {
         min-width: 0;
-        width: calc(100vw - 20px);
-        max-width: calc(100vw - 20px);
-        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        width: calc(100vw - var(--rail-width, 72px) - 24px);
+        max-width: 680px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         padding: 10px 12px 12px;
         gap: 10px;
         border-radius: 16px;
@@ -4450,23 +4242,6 @@ input, select, textarea {
         font-size: 0.72em;
     }
 
-    .stat-item span {
-        display: none;                  /* dot only */
-    }
-
-    .sidebar-rail {
-        width: 48px;
-    }
-
-    .rail-item {
-        width: 40px;
-        min-height: 42px;
-    }
-
-    .sidebar-panel {
-        width: calc(100vw - 48px);
-    }
-
     .panel-header h3 {
         font-size: 1.1em;
     }
@@ -4489,8 +4264,8 @@ input, select, textarea {
     }
 
     .route-controls {
-        width: calc(100vw - 12px);
-        max-width: calc(100vw - 12px);
+        width: calc(100vw - var(--rail-width, 72px) - 16px);
+        max-width: calc(100vw - var(--rail-width, 72px) - 16px);
         padding: 8px 10px 10px;
         gap: 8px;
     }
@@ -5173,28 +4948,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 @media (max-width: 768px) {
-    :root { --header-height: 56px; --rail-width: 0px; --bottom-nav-height: calc(66px + env(safe-area-inset-bottom, 0px)); }
+    /* Mobile uses the exact same workspace layout as desktop: vertical icon rail
+       on the left, docked panel beside it, map filling the rest. */
+    :root { --header-height: 56px; --fleet-panel-width: min(340px, calc(100vw - var(--rail-width))); }
     .navbar { padding: 8px 12px; }
-    .nav-brand { font-size: 0.9rem; gap: 8px; }
+    .nav-brand { font-size: 0.9rem; gap: 8px; min-width: 0; }
     .brand-logo { height: 28px; max-width: 64px; }
-    .nav-stats { gap: 6px; }
+    #nav-brand-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .role-badge { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 34vw; }
+    .nav-stats { gap: 6px; flex-shrink: 0; }
     .nav-stats .stat-item { padding: 4px 6px; font-size: 0.65rem; }
-    .nav-stats .map-btn span, .nav-stats .logout-btn span { display: none; }
-    .nav-stats .map-btn, .nav-stats .logout-btn { width: 36px; min-height: 36px; padding: 6px; }
-    .sidebar-container { top: 0; bottom: 0; width: 100%; height: 100%; flex-direction: column-reverse; }
-    .sidebar-rail { flex: 0 0 var(--bottom-nav-height); width: 100%; height: var(--bottom-nav-height); flex-direction: row; justify-content: flex-start; align-items: center; gap: 4px; padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--border-color); }
-    .rail-item { flex: 1 0 64px; width: auto; min-height: 52px; flex-direction: column; justify-content: center; gap: 5px; padding: 6px 4px; }
-    .rail-label { font-size: 0.6rem; }
-    .rail-item.active { box-shadow: inset 0 -2px var(--primary); }
-    .sidebar-panel { position: absolute; left: 0; right: 0; bottom: var(--bottom-nav-height); height: calc(100% - var(--bottom-nav-height)); border-radius: 0; box-shadow: none; transform: none; }
-    .main-container[data-workspace="tab-fleet"] .sidebar-panel,
-    .main-container[data-workspace="tab-history"] .sidebar-panel,
-    .main-container[data-workspace="tab-asset-detail"] .sidebar-panel { height: min(55%, 480px); border-radius: 16px 16px 0 0; }
-    .main-container[data-workspace] .map-wrapper { position: absolute; top: 0; left: 0; right: 0; bottom: auto; margin-left: 0; height: calc(100% - var(--bottom-nav-height)); }
-    .main-container[data-workspace="tab-fleet"]:not(.panel-collapsed) .map-wrapper,
-    .main-container[data-workspace="tab-history"]:not(.panel-collapsed) .map-wrapper,
-    .main-container[data-workspace="tab-asset-detail"]:not(.panel-collapsed) .map-wrapper { height: calc(100% - var(--bottom-nav-height) - min(55%, 480px)); }
-    .sidebar-container.collapsed .sidebar-panel { transform: none; height: 0; }
+    .nav-stats .map-btn, .nav-stats .logout-btn { padding: 6px 10px; min-height: 34px; }
+    .main-container[data-workspace="tab-history"],
+    .main-container[data-workspace="tab-asset-detail"] { --fleet-panel-width: min(380px, calc(100vw - var(--rail-width))); }
     .panel-header { min-height: 60px; padding: 10px 16px; }
     .panel-header h3 { font-size: 1.1rem; }
     .panel-header .workspace-eyebrow { display: none; }
@@ -5204,12 +4970,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     .fleet-search input { height: 36px; }
     .fleet-status-label { margin-top: 8px; }
     .workspace-intro { padding-bottom: 20px; }
+    .leaflet-control-layers { margin-top: 8px !important; margin-left: 8px !important; }
 }
 
 @media (max-width: 480px) {
-    #nav-brand-name { display: none; }
+    #nav-brand-name { max-width: 26vw; }
+    .role-badge { max-width: 30vw; font-size: 0.62rem; }
     .nav-stats .stat-item { max-width: 110px; }
-    .nav-stats .stat-item span { display: inline; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -23,6 +23,7 @@ let vehiclePositions = {}; // Store latest data for details view
 let routes = {};
 let selectedVehicle = null;
 let dailyMileageCache = new Map();
+let totalMileageCache = new Map();
 let ws = null;
 let playbackInterval = null;
 let playbackIndex = 0;
@@ -86,6 +87,46 @@ let fleetFilterFrame = null;
 // Offline promptly without false-alarming between stationary command polls.
 const OFFLINE_THRESHOLD_MINS = 1.5;
 const dailyMileageFetchedAt = new Map();
+
+// Shared mileage fetch: /daily returns { daily_mileage, total_mileage } from the
+// same ordered scan, so the popup 'Today' figure, Asset Details 'Total Mileage'
+// and Route History 'Distance' always agree. Throttled to once per 60s/device.
+async function fetchMileageStats(id) {
+    const key = String(id);
+    const lastFetch = dailyMileageFetchedAt.get(key) || 0;
+    if (Date.now() - lastFetch < 60000) return;
+    dailyMileageFetchedAt.set(key, Date.now());
+    try {
+        const fetchFn = (window.AuthManager && typeof window.AuthManager.fetchAPI === 'function')
+            ? window.AuthManager.fetchAPI.bind(window.AuthManager)
+            : (p) => fetch(`${API_URL}${p}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` } });
+        const response = await fetchFn(`/positions/analytics/device/${id}/daily`);
+        if (!response.ok) return;
+        const data = await response.json();
+        let changed = false;
+        if (data.daily_mileage !== undefined && dailyMileageCache.get(key) !== data.daily_mileage) {
+            dailyMileageCache.set(key, data.daily_mileage);
+            changed = true;
+        }
+        if (data.total_mileage !== undefined && totalMileageCache.get(key) !== data.total_mileage) {
+            totalMileageCache.set(key, data.total_mileage);
+            changed = true;
+        }
+        if (changed) {
+            const pos = vehiclePositions[id];
+            const m = markers[id];
+            if (pos && m) {
+                addOrUpdateMarker(id, m.vehicleName || '', m.vehicleIMEI || '', pos.lat, pos.lng, pos.speed, pos.timestamp, pos.raw || m.obdData || null);
+            }
+            const mileageEl = document.getElementById('detail-mileage');
+            if (mileageEl && selectedVehicle && String(selectedVehicle.id) === key && totalMileageCache.has(key)) {
+                mileageEl.textContent = `${Number(totalMileageCache.get(key)).toFixed(1)} km`;
+            }
+        }
+    } catch (e) {
+        console.warn('Mileage stats fetch failed', e);
+    }
+}
 
 function formatOperatorName(op) {
     if (!op) return '';
@@ -184,39 +225,9 @@ function initMap() {
     // Add default layer
     tileLayers['Streets'].addTo(map);
 
-    // --- Custom Map Type Toggle Button (placed top-left so it never overlaps
-    // the bottom playback slider or top-right zoom controls) ---
-    const MapTypeControl = L.Control.extend({
-        options: { position: 'topleft' },
-        onAdd: function () {
-            const container = L.DomUtil.create('div', 'map-type-control');
-            const layers = Object.keys(tileLayers);
-            const icons = { 'Streets': 'fa-map', 'Satellite': 'fa-satellite', 'Terrain': 'fa-mountain' };
-            let currentLayer = tileLayers['Streets'];
-            let currentName = 'Streets';
-
-            layers.forEach(name => {
-                const btn = L.DomUtil.create('button', 'map-type-btn', container);
-                btn.title = name;
-                btn.innerHTML = `<i class="fas ${icons[name]}"></i><span>${name}</span>`;
-                if (name === 'Streets') btn.classList.add('active');
-
-                L.DomEvent.on(btn, 'click', function (e) {
-                    L.DomEvent.stopPropagation(e);
-                    if (name === currentName) return;
-                    map.removeLayer(currentLayer);
-                    tileLayers[name].addTo(map);
-                    currentLayer = tileLayers[name];
-                    currentName = name;
-                    container.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                });
-            });
-
-            return container;
-        }
-    });
-    new MapTypeControl().addTo(map);
+    // --- Layers control: standard Leaflet layer switcher (top-left, next to
+    // nothing else on that corner so it never collides with playback controls) ---
+    L.control.layers(tileLayers, null, { position: 'topleft', collapsed: true }).addTo(map);
 
     // Zoom control top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -2488,7 +2499,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const trackerVehicle = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(id) || (imei && v.imei === imei)) : null;
     const tracker = { ...((trackerVehicle && trackerVehicle.device_metadata) || {}), ...(obdData || {}), ...(rawData || {}) };
 
-    const todayMileage = dailyMileageCache.get(String(id)) || 0;
+    const todayMileageLoaded = dailyMileageCache.has(String(id));
+    const todayMileage = todayMileageLoaded ? dailyMileageCache.get(String(id)) : 0;
     const cacheKey = (lat && lng) ? `${lat.toFixed(4)},${lng.toFixed(4)}` : null;
     const cachedAddr = cacheKey ? addressCache.get(cacheKey) : null;
 
@@ -2587,7 +2599,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 </div>
                 <div class="pro-popup-cell">
                     <span class="pro-popup-label">Today</span>
-                    <span class="pro-popup-val">${Number(todayMileage || 0).toFixed(1)} km</span>
+                    <span class="pro-popup-val">${todayMileageLoaded ? `${Number(todayMileage).toFixed(1)} km` : '--'}</span>
                 </div>
             </div>
             ${diagnosticHtml ? `<div class="pro-popup-obd">${diagnosticHtml}</div>` : ''}
@@ -2656,26 +2668,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // popupopen — that re-triggers open animation and causes popup flicker)
     if (marker && typeof marker.on === 'function' && !marker._mileageListenerBound) {
         marker._mileageListenerBound = true;
-        marker.on('popupopen', async () => {
-            const key = String(id);
-            const lastFetch = dailyMileageFetchedAt.get(key) || 0;
-            if (Date.now() - lastFetch < 60000) return;
-            dailyMileageFetchedAt.set(key, Date.now());
-            try {
-                const response = await window.AuthManager.fetchAPI(`/positions/analytics/device/${id}/daily`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (dailyMileageCache.get(key) !== data.daily_mileage) {
-                        dailyMileageCache.set(key, data.daily_mileage);
-                        const pos = vehiclePositions[id];
-                        if (pos) {
-                            addOrUpdateMarker(id, marker.vehicleName || name, imei, pos.lat, pos.lng, pos.speed, pos.timestamp, pos.raw || rawData);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn("Failed to fetch daily mileage", e);
-            }
+        marker.on('popupopen', () => {
+            fetchMileageStats(id);
         });
     }
 
@@ -3015,17 +3009,22 @@ function updateAssetDetailUI(id) {
         setDetail('detail-geofence', '--');
     }
 
-    // 5. Vehicle Overview: Total Mileage
+    // 5. Vehicle Overview: Total Mileage — prefer a hardware odometer field if the
+    // tracker sends one, otherwise the all-time distance computed from stored
+    // positions (fetched via fetchMileageStats -> /positions/analytics/device/{id}/daily)
     const mileageEl = document.getElementById('detail-mileage');
     if (mileageEl) {
-        let totalMileage = '--';
-        if (data.raw && data.raw.mileage !== undefined) {
-            totalMileage = data.raw.mileage;
-        } else if (obd.mileage !== undefined) {
-            totalMileage = obd.mileage;
+        let totalMileage = null;
+        if (data.raw && data.raw.mileage !== undefined && data.raw.mileage !== null) {
+            totalMileage = Number(data.raw.mileage);
+        } else if (obd.mileage !== undefined && obd.mileage !== null) {
+            totalMileage = Number(obd.mileage);
+        } else if (totalMileageCache.has(String(id))) {
+            totalMileage = Number(totalMileageCache.get(String(id)));
         }
-        mileageEl.textContent = totalMileage !== '--' ? `${totalMileage} km` : '-- km';
+        mileageEl.textContent = totalMileage !== null && !isNaN(totalMileage) ? `${totalMileage.toFixed(1)} km` : '-- km';
     }
+    fetchMileageStats(id);
 
     // --- Intelligence Suite: Smart Visibility Panels ---
     const detailContainer = document.getElementById('tab-asset-detail');
