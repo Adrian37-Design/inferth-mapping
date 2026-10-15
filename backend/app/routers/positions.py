@@ -895,29 +895,52 @@ async def get_device_daily_mileage(
     
     result = await db.execute(stmt)
     positions = result.scalars().all()
-    
-    total_distance = 0
+
+    # Use the exact same GNSS filtering & implied-speed distance logic as
+    # get_device_route so Today's km in the popup and Route History always match
+    from app.services.data_guardrails import haversine_distance_km
+    valid_positions = [
+        p for p in positions
+        if p.latitude is not None and p.longitude is not None
+        and abs(p.latitude) > 0.0001 and abs(p.longitude) > 0.0001
+        and (p.timestamp + tz_offset).date() == now_zim.date()
+    ]
+    gnss_only = [p for p in valid_positions if not _is_coarse_lbs_row(p.raw)]
+    if gnss_only:
+        valid_positions = gnss_only
+
+    total_distance = 0.0
     last_p = None
-    
-    for p in positions:
-        if p.latitude is None or p.longitude is None:
-            continue
-            
-        p_zim = p.timestamp + tz_offset
-        if p_zim.date() != now_zim.date():
-            continue
-            
-        if last_p:
-            lon1, lat1, lon2, lat2 = map(radians, [last_p.longitude, last_p.latitude, p.longitude, p.latitude])
-            dlon = lon2 - lon1
-            dlat = lat2 - lat1
-            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * asin(sqrt(max(0, min(1, a))))
-            km = 6371 * c
-            
-            if 0 < km < 5 and p.speed is not None and p.speed > 3:
+    last_speed = 0.0
+
+    for p in valid_positions:
+        curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
+        if last_p is not None:
+            try:
+                t1 = p.timestamp.replace(tzinfo=None) if p.timestamp.tzinfo else p.timestamp
+                t0 = last_p.timestamp.replace(tzinfo=None) if last_p.timestamp.tzinfo else last_p.timestamp
+                time_diff_sec = abs((t1 - t0).total_seconds())
+            except Exception:
+                time_diff_sec = 10.0
+
+            km = haversine_distance_km(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
+
+            if time_diff_sec > 0:
+                implied_speed = km / (time_diff_sec / 3600.0)
+                if implied_speed > 250.0 and km > 0.1:
+                    continue
+                if curr_speed <= 3.0 and km >= 0.025 and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
+                    curr_speed = round(implied_speed, 1)
+            elif km > 0.05:
+                continue
+
+            if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_speed <= 3.0 and km < 0.005:
+                continue
+
+            if km >= 0.015 or curr_speed > 3.0:
                 total_distance += km
-                
+
         last_p = p
-        
-    return {"device_id": device_id, "daily_mileage": round(total_distance, 2)}
+        last_speed = curr_speed
+
+    return {"device_id": device_id, "daily_mileage": round(total_distance, 1)}
