@@ -3521,91 +3521,146 @@ async function loadTrips() {
     }
 }
 
-// Snap a GPS trace to the road network using OSRM Map Matching.
-// Returns { segments: [[[lat,lng],...], ...], matched: true } on success,
-// or null on failure so callers can fall back to raw points.
-// gaps=split ensures disconnected sections never get fake straight lines.
+// Densify a [lat, lng] polyline so consecutive playback points are never
+// more than maxStepMeters apart — prevents playback from jumping across long
+// straight road segments or sparse gaps.
+function densifyCoordList(coords, maxStepMeters = 20) {
+    if (!Array.isArray(coords) || coords.length < 2) return coords || [];
+    const out = [coords[0]];
+    for (let i = 1; i < coords.length; i++) {
+        const [lat1, lng1] = coords[i - 1];
+        const [lat2, lng2] = coords[i];
+        const distM = haversineDistanceKm(lat1, lng1, lat2, lng2) * 1000;
+        if (distM > maxStepMeters && distM < 50000) {
+            const steps = Math.min(400, Math.ceil(distM / maxStepMeters));
+            for (let s = 1; s < steps; s++) {
+                const f = s / steps;
+                out.push([lat1 + (lat2 - lat1) * f, lng1 + (lng2 - lng1) * f]);
+            }
+        }
+        out.push(coords[i]);
+    }
+    return out;
+}
+
+// Collapse stationary clusters (<15m) into clean travel waypoints so parked
+// hours don't bloat OSRM requests or cause gaps, keeping the departure
+// timestamp on the last point before movement.
+function extractTravelWaypoints(points) {
+    if (!Array.isArray(points) || points.length === 0) return [];
+    const wps = [ { ...points[0] } ];
+    for (let i = 1; i < points.length; i++) {
+        const p = points[i];
+        const last = wps[wps.length - 1];
+        const dKm = haversineDistanceKm(last.lat, last.lng, p.lat, p.lng);
+        if (dKm < 0.015) {
+            // Still at the same stationary spot: advance timestamp to departure time
+            last.timestamp = p.timestamp;
+        } else {
+            wps.push({ ...p });
+        }
+    }
+    if (wps.length === 1 && points.length >= 2) {
+        wps.push({ ...points[points.length - 1] });
+    }
+    return wps;
+}
+
+// Snap a GPS trace to the road network using OSRM Routing + Map Matching
+// so that even sparse waypoints (e.g. Hatfield -> Harare CBD across a 17m
+// reconnect window) produce a single continuous, gap-free road polyline.
 async function snapRouteToRoad(points) {
     if (!points || points.length < 2) return null;
 
-    const CHUNK = 80; // OSRM public API limit is ~100 coords per request
-    const segments = [];
+    const waypoints = extractTravelWaypoints(points);
+    if (waypoints.length < 2) return null;
 
-    for (let i = 0; i < points.length; i += CHUNK - 1) {
-        const chunk = points.slice(i, i + CHUNK);
+    const CHUNK = 25; // OSRM /route/v1 handles 25 waypoints reliably in one continuous road leg
+    const fullRoadCoords = [];
+
+    for (let i = 0; i < waypoints.length; i += CHUNK - 1) {
+        const chunk = waypoints.slice(i, i + CHUNK);
         if (chunk.length < 2) break;
 
         const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
-        const radiuses = chunk.map(() => '35').join(';'); // allow 35m GPS error
+        let chunkCoords = null;
 
-        // tidy=true requires timestamps, and timestamps must be strictly
-        // increasing — buffered-burst data often has collapsed/duplicate
-        // timestamps, which makes OSRM reject the request with HTTP 400.
-        const tsRaw = chunk.map(p => Math.floor(new Date(p.timestamp).getTime() / 1000));
-        const isMonotonic = tsRaw.every((t, idx) => idx === 0 || (isFinite(t) && t > tsRaw[idx - 1]));
-
-        // Retry ladder: richest request first, degrade on failure.
-        // (tidy+timestamps gives the cleanest matching; plain still works.)
-        const attempts = [];
-        if (isMonotonic) {
-            attempts.push(`overview=full&geometries=geojson&gaps=split&tidy=true&radiuses=${radiuses}&timestamps=${tsRaw.join(';')}`);
-        }
-        attempts.push(`overview=full&geometries=geojson&gaps=split&radiuses=${radiuses}`);
-        attempts.push(`overview=full&geometries=geojson&gaps=split`);
-
-        let matchedChunk = false;
-        for (const params of attempts) {
-            try {
-                const url = `https://router.project-osrm.org/match/v1/driving/${coords}?${params}`;
-                const res = await fetch(url);
-                if (!res.ok) {
-                    console.warn(`OSRM match HTTP ${res.status}, retrying with simpler params`);
-                    continue;
-                }
+        // 1. Primary: OSRM /route/v1/driving connects all waypoints continuously
+        // along the real road network with zero gaps between sparse fixes.
+        try {
+            const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=true`;
+            const res = await fetch(routeUrl);
+            if (res.ok) {
                 const data = await res.json();
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0 && data.routes[0].geometry?.coordinates?.length > 1) {
+                    chunkCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                }
+            }
+        } catch (e) {
+            console.warn('OSRM route request error:', e);
+        }
 
-                if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-                    data.matchings.forEach(m => {
-                        if (m.geometry && m.geometry.coordinates && m.geometry.coordinates.length > 1) {
-                            // OSRM returns [lng, lat] — flip to [lat, lng]
-                            segments.push(m.geometry.coordinates.map(c => [c[1], c[0]]));
-                        }
-                    });
-                    matchedChunk = true;
-                    break;
+        // 2. Fallback: OSRM /match/v1/driving with gaps=ignore
+        if (!chunkCoords) {
+            try {
+                const radiuses = chunk.map(() => '50').join(';');
+                const matchUrl = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=ignore&radiuses=${radiuses}`;
+                const res = await fetch(matchUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+                        const merged = [];
+                        data.matchings.forEach(m => {
+                            if (m.geometry?.coordinates?.length > 1) {
+                                m.geometry.coordinates.forEach(c => merged.push([c[1], c[0]]));
+                            }
+                        });
+                        if (merged.length > 1) chunkCoords = merged;
+                    }
                 }
             } catch (e) {
-                console.warn('OSRM match request error:', e);
+                console.warn('OSRM match fallback error:', e);
             }
         }
-        if (!matchedChunk) {
-            console.warn('Map matching failed for chunk, keeping raw trace for it');
-            // Keep the raw chunk (split at time gaps) so the route has no holes
-            splitTraceAtGaps(chunk).forEach(seg => segments.push(seg));
+
+        // 3. Final fallback: raw waypoint coordinates
+        if (!chunkCoords) {
+            chunkCoords = chunk.map(p => [p.lat, p.lng]);
         }
+
+        if (fullRoadCoords.length > 0 && chunkCoords.length > 0) {
+            // Avoid duplicating the shared boundary waypoint between chunks
+            const last = fullRoadCoords[fullRoadCoords.length - 1];
+            const first = chunkCoords[0];
+            if (haversineDistanceKm(last[0], last[1], first[0], first[1]) < 0.005) {
+                chunkCoords = chunkCoords.slice(1);
+            }
+        }
+        fullRoadCoords.push(...chunkCoords);
     }
 
-    if (segments.length === 0) return null;
-    return { segments, matched: true };
+    if (fullRoadCoords.length < 2) return null;
+    const densified = densifyCoordList(fullRoadCoords, 20);
+    return { segments: [densified], matched: true };
 }
 
-// Fallback: split raw points at large time gaps so the polyline never
-// draws a straight line across a data gap (vehicle offline / parked hours).
-function splitTraceAtGaps(points, maxGapMinutes = 3) {
+// Fallback: convert points to a continuous coordinate segment (only split on
+// multi-hour offline gaps > 120 min so normal trips never have missing legs).
+function splitTraceAtGaps(points, maxGapMinutes = 120) {
     const segments = [];
     let current = [];
     for (let i = 0; i < points.length; i++) {
         const p = points[i];
         if (i > 0) {
-            const gap = (new Date(p.timestamp) - new Date(points[i - 1].timestamp)) / 60000;
+            const gap = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(points[i - 1].timestamp)) / 60000);
             if (gap > maxGapMinutes) {
-                if (current.length > 1) segments.push(current);
+                if (current.length > 1) segments.push(densifyCoordList(current, 20));
                 current = [];
             }
         }
         current.push([p.lat, p.lng]);
     }
-    if (current.length > 1) segments.push(current);
+    if (current.length > 1) segments.push(densifyCoordList(current, 20));
     return segments;
 }
 
@@ -4313,6 +4368,7 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
     const filteredPoints = filterValidRoutePoints(sortedPoints);
     if (filteredPoints.length < 2) return false;
 
+    const waypoints = extractTravelWaypoints(filteredPoints);
     const snapped = await snapRouteToRoad(filteredPoints);
     let segments;
     let playbackPoints;
@@ -4321,11 +4377,14 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
         segments = snapped.segments;
         playbackPoints = [];
         segments.forEach(seg => {
-            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: filteredPoints[0].timestamp, snapped: true }));
+            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
         });
     } else {
-        segments = splitTraceAtGaps(filteredPoints);
-        playbackPoints = filteredPoints;
+        segments = splitTraceAtGaps(waypoints);
+        playbackPoints = [];
+        segments.forEach(seg => {
+            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
+        });
     }
 
     const layers = [];
@@ -4347,8 +4406,8 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
         map.fitBounds(L.latLngBounds(allCoords), { padding: [55, 55] });
     }
 
-    const startPt = filteredPoints[0];
-    const endPt = filteredPoints[filteredPoints.length - 1];
+    const startPt = waypoints[0];
+    const endPt = waypoints[waypoints.length - 1];
     const startMarker = L.circleMarker([startPt.lat, startPt.lng], {
         radius: 8, fillColor: '#10b981', color: '#fff', weight: 2.5, opacity: 1, fillOpacity: 1
     }).bindPopup('<b>Start:</b> ' + parseTimestamp(startPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })).addTo(map);
@@ -4448,7 +4507,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         }
 
         // Compute effective speed for each point (recovers movement when tracker
-        // reports speed=0 while moving across town)
+        // reports speed=0 while moving across town, even across reconnect windows up to 2h)
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
             let spd = Number(p.speed) || 0;
@@ -4456,9 +4515,9 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 const prev = points[i - 1];
                 const dtSec = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000);
                 const dKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
-                if (dtSec > 0 && dtSec <= 900 && dKm >= 0.025) {
+                if (dtSec > 0 && dtSec <= 7200 && dKm >= 0.025) {
                     const implied = dKm / (dtSec / 3600);
-                    if (implied >= 4.0 && implied <= 160.0) spd = Math.round(implied * 10) / 10;
+                    if (implied >= 3.5 && implied <= 160.0) spd = Math.round(implied * 10) / 10;
                 }
             }
             p._effectiveSpeed = spd;
@@ -4481,17 +4540,20 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 const timeGapMins = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 60000);
                 const distFromPrevKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
 
-                // For moving segments, split on >15m gap or state change;
-                // for stationary segments at the same location (<100m), do NOT split
-                // just because stationary heartbeats were >15m apart!
+                // For moving segments, split on >30m gap (unless it's a continuous road
+                // relocation) or state change; for stationary segments at the same
+                // location (<100m), do NOT split on heartbeat intervals.
                 const shouldSplit = (pMoving !== curIsMoving) ||
-                    (curIsMoving && timeGapMins > 15) ||
+                    (curIsMoving && timeGapMins > 30 && distFromPrevKm < 0.10) ||
                     (!curIsMoving && distFromPrevKm > 0.10);
 
                 if (shouldSplit) {
                     rawSegments.push({ isMoving: curIsMoving, points: curSegmentPoints });
-                    curSegmentPoints = [p];
-                    curIsMoving = pMoving;
+                    // When transitioning from Stationary to Moving (or relocating >100m),
+                    // include `prev` (the departure point) as the start of the new segment
+                    // so the connecting road leg is never lost!
+                    curSegmentPoints = (!curIsMoving && (pMoving || distFromPrevKm > 0.10)) ? [prev, p] : [p];
+                    curIsMoving = pMoving || distFromPrevKm > 0.10;
                 } else {
                     curSegmentPoints.push(p);
                 }

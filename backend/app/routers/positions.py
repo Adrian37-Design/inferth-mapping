@@ -380,7 +380,7 @@ async def get_device_route(
                     continue  # Skip jump glitch point
                 # Recover realistic travel speed when firmware reports speed=0
                 # despite moving >=25m between consecutive fixes
-                if curr_speed <= 3.0 and km >= 0.025 and 4.0 <= implied_speed <= 160.0 and time_diff_sec <= 900.0:
+                if curr_speed <= 3.0 and km >= 0.025 and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
                     curr_speed = round(implied_speed, 1)
                     point["speed"] = curr_speed
             elif km > 0.05:
