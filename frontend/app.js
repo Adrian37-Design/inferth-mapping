@@ -2392,12 +2392,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             ? `<div style="font-size:0.85em; font-weight:bold;"><i class="fas fa-lock"></i> Engine Locked</div>`
             : `<div style="font-size:0.85em;"><i class="fas fa-lock-open"></i> Engine Unlocked</div>`);
     }
-    if (tracker.satellites !== undefined || tracker.hdop !== undefined) {
-        const gpsParts = [];
-        if (tracker.satellites !== undefined) gpsParts.push(`${tracker.satellites} sats`);
-        if (tracker.hdop !== undefined) gpsParts.push(`HDOP ${tracker.hdop}`);
-        if (tracker.age !== undefined && tracker.age !== null) gpsParts.push(`fix ${tracker.age}s old`);
-        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-satellite"></i> ${gpsParts.join(' · ')}</div>`);
+    if (tracker.satellites !== undefined) {
+        trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-satellite"></i> ${tracker.satellites} sats</div>`);
     }
     if (tracker.signal_quality !== undefined && tracker.signal_quality !== null) {
         trackerRows.push(`<div style="font-size:0.85em;"><i class="fas fa-signal"></i> GSM: ${tracker.signal_quality}/31</div>`);
