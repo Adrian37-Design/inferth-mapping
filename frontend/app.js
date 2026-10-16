@@ -1816,7 +1816,7 @@ window.showInviteSuccessModal = function (link, email) {
     const waUrl = `https://wa.me/?text=${waText}`;
 
     modal.innerHTML = `
-        <div class="modal-content" style="margin: auto; max-width: 500px; width: 90%; text-align: center; position: relative; z-index: 11001; background: #0f172a; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+        <div class="modal-content" style="margin: auto; max-width: 500px; width: 90%; text-align: center; position: relative; z-index: 11001; background: #18181b; border: 1px solid #3f3f46; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
             <div class="modal-header">
                 <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
                 <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
