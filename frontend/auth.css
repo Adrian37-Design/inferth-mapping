@@ -8,11 +8,11 @@
     --error-color: #ef4444;
     --warning-color: #f59e0b;
 
-    --bg-dark: #0f172a;
-    --bg-card: rgba(30, 41, 59, 0.8);
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --border-color: rgba(148, 163, 184, 0.2);
+    --bg-dark: #09090b;
+    --bg-card: rgba(24, 24, 27, 0.85);
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --border-color: rgba(161, 161, 170, 0.25);
 
     --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -219,7 +219,7 @@ body {
 
 .form-group input {
     padding: 0.875rem 1rem;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(24, 24, 27, 0.6);
     border: 2px solid var(--border-color);
     border-radius: 12px;
     color: var(--text-primary);
@@ -230,7 +230,7 @@ body {
 
 .form-group input:focus {
     border-color: var(--primary-color);
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(24, 24, 27, 0.8);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -607,7 +607,7 @@ body {
     font-size: 0.95rem;
     font-weight: 400;
     color: var(--text-primary);
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(24, 24, 27, 0.6);
     border: 2px solid var(--border-color);
     border-radius: 12px;
     cursor: pointer;
