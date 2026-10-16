@@ -239,6 +239,20 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
 
+    // Dashboard landing view: embedded map + vehicle table widgets
+    initDashMap();
+    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 350);
+    const dashSearch = document.getElementById('dash-vehicle-search');
+    if (dashSearch) dashSearch.addEventListener('input', () => renderDashVehicles());
+    document.querySelectorAll('.dash-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            dashVehicleFilter = chip.getAttribute('data-dash-filter');
+            document.querySelectorAll('.dash-chip').forEach(c =>
+                c.classList.toggle('active', c === chip));
+            renderDashVehicles();
+        });
+    });
+
     // Playback View Mode Listener
     const modeSelector = document.getElementById('playback-view-mode');
     if (modeSelector) {
@@ -547,6 +561,14 @@ window.switchTab = function(targetId) {
                 miniMap.invalidateSize();
                 setTimeout(() => miniMap.invalidateSize(), 300);
                 setTimeout(() => miniMap.invalidateSize(), 600);
+            }
+
+            // Dashboard landing view: lazily create + resize the embedded map
+            if (targetId === 'tab-dashboard') {
+                initDashMap();
+                renderDashVehicles();
+                setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 300);
+                setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 600);
             }
         }
 
@@ -2112,6 +2134,7 @@ function updateDashboardKPIs(vehicles) {
 
     // Update UI Elements. Passing null as start value lets animateValue use the
     // currently displayed number, which prevents the 0->N flicker on live updates.
+    animateValue('kpi-total', null, vehicles.length, 600);
     animateValue('kpi-active', null, moving, 1000);
     const idleEl = document.getElementById('kpi-idle');
     if (idleEl && idleEl.parentElement) idleEl.parentElement.style.display = 'none';
@@ -2121,38 +2144,188 @@ function updateDashboardKPIs(vehicles) {
 
     // Update Priority Alerts Panel
     updatePriorityAlertsPanel();
+
+    // Keep the dashboard landing view live: vehicle table + embedded map
+    renderDashVehicles();
+    updateDashMapMarkers();
+}
+
+// ── Dashboard landing view (Vehicles table + embedded fleet map) ──
+let dashMap = null;
+const dashMarkers = new Map();
+let dashBaseLayers = null;
+let dashVehicleFilter = 'all';
+let dashMapFitted = false;
+
+function getVehicleDashStatus(v) {
+    const pos = vehiclePositions[v.id];
+    const marker = markers[v.id];
+    const ts = pos ? pos.timestamp : (marker ? marker.lastUpdate : null);
+    if (!ts) return 'offline';
+    const parsedTs = parseTimestamp(ts);
+    if (!parsedTs) return 'offline';
+    const minsAgo = (Date.now() - parsedTs.getTime()) / 60000;
+    if (minsAgo >= OFFLINE_THRESHOLD_MINS) return 'offline';
+    if (marker && marker.resolvedStatus === 'Moving') return 'moving';
+    if (marker && marker.resolvedStatus === 'Stationary') return 'stationary';
+    return (pos && pos.speed > 3) ? 'moving' : 'stationary';
+}
+
+function renderDashVehicles() {
+    const tbody = document.getElementById('dash-vehicle-rows');
+    if (!tbody || !Array.isArray(allVehicles)) return;
+
+    const query = ((document.getElementById('dash-vehicle-search') || {}).value || '').trim().toLowerCase();
+    const statuses = {};
+    const counts = { all: 0, moving: 0, stationary: 0, offline: 0 };
+    allVehicles.forEach(v => {
+        const s = getVehicleDashStatus(v);
+        statuses[v.id] = s;
+        counts.all++;
+        counts[s]++;
+    });
+    const setC = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
+    setC('dash-count-all', counts.all);
+    setC('dash-count-moving', counts.moving);
+    setC('dash-count-stationary', counts.stationary);
+    setC('dash-count-offline', counts.offline);
+
+    const rows = allVehicles.filter(v => {
+        if (dashVehicleFilter !== 'all' && statuses[v.id] !== dashVehicleFilter) return false;
+        if (query) {
+            const meta = v.device_metadata || {};
+            const hay = `${v.name || ''} ${v.imei || ''} ${meta.plate || ''} ${meta.vin || ''}`.toLowerCase();
+            if (!hay.includes(query)) return false;
+        }
+        return true;
+    });
+
+    const badge = { moving: 'badge-moving', stationary: 'badge-stationary', offline: 'badge-offline' };
+    const label = { moving: 'Moving', stationary: 'Stationary', offline: 'Offline' };
+    tbody.innerHTML = rows.map(v => {
+        const s = statuses[v.id];
+        const pos = vehiclePositions[v.id];
+        const speed = s === 'offline' ? '—' : `${Math.round((pos && pos.speed) || 0)} km/h`;
+        return `<tr class="dash-vh-row" onclick="selectVehicleById(${v.id})">
+            <td><div class="dash-vh-name">${v.name || ('Device ' + v.imei)}</div><div class="dash-vh-imei">${v.imei || ''}</div></td>
+            <td><span class="status-badge ${badge[s]}">${label[s]}</span></td>
+            <td>${speed}</td>
+            <td><i class="fas fa-chevron-right dash-row-caret"></i></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="4" class="empty-state">No vehicles match</td></tr>';
+
+    const footer = document.getElementById('dash-vehicle-count');
+    if (footer) footer.textContent = `Showing ${rows.length} of ${allVehicles.length} vehicles`;
+}
+
+window.selectVehicleById = function (id) {
+    const v = Array.isArray(allVehicles) ? allVehicles.find(x => String(x.id) === String(id)) : null;
+    if (v) selectVehicle(v);
+};
+
+function initDashMap() {
+    const el = document.getElementById('dash-map');
+    if (!el || dashMap) return;
+    dashMap = L.map('dash-map', { zoomControl: true, attributionControl: true }).setView([-17.8252, 31.0335], 12);
+    dashBaseLayers = {
+        streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap | Inferth Mapping', maxZoom: 19 }),
+        satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri | Inferth Mapping', maxZoom: 19 })
+    };
+    dashBaseLayers.streets.addTo(dashMap);
+
+    const streetsBtn = document.getElementById('dash-map-streets');
+    const satBtn = document.getElementById('dash-map-satellite');
+    if (streetsBtn) streetsBtn.addEventListener('click', () => switchDashBase('streets'));
+    if (satBtn) satBtn.addEventListener('click', () => switchDashBase('satellite'));
+
+    updateDashMapMarkers(true);
+}
+
+function switchDashBase(which) {
+    if (!dashMap || !dashBaseLayers || !dashBaseLayers[which]) return;
+    Object.values(dashBaseLayers).forEach(l => dashMap.removeLayer(l));
+    dashBaseLayers[which].addTo(dashMap);
+    const streetsBtn = document.getElementById('dash-map-streets');
+    const satBtn = document.getElementById('dash-map-satellite');
+    if (streetsBtn) streetsBtn.classList.toggle('active', which === 'streets');
+    if (satBtn) satBtn.classList.toggle('active', which === 'satellite');
+}
+
+function updateDashMapMarkers(fitBounds = false) {
+    if (!dashMap || !Array.isArray(allVehicles)) return;
+
+    // Drop markers for devices that no longer exist
+    for (const [vid, m] of dashMarkers) {
+        const alive = allVehicles.find(v => String(v.id) === String(vid));
+        if (!alive) {
+            dashMap.removeLayer(m);
+            dashMarkers.delete(vid);
+        }
+    }
+
+    const bounds = [];
+    allVehicles.forEach(v => {
+        const pos = vehiclePositions[v.id];
+        if (!pos || typeof pos.lat !== 'number' || typeof pos.lng !== 'number') return;
+        if (Math.abs(pos.lat) < 0.0001 && Math.abs(pos.lng) < 0.0001) return;
+        const s = getVehicleDashStatus(v);
+        const color = s === 'moving' ? '#16a34a' : (s === 'offline' ? '#dc2626' : '#2563eb');
+        const ll = [pos.lat, pos.lng];
+        const label = `<b>${v.name || v.imei}</b><br>${s.charAt(0).toUpperCase() + s.slice(1)} · ${Math.round(pos.speed || 0)} km/h`;
+        let m = dashMarkers.get(v.id);
+        if (!m) {
+            m = L.circleMarker(ll, { radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1 });
+            m.bindPopup(label);
+            m.addTo(dashMap);
+            dashMarkers.set(v.id, m);
+        } else {
+            m.setLatLng(ll);
+            m.setStyle({ fillColor: color });
+            m.setPopupContent(label);
+        }
+        bounds.push(ll);
+    });
+    if ((fitBounds || !dashMapFitted) && bounds.length) {
+        dashMap.fitBounds(bounds, { padding: [30, 30] });
+        dashMapFitted = true;
+    }
 }
 
 function updatePriorityAlertsPanel() {
-    const list = document.getElementById('priority-alerts-list');
-    if (!list) return;
+    const body = document.getElementById('dash-alert-rows');
+    if (!body) return;
 
-    // Filter for Priority Alerts (Danger/Warning)
-    const priorityAlerts = alerts.filter(a => a.type === 'danger' || a.type === 'warning').slice(0, 5); // Top 5
-
-    list.innerHTML = '';
+    // Priority alerts: unread first, then danger/warning — top 6
+    const sorted = [...alerts].sort((a, b) => (a.read === b.read ? 0 : a.read ? 1 : -1));
+    const priorityAlerts = sorted
+        .filter(a => a.type === 'danger' || a.type === 'warning' || !a.read)
+        .slice(0, 6);
 
     if (priorityAlerts.length === 0) {
-        list.innerHTML = '<p class="empty-state">No priority alerts</p>';
+        body.innerHTML = '<tr><td colspan="6" class="empty-state">No priority alerts</td></tr>';
         return;
     }
 
-    priorityAlerts.forEach(alert => {
-        const item = document.createElement('div');
-        item.className = 'priority-alert-item';
-
-        let icon = 'fa-exclamation-circle';
-        if (alert.type === 'warning') icon = 'fa-exclamation-triangle';
-
-        item.innerHTML = `
-            <div class="p-alert-icon"><i class="fas ${icon}"></i></div>
-            <div class="p-alert-info">
-                <div class="p-alert-title">${alert.title}</div>
-                <div class="p-alert-time">${alert.time.toLocaleTimeString()}</div>
-            </div>
-        `;
-        list.appendChild(item);
-    });
+    const sevMap = { danger: ['High', 'sev-high'], warning: ['Medium', 'sev-medium'], info: ['Low', 'sev-low'] };
+    body.innerHTML = priorityAlerts.map(a => {
+        const [sevLabel, sevClass] = sevMap[a.type] || sevMap.info;
+        const timeStr = a.time instanceof Date && !isNaN(a.time)
+            ? a.time.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '';
+        const status = a.read
+            ? '<span class="alert-status ack">Acknowledged</span>'
+            : '<span class="alert-status open">Open</span>';
+        return `<tr>
+            <td><span class="sev-badge ${sevClass}">${sevLabel}</span></td>
+            <td class="dash-vh-name">${a.title || 'System'}</td>
+            <td class="dash-desc">${a.message || ''}</td>
+            <td>${timeStr}</td>
+            <td>${status}</td>
+            <td><button type="button" class="btn-secondary btn-sm" onclick="window.switchTab('tab-alerts')">View</button></td>
+        </tr>`;
+    }).join('');
 }
 
 function animateValue(id, start, end, duration) {
