@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=119">
+    <link rel="stylesheet" href="/static/app.css?v=120">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -19,7 +19,7 @@
     <!-- Navigation -->
     <nav class="navbar" aria-label="Application controls">
         <div class="nav-brand">
-            <button type="button" class="workspace-toggle" id="workspace-toggle" aria-label="Show workspace panel" aria-controls="workspace-panel" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
+            <button type="button" class="workspace-toggle" id="workspace-toggle" aria-label="Hide workspace panel" aria-controls="workspace-panel" aria-expanded="true"><i class="fas fa-bars" aria-hidden="true"></i></button>
             <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo" class="brand-logo">
             <span id="nav-brand-name">Inferth Mapping</span>
             <span class="role-badge" id="user-role-display"></span>
@@ -42,24 +42,24 @@
     </nav>
 
     <!-- Main Container -->
-    <div class="main-container panel-collapsed" data-workspace="tab-fleet">
+    <div class="main-container" data-workspace="tab-dashboard">
         <!-- Tabbed Sidebar -->
-        <aside class="sidebar-container collapsed" id="sidebar">
+        <aside class="sidebar-container" id="sidebar">
             <!-- Icon Rail -->
             <div class="sidebar-rail" aria-label="Main navigation">
 
 
-                <button type="button" class="rail-item active" data-tab="tab-fleet" title="Live fleet" aria-current="page" aria-controls="tab-fleet">
+                <button type="button" class="rail-item active" data-tab="tab-dashboard" title="Dashboard" aria-current="page" aria-controls="tab-dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span class="rail-label">Dashboard</span>
+                </button>
+                <button type="button" class="rail-item" data-tab="tab-fleet" title="Live fleet" aria-controls="tab-fleet">
                     <i class="fas fa-map-marker-alt"></i>
                     <span class="rail-label">Live fleet</span>
                 </button>
                 <button type="button" class="rail-item" data-tab="tab-history" title="Route history" aria-controls="tab-history" id="rail-history-btn">
                     <i class="fas fa-route"></i>
                     <span class="rail-label">History</span>
-                </button>
-                <button type="button" class="rail-item" data-tab="tab-dashboard" title="Overview" aria-controls="tab-dashboard">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span class="rail-label">Overview</span>
                 </button>
                 <button type="button" class="rail-item" data-tab="tab-alerts" title="Alerts" aria-controls="tab-alerts">
                     <i class="fas fa-bell"></i>
@@ -99,10 +99,10 @@
             </div>
 
             <!-- Panel Content -->
-            <div class="sidebar-panel" id="workspace-panel" inert>
+            <div class="sidebar-panel" id="workspace-panel">
                 <div class="panel-header">
-                    <div><p class="workspace-eyebrow">Operations workspace</p><h3 id="panel-title">Live fleet</h3></div>
-                    <button class="toggle-panel" id="toggle-sidebar-btn" aria-label="Show workspace panel" aria-controls="workspace-panel" aria-expanded="false">
+                    <div><p class="workspace-eyebrow">Operations workspace</p><h3 id="panel-title">Dashboard</h3></div>
+                    <button class="toggle-panel" id="toggle-sidebar-btn" aria-label="Hide workspace panel" aria-controls="workspace-panel" aria-expanded="true">
                         <i class="fas fa-chevron-left"></i>
                     </button>
                 </div>
@@ -321,7 +321,7 @@
                 </div>
 
                 <!-- Tab: Fleet List -->
-                <div id="tab-fleet" class="tab-content active">
+                <div id="tab-fleet" class="tab-content">
                     <div class="fleet-toolbar">
                         <div class="fleet-heading"><div><h4>Your assets</h4><p id="fleet-result-count" role="status">Loading fleet…</p></div>
                         <button type="button" class="btn-small" id="add-vehicle-sidebar" hidden><i
@@ -336,33 +336,111 @@
                     <div id="fleet-load-error" class="fleet-load-error hidden" role="alert"><p>We couldn’t load your fleet. Check your connection and try again.</p><button type="button" class="btn-small" id="retry-fleet">Retry</button></div>
                 </div>
 
-                <!-- Tab: Dashboard (Entry Point) -->
-                <div id="tab-dashboard" class="tab-content">
-                    <div class="workspace-intro"><p class="workspace-eyebrow">Fleet overview</p><h2>A clear view of your operation.</h2><p>Monitor movement, review activity and focus on what needs attention.</p><button type="button" class="btn-small" onclick="window.switchTab('tab-fleet')"><i class="fas fa-map-marked-alt" aria-hidden="true"></i> Open live fleet</button></div>
-                    <!-- Fleet Snapshot (KPIs) -->
-                    <div class="dashboard-section">
-                        <h4 class="section-title">Fleet Snapshot</h4>
-                        <div class="kpi-grid">
-                            <div class="kpi-card active-card">
+                <!-- Tab: Dashboard (Landing View) -->
+                <div id="tab-dashboard" class="tab-content active">
+                    <div class="dash-header">
+                        <div>
+                            <h2 class="dash-title">Fleet Overview</h2>
+                            <span class="dash-sub" id="dash-live-note">Live fleet status</span>
+                        </div>
+                        <button type="button" class="btn-secondary btn-sm" onclick="window.switchTab('tab-fleet')"><i class="fas fa-map-marked-alt"></i> Open live fleet</button>
+                    </div>
+
+                    <!-- KPI cards -->
+                    <div class="kpi-grid dash-kpi-grid">
+                        <div class="kpi-card total-card">
+                            <span class="kpi-icon"><i class="fas fa-truck-moving"></i></span>
+                            <div class="kpi-body">
+                                <span class="kpi-value" id="kpi-total">0</span>
+                                <span class="kpi-label">Total Vehicles</span>
+                                <span class="kpi-sub">All registered vehicles</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card active-card">
+                            <span class="kpi-icon"><i class="fas fa-route"></i></span>
+                            <div class="kpi-body">
                                 <span class="kpi-value" id="kpi-active">0</span>
                                 <span class="kpi-label">Moving</span>
+                                <span class="kpi-sub">Currently in motion</span>
                             </div>
-                            <div class="kpi-card idle-card" style="display: none;">
-                                <span class="kpi-value" id="kpi-idle">0</span>
-                                <span class="kpi-label">Idling</span>
-                            </div>
-                            <div class="kpi-card stationary-card">
+                        </div>
+                        <div class="kpi-card idle-card" style="display: none;">
+                            <span class="kpi-value" id="kpi-idle">0</span>
+                            <span class="kpi-label">Idling</span>
+                        </div>
+                        <div class="kpi-card stationary-card">
+                            <span class="kpi-icon"><i class="fas fa-parking"></i></span>
+                            <div class="kpi-body">
                                 <span class="kpi-value" id="kpi-stationary">0</span>
                                 <span class="kpi-label">Stationary</span>
+                                <span class="kpi-sub">Not moving (&gt; 1.5 min)</span>
                             </div>
-                            <div class="kpi-card offline-card">
+                        </div>
+                        <div class="kpi-card offline-card">
+                            <span class="kpi-icon"><i class="fas fa-plug-circle-xmark"></i></span>
+                            <div class="kpi-body">
                                 <span class="kpi-value" id="kpi-offline">0</span>
                                 <span class="kpi-label">Offline</span>
+                                <span class="kpi-sub">No recent data</span>
                             </div>
-                            <div class="kpi-card alert-card">
+                        </div>
+                        <div class="kpi-card alert-card">
+                            <span class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></span>
+                            <div class="kpi-body">
                                 <span class="kpi-value" id="kpi-alerts">0</span>
-                                <span class="kpi-label">Alerts Today</span>
+                                <span class="kpi-label">Alerts</span>
+                                <span class="kpi-sub">Requires attention</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Vehicles list + fleet map -->
+                    <div class="dash-mid-grid">
+                        <div class="dash-card dash-vehicles-card">
+                            <div class="dash-card-header">
+                                <h4><i class="fas fa-truck"></i> Vehicles</h4>
+                                <a class="dash-link" onclick="window.switchTab('tab-fleet')">View all <i class="fas fa-arrow-right"></i></a>
+                            </div>
+                            <input type="text" id="dash-vehicle-search" class="glass-input" placeholder="Search by plate, name or IMEI…" autocomplete="off">
+                            <div class="dash-filter-chips">
+                                <button type="button" class="dash-chip active" data-dash-filter="all">All (<span id="dash-count-all">0</span>)</button>
+                                <button type="button" class="dash-chip" data-dash-filter="moving">Moving (<span id="dash-count-moving">0</span>)</button>
+                                <button type="button" class="dash-chip" data-dash-filter="stationary">Stationary (<span id="dash-count-stationary">0</span>)</button>
+                                <button type="button" class="dash-chip" data-dash-filter="offline">Offline (<span id="dash-count-offline">0</span>)</button>
+                            </div>
+                            <div class="dash-table-wrap">
+                                <table class="dash-table">
+                                    <thead>
+                                        <tr><th>Vehicle</th><th>Status</th><th>Speed</th><th></th></tr>
+                                    </thead>
+                                    <tbody id="dash-vehicle-rows"></tbody>
+                                </table>
+                            </div>
+                            <div class="dash-table-footer"><span id="dash-vehicle-count">Showing 0 vehicles</span></div>
+                        </div>
+
+                        <div class="dash-card dash-map-card">
+                            <div class="dash-map-toggle">
+                                <button type="button" class="dash-map-btn active" id="dash-map-streets"><i class="fas fa-map"></i> Map</button>
+                                <button type="button" class="dash-map-btn" id="dash-map-satellite"><i class="fas fa-satellite"></i> Satellite</button>
+                            </div>
+                            <div id="dash-map" class="dash-map"></div>
+                        </div>
+                    </div>
+
+                    <!-- Priority Alerts table -->
+                    <div class="dash-card dash-alerts-card">
+                        <div class="dash-card-header">
+                            <h4><i class="fas fa-exclamation-triangle"></i> Priority Alerts</h4>
+                            <a class="dash-link" onclick="window.switchTab('tab-alerts')">View all alerts <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        <div class="dash-table-wrap">
+                            <table class="dash-table">
+                                <thead>
+                                    <tr><th>Severity</th><th>Vehicle</th><th>Alert Description</th><th>Time</th><th>Status</th><th>Action</th></tr>
+                                </thead>
+                                <tbody id="dash-alert-rows"></tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -389,16 +467,6 @@
                         </div>
                         <div class="chart-container">
                             <canvas id="fleet-performance-chart"></canvas>
-                        </div>
-                    </div>
-
-                    <hr class="panel-divider">
-
-                    <!-- Priority Alerts Panel -->
-                    <div class="dashboard-section">
-                        <h4 class="section-title">Priority Alerts</h4>
-                        <div id="priority-alerts-list" class="priority-list">
-                            <p class="empty-state">No priority alerts</p>
                         </div>
                     </div>
                 </div>
@@ -1266,7 +1334,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=119"></script>
+    <script src="/static/app.js?v=120"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

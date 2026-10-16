@@ -4982,3 +4982,197 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* =====================================================
+   Dashboard landing view — Fleet Overview (dark theme)
+   ===================================================== */
+.dash-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.dash-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+.dash-sub { font-size: 0.8rem; color: var(--text-secondary); }
+
+.dash-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    margin-bottom: 14px;
+}
+.dash-kpi-grid .kpi-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 14px;
+    text-align: left;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: none;
+}
+.dash-kpi-grid .kpi-card:hover { transform: none; background: var(--card-bg); }
+.kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    flex: 0 0 40px;
+    background: rgba(255, 90, 0, 0.14);
+    color: var(--primary);
+}
+.total-card .kpi-icon      { background: rgba(255, 90, 0, 0.16); color: var(--primary); }
+.active-card .kpi-icon     { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+.stationary-card .kpi-icon { background: rgba(142, 148, 161, 0.18); color: #d1d5db; }
+.offline-card .kpi-icon    { background: rgba(107, 114, 128, 0.18); color: #9ca3af; }
+.alert-card .kpi-icon      { background: rgba(239, 68, 68, 0.14); color: var(--danger); }
+.kpi-body { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.kpi-sub { font-size: 0.66rem; color: var(--text-secondary); opacity: 0.75; }
+.total-card .kpi-value { color: var(--text-primary); }
+.total-card { border-bottom: 3px solid var(--primary); }
+
+.dash-mid-grid {
+    display: grid;
+    grid-template-columns: minmax(330px, 460px) 1fr;
+    gap: 14px;
+    margin: 14px 0;
+    align-items: stretch;
+}
+.dash-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px;
+}
+.dash-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.dash-card-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.dash-card-header h4 i { color: var(--warning); margin-right: 4px; }
+.dash-vehicles-card .dash-card-header h4 i { color: var(--primary); }
+.dash-link {
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.dash-link:hover { text-decoration: underline; }
+
+#dash-vehicle-search {
+    width: 100%;
+    height: 34px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+}
+.dash-filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.dash-chip {
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+.dash-chip:hover { border-color: var(--primary); }
+.dash-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.dash-table-wrap { overflow-y: auto; max-height: 340px; }
+.dash-alerts-card .dash-table-wrap { max-height: 250px; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.dash-table th {
+    text-align: left;
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 2;
+}
+.dash-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+.dash-vh-row { cursor: pointer; }
+.dash-vh-row:hover { background: rgba(255, 255, 255, 0.05); }
+.dash-vh-name { font-weight: 600; }
+.dash-vh-imei { font-size: 0.68rem; color: var(--text-secondary); }
+.dash-desc {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+.dash-row-caret { color: var(--text-secondary); font-size: 0.7rem; }
+.dash-table-footer { padding-top: 8px; font-size: 0.72rem; color: var(--text-secondary); }
+
+.dash-map-card { padding: 0; overflow: hidden; position: relative; min-height: 380px; }
+.dash-map { width: 100%; height: 100%; min-height: 380px; border-radius: 12px; }
+.dash-map-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 500;
+    display: flex;
+    gap: 4px;
+}
+.dash-map-btn {
+    border: 1px solid var(--border-color);
+    background: rgba(10, 14, 39, 0.85);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+.dash-map-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.sev-badge {
+    display: inline-block;
+    min-width: 46px;
+    text-align: center;
+    font-size: 0.66rem;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 3px 8px;
+}
+.sev-high   { background: rgba(239, 68, 68, 0.16); color: var(--danger); }
+.sev-medium { background: rgba(245, 158, 11, 0.16); color: var(--warning); }
+.sev-low    { background: rgba(16, 185, 129, 0.14); color: var(--success); }
+.alert-status.open { color: var(--danger); font-weight: 600; }
+.alert-status.ack  { color: var(--success); }
+
+@media (max-width: 900px) {
+    .dash-mid-grid { grid-template-columns: 1fr; }
+    .dash-map { height: 300px; min-height: 300px; }
+}
