@@ -11,6 +11,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/app.css?v=121">
+    <link rel="stylesheet" href="/static/spotlight.css?v=1">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -23,6 +24,13 @@
             <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo" class="brand-logo">
             <span id="nav-brand-name">Inferth Mapping</span>
             <span class="role-badge" id="user-role-display"></span>
+        </div>
+        <div class="nav-search">
+            <button type="button" class="global-search-trigger" id="global-search-btn" aria-label="Search vehicles, plates, IMEI or pages">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <span class="global-search-text">Search vehicles, plates, IMEI…</span>
+                <kbd class="global-search-kbd" id="global-search-kbd">Ctrl K</kbd>
+            </button>
         </div>
         <div class="nav-stats">
             <div class="stat-item" role="status">
@@ -326,7 +334,7 @@
                         <div class="fleet-heading"><div><h4>Your assets</h4><p id="fleet-result-count" role="status">Loading fleet…</p></div>
                         <button type="button" class="btn-small" id="add-vehicle-sidebar" hidden><i
                                 class="fas fa-plus"></i> Add asset</button></div>
-                        <label class="fleet-search" for="fleet-search"><i class="fas fa-search" aria-hidden="true"></i><input id="fleet-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off"><span class="sr-only">Search fleet</span></label>
+                        <label class="fleet-search" for="fleet-search"><i class="fas fa-search" aria-hidden="true"></i><input id="fleet-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off" data-spotlight-bar><span class="sr-only">Search fleet</span></label>
                         <label class="fleet-status-label" for="fleet-status-filter">Asset status<select id="fleet-status-filter"><option value="all">All statuses</option><option value="moving">Moving</option><option value="stationary">Stationary</option><option value="offline">Offline</option></select></label>
                     </div>
                     <div class="vehicle-list" id="vehicle-list">
@@ -401,7 +409,7 @@
                                 <h4><i class="fas fa-truck"></i> Vehicles</h4>
                                 <a class="dash-link" onclick="window.switchTab('tab-fleet')">View all <i class="fas fa-arrow-right"></i></a>
                             </div>
-                            <input type="text" id="dash-vehicle-search" class="glass-input" placeholder="Search by plate, name or IMEI…" autocomplete="off">
+                            <input type="text" id="dash-vehicle-search" class="glass-input" placeholder="Search by plate, name or IMEI…" autocomplete="off" data-spotlight-bar>
                             <div class="dash-filter-chips">
                                 <button type="button" class="dash-chip active" data-dash-filter="all">All (<span id="dash-count-all">0</span>)</button>
                                 <button type="button" class="dash-chip" data-dash-filter="moving">Moving (<span id="dash-count-moving">0</span>)</button>
@@ -1334,7 +1342,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
-    <script src="/static/app.js?v=121"></script>
+    <script src="/static/spotlight.js?v=1"></script>
+    <script src="/static/app.js?v=122"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
