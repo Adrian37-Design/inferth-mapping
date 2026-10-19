@@ -253,6 +253,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    initSpotlight();
+
     // Playback View Mode Listener
     const modeSelector = document.getElementById('playback-view-mode');
     if (modeSelector) {
@@ -2291,6 +2293,97 @@ function updateDashMapMarkers(fitBounds = false) {
         dashMap.fitBounds(bounds, { padding: [30, 30] });
         dashMapFitted = true;
     }
+}
+
+// ── Spotlight search: navbar trigger, Ctrl/Cmd+K, "/" and every search bar ──
+const SPOTLIGHT_PAGE_INFO = {
+    'tab-dashboard': 'Fleet overview, KPIs and priority alerts',
+    'tab-fleet': 'Live map and vehicle list',
+    'tab-history': 'Route playback and trip timeline',
+    'tab-alerts': 'Rules engine and alert feed',
+    'tab-reports': 'Generate and export reports',
+    'tab-insights': 'CAN/OBD diagnostics and fleet analytics',
+    'tab-users': 'Team members and access',
+    'tab-billing': 'Plan, usage and payments',
+    'tab-companies': 'Tenant administration',
+    'tab-audit': 'Audit trail of actions'
+};
+const SPOTLIGHT_STATUS = { moving: 'Moving', stationary: 'Stationary', offline: 'Offline' };
+
+function spotlightItems(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const vehicles = (Array.isArray(allVehicles) ? allVehicles : [])
+        .filter(v => {
+            const meta = v.device_metadata || {};
+            return [v.name, v.imei, meta.plate, meta.vin, meta.model].some(field => field && String(field).toLowerCase().includes(q));
+        })
+        .slice(0, 8)
+        .map(v => {
+            const meta = v.device_metadata || {};
+            const status = getVehicleDashStatus(v);
+            const pos = vehiclePositions[v.id];
+            const speed = status === 'offline' ? null : `${Math.round((pos && pos.speed) || 0)} km/h`;
+            return {
+                group: 'Vehicles',
+                icon: 'fa-truck',
+                tone: status,
+                label: v.name || `Device ${v.imei}`,
+                description: [meta.plate || v.imei, SPOTLIGHT_STATUS[status], speed].filter(Boolean).join(' · '),
+                run: () => selectVehicle(v)
+            };
+        });
+    const pages = Object.entries(SPOTLIGHT_PAGE_INFO).reduce((list, [tab, info]) => {
+        const btn = document.querySelector(`.rail-item[data-tab="${tab}"]`);
+        if (!btn || btn.classList.contains('hidden')) return list;
+        const label = btn.querySelector('.rail-label').textContent.trim();
+        if (`${label} ${info}`.toLowerCase().includes(q)) {
+            const iconClass = [...btn.querySelector('i').classList].find(c => c.startsWith('fa-'));
+            list.push({ group: 'Pages', icon: iconClass, tone: 'page', label, description: info, run: () => window.switchTab(tab) });
+        }
+        return list;
+    }, []);
+    return [...vehicles, ...pages];
+}
+
+function initSpotlight() {
+    if (!window.Spotlight) return;
+    const kbd = document.getElementById('global-search-kbd');
+    if (kbd) kbd.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
+    const globalSearch = { placeholder: 'Search vehicles, plates, IMEI…' };
+    Spotlight.configure({
+        provider: spotlightItems,
+        shortcuts: [
+            { label: 'Dashboard', icon: 'fa-gauge-high', run: () => window.switchTab('tab-dashboard') },
+            { label: 'Live fleet', icon: 'fa-map-location-dot', run: () => window.switchTab('tab-fleet') },
+            { label: 'History', icon: 'fa-route', run: () => window.switchTab('tab-history') },
+            { label: 'Alerts', icon: 'fa-bell', run: () => window.switchTab('tab-alerts') }
+        ]
+    });
+    document.getElementById('global-search-btn')?.addEventListener('click', () => Spotlight.open(globalSearch));
+    document.addEventListener('keydown', e => {
+        const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
+        if ((e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'k') {
+            e.preventDefault();
+            Spotlight.toggle(globalSearch);
+        } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            Spotlight.open(globalSearch);
+        }
+    });
+    document.querySelectorAll('[data-spotlight-bar]').forEach(bar => {
+        bar.addEventListener('focus', () => {
+            bar.blur();
+            Spotlight.open({
+                query: bar.value,
+                placeholder: bar.placeholder || 'Search',
+                onQueryChange: value => {
+                    bar.value = value;
+                    bar.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        });
+    });
 }
 
 function updatePriorityAlertsPanel() {
