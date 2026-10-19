@@ -2350,7 +2350,6 @@ function initSpotlight() {
     if (!window.Spotlight) return;
     const kbd = document.getElementById('global-search-kbd');
     if (kbd) kbd.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K';
-    const globalSearch = { placeholder: 'Search vehicles, plates, IMEI…' };
     Spotlight.configure({
         provider: spotlightItems,
         shortcuts: [
@@ -2360,29 +2359,19 @@ function initSpotlight() {
             { label: 'Alerts', icon: 'fa-bell', run: () => window.switchTab('tab-alerts') }
         ]
     });
-    document.getElementById('global-search-btn')?.addEventListener('click', () => Spotlight.open(globalSearch));
+    document.querySelectorAll('[data-spotlight]').forEach(wrapper => Spotlight.attach(wrapper));
+    const globalInput = document.getElementById('global-search-input');
     document.addEventListener('keydown', e => {
         const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
+        if (!globalInput) return;
         if ((e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'k') {
             e.preventDefault();
-            Spotlight.toggle(globalSearch);
+            if (document.activeElement === globalInput) globalInput.blur();
+            else globalInput.focus();
         } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
-            Spotlight.open(globalSearch);
+            globalInput.focus();
         }
-    });
-    document.querySelectorAll('[data-spotlight-bar]').forEach(bar => {
-        bar.addEventListener('focus', () => {
-            bar.blur();
-            Spotlight.open({
-                query: bar.value,
-                placeholder: bar.placeholder || 'Search',
-                onQueryChange: value => {
-                    bar.value = value;
-                    bar.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            });
-        });
     });
 }
 

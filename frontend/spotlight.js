@@ -1,16 +1,14 @@
-/* Spotlight search: vanilla port of the apple-spotlight block (no build step).
-   window.Spotlight: configure({ provider, shortcuts }), open({ query, placeholder, onQueryChange }), close(), toggle(options), isOpen() */
+/* Spotlight search: an in-place dropdown for every search field (vanilla, no build step).
+   Markup: <div class="spot" data-spotlight> wrapping an <input> inside <span class="spot-input-wrap">.
+   The panel unfolds from its own field; there is no overlay or backdrop.
+   window.Spotlight: configure({ provider, shortcuts }), attach(wrapper), isOpen() */
 (function () {
     'use strict';
 
     const SVG_NS = 'http://www.w3.org/2000/svg';
-    const touchDevice = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
-    const state = {
-        open: false, query: '', placeholder: 'Search', provider: null, shortcuts: [],
-        items: [], index: -1, shortcutIndex: null, hovered: false,
-        onQueryChange: null, returnFocus: null, lastText: null, settleTimer: null
-    };
-    let dom = null;
+    const config = { provider: null, shortcuts: [] };
+    let openField = null;
+    let uid = 0;
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -44,221 +42,219 @@
         document.body.append(svg);
     }
 
-    function build() {
-        if (dom) return dom;
-        ensureBlobFilter();
-        const overlay = el('div', 'spotlight-overlay');
-        overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-modal', 'true');
-        overlay.setAttribute('aria-label', 'Search');
-        const stage = el('div', 'spotlight-stage');
-        const pill = el('div', 'spotlight-pill');
-        const row = el('div', 'spotlight-row');
-        const field = el('div', 'spotlight-field');
-        const placeholder = el('span', 'spotlight-placeholder');
-        placeholder.setAttribute('aria-hidden', 'true');
-        const input = el('input', 'spotlight-input');
-        input.type = 'text';
-        input.autocomplete = 'off';
-        input.spellcheck = false;
-        input.setAttribute('role', 'combobox');
-        input.setAttribute('aria-autocomplete', 'list');
-        input.setAttribute('aria-expanded', 'false');
-        input.setAttribute('aria-controls', 'spotlight-results');
-        field.append(placeholder, input);
-        row.append(icon('fa-magnifying-glass', 'spotlight-glyph'), field, el('kbd', 'spotlight-esc', 'Esc'));
-        const results = el('div', 'spotlight-results');
-        results.id = 'spotlight-results';
-        results.setAttribute('role', 'listbox');
-        results.hidden = true;
-        pill.append(row, results);
-        const shortcuts = el('div', 'spotlight-shortcuts');
-        stage.append(pill, shortcuts);
-        overlay.append(stage);
-        document.body.append(overlay);
-        dom = { overlay, stage, input, placeholder, results, shortcuts, rows: [] };
+    const isOpen = field => field.wrapper.classList.contains('is-open');
 
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-        stage.addEventListener('mouseenter', () => { state.hovered = true; renderShortcuts(); });
-        stage.addEventListener('mouseleave', () => { state.hovered = false; state.shortcutIndex = null; renderShortcuts(); renderPlaceholder(); });
-        results.addEventListener('mouseleave', () => setIndex(-1));
-        input.addEventListener('input', () => setQuery(input.value));
-        input.addEventListener('keydown', onKeydown);
-        return dom;
-    }
-
-    function buildShortcuts() {
-        dom.shortcuts.replaceChildren(...state.shortcuts.map((shortcut, i) => {
-            const button = el('button', 'spotlight-shortcut');
-            button.type = 'button';
-            button.title = shortcut.label;
-            button.setAttribute('aria-label', shortcut.label);
-            button.style.setProperty('--i', i);
-            button.append(icon(shortcut.icon));
-            button.addEventListener('mouseenter', () => { state.shortcutIndex = i; renderPlaceholder(); });
-            button.addEventListener('mouseleave', () => { state.shortcutIndex = null; renderPlaceholder(); });
-            button.addEventListener('click', () => activate(shortcut));
-            return button;
-        }));
-    }
-
-    function renderShortcuts() {
-        dom.shortcuts.classList.toggle('is-shown', !state.query && (state.hovered || touchDevice) && state.shortcuts.length > 0);
-    }
-
-    function renderPlaceholder() {
-        const { placeholder } = dom;
-        const hovered = state.index >= 0 ? state.items[state.index] : null;
-        const shortcut = !state.query && state.shortcutIndex !== null ? state.shortcuts[state.shortcutIndex] : null;
-        const text = (shortcut && shortcut.label) || (hovered && hovered.label) || state.placeholder;
-        placeholder.textContent = text;
-        placeholder.classList.toggle('is-hidden', !!state.query && !hovered);
-        placeholder.classList.toggle('is-chip', !!hovered);
-        if (text !== state.lastText) {
-            state.lastText = text;
-            placeholder.classList.remove('is-swap');
-            void placeholder.offsetWidth;
-            placeholder.classList.add('is-swap');
+    function renderGhost(field) {
+        const { ghost, input } = field;
+        const hovered = field.index >= 0 ? field.items[field.index] : null;
+        const hasQuery = !!input.value.trim();
+        const text = (hovered && hovered.label) || field.placeholder;
+        ghost.textContent = text;
+        ghost.classList.toggle('is-hidden', hasQuery && !hovered);
+        ghost.classList.toggle('is-chip', hasQuery && !!hovered);
+        if (text !== field.lastGhost) {
+            field.lastGhost = text;
+            ghost.classList.remove('is-swap');
+            void ghost.offsetWidth;
+            ghost.classList.add('is-swap');
         }
     }
 
-    function renderResults() {
-        const { results, input } = dom;
-        const q = state.query.trim();
-        state.items = q && state.provider ? state.provider(q) : [];
-        dom.rows = [];
-        results.replaceChildren();
-        results.hidden = !q;
-        input.setAttribute('aria-expanded', String(!!q));
-        if (!q) return;
-        if (!state.items.length) {
-            results.append(el('p', 'spotlight-empty', `No vehicles or pages match “${q}”`));
-            return;
-        }
-        let group = null;
-        state.items.forEach((item, i) => {
-            if (item.group !== group) {
-                group = item.group;
-                results.append(el('div', 'spotlight-group', group));
-            }
-            const row = el('div', 'spotlight-result');
-            row.id = `spotlight-option-${i}`;
-            row.setAttribute('role', 'option');
-            row.setAttribute('aria-selected', 'false');
-            row.style.setProperty('--i', Math.min(i, 10));
-            const badge = el('span', `spotlight-result-icon tone-${item.tone || 'page'}`);
-            badge.append(icon(item.icon));
-            const text = el('span', 'spotlight-result-text');
-            text.append(el('span', 'spotlight-result-label', item.label), el('span', 'spotlight-result-desc', item.description || ''));
-            row.append(badge, text, icon('fa-chevron-right', 'spotlight-result-chevron'));
-            row.addEventListener('mouseenter', () => setIndex(i));
-            row.addEventListener('click', () => activate(item));
-            results.append(row);
-            dom.rows.push(row);
-        });
-        results.append(el('div', 'spotlight-hint', '↑↓ navigate · Enter open · Esc close'));
-    }
-
-    function setIndex(i, scroll) {
-        state.index = i;
-        dom.rows.forEach((row, n) => {
+    function setIndex(field, i, scroll) {
+        field.index = i;
+        field.rows.forEach((row, n) => {
             row.classList.toggle('is-active', n === i);
             row.setAttribute('aria-selected', String(n === i));
         });
-        const active = dom.rows[i];
+        const active = field.rows[i];
         if (active) {
-            dom.input.setAttribute('aria-activedescendant', active.id);
+            field.input.setAttribute('aria-activedescendant', active.id);
             if (scroll) active.scrollIntoView({ block: 'nearest' });
         } else {
-            dom.input.removeAttribute('aria-activedescendant');
+            field.input.removeAttribute('aria-activedescendant');
         }
-        renderPlaceholder();
+        renderGhost(field);
     }
 
-    function move(step) {
-        const count = state.items.length;
+    function move(field, step) {
+        const count = field.rows.length;
         if (!count) return;
-        const next = state.index < 0 ? (step > 0 ? 0 : count - 1) : (state.index + step + count) % count;
-        setIndex(next, true);
+        const next = field.index < 0 ? (step > 0 ? 0 : count - 1) : (field.index + step + count) % count;
+        setIndex(field, next, true);
     }
 
-    function setQuery(value) {
-        state.query = value;
-        if (state.onQueryChange) state.onQueryChange(value);
-        renderResults();
-        setIndex(-1);
-        renderShortcuts();
+    function buildShortcuts(field) {
+        const grid = el('div', 'spot-shortcut-grid');
+        field.shortcutRows = config.shortcuts.map((shortcut, i) => {
+            const tile = el('button', 'spot-shortcut');
+            tile.type = 'button';
+            tile.id = `${field.id}-shortcut-${i}`;
+            tile.setAttribute('role', 'option');
+            tile.setAttribute('aria-label', shortcut.label);
+            tile.style.setProperty('--i', i);
+            tile.append(icon(shortcut.icon), el('span', 'spot-shortcut-label', shortcut.label));
+            tile.addEventListener('mouseenter', () => setIndex(field, i));
+            tile.addEventListener('click', () => activate(field, shortcut));
+            grid.append(tile);
+            return tile;
+        });
+        field.shortcutsEl.replaceChildren(el('div', 'spot-group', 'Quick jump'), grid);
     }
 
-    function open(options = {}) {
-        build();
-        if (!state.open) state.returnFocus = document.activeElement;
-        state.open = true;
-        state.placeholder = options.placeholder || 'Search';
-        state.onQueryChange = typeof options.onQueryChange === 'function' ? options.onQueryChange : null;
-        state.query = options.query || '';
-        state.hovered = false;
-        state.shortcutIndex = null;
-        state.lastText = null;
-        dom.input.value = state.query;
-        buildShortcuts();
-        clearTimeout(state.settleTimer);
-        dom.overlay.classList.remove('is-settled');
-        dom.overlay.classList.add('is-open');
-        state.settleTimer = window.setTimeout(() => dom.overlay.classList.add('is-settled'), 520);
-        renderResults();
-        setIndex(-1);
-        renderShortcuts();
-        dom.input.focus({ preventScroll: true });
-    }
-
-    function close() {
-        if (!state.open) return;
-        const back = state.returnFocus;
-        state.open = false;
-        state.onQueryChange = null;
-        state.returnFocus = null;
-        state.hovered = false;
-        state.shortcutIndex = null;
-        clearTimeout(state.settleTimer);
-        dom.overlay.classList.remove('is-open', 'is-settled');
-        dom.input.blur();
-        if (back && back.isConnected && back !== document.body && !back.hasAttribute('data-spotlight-bar') && typeof back.focus === 'function') {
-            back.focus({ preventScroll: true });
+    function buildResults(field, query) {
+        const { resultsEl, items } = field;
+        resultsEl.replaceChildren();
+        if (!items.length) {
+            resultsEl.append(el('p', 'spot-empty', `No vehicles or pages match “${query}”`));
+            return [];
         }
+        const rows = [];
+        let group = null;
+        items.forEach((item, i) => {
+            if (item.group !== group) {
+                group = item.group;
+                resultsEl.append(el('div', 'spot-group', group));
+            }
+            const row = el('div', 'spot-result');
+            row.id = `${field.id}-result-${i}`;
+            row.setAttribute('role', 'option');
+            row.setAttribute('aria-selected', 'false');
+            row.style.setProperty('--i', Math.min(i, 10));
+            const badge = el('span', `spot-result-icon tone-${item.tone || 'page'}`);
+            badge.append(icon(item.icon));
+            const text = el('span', 'spot-result-text');
+            text.append(el('span', 'spot-result-label', item.label), el('span', 'spot-result-desc', item.description || ''));
+            row.append(badge, text, icon('fa-chevron-right', 'spot-result-chevron'));
+            row.addEventListener('mouseenter', () => setIndex(field, i));
+            row.addEventListener('click', () => activate(field, item));
+            resultsEl.append(row);
+            rows.push(row);
+        });
+        return rows;
     }
 
-    function activate(item) {
-        close();
+    function render(field) {
+        const query = field.input.value.trim();
+        field.shortcutsEl.hidden = !!query;
+        field.resultsEl.hidden = !query;
+        if (query) {
+            field.items = config.provider ? config.provider(query) : [];
+            field.rows = buildResults(field, query);
+        } else {
+            if (field.shortcutRows.length !== config.shortcuts.length) buildShortcuts(field);
+            field.items = config.shortcuts;
+            field.rows = field.shortcutRows;
+        }
+        setIndex(field, -1);
+    }
+
+    function open(field) {
+        if (isOpen(field)) return render(field);
+        if (openField) close(openField);
+        openField = field;
+        clearTimeout(field.settleTimer);
+        field.wrapper.classList.remove('is-settled');
+        field.wrapper.classList.add('is-open');
+        field.raised = field.wrapper.closest('[data-spot-raise]');
+        if (field.raised) field.raised.classList.add('spot-raised');
+        field.input.setAttribute('aria-expanded', 'true');
+        field.settleTimer = window.setTimeout(() => field.wrapper.classList.add('is-settled'), 480);
+        render(field);
+    }
+
+    function close(field) {
+        if (!field || !isOpen(field)) return;
+        if (openField === field) openField = null;
+        clearTimeout(field.settleTimer);
+        field.wrapper.classList.remove('is-open', 'is-settled');
+        if (field.raised) { field.raised.classList.remove('spot-raised'); field.raised = null; }
+        field.input.setAttribute('aria-expanded', 'false');
+        setIndex(field, -1);
+    }
+
+    function activate(field, item) {
+        close(field);
+        field.input.blur();
         window.setTimeout(() => {
             try { item.run(); } catch (err) { console.error('Spotlight action failed:', err); }
         }, 0);
     }
 
-    function onKeydown(e) {
+    function onKeydown(field, e) {
         if (e.key === 'Escape') {
             e.preventDefault();
-            close();
+            close(field);
+            field.input.blur();
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            move(e.key === 'ArrowDown' ? 1 : -1);
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            const item = state.items[Math.max(state.index, 0)];
-            if (item) activate(item);
-        } else if (e.key === 'Tab') {
-            e.preventDefault();
+            if (!isOpen(field)) open(field);
+            move(field, e.key === 'ArrowDown' ? 1 : -1);
+        } else if (e.key === 'Enter' && isOpen(field)) {
+            const query = field.input.value.trim();
+            const item = field.index >= 0 ? field.items[field.index] : (query ? field.items[0] : null);
+            if (item) {
+                e.preventDefault();
+                activate(field, item);
+            }
         }
     }
 
+    function bind(field) {
+        const { wrapper, input, panel } = field;
+        input.addEventListener('focus', () => open(field));
+        input.addEventListener('input', () => (isOpen(field) ? render(field) : open(field)));
+        input.addEventListener('keydown', e => onKeydown(field, e));
+        wrapper.addEventListener('focusout', e => { if (!wrapper.contains(e.relatedTarget)) close(field); });
+        wrapper.addEventListener('mousedown', e => {
+            if (e.target === input) return;
+            e.preventDefault();
+            if (!panel.contains(e.target)) input.focus({ preventScroll: true });
+        });
+        field.shortcutsEl.addEventListener('mouseleave', () => setIndex(field, -1));
+        field.resultsEl.addEventListener('mouseleave', () => setIndex(field, -1));
+    }
+
+    function attach(wrapper) {
+        const input = wrapper && wrapper.querySelector('input');
+        if (!input || wrapper.dataset.spotBound) return null;
+        ensureBlobFilter();
+        wrapper.dataset.spotBound = '1';
+        const id = `spot-${++uid}`;
+        const computed = getComputedStyle(input);
+        const field = {
+            wrapper, input, id,
+            placeholder: input.getAttribute('placeholder') || 'Search',
+            ghost: el('span', 'spot-ghost'),
+            panel: el('div', 'spot-panel'),
+            shortcutsEl: el('div', 'spot-shortcuts'),
+            resultsEl: el('div', 'spot-results'),
+            shortcutRows: [], rows: [], items: [], index: -1, lastGhost: null, settleTimer: null, raised: null
+        };
+        field.panel.id = `${id}-panel`;
+        field.panel.setAttribute('role', 'listbox');
+        field.panel.append(field.shortcutsEl, field.resultsEl, el('div', 'spot-hint', '↑↓ navigate · Enter open · Esc close'));
+        ['fontFamily', 'fontSize', 'fontWeight', 'letterSpacing'].forEach(p => { field.ghost.style[p] = computed[p]; });
+        input.parentElement.classList.add('spot-input-wrap');
+        input.parentElement.append(field.ghost);
+        input.removeAttribute('placeholder');
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-label', field.placeholder);
+        input.setAttribute('aria-autocomplete', 'list');
+        input.setAttribute('aria-expanded', 'false');
+        input.setAttribute('aria-controls', field.panel.id);
+        wrapper.append(field.panel);
+        buildShortcuts(field);
+        bind(field);
+        renderGhost(field);
+        return field;
+    }
+
     window.Spotlight = {
-        configure(config = {}) {
-            if (config.provider) state.provider = config.provider;
-            if (config.shortcuts) state.shortcuts = config.shortcuts;
+        configure(options = {}) {
+            if (options.provider) config.provider = options.provider;
+            if (options.shortcuts) config.shortcuts = options.shortcuts;
         },
-        open,
-        close,
-        toggle(options) { if (state.open) close(); else open(options); },
-        isOpen: () => state.open
+        attach,
+        isOpen: () => !!openField
     };
 })();
