@@ -181,3 +181,12 @@ class Alert(Base):
     tenant = relationship("Tenant")
     device = relationship("Device")
     rule = relationship("Rule")
+
+
+class TrackerSecret(Base):
+    __tablename__ = "tracker_secrets"
+
+    imei = Column(String, primary_key=True)
+    secret = Column(String, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

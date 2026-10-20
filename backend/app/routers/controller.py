@@ -10,7 +10,7 @@ import hashlib
 import hmac
 
 from app.db import get_db
-from app.models import Device, Position, Alert, User
+from app.models import Device, Position, Alert, User, TrackerSecret
 from app.config import settings
 from app.auth_middleware import require_super_admin
 from app.services.data_guardrails import (
@@ -93,8 +93,10 @@ def _tracker_signed(token: str, secret: str) -> bool:
     return hmac.compare_digest(expected, provided)
 
 
-def check_tracker(request: Request, imei: Optional[str]):
+async def check_tracker(request: Request, imei: Optional[str], db: AsyncSession):
     secret = settings.TRACKER_JWT_SECRETS.get(imei) if imei else None
+    if not secret and imei:
+        secret = (await db.execute(select(TrackerSecret.secret).where(TrackerSecret.imei == imei))).scalar()
     if secret and _tracker_signed(_tracker_token(request), secret):
         return
     if settings.TRACKER_AUTH_MODE == "enforce":
@@ -148,7 +150,7 @@ async def upsert_tracking_data(
 
     # 5. If STILL not found, create the ONE legitimate device (never use hash!)
     if not device:
-        check_tracker(request, None)
+        await check_tracker(request, None, db)
         suffix = ident[-6:] if len(ident) >= 6 else ident
         device = Device(
             imei=ident,
@@ -160,7 +162,7 @@ async def upsert_tracking_data(
         await db.commit()
         await db.refresh(device)
     else:
-        check_tracker(request, device.imei)
+        await check_tracker(request, device.imei, db)
 
     # Purge phantom devices created by historical hash collisions
     try:
@@ -488,7 +490,7 @@ async def get_commands(
         res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
         device = res.scalars().first()
 
-    check_tracker(request, device.imei if device else None)
+    await check_tracker(request, device.imei if device else None, db)
     if device:
         now = datetime.utcnow()
         meta = dict(device.device_metadata or {})
@@ -570,7 +572,7 @@ async def handle_sos_alerts(
     # Look up device
     res = await db.execute(select(Device).where(Device.imei == str(imei).strip()))
     device = res.scalars().first()
-    check_tracker(request, device.imei if device else None)
+    await check_tracker(request, device.imei if device else None, db)
     tenant_id = device.tenant_id if device else 1
     device_id = device.id if device else None
 
@@ -625,7 +627,7 @@ async def handle_violations(
     token = request.cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
     ident = str(body.get("imei") or extract_plate_from_jwt(token) or "XYZ4321").strip()
     device = await _find_tracker(db, ident)
-    check_tracker(request, device.imei if device else None)
+    await check_tracker(request, device.imei if device else None, db)
     items = body["violations"] if isinstance(body.get("violations"), list) else [body]
 
     for item in items:

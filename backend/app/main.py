@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller
+from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller, tracker_secrets
 from app.services.mqtt_client import start_mqtt
 import asyncio
 from app.config import settings
@@ -407,6 +407,7 @@ app.include_router(alerts.router)
 app.include_router(reports.router)
 app.include_router(analytics.router)
 app.include_router(controller.router)
+app.include_router(tracker_secrets.router)
 
 @app.websocket("/ws/positions")
 async def websocket_endpoint(websocket: WebSocket):
