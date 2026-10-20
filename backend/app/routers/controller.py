@@ -345,7 +345,7 @@ async def upsert_tracking_data(
         db.add(pos)
         inserted_count += 1
         if is_fresh_ping:
-            alert_inputs.append({"latitude": clean_lat, "longitude": clean_lon, "speed": clean_speed, "raw": row})
+            alert_inputs.append({"latitude": clean_lat, "longitude": clean_lon, "speed": clean_speed, "raw": row, "timestamp": timestamp})
 
         # Realtime WebSocket broadcasting — only for fresh positions.
         # Backfilled offline rows keep their original (older) timestamps;

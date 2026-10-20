@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 
 from app.db import AsyncSessionLocal, Base, DATABASE_URL, engine
 import app.models
-from app.models import Alert, Device, Geofence, Rule, Tenant
+from app.models import Alert, Device, Geofence, Position, Rule, Tenant
 from app.services.alerts import AlertService
 from app.routers.controller import handle_violations, upsert_tracking_data
 
@@ -285,6 +285,24 @@ async def run_tracker_violations(name):
            f"rows={[(row.type, row.message) for row in rows]}")
 
 
+async def run_parked_exit(name):
+    tenant, other, _ = await new_device()
+    dev, imei = await new_tracker(tenant)
+    async with AsyncSessionLocal() as db:
+        db.add(Position(device_id=dev, latitude=POS["in"][0], longitude=POS["in"][1], speed=0,
+                        timestamp=datetime.utcnow() - timedelta(minutes=30)))
+        await db.commit()
+    zone_id = await add_zone(tenant, [dev], EXIT, polygon())
+    try:
+        await post_telemetry(imei, *POS["out"], minutes_ago=0)
+        exits = await count(tenant, "exit", dev)
+        done = await triggered(zone_id)
+    except Exception as exc:
+        record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
+        return
+    record(name, (exits, done) == (1, True), f"exits={exits} triggered={done}")
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -320,6 +338,7 @@ async def run_checks():
     await run_rule_notification("zone not watching entry: no violation, no email", EXIT, expect_entries=0, expect_sent=0)
     await run_http_ingest("HTTP telemetry (Xcela upsert) triggers a geofence drawn by another tenant")
     await run_tracker_violations("tracker violations attach to the vehicle that sent them")
+    await run_parked_exit("zone drawn while the tracker is parked inside: leaving records an exit")
     await engine.dispose()
 
 
