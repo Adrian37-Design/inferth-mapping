@@ -10,6 +10,7 @@ import asyncio
 import os
 import sys
 import uuid
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 TEST_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -25,6 +26,7 @@ from app.db import AsyncSessionLocal, Base, DATABASE_URL, engine
 import app.models
 from app.models import Alert, Device, Geofence, Rule, Tenant
 from app.services.alerts import AlertService
+from app.routers.controller import upsert_tracking_data
 
 assert TEST_PARTS.path in DATABASE_URL, "app.db is not using TEST_DATABASE_URL"
 
@@ -203,6 +205,55 @@ async def run_rule_notification(name, flags, expect_entries, expect_sent):
     record(name, (entries, len(sent)) == (expect_entries, expect_sent), f"entries={entries} emails={len(sent)}")
 
 
+class FakeRequest:
+    def __init__(self, body):
+        self._body = body
+        self.cookies = {}
+        self.headers = {}
+
+    async def json(self):
+        return self._body
+
+
+async def drain_tasks():
+    current = asyncio.current_task()
+    pending = [task for task in asyncio.all_tasks() if task is not current]
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+async def new_tracker(tenant_id):
+    imei = f"imei-{uuid.uuid4().hex[:10]}"
+    async with AsyncSessionLocal() as db:
+        device = Device(imei=imei, name=f"Xcela {imei[-4:]}", tenant_id=tenant_id, device_metadata={})
+        db.add(device)
+        await db.commit()
+        return device.id, imei
+
+
+async def post_telemetry(imei, lat, lng, minutes_ago):
+    stamp = (datetime.utcnow() - timedelta(minutes=minutes_ago)).strftime("%m/%d/%Y %H:%M:%S GMT")
+    row = {"lat": lat, "lon": lng, "speed": 0, "satellites": 8, "time_to": stamp}
+    async with AsyncSessionLocal() as db:
+        await upsert_tracking_data(request=FakeRequest({"imei": imei, "data": [row]}), db=db)
+    await drain_tasks()
+
+
+async def run_http_ingest(name):
+    tenant, other, _ = await new_device()
+    dev, imei = await new_tracker(tenant)
+    zone_id = await add_zone(other, [dev], ENTRY, polygon())
+    try:
+        await post_telemetry(imei, *POS["out"], minutes_ago=2)
+        await post_telemetry(imei, *POS["in"], minutes_ago=1)
+        done = await triggered(zone_id)
+        entries = await count(tenant, "entry", dev)
+    except Exception as exc:
+        record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
+        return
+    record(name, (entries, done) == (1, True), f"entries={entries} triggered={done}")
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -224,8 +275,8 @@ async def run_checks():
                        ["geofence_entry"], expect_entry=[0, 0, 1], expect_exit=[0, 0, 0], expect_triggered=True)
     await run_sequence("device not assigned to zone", ["out", "in"], ENTRY, ["geofence_entry"], assets=[999999],
                        expect_entry=[0, 0], expect_exit=[0, 0], expect_triggered=False)
-    await run_sequence("zone belongs to another tenant", ["out", "in"], ENTRY, ["geofence_entry"], other_tenant=True,
-                       expect_entry=[0, 0], expect_exit=[0, 0], expect_triggered=False)
+    await run_sequence("zone from another tenant still watches its listed tracker", ["out", "in"], ENTRY, ["geofence_entry"], other_tenant=True,
+                       expect_entry=[0, 1], expect_exit=[0, 0], expect_triggered=True)
     await run_sequence("asset ids stored as strings", ["out", "in"], ENTRY, [], as_strings=True,
                        expect_entry=[0, 1], expect_exit=[0, 0], expect_triggered=True)
     await run_sequence("zone saved as Feature", ["out", "in"], ENTRY, [], geojson=feature(),
@@ -236,6 +287,7 @@ async def run_checks():
     await run_shared_zone("two trackers share one zone: one violation")
     await run_rule_notification("rule emails once, no duplicate violation", ENTRY, expect_entries=1, expect_sent=1)
     await run_rule_notification("zone not watching entry: no violation, no email", EXIT, expect_entries=0, expect_sent=0)
+    await run_http_ingest("HTTP telemetry (Xcela upsert) triggers a geofence drawn by another tenant")
     await engine.dispose()
 
 

@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 import json
 import base64
+import asyncio
 
 from app.db import get_db
 from app.models import Device, Position, Alert
@@ -17,6 +18,7 @@ from app.services.data_guardrails import (
     _to_naive_utc
 )
 from app.realtime import publish_position
+from app.services.alerts import AlertService
 
 router = APIRouter(prefix="/api/controller", tags=["controller"])
 
@@ -168,6 +170,7 @@ async def upsert_tracking_data(
 
     inserted_count = 0
     now = datetime.utcnow()
+    alert_inputs = []
 
     # Process each coordinate point
     for row in data_points:
@@ -341,6 +344,8 @@ async def upsert_tracking_data(
         )
         db.add(pos)
         inserted_count += 1
+        if is_fresh_ping:
+            alert_inputs.append({"latitude": clean_lat, "longitude": clean_lon, "speed": clean_speed, "raw": row})
 
         # Realtime WebSocket broadcasting — only for fresh positions.
         # Backfilled offline rows keep their original (older) timestamps;
@@ -371,6 +376,8 @@ async def upsert_tracking_data(
                 pass
 
     await db.commit()
+    for alert_input in alert_inputs:
+        asyncio.create_task(AlertService.evaluate_rules(db, device.id, alert_input))
     return {"success": True, "count": inserted_count}
 
 
