@@ -499,6 +499,7 @@
                             <span>triggers</span>
                             <select id="rule-event" class="inline-select">
                                 <option value="speeding">Speeding</option>
+                                <option value="geofence_entry">Geofence Entry</option>
                                 <option value="geofence_exit">Geofence Exit</option>
                                 <option value="power_alarm">Power Alarm (Cut)</option>
                                 <option value="sensor_alarm">Sensor Alarm (Vibration)</option>
@@ -789,7 +790,7 @@
                                         <input type="text" id="geo-contact" class="glass-input hidden" placeholder="Email or phone" autocomplete="off">
                                     </div>
                                 </div>
-                                <p class="geo-form-note">Alerts are sent by the Geofence rules configured under Alerts.</p>
+                                <p class="geo-form-note">Alerts need a matching Geofence Entry or Exit rule under Alerts.</p>
                                 <p class="geo-form-error" id="geo-form-error" role="alert"></p>
                                 <div class="geo-form-actions">
                                     <button class="btn-secondary btn-sm" type="button" id="geo-cancel-btn">Discard</button>

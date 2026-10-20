@@ -833,7 +833,7 @@ function applyPremiumLocks(features, plan) {
     // B. Advanced Rule Triggers (e.g., Harsh Braking)
     const eventSelect = document.getElementById('rule-event');
     if (eventSelect) {
-        const premiumOptions = ['harsh_braking', 'geofence_exit']; // Example premium events
+        const premiumOptions = ['harsh_braking', 'geofence_entry', 'geofence_exit']; // Example premium events
         Array.from(eventSelect.options).forEach(opt => {
             if (premiumOptions.includes(opt.value)) {
                 if (!hasAdvancedRules) {
