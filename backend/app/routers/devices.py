@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Device, Tenant, User
-from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin
+from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin, may_set_company
 from pydantic import BaseModel
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -25,6 +25,9 @@ async def create_device(
 ):
     # Enforce tenant isolation on creation
     target_tenant_id = None
+
+    if not await may_set_company(db, current_user, payload.company):
+        raise HTTPException(status_code=403, detail="Only the platform administrator can assign a tracker to another company")
 
     # If company matches an existing tenant name, assign device to that tenant
     if payload.company:
@@ -165,14 +168,16 @@ async def update_device(
     if payload.driver_name is not None:
         device.driver_name = payload.driver_name
     if payload.company is not None:
+        if not await may_set_company(db, current_user, payload.company, device.company):
+            raise HTTPException(status_code=403, detail="Only the platform administrator can assign a tracker to another company")
         device.company = payload.company
         # Synchronize device.tenant_id with company name if company matches a Tenant
-        if payload.company and payload.company.strip():
+        if is_platform_admin(current_user) and payload.company and payload.company.strip():
             t_q = await db.execute(select(Tenant).where(func.lower(Tenant.name) == payload.company.strip().lower()))
             matching_tenant = t_q.scalars().first()
             if matching_tenant:
                 device.tenant_id = matching_tenant.id
-        elif payload.company.lower() in ["", "none", "unassigned", "default"]:
+        elif is_platform_admin(current_user) and payload.company.lower() in ["", "none", "unassigned", "default"]:
             device.tenant_id = 1
         
     # Audit Log

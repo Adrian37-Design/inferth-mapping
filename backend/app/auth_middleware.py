@@ -125,6 +125,12 @@ async def can_see_device(db: AsyncSession, user: User, device: Device) -> bool:
     company = await tenant_name(db, user)
     return bool(company) and (device.company or "").lower() == company.lower().strip()
 
+async def may_set_company(db: AsyncSession, user: User, company: Optional[str], current: Optional[str] = None) -> bool:
+    if is_platform_admin(user):
+        return True
+    allowed = {"", ((await tenant_name(db, user)) or "").strip().lower(), (current or "").strip().lower()}
+    return (company or "").strip().lower() in allowed
+
 async def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
     if not is_platform_admin(current_user):
         raise HTTPException(
