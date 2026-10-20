@@ -2,12 +2,13 @@ from fastapi import Depends, HTTPException, status
 from typing import Optional
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
+from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from app.config import settings
 from app.db import get_db
-from app.models import User
+from app.models import Device, Tenant, User
 
 security = HTTPBearer(auto_error=False)
 
@@ -101,8 +102,20 @@ async def require_manager(current_user: User = Depends(get_current_user)) -> Use
         )
     return current_user
 
+def is_platform_admin(user: User) -> bool:
+    return user.tenant_id == 1 and user.role == "admin"
+
+async def tenant_name(db: AsyncSession, user: User) -> Optional[str]:
+    return (await db.execute(select(Tenant.name).where(Tenant.id == user.tenant_id))).scalar()
+
+def tracker_visibility(user: User, company_name: Optional[str]):
+    clause = Device.tenant_id == user.tenant_id
+    if company_name:
+        clause = or_(clause, func.lower(Device.company) == company_name.lower().strip())
+    return clause
+
 async def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.tenant_id != 1 or (current_user.role != "admin" and not current_user.is_admin):
+    if not is_platform_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the platform administrator can perform this action"

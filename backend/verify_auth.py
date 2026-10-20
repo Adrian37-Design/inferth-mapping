@@ -14,7 +14,7 @@ import json
 import os
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 TEST_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -38,6 +38,9 @@ from app.main import app
 from app.security import create_access_token
 from app.auth_middleware import require_super_admin
 from app.routers.controller import _tracker_signed, get_commands, handle_sos_alerts, handle_violations, upsert_tracking_data
+from app.routers.alerts import get_alerts
+from app.routers.geofences import create_geofence, delete_geofence, get_geofences
+from app.services.alerts import AlertService
 
 assert TEST_PARTS.path in DATABASE_URL, "app.db is not using TEST_DATABASE_URL"
 
@@ -356,6 +359,72 @@ async def check_platform_gate(acme_token, super_token):
     record("repair-production: anonymous request gets 401", repair.status_code == 401, str(repair.status_code))
 
 
+def zone_around(center, d=0.002):
+    lat, lng = center
+    return {"type": "Polygon", "coordinates": [[[lng - d, lat - d], [lng + d, lat - d], [lng + d, lat + d], [lng - d, lat + d], [lng - d, lat - d]]]}
+
+
+async def device_id_of(imei):
+    async with AsyncSessionLocal() as db:
+        return (await db.execute(select(Device.id).where(Device.imei == imei))).scalar()
+
+
+async def draw_zone(user, device_id, center, name):
+    async with AsyncSessionLocal() as db:
+        created = await create_geofence(zone_data={"name": name, "geoJSON": zone_around(center), "assets": [device_id],
+                                                  "alertRules": {"entry": False, "exit": True},
+                                                  "notification": {"channel": "system", "contact": ""}},
+                                        db=db, current_user=user)
+    return created["id"]
+
+
+async def zone_names_seen(user):
+    async with AsyncSessionLocal() as db:
+        return {zone["name"] for zone in await get_geofences(db=db, current_user=user)}
+
+
+async def delete_zone(zone_id, user):
+    async with AsyncSessionLocal() as db:
+        return await delete_geofence(zone_id=zone_id, db=db, current_user=user)
+
+
+async def violation_device_ids_seen(user):
+    return {alert.device_id for alert in await get_alerts(current_user=user, limit=200, types=None)}
+
+
+async def trigger_exit(device_id, center):
+    lat, lng = center
+    await AlertService.evaluate_rules(None, device_id, {"latitude": lat, "longitude": lng, "speed": 0, "raw": {},
+                                                        "timestamp": datetime.utcnow() - timedelta(minutes=5)})
+    await AlertService.evaluate_rules(None, device_id, {"latitude": lat + 0.01, "longitude": lng + 0.01, "speed": 30,
+                                                        "raw": {}, "timestamp": datetime.utcnow()})
+
+
+async def check_visibility_rules():
+    platform, acme, other = fake_user(1), fake_user(2), fake_user(3)
+    own = await device_id_of(await make_device(2))
+    listed = await device_id_of(await make_device(3, company="Acme"))
+    own_center, listed_center = (-17.9, 31.1), (-18.0, 31.2)
+    await draw_zone(platform, own, own_center, "Vis own")
+    await draw_zone(platform, listed, listed_center, "Vis listed")
+    record("zones: the platform admin sees every zone", {"Vis own", "Vis listed"} <= await zone_names_seen(platform))
+    record("zones: a company sees a zone on its own tracker", "Vis own" in await zone_names_seen(acme))
+    record("zones: a company sees a zone on a tracker listed under its name", "Vis listed" in await zone_names_seen(acme))
+    record("zones: another company does not see a zone on someone else's tracker", "Vis own" not in await zone_names_seen(other))
+    await trigger_exit(own, own_center)
+    await trigger_exit(listed, listed_center)
+    record("violations: the platform admin sees every company's violations", {own, listed} <= await violation_device_ids_seen(platform))
+    record("violations: a company sees its own tracker's violation", own in await violation_device_ids_seen(acme))
+    record("violations: a company sees a violation on a tracker listed under its name", listed in await violation_device_ids_seen(acme))
+    record("violations: another company does not see them", own not in await violation_device_ids_seen(other))
+    record("zones: a triggered zone leaves every list", not ({"Vis own", "Vis listed"} & await zone_names_seen(platform)))
+    company_zone = await draw_zone(acme, own, (-17.7, 31.3), "Vis company")
+    platform_zone = await draw_zone(platform, own, (-17.6, 31.4), "Vis platform")
+    record("zones: a company can delete a zone it drew", await status_of(delete_zone(company_zone, acme)) == 200)
+    record("zones: a company cannot delete a zone the platform admin drew", await status_of(delete_zone(platform_zone, acme)) == 404)
+    record("zones: the platform admin can delete it", await status_of(delete_zone(platform_zone, platform)) == 200)
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -382,6 +451,7 @@ async def run_checks():
     await check_enforce_mode()
     await check_enforce_commands_and_alerts()
     await check_platform_gate(acme_token, super_token)
+    await check_visibility_rules()
 
 
 async def main():
