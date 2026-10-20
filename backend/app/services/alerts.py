@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 from app.models import Rule, Alert, Device, User, Geofence
 from app.services.email import send_email
 from app.services.sms import SMSService
@@ -56,7 +56,7 @@ class AlertService:
         speed = position_data.get("speed", 0)
         lat = position_data.get("latitude")
         lng = position_data.get("longitude")
-        geofence_events = None
+        geofence_events = await AlertService._check_geofence(db, device, lat, lng) if lat and lng else []
 
         for rule in rules:
             triggered = False
@@ -83,12 +83,9 @@ class AlertService:
                     message = f"Battery Warning: {device.name} internal battery is low"
             
             elif rule.event_type in ("geofence_entry", "geofence_exit"):
-                if lat and lng:
-                    if geofence_events is None:
-                        geofence_events = await AlertService._check_geofence(db, device, lat, lng)
-                    kind = "entry" if rule.event_type == "geofence_entry" else "exit"
-                    message = "; ".join(text for event, text in geofence_events if event == kind)
-                    triggered = bool(message)
+                kind = "entry" if rule.event_type == "geofence_entry" else "exit"
+                message = "; ".join(text for event, text in geofence_events if event == kind)
+                triggered = bool(message)
             
             elif rule.event_type == "device_offline":
                 triggered, message = await AlertService._check_offline(db, device, rule.threshold or 30)
@@ -108,15 +105,16 @@ class AlertService:
 
             if triggered:
                 # 3. Create Alert Record
-                new_alert = Alert(
-                    tenant_id=device.tenant_id,
-                    device_id=device.id,
-                    rule_id=rule.id,
-                    type=rule.event_type,
-                    message=message
-                )
-                db.add(new_alert)
-                await db.commit()
+                if rule.event_type not in ("geofence_entry", "geofence_exit"):
+                    new_alert = Alert(
+                        tenant_id=device.tenant_id,
+                        device_id=device.id,
+                        rule_id=rule.id,
+                        type=rule.event_type,
+                        message=message
+                    )
+                    db.add(new_alert)
+                    await db.commit()
 
                 # 4. Handle Notifications
                 if rule.channel == "email" and rule.contact:
@@ -149,7 +147,7 @@ class AlertService:
     async def _check_geofence(db: Session, device: Device, lat: float, lng: float):
         """Check if device has entered or exited a geofence."""
         # Fetch geofences for this tenant that include this device
-        geo_res = await db.execute(select(Geofence).where(Geofence.tenant_id == device.tenant_id))
+        geo_res = await db.execute(select(Geofence).where(Geofence.tenant_id == device.tenant_id, Geofence.triggered_at.is_(None)))
         state = dict(device.device_metadata or {})
         events, changed = [], False
         for geofence in geo_res.scalars().all():
@@ -168,8 +166,17 @@ class AlertService:
             changed = True
             kind = "entry" if inside else "exit"
             if previous is not None and (geofence.alert_rules or {}).get(kind):
-                verb = "entered" if inside else "exited"
-                events.append((kind, f"Geofence {kind.title()}: {device.name} {verb} {geofence.name}"))
+                claimed = await db.execute(
+                    update(Geofence.__table__)
+                    .where(Geofence.__table__.c.id == geofence.id, Geofence.__table__.c.triggered_at.is_(None))
+                    .values(triggered_at=func.now())
+                    .returning(Geofence.__table__.c.id)
+                )
+                if claimed.scalar() is not None:
+                    verb = "entered" if inside else "exited"
+                    message = f"Geofence {kind.title()}: {device.name} {verb} {geofence.name}"
+                    db.add(Alert(tenant_id=device.tenant_id, device_id=device.id, type=f"geofence_{kind}", message=message))
+                    events.append((kind, message))
         if changed:
             device.device_metadata = state
             await db.commit()
