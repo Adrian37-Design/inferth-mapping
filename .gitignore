@@ -27,3 +27,7 @@ htmlcov/
 debug_*.py
 test_*.py
 *check.py
+
+# Tracker provisioning output (contains device signing secrets)
+provisioned/
+jwt-secret.txt

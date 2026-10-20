@@ -43,7 +43,8 @@ from app.routers.geofences import create_geofence, delete_geofence, get_geofence
 from app.services.alerts import AlertService
 from app.routers.analytics import get_maintenance_status
 from app.routers.audit import get_audit_logs
-from app.routers.devices import CommandPayload, list_devices, send_device_command
+from app.routers.devices import CommandPayload, DeviceCreate, create_device, list_devices, send_device_command, update_device
+from app.routers.users import UserCreate, UserUpdate, create_user, delete_user, get_users, update_user
 from app.routers.positions import get_device_route, get_fleet_snapshot
 from app.routers.reports import get_device_check
 
@@ -500,6 +501,109 @@ async def check_company_scope():
     await check_viewer("company's live feed carries its own tracker and one listed under its name", acme_token, imeis, {acme_owned_imei, acme_listed_imei})
 
 
+async def run(call_factory):
+    async with AsyncSessionLocal() as db:
+        try:
+            return 200, await call_factory(db)
+        except HTTPException as exc:
+            return exc.status_code, None
+
+
+async def tenant_of_device(device_id):
+    async with AsyncSessionLocal() as db:
+        return (await db.execute(select(Device.tenant_id).where(Device.id == device_id))).scalar()
+
+
+async def check_user_scope_rules():
+    tag = uuid.uuid4().hex[:8]
+    _, manager = await make_actor(1, "manager")
+    _, platform = await make_actor(1, "admin")
+    _, t1_viewer = await make_actor(1, "viewer")
+    _, acme_admin = await make_actor(2, "admin")
+    _, acme_user = await make_actor(2, "viewer")
+    _, other_user = await make_actor(3, "viewer")
+    user_ids = {manager.id, platform.id, t1_viewer.id, acme_admin.id, acme_user.id, other_user.id}
+    seen = {}
+    for label, actor in (("manager", manager), ("acme", acme_admin), ("platform", platform)):
+        seen[label] = {u.id for u in (await run(lambda db, actor=actor: get_users(skip=0, limit=1000, current_user=actor, db=db)))[1]} & user_ids
+    record("users: a tenant 1 manager sees only its own company's users", seen["manager"] == {manager.id, platform.id, t1_viewer.id}, f"saw {len(seen['manager'])}")
+    record("users: a company sees only its own users", seen["acme"] == {acme_admin.id, acme_user.id}, f"saw {len(seen['acme'])}")
+    record("users: the platform admin sees every company's users", seen["platform"] == user_ids, f"saw {len(seen['platform'])}")
+    create_cross = (await run(lambda db: create_user(user_in=UserCreate(email=f"cross-{tag}@scopecheck.com", role="viewer", tenant_id=2), current_user=manager, db=db)))[0]
+    create_own = (await run(lambda db: create_user(user_in=UserCreate(email=f"own-{tag}@scopecheck.com", role="viewer", tenant_id=1), current_user=manager, db=db)))[0]
+    update_cross = (await run(lambda db: update_user(user_id=acme_user.id, user_update=UserUpdate(is_active=True), current_user=manager, db=db)))[0]
+    promote = (await run(lambda db: update_user(user_id=t1_viewer.id, user_update=UserUpdate(role="admin"), current_user=manager, db=db)))[0]
+    acme_own = (await run(lambda db: update_user(user_id=acme_user.id, user_update=UserUpdate(is_active=True), current_user=acme_admin, db=db)))[0]
+    acme_move = (await run(lambda db: update_user(user_id=acme_user.id, user_update=UserUpdate(tenant_id=3), current_user=acme_admin, db=db)))[0]
+    delete_cross = (await run(lambda db: delete_user(user_id=acme_user.id, current_user=manager, db=db)))[0]
+    record("users: a tenant 1 manager cannot create users for another company", create_cross == 403, str(create_cross))
+    record("users: a tenant 1 manager can invite users into its own company", create_own == 200, str(create_own))
+    record("users: a tenant 1 manager cannot edit another company's users", update_cross == 403, str(update_cross))
+    record("users: a manager cannot grant administrator access", promote == 403, str(promote))
+    record("users: a company can edit its own users", acme_own == 200, str(acme_own))
+    record("users: a company cannot move its users to another company", acme_move == 403, str(acme_move))
+    record("users: a tenant 1 manager cannot delete another company's users", delete_cross == 403, str(delete_cross))
+
+
+async def check_assignment_rules():
+    tag = uuid.uuid4().hex[:8]
+    _, platform = await make_actor(1, "admin")
+    _, acme_admin = await make_actor(2, "admin")
+    acme_dev_imei, named_imei, move_imei, platform_imei = await make_device(2), await make_device(2, company="Other Co"), await make_device(2), await make_device(2)
+    blank_dev, named_dev, move_dev, platform_dev = [await device_id_of(i) for i in (acme_dev_imei, named_imei, move_imei, platform_imei)]
+    cross_register = (await run(lambda db: create_device(payload=DeviceCreate(imei=f"cross-{tag}", company="Other Co"), db=db, current_user=acme_admin)))[0]
+    own_status, own_created = await run(lambda db: create_device(payload=DeviceCreate(imei=f"own-{tag}", company="Acme"), db=db, current_user=acme_admin))
+    own_tenant = await tenant_of_device(own_created["id"]) if own_created else None
+    admin_status, admin_created = await run(lambda db: create_device(payload=DeviceCreate(imei=f"admin-{tag}", company="Other Co"), db=db, current_user=platform))
+    admin_tenant = await tenant_of_device(admin_created["id"]) if admin_created else None
+    blank_status = (await run(lambda db: update_device(device_id=blank_dev, payload=DeviceCreate(imei=acme_dev_imei, name="Renamed", company=""), db=db, current_user=acme_admin)))[0]
+    blank_tenant = await tenant_of_device(blank_dev)
+    unchanged_status = (await run(lambda db: update_device(device_id=named_dev, payload=DeviceCreate(imei=named_imei, name="Renamed", company="Other Co"), db=db, current_user=acme_admin)))[0]
+    unchanged_tenant = await tenant_of_device(named_dev)
+    move_status = (await run(lambda db: update_device(device_id=move_dev, payload=DeviceCreate(imei=move_imei, company="Other Co"), db=db, current_user=acme_admin)))[0]
+    platform_status = (await run(lambda db: update_device(device_id=platform_dev, payload=DeviceCreate(imei=platform_imei, company="Other Co"), db=db, current_user=platform)))[0]
+    platform_tenant = await tenant_of_device(platform_dev)
+    record("trackers: a company cannot register a tracker under another company", cross_register == 403, str(cross_register))
+    record("trackers: a company can register a tracker under its own name", own_status == 200 and own_tenant == 2, f"status {own_status}, tenant {own_tenant}")
+    record("trackers: the platform admin can register a tracker under any company", admin_status == 200 and admin_tenant == 3, f"status {admin_status}, tenant {admin_tenant}")
+    record("trackers: editing a tracker without a company keeps it with its owner", blank_status == 200 and blank_tenant == 2, f"status {blank_status}, tenant {blank_tenant}")
+    record("trackers: an unchanged company name does not move the tracker", unchanged_status == 200 and unchanged_tenant == 2, f"status {unchanged_status}, tenant {unchanged_tenant}")
+    record("trackers: a company cannot move its tracker to another company", move_status == 403, str(move_status))
+    record("trackers: the platform admin can move a tracker to another company", platform_status == 200 and platform_tenant == 3, f"status {platform_status}, tenant {platform_tenant}")
+
+
+async def check_secret_registry():
+    try:
+        from app.routers.tracker_secrets import SecretSet, delete_tracker_secret, list_tracker_secrets, set_tracker_secret
+    except ImportError:
+        record("secrets: the tracker secret registry endpoints exist", False, "tracker_secrets module missing")
+        return
+    imei = await make_device(2)
+    _, platform = await make_actor(1, "admin")
+    _, acme_admin = await make_actor(2, "admin")
+    secret = "r" * 72
+    record("secrets: only the platform admin can manage tracker secrets",
+           await status_of(require_super_admin(acme_admin)) == 403)
+    short = (await run(lambda db: set_tracker_secret(imei=imei, payload=SecretSet(secret="too-short"), current_user=platform, db=db)))[0]
+    record("secrets: secrets shorter than 32 characters are refused", short == 400, str(short))
+    registered = (await run(lambda db: set_tracker_secret(imei=imei, payload=SecretSet(secret=secret), current_user=platform, db=db)))[0]
+    record("secrets: the platform admin registers a tracker secret", registered == 200, str(registered))
+    listed = (await run(lambda db: list_tracker_secrets(current_user=platform, db=db)))[1] or []
+    record("secrets: the registry lists configured trackers without exposing secrets",
+           any(e["imei"] == imei for e in listed) and secret not in json.dumps(listed, default=str), json.dumps(listed, default=str)[:120])
+    with TrackerSettings("enforce", {}):
+        stored = await status_of(upsert_as(imei, token=make_token({"number_plate": imei}, secret)))
+        record("secrets: a registered secret verifies a signed upload", stored == 200, f"status {stored}")
+        rotated = "n" * 72
+        await run(lambda db: set_tracker_secret(imei=imei, payload=SecretSet(secret=rotated), current_user=platform, db=db))
+        old = await status_of(upsert_as(imei, token=make_token({"number_plate": imei}, secret)))
+        new = await status_of(upsert_as(imei, token=make_token({"number_plate": imei}, rotated)))
+        record("secrets: rotating a secret retires the old one", old == 401 and new == 200, f"old {old}, new {new}")
+        removed = (await run(lambda db: delete_tracker_secret(imei=imei, current_user=platform, db=db)))[0]
+        gone = await status_of(upsert_as(imei, token=make_token({"number_plate": imei}, rotated)))
+        record("secrets: removing a secret stops verification", removed == 200 and gone == 401, f"delete {removed}, upload {gone}")
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -528,6 +632,9 @@ async def run_checks():
     await check_platform_gate(acme_token, super_token)
     await check_visibility_rules()
     await check_company_scope()
+    await check_user_scope_rules()
+    await check_assignment_rules()
+    await check_secret_registry()
 
 
 async def main():
