@@ -4020,14 +4020,16 @@ function showRoutePolyline(points) {
 
 // Connect to WebSocket
 function connectWebSocket() {
-    ws = new WebSocket(WS_URL);
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+    const socket = new WebSocket(WS_URL);
+    ws = socket;
 
-    ws.onopen = () => {
+    socket.onopen = () => {
         console.log('WebSocket connected');
-        ws.send(JSON.stringify({ type: 'auth', token: localStorage.getItem('auth_token') }));
+        socket.send(JSON.stringify({ type: 'auth', token: localStorage.getItem('auth_token') }));
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
             if (data.type === 'auth_ok') {
@@ -4159,12 +4161,13 @@ function connectWebSocket() {
         }
     };
 
-    ws.onerror = (error) => {
+    socket.onerror = (error) => {
         console.error('WebSocket connection error:', error);
         updateStatus('disconnected', 'Connection Error');
     };
 
-    ws.onclose = (event) => {
+    socket.onclose = (event) => {
+        if (socket !== ws) return;
         updateStatus('disconnected', 'Disconnected');
         if (event.code === 1008) {
             window.AuthManager.logout();
