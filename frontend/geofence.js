@@ -22,6 +22,7 @@
         polygon: 'Click each corner around the tracker. Click the first point or double-click to finish. Press Esc to cancel.',
         rectangle: 'Click and drag across the area. Press Esc to cancel.'
     };
+    const VIOLATION_TYPES = 'geofence_entry,geofence_exit';
 
     let els = {};
     let zones = [];
@@ -284,6 +285,29 @@
         if (layer) map.fitBounds(layer.getBounds(), { padding: [48, 48], maxZoom: 18 });
     }
 
+    const violationRow = a => {
+        const when = parseTimestamp(a.timestamp);
+        const kind = a.type === 'geofence_entry' ? 'Entry' : 'Exit';
+        return `<div class="geo-violation">
+            <span class="geo-violation-kind is-${kind.toLowerCase()}">${kind}</span>
+            <span class="geo-violation-message">${escapeHTML(a.message.replace(/^Geofence (Entry|Exit): /, ''))}</span>
+            <time class="geo-violation-time" datetime="${escapeHTML(a.timestamp)}">${when ? when.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</time>
+        </div>`;
+    };
+
+    async function loadViolations() {
+        const list = document.getElementById('geo-violations-list');
+        if (!list || !isOpen) return;
+        try {
+            const res = await window.AuthManager.fetchAPI(`/alerts/?types=${VIOLATION_TYPES}&limit=5`);
+            if (!res.ok) return;
+            const alerts = await res.json();
+            list.innerHTML = alerts.length ? alerts.map(violationRow).join('') : '<p class="empty-state">No geofence alerts yet.</p>';
+        } catch (err) {
+            console.error('Failed to load geofence alerts:', err);
+        }
+    }
+
     function showList() {
         clearDraw();
         isolatedId = null;
@@ -312,6 +336,7 @@
         if (isOpen && !wasOpen) {
             showList();
             loadZones();
+            loadViolations();
         } else if (!isOpen && wasOpen) {
             clearDraw();
             isolatedId = null;
@@ -365,6 +390,7 @@
             renderView();
         });
         setInterval(() => { if (isOpen && mode === 'list') renderTrackers(); }, 5000);
+        setInterval(() => { if (isOpen) loadViolations(); }, 30000);
     }
 
     window.triggerGeofenceAction = function () {
