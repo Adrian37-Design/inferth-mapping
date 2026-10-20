@@ -237,6 +237,7 @@
         const channel = els.channel.value;
         const contact = els.contact.value.trim();
         if (!name) return setError('Enter a name for this geofence.');
+        if (!els.entry.checked && !els.exitRule.checked) return setError('Choose entry, exit or both.');
         if (channel !== 'system' && !contact) return setError(channel === 'email' ? 'Enter the email address to notify.' : 'Enter the phone number to notify.');
         const payload = {
             name,
@@ -320,6 +321,11 @@
         } catch (err) {
             console.error('Failed to load geofence alerts:', err);
         }
+    }
+
+    function refresh() {
+        loadZones();
+        if (isOpen) loadViolations();
     }
 
     function showList() {
@@ -410,9 +416,8 @@
             renderView();
         });
         setInterval(() => { if (isOpen && mode === 'list') renderTrackers(); }, 5000);
-        setInterval(() => { if (isOpen) loadViolations(); }, 30000);
         loadZones();
-        setInterval(loadZones, 60000);
+        setInterval(refresh, 10000);
     }
 
     window.triggerGeofenceAction = function () {
@@ -421,5 +426,5 @@
         if (id !== null) isolate(id);
     };
 
-    window.Geofence = { init, allows, onTabChange, attachMap };
+    window.Geofence = { init, allows, onTabChange, attachMap, refresh };
 })();
