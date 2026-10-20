@@ -146,8 +146,8 @@ class AlertService:
     @staticmethod
     async def _check_geofence(db: Session, device: Device, lat: float, lng: float):
         """Check if device has entered or exited a geofence."""
-        # Fetch geofences for this tenant that include this device
-        geo_res = await db.execute(select(Geofence).where(Geofence.tenant_id == device.tenant_id, Geofence.triggered_at.is_(None)))
+        # Fetch geofences that have not triggered yet; each zone belongs to one tracker
+        geo_res = await db.execute(select(Geofence).where(Geofence.triggered_at.is_(None)))
         state = dict(device.device_metadata or {})
         events, changed = [], False
         for geofence in geo_res.scalars().all():
