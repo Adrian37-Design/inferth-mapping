@@ -4417,12 +4417,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .rail-badge { top: 4px; right: 6px; }
 .sidebar-panel { width: calc(100vw - var(--rail-width)); max-width: none; backdrop-filter: none; border-color: var(--border-color); }
 .main-container[data-workspace="tab-fleet"] .sidebar-panel,
+.main-container[data-workspace="tab-geofence"] .sidebar-panel,
 .main-container[data-workspace="tab-history"] .sidebar-panel,
 .main-container[data-workspace="tab-asset-detail"] .sidebar-panel { width: var(--fleet-panel-width); }
 .main-container[data-workspace="tab-history"],
 .main-container[data-workspace="tab-asset-detail"] { --fleet-panel-width: 380px; }
 .map-wrapper { position: relative; inset: auto; width: auto; min-width: 0; margin-left: var(--rail-width); }
 .main-container[data-workspace="tab-fleet"] .map-wrapper,
+.main-container[data-workspace="tab-geofence"] .map-wrapper,
 .main-container[data-workspace="tab-history"] .map-wrapper,
 .main-container[data-workspace="tab-asset-detail"] .map-wrapper { margin-left: calc(var(--rail-width) + var(--fleet-panel-width)); }
 .main-container.panel-collapsed .map-wrapper { margin-left: var(--rail-width); }

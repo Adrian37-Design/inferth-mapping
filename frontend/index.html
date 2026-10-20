@@ -10,8 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=121">
+    <link rel="stylesheet" href="/static/app.css?v=122">
     <link rel="stylesheet" href="/static/spotlight.css?v=3">
+    <link rel="stylesheet" href="/static/geofence.css?v=1">
     <link rel="stylesheet" href="/static/users.css?v=61">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
 </head>
@@ -62,6 +63,10 @@
                 <button type="button" class="rail-item" data-tab="tab-fleet" title="Live fleet" aria-controls="tab-fleet">
                     <i class="fas fa-map-marker-alt"></i>
                     <span class="rail-label">Live fleet</span>
+                </button>
+                <button type="button" class="rail-item" data-tab="tab-geofence" title="Geofences" aria-controls="tab-geofence">
+                    <i class="fas fa-draw-polygon"></i>
+                    <span class="rail-label">Geofences</span>
                 </button>
                 <button type="button" class="rail-item" data-tab="tab-history" title="Route history" aria-controls="tab-history" id="rail-history-btn">
                     <i class="fas fa-route"></i>
@@ -713,86 +718,87 @@
                     </div>
                 </div>
 
-                <!-- Tab: Geofencing (STEP 8) -->
+                <!-- Tab: Geofences (registered trackers, isolated on the main map for drawing) -->
                 <div id="tab-geofence" class="tab-content">
                     <div class="panel-section">
-                        <div class="alert-controls">
-                            <h4 class="section-title">Geofence Manager</h4>
-                            <button class="btn-text" id="exit-geofence-btn" title="Exit">
+                        <div class="geo-heading">
+                            <div>
+                                <h4 class="section-title">Geofences</h4>
+                                <p class="helper-text">Isolate a registered tracker on the map and draw its boundary.</p>
+                            </div>
+                            <button class="btn-text" id="geo-exit-btn" type="button" title="Back to live fleet">
                                 <i class="fas fa-times"></i> Exit
                             </button>
                         </div>
 
-                        <!-- Mini Map for Drawing (Always Visible) -->
-                        <div id="geo-mini-map" class="mini-map-container" style="height: 250px; margin-bottom: 15px;">
+                        <div id="geo-view-list">
+                            <label class="geo-search" for="geo-tracker-search">
+                                <i class="fas fa-search" aria-hidden="true"></i>
+                                <input id="geo-tracker-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off">
+                                <span class="sr-only">Search trackers</span>
+                            </label>
+                            <div class="geo-tracker-list" id="geo-tracker-list"></div>
                         </div>
-                        <p class="helper-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 15px;">
-                            <i class="fas fa-info-circle"></i> Draw and manage zones on this map.
-                        </p>
 
-                        <!-- Active Zones List -->
-                        <div class="rules-list" id="geofence-list">
-                            <div id="active-zones-container">
-                                <p class="empty-state">No geofences active.</p>
+                        <div id="geo-view-tracker" class="hidden">
+                            <button class="btn-text geo-back" id="geo-back-btn" type="button">
+                                <i class="fas fa-arrow-left"></i> All trackers
+                            </button>
+                            <div class="geo-tracker-card">
+                                <div class="geo-tracker-main">
+                                    <strong id="geo-tracker-name"></strong>
+                                    <small id="geo-tracker-meta"></small>
+                                </div>
+                                <span class="status-badge" id="geo-tracker-status"></span>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- New Geofence Form (Inputs Only, Hidden by default) -->
-                    <div id="new-geofence-form" class="rules-builder-card hidden">
-                        <h4 style="margin-top:0; color:var(--primary);">Zone Details</h4>
-
-                        <div class="form-group">
-                            <label>Zone Name</label>
-                            <input type="text" id="geo-name" class="glass-input" placeholder="e.g. HQ Perimeter">
-                        </div>
-
-                        <div class="form-group" style="margin-top:10px;">
-                            <label>Zone Color</label>
-                            <input type="color" id="geo-color" class="glass-input" value="#2D5F6D"
-                                style="height: 40px; cursor: pointer;">
-                        </div>
-
-                        <div class="form-group" style="margin-top:10px;">
-                            <label>Assign Assets</label>
-                            <div id="geo-asset-list" class="checkbox-group-scrollable">
-                                <!-- Populated by JS -->
-                                <p class="helper-text">Loading vehicles...</p>
+                            <div class="geo-tools" id="geo-tools">
+                                <button class="btn-primary btn-sm" type="button" data-geo-draw="polygon">
+                                    <i class="fas fa-draw-polygon"></i> Draw polygon
+                                </button>
+                                <button class="btn-secondary btn-sm" type="button" data-geo-draw="rectangle">
+                                    <i class="far fa-square"></i> Rectangle
+                                </button>
                             </div>
-                            <small class="helper-text">Selected vehicles will be monitored for this zone.</small>
-                        </div>
+                            <p class="geo-hint" id="geo-hint" role="status"></p>
+                            <p class="geo-flash" id="geo-flash" role="status"></p>
 
-                        <div class="form-group" style="margin-top:10px;">
-                            <label style="margin-bottom: 5px; display: block;">Alert Triggers</label>
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="geo-rule-entry" checked>
-                                    <span>Alert on Entry</span>
+                            <form id="geo-form" class="geo-form hidden" novalidate>
+                                <label class="geo-field">
+                                    <span>Name</span>
+                                    <input type="text" id="geo-name" class="glass-input" maxlength="60" placeholder="e.g. Depot perimeter" autocomplete="off">
                                 </label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="geo-rule-exit">
-                                    <span>Alert on Exit</span>
-                                </label>
-                            </div>
-                        </div>
+                                <div class="geo-field">
+                                    <span>Colour</span>
+                                    <div class="geo-swatches" id="geo-swatches"></div>
+                                </div>
+                                <div class="geo-field">
+                                    <span>Alert on</span>
+                                    <div class="geo-toggles">
+                                        <label class="geo-toggle"><input type="checkbox" id="geo-rule-entry" checked><span>Entry</span></label>
+                                        <label class="geo-toggle"><input type="checkbox" id="geo-rule-exit"><span>Exit</span></label>
+                                    </div>
+                                </div>
+                                <div class="geo-field">
+                                    <span>Notify</span>
+                                    <div class="geo-notify">
+                                        <select id="geo-channel" class="glass-input">
+                                            <option value="system">System only</option>
+                                            <option value="email">Email</option>
+                                            <option value="sms">SMS</option>
+                                        </select>
+                                        <input type="text" id="geo-contact" class="glass-input hidden" placeholder="Email or phone" autocomplete="off">
+                                    </div>
+                                </div>
+                                <p class="geo-form-note">Alerts are sent by the Geofence rules configured under Alerts.</p>
+                                <p class="geo-form-error" id="geo-form-error" role="alert"></p>
+                                <div class="geo-form-actions">
+                                    <button class="btn-secondary btn-sm" type="button" id="geo-cancel-btn">Discard</button>
+                                    <button class="btn-secondary btn-sm" type="button" id="geo-redraw-btn">Redraw</button>
+                                    <button class="btn-primary btn-sm" type="submit" id="geo-save-btn">Save zone</button>
+                                </div>
+                            </form>
 
-                        <div class="form-group" style="margin-top:10px;">
-                            <label>Notification Channel</label>
-                            <div class="sentence-builder-row2" style="margin-top: 5px; justify-content: flex-start;">
-                                <select id="geo-channel" class="inline-select" style="width: auto;"
-                                    onchange="document.getElementById('geo-contact').classList.toggle('hidden', this.value === 'system')">
-                                    <option value="system">System Only</option>
-                                    <option value="email">Email</option>
-                                    <option value="sms">SMS</option>
-                                </select>
-                                <input type="text" id="geo-contact" class="inline-input hidden"
-                                    placeholder="Enter contact..." style="min-width: 150px;">
-                            </div>
-                        </div>
-
-                        <div class="form-actions" style="margin-top:15px; display:flex; gap:10px;">
-                            <button class="btn-secondary btn-sm" id="cancel-geo-btn">Cancel</button>
-                            <button class="btn-primary btn-sm" id="save-geo-btn">Save Zone</button>
+                            <div class="geo-zone-list" id="geo-zone-list"></div>
                         </div>
                     </div>
 
@@ -1341,7 +1347,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
     <script src="/static/spotlight.js?v=3"></script>
-    <script src="/static/app.js?v=123"></script>
+    <script src="/static/app.js?v=124"></script>
+    <script src="/static/geofence.js?v=1"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

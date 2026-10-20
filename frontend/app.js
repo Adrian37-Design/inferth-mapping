@@ -545,6 +545,7 @@ window.switchTab = function(targetId) {
         // 1. Activate Rail Item
         railItems.forEach(i => i.classList.remove('active'));
         targetRail.classList.add('active');
+        if (window.Geofence) window.Geofence.onTabChange(targetId);
 
         // 2. Show Sidebar Content
         // Hide all tab contents
@@ -559,10 +560,10 @@ window.switchTab = function(targetId) {
             targetContent.classList.add('active');
 
             // UI FIX: If switching to Geofence tab, force map to recalculate size
-            if (targetId === 'tab-geofence' && miniMap) {
-                miniMap.invalidateSize();
-                setTimeout(() => miniMap.invalidateSize(), 300);
-                setTimeout(() => miniMap.invalidateSize(), 600);
+            if (targetId === 'tab-geofence' && map) {
+                map.invalidateSize();
+                setTimeout(() => map.invalidateSize(), 300);
+                setTimeout(() => map.invalidateSize(), 600);
             }
 
             // Dashboard landing view: lazily create + resize the embedded map
@@ -2299,6 +2300,7 @@ function updateDashMapMarkers(fitBounds = false) {
 const SPOTLIGHT_PAGE_INFO = {
     'tab-dashboard': 'Fleet overview, KPIs and priority alerts',
     'tab-fleet': 'Live map and vehicle list',
+    'tab-geofence': 'Draw geofences for registered trackers',
     'tab-history': 'Route playback and trip timeline',
     'tab-alerts': 'Rules engine and alert feed',
     'tab-reports': 'Generate and export reports',
@@ -2722,7 +2724,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         
         markers[id] = marker;
         
-        if (!isHistoryMode && typeof marker.addTo === 'function') marker.addTo(map);
+        if (!isHistoryMode && geoAllows(id) && typeof marker.addTo === 'function') marker.addTo(map);
     }
 
     // Handle Address Resolution (Popup Only)
@@ -2880,7 +2882,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
         if (isHistoryMode && map.hasLayer(marker)) {
             if (typeof map.removeLayer === 'function') map.removeLayer(marker);
-        } else if (!isHistoryMode && !map.hasLayer(marker)) {
+        } else if (!isHistoryMode && geoAllows(id) && !map.hasLayer(marker)) {
             if (typeof marker.addTo === 'function') marker.addTo(map);
         }
 
@@ -2910,7 +2912,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         }
     } else {
         if (lat !== null && lat !== undefined) {
-            if (!isHistoryMode && typeof marker.addTo === 'function' && !map.hasLayer(marker)) {
+            if (!isHistoryMode && geoAllows(id) && typeof marker.addTo === 'function' && !map.hasLayer(marker)) {
                 marker.addTo(map);
             }
             marker.vehicleIMEI = imei;
@@ -4545,7 +4547,7 @@ function stopRouteAndExit(opts = {}) {
 
     isHistoryMode = false;
     Object.values(markers).forEach(m => {
-        if (m instanceof L.Marker && !map.hasLayer(m)) {
+        if (m instanceof L.Marker && geoAllows(m.vehicleId) && !map.hasLayer(m)) {
             try { m.addTo(map); } catch (e) {}
         }
     });
@@ -5284,7 +5286,7 @@ window.addEventListener('load', () => {
     // loadVehicles handled by DOMContentLoaded
     connectWebSocket();
     setTimeout(() => {
-        setupGeofencing();
+        window.Geofence.init();
     }, 1000); // Delay to ensure map is ready
 });
 
@@ -6616,22 +6618,6 @@ window.addEventListener('DOMContentLoaded', () => {
     setupRulesEngine();
     setupTabs();
 
-    // "Exit" Button (Geofence Manager) - Global Handler via Delegation
-    // We use delegation on document.body to ensure we catch it even if DOM is tricky
-    document.body.addEventListener('click', (e) => {
-        const btn = e.target.closest('#exit-geofence-btn');
-        if (btn) {
-            console.log("Exit Geofence Button Clicked -> Going to Fleet");
-
-            // CRITICAL FIX: The `triggerGeofenceAction` uses inline style.display = 'block/none'.
-            // We must clear those inline styles AND manage classes to ensure clean switching.
-            document.querySelectorAll('.tab-content').forEach(t => {
-                t.style.display = ''; // Clear inline styles (let CSS handle it)
-            });
-        }
-    });
-
-
     // Add Tenant (Admin Only)
     const addTenantForm = document.getElementById('add-tenant-form'); // Updated ID
     if (addTenantForm) {
@@ -6669,259 +6655,8 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- Geofencing Logic (Phase 8 - Permanent Mini Map) ---
-let activeGeofences = [];
-let miniMap = null;
-let miniDrawControl = null;
-let miniDrawnItems = null; // Storing this globally now
-let currentMiniLayer = null;
-
-// Main Map FeatureGroups
-let mainMapGeofenceGroup;
-
-function populateGeoAssetList() {
-    const list = document.getElementById('geo-asset-list');
-    if (!list) return;
-
-    if (allVehicles.length === 0) {
-        list.innerHTML = '<p class="helper-text">No vehicles available.</p>';
-        return;
-    }
-
-    list.innerHTML = allVehicles.map(v => `
-        <label class="checkbox-label">
-            <input type="checkbox" name="geo-assets" value="${v.id}">
-            <span>${v.name || v.imei}</span>
-        </label>
-    `).join('');
-}
-
-function setupGeofencing() {
-    // Initialize Mini Map Immediately if elements exist
-    const miniMapEl = document.getElementById('geo-mini-map');
-    if (miniMapEl && !miniMap) {
-        miniMap = L.map('geo-mini-map').setView([-17.824858, 31.053028], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '©OpenStreetMap'
-        }).addTo(miniMap);
-
-        miniDrawnItems = new L.FeatureGroup();
-        miniMap.addLayer(miniDrawnItems);
-
-        miniDrawControl = new L.Control.Draw({
-            edit: {
-                featureGroup: miniDrawnItems,
-                remove: true,
-                edit: true
-            },
-            draw: {
-                polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#00d4ff' } },
-                circle: { shapeOptions: { color: '#00d4ff' } },
-                rectangle: { shapeOptions: { color: '#00d4ff' } },
-                polyline: { shapeOptions: { color: '#00d4ff' } },
-                marker: false,
-                circlemarker: false
-            }
-        });
-        miniMap.addControl(miniDrawControl);
-
-        // Handle Drawn Event
-        miniMap.on(L.Draw.Event.CREATED, function (e) {
-            // Keep existing saved layers? No, this is for NEW content.
-            // But we display SAVED content too.
-            // Distinguish: creation vs view. 
-            // For now, let's allow adding new shapes.
-            const layer = e.layer;
-            miniDrawnItems.addLayer(layer);
-            currentMiniLayer = layer;
-
-            // Auto-open form if not open
-            document.getElementById('new-geofence-form').classList.remove('hidden');
-            document.getElementById('geofence-list').classList.add('hidden');
-
-            // Populate asset list
-            populateGeoAssetList();
-        });
-    }
-
-    // "Create New  Zone" Button removed from UI
-    // Drawing on map automatically opens form via L.Draw.Event.CREATED
-
-    // "Exit" Button (Geofence Manager) - MOVED TO GLOBAL SCOPE FOR RELIABILITY
-
-
-    // "Save Zone" Button
-    const saveGeoBtn = document.getElementById('save-geo-btn');
-    if (saveGeoBtn) {
-        saveGeoBtn.onclick = async function () {
-            const nameInput = document.getElementById('geo-name');
-            const name = nameInput ? nameInput.value : "Unnamed";
-
-            if (!name) { alert("Please enter a name."); return; }
-            if (!currentMiniLayer) { alert("Please draw a zone first."); return; }
-
-            // Get Color
-            const color = document.getElementById('geo-color').value || '#00d4ff';
-
-            // Get Selected Assets
-            const selectedAssets = Array.from(document.querySelectorAll('input[name="geo-assets"]:checked'))
-                .map(cb => parseInt(cb.value));
-
-            // Get Alert Rules
-            const alerts = {
-                entry: document.getElementById('geo-rule-entry').checked,
-                exit: document.getElementById('geo-rule-exit').checked
-            };
-
-            // Notification Info
-            const channel = document.getElementById('geo-channel').value;
-            const contact = document.getElementById('geo-contact').value;
-
-            // Save to Backend
-            const newZone = {
-                name: name,
-                color: color,
-                assets: selectedAssets,
-                alertRules: alerts,
-                notification: { channel, contact },
-                geoJSON: currentMiniLayer.toGeoJSON()
-            };
-
-            try {
-                const response = await window.AuthManager.fetchAPI('/geofences/', {
-                    method: 'POST',
-                    body: JSON.stringify(newZone)
-                });
-                if (!response.ok) throw new Error('Failed to save geofence');
-
-                const result = await response.json();
-                newZone.id = result.id; // Correct ID from backend
-                activeGeofences.push(newZone);
-
-                // Cleanup current drawing reference (it is now "saved")
-                currentMiniLayer = null;
-
-                closeGeofenceForm(); // Resets inputs, shows list
-                renderGeofences(); // Re-draws list AND map items
-            } catch (err) {
-                alert("Error saving: " + err.message);
-            }
-        };
-    }
-
-    // "Cancel" Button
-    const cancelGeoBtn = document.getElementById('cancel-geo-btn');
-    if (cancelGeoBtn) {
-        cancelGeoBtn.onclick = function () {
-            // If user drew something but didn't save, remove it
-            if (currentMiniLayer) {
-                miniDrawnItems.removeLayer(currentMiniLayer);
-                currentMiniLayer = null;
-            }
-            closeGeofenceForm();
-        };
-    }
-
-    // Helper to Channel Select
-    const channel = document.getElementById('geo-channel');
-    const contact = document.getElementById('geo-contact');
-    if (channel && contact) {
-        channel.onchange = () => {
-            if (channel.value === 'system') contact.classList.add('hidden');
-            else contact.classList.remove('hidden');
-        };
-    }
-}
-
-function closeGeofenceForm() {
-    // Clear Inputs
-    const nameInput = document.getElementById('geo-name');
-    if (nameInput) nameInput.value = '';
-
-    const contactInput = document.getElementById('geo-contact');
-    if (contactInput) {
-        contactInput.value = '';
-        contactInput.classList.add('hidden');
-    }
-
-    const channelSelect = document.getElementById('geo-channel');
-    if (channelSelect) channelSelect.value = 'system';
-
-    const checkboxes = document.querySelectorAll('#new-geofence-form input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
-
-    const colorInput = document.getElementById('geo-color');
-    if (colorInput) colorInput.value = '#2D5F6D';
-
-    if (document.getElementById('geo-rule-entry')) document.getElementById('geo-rule-entry').checked = true; // Default
-
-    // Clear Asset List
-    const assetList = document.getElementById('geo-asset-list');
-    if (assetList) assetList.innerHTML = '<p class="helper-text">Loading vehicles...</p>';
-
-    // Toggle UI
-    document.getElementById('new-geofence-form').classList.add('hidden');
-    document.getElementById('geofence-list').classList.remove('hidden');
-}
-
-function renderGeofences() {
-    const container = document.getElementById('active-zones-container');
-    if (!container) return;
-
-    if (activeGeofences.length === 0) {
-        container.innerHTML = '<p class="empty-state">No geofences active.</p>';
-    } else {
-        container.innerHTML = activeGeofences.map(zone => `
-            <div class="rule-item" style="border-left: 4px solid ${zone.color || 'var(--primary)'};">
-                <div class="rule-text">
-                    <strong>${zone.name}</strong><br>
-                    <small style="color:var(--text-muted)">${zone.assets.length} Assets Attached</small>
-                </div>
-                <button class="delete-rule-btn" onclick="deleteGeofence(${zone.id})">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `).join('');
-    }
-
-    // Update Map Visualization (Mini Map ONLY)
-    if (miniDrawnItems) {
-        // Clear all and re-add from source of truth
-        miniDrawnItems.clearLayers();
-        activeGeofences.forEach(z => {
-            const ly = L.geoJSON(z.geoJSON, {
-                style: { color: z.color || '#00d4ff', weight: 3, fillOpacity: 0.25 }
-            });
-            // Bind tooltips or popups if needed
-            ly.bindTooltip(z.name);
-            miniDrawnItems.addLayer(ly);
-        });
-    }
-}
-
-window.deleteGeofence = async function (id) {
-    if (!confirm("Are you sure you want to delete this zone?")) return;
-
-    try {
-        const response = await window.AuthManager.fetchAPI(`/geofences/${id}`, { method: 'DELETE' });
-        if (!response.ok) throw new Error('Failed to delete');
-
-        activeGeofences = activeGeofences.filter(z => z.id !== id);
-        renderGeofences();
-    } catch (err) {
-        alert("Error deleting: " + err.message);
-    }
-};
-
-async function loadGeofences() {
-    try {
-        const response = await window.AuthManager.fetchAPI('/geofences/');
-        if (!response.ok) return;
-        activeGeofences = await response.json();
-        renderGeofences();
-    } catch (e) {
-        console.error("Failed to load geofences:", e);
-    }
+function geoAllows(id) {
+    return !window.Geofence || window.Geofence.allows(id);
 }
 
 function renderMockViolations() {
@@ -6932,33 +6667,9 @@ function renderMockViolations() {
     list.innerHTML = '<p class="text-muted" style="padding:10px; text-align:center;">No recent violations</p>';
 }
 
-// Global Action Trigger
-window.triggerGeofenceAction = function () {
-    // Standardize: Use classes, but also force display block if needed to override previous inline logic
-    // actually better to just clean up inline styles first
-    document.querySelectorAll('.tab-content').forEach(t => {
-        t.style.display = '';
-        t.classList.remove('active');
-    });
-
-    const geoTab = document.getElementById('tab-geofence');
-    if (geoTab) geoTab.classList.add('active');
-
-    document.querySelectorAll('.rail-item').forEach(i => i.classList.remove('active'));
-
-    setTimeout(() => {
-        const drawBtn = document.getElementById('start-draw-btn');
-        if (drawBtn) {
-            drawBtn.click();
-        }
-    }, 100);
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         renderMockViolations();
-        setupGeofencing();
-        loadGeofences();
         setupPaymentListeners();
     }, 1000);
 });
