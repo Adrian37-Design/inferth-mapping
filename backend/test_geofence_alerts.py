@@ -7,6 +7,8 @@ The database must be on localhost and its name must end in _test. The checks dro
 recreate every table in it, so the URL is validated before anything is imported or connected.
 """
 import asyncio
+import base64
+import json
 import os
 import sys
 import uuid
@@ -26,7 +28,7 @@ from app.db import AsyncSessionLocal, Base, DATABASE_URL, engine
 import app.models
 from app.models import Alert, Device, Geofence, Rule, Tenant
 from app.services.alerts import AlertService
-from app.routers.controller import upsert_tracking_data
+from app.routers.controller import handle_violations, upsert_tracking_data
 
 assert TEST_PARTS.path in DATABASE_URL, "app.db is not using TEST_DATABASE_URL"
 
@@ -254,6 +256,35 @@ async def run_http_ingest(name):
     record(name, (entries, done) == (1, True), f"entries={entries} triggered={done}")
 
 
+def fake_token(payload):
+    body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    return f"header.{body}.signature"
+
+
+async def run_tracker_violations(name):
+    tenant, other, _ = await new_device()
+    dev, imei = await new_tracker(tenant)
+    token = fake_token({"number_plate": imei})
+    body = {"violations": [{"type": "GEOFENCE", "data": {"lat": LAT, "lon": LNG, "speed": 0}},
+                           {"type": "OVERSPEED", "data": {"speed": 112}}]}
+    try:
+        async with AsyncSessionLocal() as db:
+            request = FakeRequest(body)
+            request.cookies = {"token": token}
+            await handle_violations(request=request, db=db)
+        async with AsyncSessionLocal() as db:
+            rows = (await db.execute(select(Alert.type, Alert.message, Alert.device_id, Alert.tenant_id)
+                                     .where(Alert.device_id == dev))).all()
+    except Exception as exc:
+        record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
+        return
+    kinds = sorted(row.type for row in rows)
+    named = all(f"[Xcela {imei[-4:]}]" in row.message for row in rows)
+    owned = all(row.tenant_id == tenant for row in rows)
+    record(name, kinds == ["speeding", "tracker_geofence"] and named and owned,
+           f"rows={[(row.type, row.message) for row in rows]}")
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -288,6 +319,7 @@ async def run_checks():
     await run_rule_notification("rule emails once, no duplicate violation", ENTRY, expect_entries=1, expect_sent=1)
     await run_rule_notification("zone not watching entry: no violation, no email", EXIT, expect_entries=0, expect_sent=0)
     await run_http_ingest("HTTP telemetry (Xcela upsert) triggers a geofence drawn by another tenant")
+    await run_tracker_violations("tracker violations attach to the vehicle that sent them")
     await engine.dispose()
 
 
