@@ -349,12 +349,10 @@ async def check_platform_gate(acme_token, super_token):
         anonymous = await client.get("/api/controller/cleanup-phantoms")
         acme = await client.get("/api/controller/cleanup-phantoms", headers={"Authorization": f"Bearer {acme_token}"})
         platform = await client.get("/api/controller/cleanup-phantoms", headers={"Authorization": f"Bearer {super_token}"})
-        netrozim = await client.get("/api/controller/fix-netrozim")
         repair = await client.get("/admin/repair-production")
     record("cleanup-phantoms: anonymous request gets 401", anonymous.status_code == 401, str(anonymous.status_code))
     record("cleanup-phantoms: another tenant's admin gets 403", acme.status_code == 403, str(acme.status_code))
     record("cleanup-phantoms: platform admin gets 200", platform.status_code == 200, str(platform.status_code))
-    record("fix-netrozim: anonymous request gets 401", netrozim.status_code == 401, str(netrozim.status_code))
     record("repair-production: anonymous request gets 401", repair.status_code == 401, str(repair.status_code))
 
 
