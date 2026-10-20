@@ -15,9 +15,9 @@ async def get_db():
 
 @router.get("/", response_model=List[dict])
 async def get_geofences(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Managers see their own company's geofences, Admins see all
+    # Only the platform super-admin (tenant 1, admin role) sees every tenant's geofences
     query = select(Geofence)
-    if current_user.role != "admin":
+    if current_user.tenant_id != 1 or current_user.role != "admin":
         query = query.where(Geofence.tenant_id == current_user.tenant_id)
         
     result = await db.execute(query)
@@ -68,7 +68,7 @@ async def delete_geofence(
     current_user: User = Depends(get_current_user)
 ):
     query = select(Geofence).where(Geofence.id == zone_id)
-    if current_user.role != "admin":
+    if current_user.tenant_id != 1 or current_user.role != "admin":
         query = query.where(Geofence.tenant_id == current_user.tenant_id)
         
     result = await db.execute(query)
