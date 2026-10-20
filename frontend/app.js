@@ -6659,17 +6659,8 @@ function geoAllows(id) {
     return !window.Geofence || window.Geofence.allows(id);
 }
 
-function renderMockViolations() {
-    const list = document.getElementById('geo-violations-list');
-    if (!list) return;
-
-    // Mock data removed. Real data integration pending.
-    list.innerHTML = '<p class="text-muted" style="padding:10px; text-align:center;">No recent violations</p>';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-        renderMockViolations();
         setupPaymentListeners();
     }, 1000);
 });

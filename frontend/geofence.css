@@ -355,6 +355,47 @@
     min-width: 0;
 }
 
+.geo-violation {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #27272a;
+}
+
+.geo-violation-kind {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.geo-violation-kind.is-entry {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.14);
+}
+
+.geo-violation-kind.is-exit {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.14);
+}
+
+.geo-violation-message {
+    min-width: 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #d4d4d8;
+}
+
+.geo-violation-time {
+    font-size: 0.72rem;
+    color: #71717a;
+    white-space: nowrap;
+}
+
 .geo-form-actions .btn-primary,
 .geo-form-actions .btn-secondary {
     white-space: nowrap;
