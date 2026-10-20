@@ -114,6 +114,17 @@ def tracker_visibility(user: User, company_name: Optional[str]):
         clause = or_(clause, func.lower(Device.company) == company_name.lower().strip())
     return clause
 
+async def scope_devices(db: AsyncSession, user: User, stmt):
+    if is_platform_admin(user):
+        return stmt
+    return stmt.where(tracker_visibility(user, await tenant_name(db, user)))
+
+async def can_see_device(db: AsyncSession, user: User, device: Device) -> bool:
+    if is_platform_admin(user) or device.tenant_id == user.tenant_id:
+        return True
+    company = await tenant_name(db, user)
+    return bool(company) and (device.company or "").lower() == company.lower().strip()
+
 async def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
     if not is_platform_admin(current_user):
         raise HTTPException(

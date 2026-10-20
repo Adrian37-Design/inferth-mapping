@@ -7,6 +7,7 @@ from typing import List, Optional
 from app.db import AsyncSessionLocal
 from app.models import Position, Device, User
 from app.routers.auth import get_current_user
+from app.auth_middleware import scope_devices
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -31,7 +32,7 @@ async def get_driver_performance(
     end_dt = datetime.fromisoformat(end_date)
     
     # Get devices for tenant
-    device_query = select(Device).where(Device.tenant_id == current_user.tenant_id)
+    device_query = await scope_devices(db, current_user, select(Device))
     device_result = await db.execute(device_query)
     devices = device_result.scalars().all()
     device_ids = [d.id for d in devices]
@@ -98,7 +99,7 @@ async def get_fuel_efficiency(
     end_dt = datetime.fromisoformat(end_date)
     
     # Get devices for tenant
-    device_query = select(Device).where(Device.tenant_id == current_user.tenant_id)
+    device_query = await scope_devices(db, current_user, select(Device))
     device_result = await db.execute(device_query)
     devices = device_result.scalars().all()
     device_ids = [d.id for d in devices]
@@ -171,7 +172,7 @@ async def get_vehicle_utilization(
     end_dt = datetime.fromisoformat(end_date)
     
     # Get devices for tenant
-    device_query = select(Device).where(Device.tenant_id == current_user.tenant_id)
+    device_query = await scope_devices(db, current_user, select(Device))
     device_result = await db.execute(device_query)
     devices = device_result.scalars().all()
     device_ids = [d.id for d in devices]
@@ -237,7 +238,7 @@ async def get_maintenance_status(
 ):
     """Get maintenance status based on odometer and engine hours."""
     # Get devices for tenant
-    device_query = select(Device).where(Device.tenant_id == current_user.tenant_id)
+    device_query = await scope_devices(db, current_user, select(Device))
     device_result = await db.execute(device_query)
     devices = device_result.scalars().all()
     device_ids = [d.id for d in devices]

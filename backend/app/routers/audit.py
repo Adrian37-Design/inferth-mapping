@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import desc
 from app.db import get_db
 from app.models import User, AuditLog
-from app.auth_middleware import require_admin, get_current_user
+from app.auth_middleware import require_admin, get_current_user, is_platform_admin
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional, Any
@@ -41,7 +41,7 @@ async def get_audit_logs(
     # Join with User to get email
     query = select(AuditLog, User.email).outerjoin(User, AuditLog.user_id == User.id)
     
-    if current_user.tenant_id != 1:
+    if not is_platform_admin(current_user):
         query = query.where(AuditLog.tenant_id == current_user.tenant_id)
         
     query = query.order_by(desc(AuditLog.timestamp)).offset(skip).limit(limit)

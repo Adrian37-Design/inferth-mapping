@@ -33,7 +33,7 @@ from sqlalchemy import select
 from app.db import AsyncSessionLocal, Base, DATABASE_URL, engine
 import app.models
 from app.config import settings
-from app.models import Alert, Device, Position, Tenant, User
+from app.models import Alert, AuditLog, Device, Position, Tenant, User
 from app.main import app
 from app.security import create_access_token
 from app.auth_middleware import require_super_admin
@@ -41,6 +41,11 @@ from app.routers.controller import _tracker_signed, get_commands, handle_sos_ale
 from app.routers.alerts import get_alerts
 from app.routers.geofences import create_geofence, delete_geofence, get_geofences
 from app.services.alerts import AlertService
+from app.routers.analytics import get_maintenance_status
+from app.routers.audit import get_audit_logs
+from app.routers.devices import CommandPayload, list_devices, send_device_command
+from app.routers.positions import get_device_route, get_fleet_snapshot
+from app.routers.reports import get_device_check
 
 assert TEST_PARTS.path in DATABASE_URL, "app.db is not using TEST_DATABASE_URL"
 
@@ -89,19 +94,24 @@ async def make_tenants():
         await db.commit()
 
 
-async def make_user(tenant_id, active=True):
+async def make_actor(tenant_id, role="admin", active=True):
     email = f"u-{uuid.uuid4().hex[:10]}@test.local"
     async with AsyncSessionLocal() as db:
-        user = User(email=email, role="admin", is_active=active, tenant_id=tenant_id)
+        user = User(email=email, role=role, is_active=active, tenant_id=tenant_id)
         db.add(user)
         await db.commit()
-        return create_access_token({"sub": email, "user_id": user.id})
+        uid = user.id
+    return create_access_token({"sub": email, "user_id": uid}), User(id=uid, email=email, role=role, is_active=active, tenant_id=tenant_id, is_admin=False)
+
+
+async def make_user(tenant_id, active=True, role="admin"):
+    return (await make_actor(tenant_id, role, active))[0]
 
 
 async def make_device(tenant_id, company=None):
     imei = f"ws-{uuid.uuid4().hex[:10]}"
     async with AsyncSessionLocal() as db:
-        db.add(Device(imei=imei, name=f"Test {imei[-4:]}", tenant_id=tenant_id, company=company, device_metadata={}))
+        db.add(Device(imei=imei, name=f"Test {imei}", tenant_id=tenant_id, company=company, device_metadata={}))
         await db.commit()
     return imei
 
@@ -429,6 +439,67 @@ async def check_visibility_rules():
     record("zones: the platform admin can delete it", await status_of(delete_zone(platform_zone, platform)) == 200)
 
 
+async def zone_status(user, device_id):
+    async with AsyncSessionLocal() as db:
+        return await status_of(create_geofence(zone_data={"name": f"Scope {uuid.uuid4().hex[:6]}", "geoJSON": zone_around((-17.9, 31.1)), "assets": [device_id], "alertRules": {"entry": False, "exit": True}, "notification": {"channel": "system", "contact": ""}}, db=db, current_user=user))
+
+
+async def check_company_scope():
+    tag = uuid.uuid4().hex[:8]
+    manager_token, manager = await make_actor(1, "manager")
+    platform_token, platform = await make_actor(1, "admin")
+    acme_token, acme = await make_actor(2, "admin")
+    imeis = [await make_device(1), await make_device(2), await make_device(3, company="Acme"), await make_device(3, company="Other Co")]
+    own_imei, acme_owned_imei, acme_listed_imei, other_imei = imeis
+    own, acme_owned, acme_listed, other = [await device_id_of(i) for i in imeis]
+    scope = {own, acme_owned, acme_listed, other}
+    names = {f"Test {i}" for i in imeis}
+    await publish_round(imeis)
+    async with AsyncSessionLocal() as db:
+        db.add_all([AuditLog(user_id=manager.id, tenant_id=1, action=f"SCOPE_T1_{tag}", details={}), AuditLog(user_id=acme.id, tenant_id=2, action=f"SCOPE_T2_{tag}", details={})])
+        await db.commit()
+    async with AsyncSessionLocal() as db:
+        devices_manager = {row["id"] for row in await list_devices(db=db, current_user=manager)} & scope
+        devices_platform = {row["id"] for row in await list_devices(db=db, current_user=platform)} & scope
+        devices_acme = {row["id"] for row in await list_devices(db=db, current_user=acme)} & scope
+        snapshot_manager = {row["device_id"] for row in await get_fleet_snapshot(db=db, current_user=manager)} & scope
+        snapshot_platform = {row["device_id"] for row in await get_fleet_snapshot(db=db, current_user=platform)} & scope
+        maintenance_manager = {row["device_name"] for row in await get_maintenance_status(db=db, current_user=manager)} & names
+        maintenance_acme = {row["device_name"] for row in await get_maintenance_status(db=db, current_user=acme)} & names
+        maintenance_platform = {row["device_name"] for row in await get_maintenance_status(db=db, current_user=platform)} & names
+        logs_manager = {row["action"] for row in await get_audit_logs(skip=0, limit=1000, current_user=manager, db=db)}
+        logs_acme = {row["action"] for row in await get_audit_logs(skip=0, limit=1000, current_user=acme, db=db)}
+        logs_platform = {row["action"] for row in await get_audit_logs(skip=0, limit=1000, current_user=platform, db=db)}
+        report_other = await status_of(get_device_check(acme_owned, manager, db))
+        report_own = await status_of(get_device_check(own, manager, db))
+        route_other = await status_of(get_device_route(device_id=acme_owned, db=db, current_user=manager))
+        denied_command = await status_of(send_device_command(device_id=acme_owned, payload=CommandPayload(action="lock"), db=db, current_user=manager))
+        allowed_command = await status_of(send_device_command(device_id=own, payload=CommandPayload(action="lock"), db=db, current_user=manager))
+    zone_other = await zone_status(manager, acme_owned)
+    zone_own = await zone_status(manager, own)
+    record("devices list: a tenant 1 manager sees only its own company's trackers", devices_manager == {own}, f"saw {sorted(devices_manager)}")
+    record("devices list: the platform admin sees every company's trackers", devices_platform == scope, f"saw {sorted(devices_platform)}")
+    record("devices list: a company sees its own tracker and one listed under its name", devices_acme == {acme_owned, acme_listed}, f"saw {sorted(devices_acme)}")
+    record("map snapshot: a tenant 1 manager sees only its own company's trackers", snapshot_manager == {own}, f"saw {sorted(snapshot_manager)}")
+    record("map snapshot: the platform admin sees every tracker", snapshot_platform == scope, f"saw {sorted(snapshot_platform)}")
+    record("analytics: a tenant 1 manager sees only its own company's trackers", maintenance_manager == {f"Test {own_imei}"}, f"saw {sorted(maintenance_manager)}")
+    record("analytics: a company sees its own tracker and one listed under its name", maintenance_acme == {f"Test {acme_owned_imei}", f"Test {acme_listed_imei}"}, f"saw {sorted(maintenance_acme)}")
+    record("analytics: the platform admin sees every tracker", maintenance_platform == names, f"saw {sorted(maintenance_platform)}")
+    record("audit log: a tenant 1 manager sees its own company's entries only", f"SCOPE_T1_{tag}" in logs_manager and f"SCOPE_T2_{tag}" not in logs_manager)
+    record("audit log: a company sees its own entries only", f"SCOPE_T2_{tag}" in logs_acme and f"SCOPE_T1_{tag}" not in logs_acme)
+    record("audit log: the platform admin sees every company's entries", {f"SCOPE_T1_{tag}", f"SCOPE_T2_{tag}"} <= logs_platform)
+    record("reports: a tenant 1 manager is refused another company's tracker", report_other == 403, str(report_other))
+    record("reports: a tenant 1 manager can open its own tracker", report_own == 200, str(report_own))
+    record("route history: a tenant 1 manager is refused another company's tracker", route_other == 403, str(route_other))
+    record("commands: a tenant 1 manager cannot lock another company's tracker", denied_command == 403, str(denied_command))
+    record("commands: a tenant 1 manager can lock its own tracker", allowed_command == 200, str(allowed_command))
+    record("zones: a tenant 1 manager cannot draw a zone on another company's tracker", zone_other == 404, str(zone_other))
+    record("zones: a tenant 1 manager can draw a zone on its own tracker", zone_own == 200, str(zone_own))
+    await check_viewer("tenant 1 manager's live feed carries only its own company's trackers", manager_token, imeis, {own_imei})
+    await check_viewer("platform admin's live feed carries every tracker", platform_token, imeis, set(imeis))
+    await check_viewer("company's live feed carries its own tracker and one listed under its name", acme_token, imeis, {acme_owned_imei, acme_listed_imei})
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -456,6 +527,7 @@ async def run_checks():
     await check_enforce_commands_and_alerts()
     await check_platform_gate(acme_token, super_token)
     await check_visibility_rules()
+    await check_company_scope()
 
 
 async def main():

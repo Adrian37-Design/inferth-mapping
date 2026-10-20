@@ -7,14 +7,15 @@ import asyncio
 from app.config import settings
 from app.db import AsyncSessionLocal
 from app.models import User
+from app.auth_middleware import is_platform_admin
 
 WS_AUTH_TIMEOUT_SECONDS = 10
 
 class Viewer:
-    def __init__(self, tenant_id, tenant_name):
-        self.tenant_id = tenant_id
+    def __init__(self, user, tenant_name):
+        self.tenant_id = user.tenant_id
         self.tenant_name = (tenant_name or "").strip().lower()
-        self.is_super = tenant_id == 1
+        self.is_super = is_platform_admin(user)
 
     def can_see(self, position: dict) -> bool:
         if self.is_super:
@@ -22,7 +23,7 @@ class Viewer:
         if position.get("tenant_id") is None:
             return False
         return position["tenant_id"] == self.tenant_id or (
-            bool(self.tenant_name) and str(position.get("company") or "").strip().lower() == self.tenant_name
+            bool(self.tenant_name) and str(position.get("company") or "").lower() == self.tenant_name
         )
 
 class ConnectionManager:
@@ -61,7 +62,7 @@ async def authenticate(websocket: WebSocket):
         return None
     if user is None or not user.is_active:
         return None
-    return Viewer(user.tenant_id, user.tenant.name if user.tenant else None)
+    return Viewer(user, user.tenant.name if user.tenant else None)
 
 async def ws_listener(websocket: WebSocket):
     await websocket.accept()
