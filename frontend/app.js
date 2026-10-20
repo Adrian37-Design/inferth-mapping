@@ -3493,11 +3493,26 @@ function closeModal() {
 }
 
 // Open edit modal
+function applyCompanyFieldLock() {
+    const input = document.getElementById('vehicle-company');
+    if (!input) return;
+    const u = (window.AuthManager && window.AuthManager.user) || {};
+    const isPlatformAdmin = u.role === 'admin' && u.tenant_id === 1;
+    input.disabled = !isPlatformAdmin;
+    const hint = input.parentElement ? input.parentElement.querySelector('small') : null;
+    if (hint) {
+        hint.textContent = isPlatformAdmin
+            ? 'Optional: If this matches an existing company, the device will be assigned to that company.'
+            : 'Company is assigned by the platform administrator.';
+    }
+}
+
 function openEditModal(vehicle) {
     editingVehicleId = vehicle.id;
     document.getElementById('vehicle-imei').value = vehicle.imei;
     document.getElementById('vehicle-name').value = vehicle.name;
     document.getElementById('vehicle-company').value = vehicle.company || '';
+    applyCompanyFieldLock();
     document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-edit"></i> Edit Vehicle';
     const submitBtn = document.getElementById('vehicle-submit-btn');
     if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
@@ -4626,6 +4641,7 @@ if (addVehicleBtn) {
         if (imeiInput) imeiInput.value = '';
         if (nameInput) nameInput.value = '';
         if (companyInput) companyInput.value = '';
+        applyCompanyFieldLock();
 
         const modalTitle = document.querySelector('#add-vehicle-modal .modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';
