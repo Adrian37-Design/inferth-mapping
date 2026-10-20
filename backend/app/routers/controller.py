@@ -545,6 +545,28 @@ async def handle_sos_alerts(
     return {"success": True}
 
 
+TRACKER_VIOLATIONS = {
+    "OVERSPEED": ("speeding", "Speeding reported by tracker"),
+    "DEVICE_TEMPER": ("tamper", "Tamper alert reported by tracker"),
+    "GEOFENCE": ("tracker_geofence", "Geofence violation reported by tracker"),
+}
+
+
+async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
+    res = await db.execute(select(Device).where(Device.imei == ident))
+    device = res.scalars().first()
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
+        device = res.scalars().first()
+    if not device and len(ident) >= 6:
+        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
+        device = res.scalars().first()
+    if not device:
+        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
+        device = res.scalars().first()
+    return device
+
+
 @router.post("/violations")
 async def handle_violations(
     request: Request,
@@ -555,24 +577,29 @@ async def handle_violations(
         body = await request.json()
     except Exception:
         body = {}
+    if not isinstance(body, dict):
+        body = {}
 
-    imei = body.get("imei", "UNKNOWN")
-    violation_type = body.get("type", "VIOLATION")
-    message = body.get("message", "Violation detected")
+    token = request.cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
+    ident = str(body.get("imei") or extract_plate_from_jwt(token) or "XYZ4321").strip()
+    device = await _find_tracker(db, ident)
+    items = body["violations"] if isinstance(body.get("violations"), list) else [body]
 
-    res = await db.execute(select(Device).where(Device.imei == str(imei).strip()))
-    device = res.scalars().first()
-    tenant_id = device.tenant_id if device else 1
-    device_id = device.id if device else None
-
-    alert = Alert(
-        tenant_id=tenant_id,
-        device_id=device_id,
-        type=violation_type,
-        message=f"[{device.name if device else imei}] {message}",
-        timestamp=datetime.utcnow()
-    )
-    db.add(alert)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type", "VIOLATION"))
+        alert_type, label = TRACKER_VIOLATIONS.get(kind, (f"tracker_{kind.lower()}", kind.title()))
+        data = item.get("data") if isinstance(item.get("data"), dict) else {}
+        if kind == "OVERSPEED" and data.get("speed") is not None:
+            label = f"{label} ({data['speed']} km/h)"
+        db.add(Alert(
+            tenant_id=device.tenant_id if device else 1,
+            device_id=device.id if device else None,
+            type=alert_type,
+            message=f"[{device.name if device else ident}] {item.get('message') or label}",
+            timestamp=datetime.utcnow()
+        ))
     await db.commit()
 
     return {"success": True}
