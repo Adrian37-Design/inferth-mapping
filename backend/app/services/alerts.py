@@ -8,6 +8,13 @@ from datetime import datetime, timedelta
 import asyncio
 import json
 
+_device_locks = {}
+
+
+def _device_lock(device_id):
+    return _device_locks.setdefault(device_id, asyncio.Lock())
+
+
 class AlertService:
     @staticmethod
     async def evaluate_rules(db: Session, device_id: int, position_data: dict):
@@ -19,8 +26,9 @@ class AlertService:
         "'NoneType' object has no attribute 'twophase'". To be safe we always
         run against a fresh, dedicated session here and ignore the passed-in one.
         """
-        async with AsyncSessionLocal() as session:
-            await AlertService._evaluate_rules(session, device_id, position_data)
+        async with _device_lock(device_id):
+            async with AsyncSessionLocal() as session:
+                await AlertService._evaluate_rules(session, device_id, position_data)
 
     @staticmethod
     async def _evaluate_rules(db: Session, device_id: int, position_data: dict):
@@ -48,6 +56,7 @@ class AlertService:
         speed = position_data.get("speed", 0)
         lat = position_data.get("latitude")
         lng = position_data.get("longitude")
+        geofence_events = None
 
         for rule in rules:
             triggered = False
@@ -73,13 +82,13 @@ class AlertService:
                     triggered = True
                     message = f"Battery Warning: {device.name} internal battery is low"
             
-            elif rule.event_type == "geofence_entry":
+            elif rule.event_type in ("geofence_entry", "geofence_exit"):
                 if lat and lng:
-                    triggered, message = await AlertService._check_geofence(db, device, lat, lng, "entry")
-            
-            elif rule.event_type == "geofence_exit":
-                if lat and lng:
-                    triggered, message = await AlertService._check_geofence(db, device, lat, lng, "exit")
+                    if geofence_events is None:
+                        geofence_events = await AlertService._check_geofence(db, device, lat, lng)
+                    kind = "entry" if rule.event_type == "geofence_entry" else "exit"
+                    message = "; ".join(text for event, text in geofence_events if event == kind)
+                    triggered = bool(message)
             
             elif rule.event_type == "device_offline":
                 triggered, message = await AlertService._check_offline(db, device, rule.threshold or 30)
@@ -137,47 +146,43 @@ class AlertService:
             print(f"FAILED to send alert email: {e}")
 
     @staticmethod
-    async def _check_geofence(db: Session, device: Device, lat: float, lng: float, event_type: str):
+    async def _check_geofence(db: Session, device: Device, lat: float, lng: float):
         """Check if device has entered or exited a geofence."""
         # Fetch geofences for this tenant that include this device
-        geo_res = await db.execute(
-            select(Geofence).where(
-                Geofence.tenant_id == device.tenant_id,
-                Geofence.assets.contains([device.id])
-            )
-        )
-        geofences = geo_res.scalars().all()
-        
-        for geofence in geofences:
-            alert_rules = geofence.alert_rules or {}
-            if not alert_rules.get(event_type):
+        geo_res = await db.execute(select(Geofence).where(Geofence.tenant_id == device.tenant_id))
+        state = dict(device.device_metadata or {})
+        events, changed = [], False
+        for geofence in geo_res.scalars().all():
+            ring = AlertService._polygon_ring(geofence.geojson)
+            if ring is None or str(device.id) not in {str(asset) for asset in (geofence.assets or [])}:
                 continue
-            
+            key = f"geofence_{geofence.id}"
             # Check if point is inside geofence (simple bounding box check for polygons)
-            geojson = geofence.geojson
-            if geojson and geojson.get("type") == "Polygon":
-                coordinates = geojson.get("coordinates", [[]])[0]
-                if AlertService._point_in_polygon(lat, lng, coordinates):
-                    if event_type == "entry":
-                        # Check if we were outside before (store last state in device metadata)
-                        last_state = device.device_metadata or {}
-                        last_geofence_state = last_state.get(f"geofence_{geofence.id}", "outside")
-                        if last_geofence_state == "outside":
-                            # Update state
-                            device.device_metadata = {**last_state, f"geofence_{geofence.id}": "inside"}
-                            await db.commit()
-                            return True, f"Geofence Entry: {device.name} entered {geofence.name}"
-                else:
-                    if event_type == "exit":
-                        last_state = device.device_metadata or {}
-                        last_geofence_state = last_state.get(f"geofence_{geofence.id}", "outside")
-                        if last_geofence_state == "inside":
-                            # Update state
-                            device.device_metadata = {**last_state, f"geofence_{geofence.id}": "outside"}
-                            await db.commit()
-                            return True, f"Geofence Exit: {device.name} exited {geofence.name}"
-        
-        return False, ""
+            inside = AlertService._point_in_polygon(lat, lng, ring)
+            # Check if we were outside before (store last state in device metadata)
+            previous, current = state.get(key), "inside" if inside else "outside"
+            if previous == current:
+                continue
+            # Update state
+            state[key] = current
+            changed = True
+            kind = "entry" if inside else "exit"
+            if previous is not None and (geofence.alert_rules or {}).get(kind):
+                verb = "entered" if inside else "exited"
+                events.append((kind, f"Geofence {kind.title()}: {device.name} {verb} {geofence.name}"))
+        if changed:
+            device.device_metadata = state
+            await db.commit()
+        return events
+
+    @staticmethod
+    def _polygon_ring(geojson):
+        geometry = geojson.get("geometry", geojson) if isinstance(geojson, dict) else None
+        if not geometry or geometry.get("type") != "Polygon":
+            return None
+        rings = geometry.get("coordinates") or []
+        ring = rings[0] if rings else []
+        return ring if len(ring) >= 3 else None
 
     @staticmethod
     def _point_in_polygon(lat: float, lng: float, polygon: list) -> bool:
