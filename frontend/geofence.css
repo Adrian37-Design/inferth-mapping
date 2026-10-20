@@ -383,6 +383,11 @@
     background: rgba(245, 158, 11, 0.14);
 }
 
+.geo-violation-kind.is-tracker {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.14);
+}
+
 .geo-violation-message {
     min-width: 0;
     font-size: 0.82rem;

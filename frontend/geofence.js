@@ -22,7 +22,7 @@
         polygon: 'Click each corner around the tracker. Click the first point or double-click to finish. Press Esc to cancel.',
         rectangle: 'Click and drag across the area. Press Esc to cancel.'
     };
-    const VIOLATION_TYPES = 'geofence_entry,geofence_exit';
+    const VIOLATION_TYPES = 'geofence_entry,geofence_exit,tracker_geofence';
 
     let els = {};
     let zones = [];
@@ -88,7 +88,7 @@
     function drawZones() {
         zoneLayer.clearLayers();
         zoneLayers = new Map();
-        (isolatedId === null ? zones : zonesFor(isolatedId)).forEach(z => {
+        zones.forEach(z => {
             if (!z.geoJSON) return;
             const layer = zoneShape(z);
             zoneLayers.set(String(z.id), layer);
@@ -220,8 +220,8 @@
     function openForm() {
         color = PALETTE[0];
         els.name.value = '';
-        els.entry.checked = true;
-        els.exitRule.checked = false;
+        els.entry.checked = false;
+        els.exitRule.checked = true;
         els.channel.value = 'system';
         els.contact.value = '';
         els.contact.classList.add('hidden');
@@ -302,7 +302,7 @@
 
     const violationRow = a => {
         const when = parseTimestamp(a.timestamp);
-        const kind = a.type === 'geofence_entry' ? 'Entry' : 'Exit';
+        const kind = { geofence_entry: 'Entry', geofence_exit: 'Exit', tracker_geofence: 'Tracker' }[a.type] || 'Exit';
         return `<div class="geo-violation">
             <span class="geo-violation-kind is-${kind.toLowerCase()}">${kind}</span>
             <span class="geo-violation-message">${escapeHTML(a.message.replace(/^Geofence (Entry|Exit): /, ''))}</span>
