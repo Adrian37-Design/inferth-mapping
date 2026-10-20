@@ -183,6 +183,8 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
             await publish_position({
                 "id": pos.id,
                 "imei": device.imei,
+                "tenant_id": device.tenant_id,
+                "company": device.company,
                 "latitude": clean_lat,
                 "longitude": clean_lon,
                 "speed": clean_speed,
