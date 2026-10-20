@@ -3,117 +3,571 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1024, viewport-fit=cover">
     <title>Account Setup - Inferth Mapping</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="auth.css?v=2">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
+    <style>
+        :root {
+            --fire-from: #ff5a00;
+            --fire-to: #dc2626;
+            --fire-hover-from: #ea580c;
+            --fire-hover-to: #b91c1c;
+            --fire-glow: rgba(255, 90, 0, 0.35);
+            --fire-soft: #fff7ed;
+            --fire-soft-end: #fee2e2;
+            --error-color: #dc2626;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--fire-soft) 0%, var(--fire-soft-end) 100%);
+            padding: 1rem;
+            color: #1f2937;
+        }
+
+        .hidden { display: none !important; }
+
+        .signin-card {
+            width: 100%;
+            max-width: 56rem;
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            background: #ffffff;
+            box-shadow: 0 20px 25px -5px rgba(220, 38, 38, 0.12), 0 8px 10px -6px rgba(255, 90, 0, 0.08);
+            animation: cardIn 0.5s ease-out both;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Left panel — animated dot-map */
+        .map-pane {
+            display: none;
+            width: 50%;
+            height: 640px;
+            position: relative;
+            overflow: hidden;
+            border-right: 1px solid #f3f4f6;
+            background: linear-gradient(135deg, var(--fire-soft) 0%, var(--fire-soft-end) 100%);
+        }
+
+        @media (min-width: 768px) {
+            .map-pane { display: block; }
+            .form-pane { width: 50%; padding: 2.5rem; }
+        }
+
+        #dot-map-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            z-index: 10;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .brand-badge {
+            height: 3.5rem;
+            width: 3.5rem;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, var(--fire-from), var(--fire-to));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(255, 90, 0, 0.35);
+            margin-bottom: 1.5rem;
+            animation: fadeDown 0.5s ease-out 0.6s both;
+        }
+
+        .brand-badge img {
+            width: 2.25rem;
+            height: 2.25rem;
+            object-fit: contain;
+            border-radius: 9999px;
+        }
+
+        .brand-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--fire-from), var(--fire-to));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: fadeDown 0.5s ease-out 0.7s both;
+        }
+
+        .brand-sub {
+            font-size: 0.875rem;
+            color: #4b5563;
+            max-width: 20rem;
+            line-height: 1.45;
+            animation: fadeDown 0.5s ease-out 0.8s both;
+        }
+
+        /* Right panel — form */
+        .form-pane {
+            width: 100%;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: #ffffff;
+        }
+
+        .form-inner {
+            animation: fadeUp 0.5s ease-out both;
+        }
+
+        .welcome-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .welcome-sub {
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .welcome-message {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1.25rem;
+            border-radius: 0.5rem;
+            background: var(--fire-soft);
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            font-size: 0.875rem;
+        }
+
+        .welcome-message i { font-size: 1.25rem; }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.25rem;
+            border-radius: 0.5rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+
+        .user-info i { color: var(--fire-from); font-size: 1.1rem; }
+        .user-info p { margin: 0; }
+        .user-info strong { color: #1f2937; }
+
+        .field { margin-bottom: 1.25rem; }
+
+        .field label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+
+        .field label .req { color: var(--fire-from); }
+        .field label i { margin-right: 0.3rem; color: #6b7280; }
+
+        .input-wrap { position: relative; }
+
+        .field input {
+            display: flex;
+            height: 2.5rem;
+            width: 100%;
+            border-radius: 0.375rem;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            color: #1f2937;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .field input::placeholder { color: #9ca3af; }
+
+        .field input:focus {
+            border-color: var(--fire-from);
+            box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.18);
+            background: #ffffff;
+        }
+
+        #password, #confirm-password { padding-right: 2.5rem; }
+
+        .toggle-password {
+            position: absolute;
+            inset: 0 0 0 auto;
+            display: flex;
+            align-items: center;
+            padding-right: 0.75rem;
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+        }
+
+        .toggle-password:hover { color: #374151; }
+
+        .password-strength {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .strength-bar {
+            flex: 1;
+            height: 0.375rem;
+            border-radius: 9999px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+
+        .strength-fill {
+            height: 100%;
+            width: 0;
+            border-radius: 9999px;
+            transition: width 0.25s ease, background 0.25s ease;
+        }
+
+        .strength-fill.weak { width: 25%; background: #dc2626; }
+        .strength-fill.fair { width: 50%; background: #f97316; }
+        .strength-fill.good { width: 75%; background: #eab308; }
+        .strength-fill.strong { width: 100%; background: #16a34a; }
+
+        .strength-text { font-size: 0.75rem; color: #6b7280; min-width: 3rem; text-align: right; }
+        .strength-text.weak { color: #dc2626; }
+        .strength-text.fair { color: #f97316; }
+        .strength-text.good { color: #ca8a04; }
+        .strength-text.strong { color: #16a34a; }
+
+        .password-requirements {
+            margin: 0 0 1.25rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+
+        .password-requirements p { margin-bottom: 0.4rem; font-weight: 500; color: #4b5563; }
+        .password-requirements ul { list-style: none; }
+        .password-requirements li { display: flex; align-items: center; gap: 0.5rem; padding: 0.1rem 0; transition: color 0.15s; }
+        .password-requirements li i { font-size: 0.45rem; color: #d1d5db; transition: color 0.15s; }
+        .password-requirements li.valid { color: #15803d; }
+        .password-requirements li.valid i { color: #16a34a; }
+
+        .error-message {
+            display: none;
+            padding: 0.625rem 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.825rem;
+            background: rgba(239, 68, 68, 0.08);
+            color: #dc2626;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .error-message.show { display: block; }
+
+        .submit-btn {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: linear-gradient(90deg, var(--fire-from), var(--fire-to));
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.65rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background: linear-gradient(90deg, var(--fire-hover-from), var(--fire-hover-to));
+            box-shadow: 0 10px 15px -3px var(--fire-glow);
+            transform: scale(1.01);
+        }
+
+        .submit-btn:active:not(:disabled) { transform: scale(0.98); }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .submit-btn .shimmer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: -100%;
+            width: 5rem;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            filter: blur(6px);
+            pointer-events: none;
+        }
+
+        .submit-btn:hover .shimmer {
+            animation: shimmerSweep 1s ease-in-out infinite;
+        }
+
+        @keyframes shimmerSweep {
+            from { left: -100%; }
+            to { left: 120%; }
+        }
+
+        .forgot-row {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .forgot-row a {
+            color: var(--fire-to);
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .forgot-row a:hover { color: var(--fire-hover-to); text-decoration: underline; }
+    </style>
 </head>
 
 <body>
-    <div class="auth-container">
-        <div class="auth-background">
-            <div class="gradient-orb orb-1"></div>
-            <div class="gradient-orb orb-2"></div>
-            <div class="gradient-orb orb-3"></div>
+    <div class="signin-card">
+        <!-- Left side — Animated Dot Map -->
+        <div class="map-pane">
+            <canvas id="dot-map-canvas"></canvas>
+            <div class="map-overlay">
+                <div class="brand-badge">
+                    <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo">
+                </div>
+                <h2 class="brand-title">Inferth Mapping</h2>
+                <p class="brand-sub">Set your password to activate your account and start tracking your fleet in real time</p>
+            </div>
         </div>
 
-        <div class="auth-card">
-            <div class="auth-header">
-                <img src="/static/inferth_mapping_logo.png" alt="Inferth Logo" class="auth-logo">
-                <h1>Welcome to Inferth</h1>
-                <p>Complete your account setup</p>
-            </div>
+        <!-- Right side — Setup Form -->
+        <div class="form-pane">
+            <div class="form-inner">
+                <h1 class="welcome-title">Welcome to Inferth</h1>
+                <p class="welcome-sub">Complete your account setup</p>
 
-            <div class="welcome-message" id="welcome-message">
-                <i class="fas fa-envelope-open-text"></i>
-                <p>Verifying your invitation...</p>
-            </div>
-
-            <form id="signup-form" class="auth-form hidden">
-                <div class="user-info">
-                    <i class="fas fa-user-circle"></i>
-                    <p>Setting up account for: <strong id="user-email"></strong></p>
+                <div class="welcome-message" id="welcome-message">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <p>Verifying your invitation...</p>
                 </div>
 
-                <div class="form-group">
-                    <label for="password">
-                        <i class="fas fa-lock"></i>
-                        Create Password
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="password" name="password" required
-                            placeholder="Create a strong password" autocomplete="new-password" minlength="8">
-                        <button type="button" class="toggle-password" id="toggle-password">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                <form id="signup-form" class="hidden">
+                    <div class="user-info">
+                        <i class="fas fa-user-circle"></i>
+                        <p>Setting up account for: <strong id="user-email"></strong></p>
                     </div>
-                    <div class="password-strength" id="password-strength">
-                        <div class="strength-bar">
-                            <div class="strength-fill"></div>
+
+                    <div class="field">
+                        <label for="password"><i class="fas fa-lock"></i>Create Password <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <input type="password" id="password" name="password" required
+                                placeholder="Create a strong password" autocomplete="new-password" minlength="8">
+                            <button type="button" class="toggle-password" id="toggle-password" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
-                        <span class="strength-text"></span>
+                        <div class="password-strength" id="password-strength">
+                            <div class="strength-bar">
+                                <div class="strength-fill"></div>
+                            </div>
+                            <span class="strength-text"></span>
+                        </div>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label for="confirm-password">
-                        <i class="fas fa-check-circle"></i>
-                        Confirm Password
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="confirm-password" name="confirm-password" required
-                            placeholder="Re-enter your password" autocomplete="new-password">
-                        <button type="button" class="toggle-password" id="toggle-confirm">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                    <div class="field">
+                        <label for="confirm-password"><i class="fas fa-check-circle"></i>Confirm Password <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <input type="password" id="confirm-password" name="confirm-password" required
+                                placeholder="Re-enter your password" autocomplete="new-password">
+                            <button type="button" class="toggle-password" id="toggle-confirm" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="password-requirements">
-                    <p><i class="fas fa-info-circle"></i> Password must contain:</p>
-                    <ul>
-                        <li id="req-length"><i class="fas fa-circle"></i> At least 8 characters</li>
-                        <li id="req-uppercase"><i class="fas fa-circle"></i> One uppercase letter</li>
-                        <li id="req-lowercase"><i class="fas fa-circle"></i> One lowercase letter</li>
-                        <li id="req-number"><i class="fas fa-circle"></i> One number</li>
-                    </ul>
-                </div>
+                    <div class="password-requirements">
+                        <p><i class="fas fa-info-circle"></i> Password must contain:</p>
+                        <ul>
+                            <li id="req-length"><i class="fas fa-circle"></i> At least 8 characters</li>
+                            <li id="req-uppercase"><i class="fas fa-circle"></i> One uppercase letter</li>
+                            <li id="req-lowercase"><i class="fas fa-circle"></i> One lowercase letter</li>
+                            <li id="req-number"><i class="fas fa-circle"></i> One number</li>
+                        </ul>
+                    </div>
 
-                <div class="error-message" id="error-message"></div>
+                    <div class="error-message" id="error-message"></div>
 
-                <button type="submit" class="btn-primary" id="signup-btn">
-                    <i class="fas fa-user-plus"></i>
-                    Complete Setup
-                </button>
-            </form>
-        </div>
+                    <button type="submit" class="submit-btn" id="signup-btn">
+                        <span>Complete Setup</span>
+                        <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i>
+                        <span class="shimmer"></span>
+                    </button>
 
-        <div class="auth-info">
-            <div class="info-card">
-                <i class="fas fa-rocket"></i>
-                <h3>Get Started</h3>
-                <p>Set up your account in seconds</p>
-            </div>
-            <div class="info-card">
-                <i class="fas fa-lock"></i>
-                <h3>Secure</h3>
-                <p>Your data is protected with encryption</p>
-            </div>
-            <div class="info-card">
-                <i class="fas fa-users"></i>
-                <h3>Team Collaboration</h3>
-                <p>Work together with your organization</p>
+                    <div class="forgot-row">
+                        <a href="/static/login.html">Back to sign in</a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
     <script src="auth.js?v=2"></script>
     <script>
-        // Initialize signup page
         if (window.AuthManager) {
             window.AuthManager.initSignupPage();
         }
+
+        // Animated DotMap (same as login)
+        (function initDotMap() {
+            const canvas = document.getElementById('dot-map-canvas');
+            if (!canvas || !canvas.parentElement) return;
+            const ctx = canvas.getContext('2d');
+
+            const routes = [
+                { start: { x: 100, y: 150, delay: 0 },   end: { x: 200, y: 80,  delay: 2 },   color: '#dc2626' },
+                { start: { x: 200, y: 80,  delay: 2 },   end: { x: 260, y: 120, delay: 4 },   color: '#dc2626' },
+                { start: { x: 50,  y: 50,  delay: 1 },   end: { x: 150, y: 180, delay: 3 },   color: '#ea580c' },
+                { start: { x: 280, y: 60,  delay: 0.5 }, end: { x: 180, y: 180, delay: 2.5 }, color: '#ff5a00' }
+            ];
+
+            let width = 0, height = 0, dots = [];
+
+            function generateDots(w, h) {
+                const out = [];
+                const gap = 12;
+                for (let x = 0; x < w; x += gap) {
+                    for (let y = 0; y < h; y += gap) {
+                        const isInMapShape =
+                            ((x < w * 0.25 && x > w * 0.05) && (y < h * 0.4  && y > h * 0.1))  ||
+                            ((x < w * 0.25 && x > w * 0.15) && (y < h * 0.8  && y > h * 0.4))  ||
+                            ((x < w * 0.45 && x > w * 0.3)  && (y < h * 0.35 && y > h * 0.15)) ||
+                            ((x < w * 0.5  && x > w * 0.35) && (y < h * 0.65 && y > h * 0.35)) ||
+                            ((x < w * 0.7  && x > w * 0.45) && (y < h * 0.5  && y > h * 0.1))  ||
+                            ((x < w * 0.8  && x > w * 0.65) && (y < h * 0.8  && y > h * 0.6));
+                        if (isInMapShape && Math.random() > 0.3) {
+                            out.push({ x, y, radius: 1, opacity: Math.random() * 0.5 + 0.2 });
+                        }
+                    }
+                }
+                return out;
+            }
+
+            const ro = new ResizeObserver(entries => {
+                const rect = entries[0].contentRect;
+                width = rect.width;
+                height = rect.height;
+                canvas.width = width;
+                canvas.height = height;
+                dots = generateDots(width, height);
+            });
+            ro.observe(canvas.parentElement);
+
+            let startTime = Date.now();
+            function animate() {
+                if (width && height) {
+                    ctx.clearRect(0, 0, width, height);
+                    for (let i = 0; i < dots.length; i++) {
+                        const d = dots[i];
+                        ctx.beginPath();
+                        ctx.arc(d.x, d.y, d.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(234, 88, 12, ${d.opacity})`;
+                        ctx.fill();
+                    }
+
+                    const currentTime = (Date.now() - startTime) / 1000;
+                    for (let i = 0; i < routes.length; i++) {
+                        const route = routes[i];
+                        const elapsed = currentTime - route.start.delay;
+                        if (elapsed <= 0) continue;
+                        const progress = Math.min(elapsed / 3, 1);
+                        const x = route.start.x + (route.end.x - route.start.x) * progress;
+                        const y = route.start.y + (route.end.y - route.start.y) * progress;
+
+                        ctx.beginPath();
+                        ctx.moveTo(route.start.x, route.start.y);
+                        ctx.lineTo(x, y);
+                        ctx.strokeStyle = route.color;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(route.start.x, route.start.y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = route.color;
+                        ctx.fill();
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ff5a00';
+                        ctx.fill();
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, 6, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 90, 0, 0.4)';
+                        ctx.fill();
+
+                        if (progress === 1) {
+                            ctx.beginPath();
+                            ctx.arc(route.end.x, route.end.y, 3, 0, Math.PI * 2);
+                            ctx.fillStyle = route.color;
+                            ctx.fill();
+                        }
+                    }
+
+                    if (currentTime > 15) startTime = Date.now();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
     </script>
 </body>
 
