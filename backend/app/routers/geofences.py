@@ -5,6 +5,7 @@ from typing import List
 from app.db import AsyncSessionLocal
 from app.models import Geofence, User, Device, Tenant
 from app.routers.auth import get_current_user
+from app.auth_middleware import is_platform_admin, tenant_name, tracker_visibility
 import json
 
 router = APIRouter(prefix="/geofences", tags=["geofences"])
@@ -19,15 +20,23 @@ async def _can_see_device(db: Session, current_user: User, device: Device) -> bo
     tenant_name = (await db.execute(select(Tenant.name).where(Tenant.id == current_user.tenant_id))).scalar()
     return bool(tenant_name) and (device.company or "").lower() == tenant_name.lower().strip()
 
+async def _zones_visible_to(db: Session, current_user: User, zones: list) -> list:
+    asset_ids = list({int(a) for z in zones for a in (z.assets or []) if str(a).isdigit()})
+    visible = set()
+    if asset_ids:
+        company = await tenant_name(db, current_user)
+        visible = {str(i) for i in (await db.execute(select(Device.id).where(Device.id.in_(asset_ids), tracker_visibility(current_user, company)))).scalars().all()}
+    return [z for z in zones if z.tenant_id == current_user.tenant_id or any(str(a) in visible for a in (z.assets or []))]
+
 @router.get("/", response_model=List[dict])
 async def get_geofences(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Only the platform super-admin (tenant 1, admin role) sees every tenant's geofences
     query = select(Geofence).where(Geofence.triggered_at.is_(None))
-    if current_user.tenant_id != 1 or current_user.role != "admin":
-        query = query.where(Geofence.tenant_id == current_user.tenant_id)
         
     result = await db.execute(query)
     zones = result.scalars().all()
+    if not is_platform_admin(current_user):
+        zones = await _zones_visible_to(db, current_user, zones)
     
     return [
         {
@@ -81,7 +90,7 @@ async def delete_geofence(
     current_user: User = Depends(get_current_user)
 ):
     query = select(Geofence).where(Geofence.id == zone_id)
-    if current_user.tenant_id != 1 or current_user.role != "admin":
+    if not is_platform_admin(current_user):
         query = query.where(Geofence.tenant_id == current_user.tenant_id)
         
     result = await db.execute(query)

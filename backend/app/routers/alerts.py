@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_
 from typing import List, Optional
 from app.db import AsyncSessionLocal
 from app.models import Alert, User, Device
 from app.routers.auth import get_current_user
+from app.auth_middleware import is_platform_admin, tenant_name, tracker_visibility
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -26,9 +27,9 @@ class AlertOut(BaseModel):
 async def get_alerts(current_user: User = Depends(get_current_user), limit: int = 50, types: Optional[str] = None):
     async with AsyncSessionLocal() as db:
         # Join with Device to get the name
-        stmt = select(Alert, Device.name).join(Device, Alert.device_id == Device.id).where(
-            Alert.tenant_id == current_user.tenant_id
-        )
+        stmt = select(Alert, Device.name).join(Device, Alert.device_id == Device.id)
+        if not is_platform_admin(current_user):
+            stmt = stmt.where(or_(Alert.tenant_id == current_user.tenant_id, tracker_visibility(current_user, await tenant_name(db, current_user))))
         names = [t for t in (types or "").split(",") if t]
         if names:
             stmt = stmt.where(Alert.type.in_(names))
@@ -46,8 +47,10 @@ async def get_alerts(current_user: User = Depends(get_current_user), limit: int 
 @router.post("/mark-read")
 async def mark_read(current_user: User = Depends(get_current_user)):
     async with AsyncSessionLocal() as db:
-        await db.execute(
-            update(Alert).where(Alert.tenant_id == current_user.tenant_id).values(is_read=True)
-        )
+        stmt = update(Alert).values(is_read=True)
+        if not is_platform_admin(current_user):
+            visible = select(Device.id).where(tracker_visibility(current_user, await tenant_name(db, current_user)))
+            stmt = stmt.where(or_(Alert.tenant_id == current_user.tenant_id, Alert.device_id.in_(visible)))
+        await db.execute(stmt)
         await db.commit()
         return {"message": "All alerts marked as read"}
