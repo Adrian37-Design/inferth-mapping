@@ -1,0 +1,380 @@
+/* ==========================================================
+   Geofences: tracker picker, isolated-tracker drawing and zone form.
+   Zinc dark surfaces with the platform's orange accent.
+   ========================================================== */
+.geo-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.geo-heading .helper-text {
+    margin: 4px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #a1a1aa;
+}
+
+.geo-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    margin-bottom: 12px;
+    padding: 0 12px;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    background: #09090b;
+    color: #71717a;
+    transition: border-color 0.2s ease;
+}
+
+.geo-search:focus-within {
+    border-color: rgba(255, 90, 0, 0.55);
+}
+
+.geo-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fafafa;
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.geo-tracker-list,
+.geo-zone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.geo-tracker-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #27272a;
+    border-radius: 10px;
+    background: #18181b;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.geo-tracker-row:hover,
+.geo-tracker-row:focus-visible {
+    background: #1f1f23;
+    border-color: #3f3f46;
+}
+
+.geo-tracker-row > i {
+    color: #71717a;
+    font-size: 12px;
+}
+
+.geo-tracker-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.geo-tracker-main strong,
+.geo-zone-main strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fafafa;
+}
+
+.geo-tracker-main small,
+.geo-tracker-side small,
+.geo-zone-main small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.74rem;
+    color: #a1a1aa;
+}
+
+.geo-tracker-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.geo-tracker-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    background: #18181b;
+}
+
+.geo-back {
+    margin-bottom: 10px;
+    padding-left: 0;
+}
+
+.geo-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.geo-tools .btn-primary,
+.geo-tools .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.geo-hint {
+    margin: 0 0 12px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #a1a1aa;
+}
+
+.geo-flash {
+    min-height: 0;
+    margin: -6px 0 10px;
+    font-size: 0.8rem;
+    color: #10b981;
+}
+
+.geo-flash:empty {
+    display: none;
+}
+
+.geo-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    background: #18181b;
+}
+
+.geo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.geo-field > span {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8a8a93;
+}
+
+.geo-swatches {
+    display: flex;
+    gap: 10px;
+}
+
+.geo-swatch {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--swatch);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.geo-swatch:hover {
+    transform: scale(1.08);
+}
+
+.geo-swatch.is-selected {
+    box-shadow: 0 0 0 2px #18181b, 0 0 0 4px var(--swatch);
+}
+
+.geo-toggles,
+.geo-notify {
+    display: flex;
+    gap: 8px;
+}
+
+.geo-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    background: #09090b;
+    color: #d4d4d8;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.geo-toggle input {
+    accent-color: var(--primary, #ff5a00);
+}
+
+.geo-notify select {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.geo-notify input {
+    flex: 1;
+    min-width: 0;
+}
+
+.geo-form-note {
+    margin: 0;
+    font-size: 0.74rem;
+    color: #71717a;
+}
+
+.geo-form-error {
+    min-height: 0;
+    margin: 0;
+    font-size: 0.8rem;
+    color: #f87171;
+}
+
+.geo-form-error:empty {
+    display: none;
+}
+
+.geo-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.geo-zone-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #27272a;
+}
+
+.geo-zone-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.geo-zone-main:hover {
+    background: #1f1f23;
+}
+
+.geo-zone-main > span:last-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.geo-zone-dot {
+    flex: 0 0 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.geo-zone-delete {
+    padding: 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #71717a;
+    cursor: pointer;
+}
+
+.geo-zone-delete:hover {
+    color: #f87171;
+    background: #27272a;
+}
+
+.geo-search input:focus-visible {
+    outline: 0;
+}
+
+.geo-form .glass-input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    background: #09090b;
+    color: #fafafa;
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.geo-form .glass-input:focus {
+    border-color: rgba(255, 90, 0, 0.55);
+}
+
+.geo-form .geo-notify select.glass-input {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.geo-form .geo-notify input.glass-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.geo-form-actions .btn-primary,
+.geo-form-actions .btn-secondary {
+    white-space: nowrap;
+}
+
+/* Leaflet.draw overlays, restyled to the zinc theme */
+.leaflet-draw-tooltip {
+    padding: 6px 10px;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    background: #18181b;
+    color: #fafafa;
+    font-size: 12px;
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.8);
+}
+
+.leaflet-draw-tooltip:before {
+    display: none;
+}
+
+.leaflet-draw-tooltip-subtext {
+    color: #a1a1aa;
+}
