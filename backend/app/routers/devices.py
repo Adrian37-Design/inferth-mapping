@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Device, Tenant, User
-from app.auth_middleware import require_admin, require_manager, get_current_user
+from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin
 from pydantic import BaseModel
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -34,7 +34,7 @@ async def create_device(
             target_tenant_id = tenant.id
 
     # Global admins can also specify a tenant name explicitly
-    if target_tenant_id is None and current_user.tenant_id == 1 and payload.tenant_name:
+    if target_tenant_id is None and is_platform_admin(current_user) and payload.tenant_name:
         q = await db.execute(select(Tenant).where(func.lower(Tenant.name) == payload.tenant_name.strip().lower()))
         tenant = q.scalars().first()
         if not tenant:
@@ -78,9 +78,9 @@ async def list_devices(
     current_user: User = Depends(get_current_user)
 ):
     stmt = select(Device)
-    # Global admin (tenant 1) sees ALL devices including unassigned ones (NULL tenant_id)
+    # Platform admin (tenant 1, admin role) sees ALL devices including unassigned ones (NULL tenant_id)
     # Everyone else only sees their own tenant's devices (or devices whose company name matches their tenant)
-    if current_user.tenant_id != 1:
+    if not is_platform_admin(current_user):
         # Query tenant name explicitly (tenant relationship not eagerly loaded)
         t_res = await db.execute(select(Tenant.name).where(Tenant.id == current_user.tenant_id))
         user_tenant_name = t_res.scalar()
@@ -123,7 +123,7 @@ async def delete_device(
         raise HTTPException(status_code=404, detail="Device not found")
         
     # Enforce tenant isolation
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and device.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this device")
     
     # Audit Log
@@ -156,7 +156,7 @@ async def update_device(
         raise HTTPException(status_code=404, detail="Device not found")
         
     # Enforce tenant isolation
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and device.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to update this device")
     
     device.imei = payload.imei
@@ -211,7 +211,7 @@ async def send_device_command(
         raise HTTPException(status_code=404, detail="Device not found")
         
     # Enforce tenant isolation
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and device.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to control this device")
 
     action_lower = payload.action.lower()

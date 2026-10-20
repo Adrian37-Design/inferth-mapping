@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Device, Position, User
-from app.auth_middleware import get_current_user
+from app.auth_middleware import get_current_user, can_see_device
 from datetime import datetime, timedelta
 from typing import Optional, List, Literal
 from math import radians, cos, sin, asin, sqrt
@@ -32,7 +32,7 @@ async def get_device_check(device_id: int, current_user: User, db: AsyncSession)
     device = device_q.scalars().first()
     if not device:
         raise HTTPException(404, "Device not found")
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not await can_see_device(db, current_user, device):
         raise HTTPException(403, "Not authorized to view this device's reports")
     return device
 

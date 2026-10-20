@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Position, Device, User
 from app.schemas import PositionCreate, PositionOut
-from app.auth_middleware import get_current_user
+from app.auth_middleware import get_current_user, can_see_device, scope_devices
 from sqlalchemy.future import select
 from datetime import datetime
 from app.realtime import publish_position
@@ -217,8 +217,7 @@ async def latest_position(
     )
     
     # Filter by tenant unless global admin
-    if current_user.tenant_id != 1:
-        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+    stmt = await scope_devices(db, current_user, stmt)
         
     q = await db.execute(stmt.order_by(Position.timestamp.desc()).limit(1))
     pos = q.scalars().first()
@@ -264,8 +263,7 @@ async def get_fleet_snapshot(
     )
     
     # Filter by tenant unless global admin
-    if current_user.tenant_id != 1:
-        query = query.where(Device.tenant_id == current_user.tenant_id)
+    query = await scope_devices(db, current_user, query)
     
     result = await db.execute(query)
     positions = result.scalars().all()
@@ -320,8 +318,7 @@ async def list_positions(
     query = select(Position).join(Device)
     
     # Filter by tenant unless global admin
-    if current_user.tenant_id != 1:
-        query = query.where(Device.tenant_id == current_user.tenant_id)
+    query = await scope_devices(db, current_user, query)
     
     if device_id:
         query = query.where(Position.device_id == device_id)
@@ -359,7 +356,7 @@ async def get_device_route(
     if not device:
         raise HTTPException(404, "Device not found")
         
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not await can_see_device(db, current_user, device):
         raise HTTPException(403, "Not authorized to view this device's route")
 
     from datetime import datetime
@@ -484,7 +481,7 @@ async def get_device_trips(
     if not device:
         raise HTTPException(404, "Device not found")
         
-    if current_user.tenant_id != 1 and device.tenant_id != current_user.tenant_id:
+    if not await can_see_device(db, current_user, device):
         raise HTTPException(403, "Not authorized to view this device's trips")
 
     from datetime import datetime, timedelta
@@ -633,8 +630,7 @@ async def get_fleet_analytics(
         .where(Position.timestamp >= fetch_start)
     )
 
-    if current_user.tenant_id != 1:
-        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+    stmt = await scope_devices(db, current_user, stmt)
 
     stmt = stmt.order_by(Position.timestamp.asc())
 
@@ -794,8 +790,7 @@ async def get_device_chart_analytics(
         .where(Position.timestamp >= fetch_start)
     )
 
-    if current_user.tenant_id != 1:
-        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+    stmt = await scope_devices(db, current_user, stmt)
 
     stmt = stmt.order_by(Position.timestamp.asc())
     result = await db.execute(stmt)
@@ -903,8 +898,7 @@ async def get_device_daily_mileage(
         .order_by(Position.timestamp.asc())
     )
 
-    if current_user.tenant_id != 1:
-        stmt = stmt.where(Device.tenant_id == current_user.tenant_id)
+    stmt = await scope_devices(db, current_user, stmt)
 
     result = await db.execute(stmt)
     positions = result.scalars().all()
