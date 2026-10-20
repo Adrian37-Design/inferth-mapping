@@ -2230,6 +2230,7 @@ function initDashMap() {
     const el = document.getElementById('dash-map');
     if (!el || dashMap) return;
     dashMap = L.map('dash-map', { zoomControl: true, attributionControl: true }).setView([-17.8252, 31.0335], 12);
+    if (window.Geofence) window.Geofence.attachMap(dashMap);
     dashBaseLayers = {
         streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap | Inferth Mapping', maxZoom: 19 }),

@@ -28,6 +28,8 @@
     let zones = [];
     let zoneLayers = new Map();
     let zoneLayer = null;
+    let mirrors = new Map();
+    let zonesRequest = 0;
     let draftLayer = null;
     let mode = 'list';
     let isOpen = false;
@@ -76,18 +78,25 @@
         draftLayer = L.featureGroup().addTo(map);
     }
 
+    function zoneShape(z) {
+        return L.geoJSON(z.geoJSON, {
+            style: zoneStyle(z.color || PALETTE[0]),
+            onEachFeature: (feature, shape) => shape.bindTooltip(escapeHTML(z.name), { sticky: true })
+        });
+    }
+
     function drawZones() {
         zoneLayer.clearLayers();
         zoneLayers = new Map();
-        if (!isOpen) return;
         (isolatedId === null ? zones : zonesFor(isolatedId)).forEach(z => {
             if (!z.geoJSON) return;
-            const layer = L.geoJSON(z.geoJSON, {
-                style: zoneStyle(z.color || PALETTE[0]),
-                onEachFeature: (feature, shape) => shape.bindTooltip(escapeHTML(z.name), { sticky: true })
-            });
+            const layer = zoneShape(z);
             zoneLayers.set(String(z.id), layer);
             zoneLayer.addLayer(layer);
+        });
+        mirrors.forEach(group => {
+            group.clearLayers();
+            zones.forEach(z => { if (z.geoJSON) group.addLayer(zoneShape(z)); });
         });
     }
 
@@ -247,6 +256,7 @@
             mode = 'isolated';
             applyMap();
             renderView();
+            await loadZones();
             flash('Geofence saved.');
         } catch (err) {
             setError(err.message);
@@ -263,18 +273,22 @@
             zones = zones.filter(z => String(z.id) !== String(id));
             applyMap();
             renderView();
+            await loadZones();
         } catch (err) {
             flash(err.message);
         }
     }
 
     async function loadZones() {
+        const request = ++zonesRequest;
         try {
             const res = await window.AuthManager.fetchAPI('/geofences/');
             if (!res.ok) return;
-            zones = await res.json();
-            applyMap();
-            renderView();
+            const next = await res.json();
+            if (request !== zonesRequest) return;
+            zones = next;
+            drawZones();
+            if (isOpen) renderView();
         } catch (err) {
             console.error('Failed to load geofences:', err);
         }
@@ -345,6 +359,12 @@
         }
     }
 
+    function attachMap(target) {
+        if (!target || mirrors.has(target)) return;
+        mirrors.set(target, L.featureGroup().addTo(target));
+        if (zoneLayer) drawZones();
+    }
+
     function init() {
         if (els.list || !map) return;
         els = Object.fromEntries(Object.entries(IDS).map(([key, id]) => [key, document.getElementById(id)]));
@@ -391,6 +411,8 @@
         });
         setInterval(() => { if (isOpen && mode === 'list') renderTrackers(); }, 5000);
         setInterval(() => { if (isOpen) loadViolations(); }, 30000);
+        loadZones();
+        setInterval(loadZones, 60000);
     }
 
     window.triggerGeofenceAction = function () {
@@ -399,5 +421,5 @@
         if (id !== null) isolate(id);
     };
 
-    window.Geofence = { init, allows, onTabChange };
+    window.Geofence = { init, allows, onTabChange, attachMap };
 })();
