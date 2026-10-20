@@ -321,6 +321,7 @@ class TCPTrackerProtocol(asyncio.Protocol):
                                 "latitude": clean_lat,
                                 "longitude": clean_lon,
                                 "speed": clean_speed,
+                                "timestamp": timestamp,
                                 "raw": sanitized_decoded
                             }))
                         except Exception as alert_err:

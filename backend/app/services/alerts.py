@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update, func
-from app.models import Rule, Alert, Device, User, Geofence
+from app.models import Rule, Alert, Device, User, Geofence, Position
 from app.services.email import send_email
 from app.services.sms import SMSService
 from app.db import AsyncSessionLocal
@@ -56,7 +56,7 @@ class AlertService:
         speed = position_data.get("speed", 0)
         lat = position_data.get("latitude")
         lng = position_data.get("longitude")
-        geofence_events = await AlertService._check_geofence(db, device, lat, lng) if lat and lng else []
+        geofence_events = await AlertService._check_geofence(db, device, lat, lng, position_data.get("timestamp")) if lat and lng else []
 
         for rule in rules:
             triggered = False
@@ -144,7 +144,7 @@ class AlertService:
             print(f"FAILED to send alert email: {e}")
 
     @staticmethod
-    async def _check_geofence(db: Session, device: Device, lat: float, lng: float):
+    async def _check_geofence(db: Session, device: Device, lat: float, lng: float, before=None):
         """Check if device has entered or exited a geofence."""
         # Fetch geofences that have not triggered yet; each zone belongs to one tracker
         geo_res = await db.execute(select(Geofence).where(Geofence.triggered_at.is_(None)))
@@ -159,6 +159,8 @@ class AlertService:
             inside = AlertService._point_in_polygon(lat, lng, ring)
             # Check if we were outside before (store last state in device metadata)
             previous, current = state.get(key), "inside" if inside else "outside"
+            if previous is None and before is not None:
+                previous = await AlertService._last_known_state(db, device, ring, before)
             if previous == current:
                 continue
             # Update state
@@ -181,6 +183,19 @@ class AlertService:
             device.device_metadata = state
             await db.commit()
         return events
+
+    @staticmethod
+    async def _last_known_state(db: Session, device: Device, ring: list, before):
+        last = (await db.execute(
+            select(Position.latitude, Position.longitude)
+            .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None),
+                   Position.timestamp < before)
+            .order_by(Position.timestamp.desc())
+            .limit(1)
+        )).first()
+        if last is None:
+            return None
+        return "inside" if AlertService._point_in_polygon(last[0], last[1], ring) else "outside"
 
     @staticmethod
     def _polygon_ring(geojson):
