@@ -1,7 +1,8 @@
 import uvicorn
 from sqlalchemy import select
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller
 from app.services.mqtt_client import start_mqtt
@@ -383,6 +384,13 @@ async def add_cors_headers(request, call_next):
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
+
+@app.middleware("http")
+async def redirect_bare_domain(request: Request, call_next):
+    hosts = {request.headers.get(name, "").split(",")[0].split(":")[0].strip().lower() for name in ("host", "x-forwarded-host")}
+    if "inferthmapping.co.zw" in hosts:
+        return RedirectResponse(str(request.url.replace(scheme="https", netloc="www.inferthmapping.co.zw")), status_code=301)
+    return await call_next(request)
 
 app.include_router(auth.router)
 app.include_router(devices.router)
