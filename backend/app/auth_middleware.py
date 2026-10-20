@@ -100,3 +100,11 @@ async def require_manager(current_user: User = Depends(get_current_user)) -> Use
             detail="Only managers or admins can perform this action"
         )
     return current_user
+
+async def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.tenant_id != 1 or (current_user.role != "admin" and not current_user.is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the platform administrator can perform this action"
+        )
+    return current_user

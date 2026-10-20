@@ -6,9 +6,13 @@ from typing import Dict, Any, List, Optional
 import json
 import base64
 import asyncio
+import hashlib
+import hmac
 
 from app.db import get_db
-from app.models import Device, Position, Alert
+from app.models import Device, Position, Alert, User
+from app.config import settings
+from app.auth_middleware import require_super_admin
 from app.services.data_guardrails import (
     validate_coordinates,
     validate_and_sanitize_speed,
@@ -72,6 +76,32 @@ def parse_xcela_timestamp(date_str: Optional[str]) -> datetime:
     return datetime.utcnow()
 
 
+def _tracker_token(request: Request) -> str:
+    authorization = request.headers.get("authorization", "")
+    return request.cookies.get("token") or (authorization[7:] if authorization.lower().startswith("bearer ") else "")
+
+
+def _tracker_signed(token: str, secret: str) -> bool:
+    parts = token.split(".")
+    if len(parts) != 3:
+        return False
+    expected = hmac.new(secret.encode(), f"{parts[0]}.{parts[1]}".encode(), hashlib.sha256).digest()
+    try:
+        provided = base64.urlsafe_b64decode(parts[2] + "=" * (-len(parts[2]) % 4))
+    except (ValueError, TypeError):
+        return False
+    return hmac.compare_digest(expected, provided)
+
+
+def check_tracker(request: Request, imei: Optional[str]):
+    secret = settings.TRACKER_JWT_SECRETS.get(imei) if imei else None
+    if secret and _tracker_signed(_tracker_token(request), secret):
+        return
+    if settings.TRACKER_AUTH_MODE == "enforce":
+        raise HTTPException(status_code=401, detail="Tracker authentication failed")
+    print(f"[TRACKER AUTH] monitor: {imei or 'unknown tracker'} {'signature rejected' if secret else 'no secret configured'}")
+
+
 @router.post("/upsert")
 async def upsert_tracking_data(
     request: Request,
@@ -118,6 +148,7 @@ async def upsert_tracking_data(
 
     # 5. If STILL not found, create the ONE legitimate device (never use hash!)
     if not device:
+        check_tracker(request, None)
         suffix = ident[-6:] if len(ident) >= 6 else ident
         device = Device(
             imei=ident,
@@ -128,6 +159,8 @@ async def upsert_tracking_data(
         db.add(device)
         await db.commit()
         await db.refresh(device)
+    else:
+        check_tracker(request, device.imei)
 
     # Purge phantom devices created by historical hash collisions
     try:
@@ -387,6 +420,7 @@ async def upsert_tracking_data(
 
 @router.get("/cleanup-phantoms")
 async def cleanup_phantoms_endpoint(
+    current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """Purge phantom devices created during earlier testing."""
@@ -454,6 +488,7 @@ async def get_commands(
         res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
         device = res.scalars().first()
 
+    check_tracker(request, device.imei if device else None)
     if device:
         now = datetime.utcnow()
         meta = dict(device.device_metadata or {})
@@ -535,6 +570,7 @@ async def handle_sos_alerts(
     # Look up device
     res = await db.execute(select(Device).where(Device.imei == str(imei).strip()))
     device = res.scalars().first()
+    check_tracker(request, device.imei if device else None)
     tenant_id = device.tenant_id if device else 1
     device_id = device.id if device else None
 
@@ -589,6 +625,7 @@ async def handle_violations(
     token = request.cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
     ident = str(body.get("imei") or extract_plate_from_jwt(token) or "XYZ4321").strip()
     device = await _find_tracker(db, ident)
+    check_tracker(request, device.imei if device else None)
     items = body["violations"] if isinstance(body.get("violations"), list) else [body]
 
     for item in items:
@@ -614,6 +651,7 @@ async def handle_violations(
 @router.get("/fix-netrozim")
 async def fix_netrozim(
     password: str = "NetroZim@2026",
+    current_user: User = Depends(require_super_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
