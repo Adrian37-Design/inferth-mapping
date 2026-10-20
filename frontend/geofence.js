@@ -65,7 +65,7 @@
             <span class="geo-zone-dot" style="background:${escapeHTML(z.color || PALETTE[0])}"></span>
             <span><strong>${escapeHTML(z.name)}</strong><small>${escapeHTML(alertSummary(z))}</small></span>
         </button>
-        ${canEdit() ? `<button type="button" class="geo-zone-delete" data-delete="${escapeHTML(z.id)}" title="Delete geofence" aria-label="Delete ${escapeHTML(z.name)}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
+        ${canEdit() && z.canDelete ? `<button type="button" class="geo-zone-delete" data-delete="${escapeHTML(z.id)}" title="Delete geofence" aria-label="Delete ${escapeHTML(z.name)}"><i class="fas fa-trash" aria-hidden="true"></i></button>` : ''}
     </div>`;
 
     function allows(id) {
