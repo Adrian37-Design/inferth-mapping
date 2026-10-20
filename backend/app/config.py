@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "change_this_secret_key_in_production"
     JWT_ALGORITHM: str = "HS256"
 
+    TRACKER_AUTH_MODE: str = "monitor"
+    TRACKER_JWT_SECRETS: dict[str, str] = {}
+
     SECONDARY_DESTINATION: str | None = None
 
     # Email Settings

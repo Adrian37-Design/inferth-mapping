@@ -1,6 +1,6 @@
 import uvicorn
 from sqlalchemy import select
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +10,8 @@ import asyncio
 from app.config import settings
 from app.services.tcp_server import TCPTrackerProtocol
 from app.realtime import ws_listener
+from app.auth_middleware import require_super_admin
+from app.models import User
 from app.branding import init_branding
 import os
 
@@ -286,7 +288,7 @@ async def health_check():
     return status
 
 @app.get("/admin/repair-production")
-async def repair_production_state():
+async def repair_production_state(current_user: User = Depends(require_super_admin)):
     """Diagnostic and Repair endpoint to fix DB state remotely"""
     from app.db import AsyncSessionLocal
     from app.models import Tenant, User
