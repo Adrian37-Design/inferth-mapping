@@ -309,6 +309,8 @@ async def upsert_tracking_data(
                         await publish_position({
                             "device_id": device.id,
                             "imei": device.imei,
+                            "tenant_id": device.tenant_id,
+                            "company": device.company,
                             "name": device.name,
                             "latitude": clean_lat,
                             "longitude": clean_lon,
@@ -356,6 +358,8 @@ async def upsert_tracking_data(
                 await publish_position({
                     "device_id": device.id,
                     "imei": device.imei,
+                    "tenant_id": device.tenant_id,
+                    "company": device.company,
                     "name": device.name,
                     "latitude": clean_lat,
                     "longitude": clean_lon,
@@ -482,6 +486,8 @@ async def get_commands(
                 await publish_position({
                     "device_id": device.id,
                     "imei": device.imei,
+                    "tenant_id": device.tenant_id,
+                    "company": device.company,
                     "name": device.name,
                     "latitude": latest_pos.latitude,
                     "longitude": latest_pos.longitude,

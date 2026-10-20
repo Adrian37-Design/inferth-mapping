@@ -4024,12 +4024,16 @@ function connectWebSocket() {
 
     ws.onopen = () => {
         console.log('WebSocket connected');
-        updateStatus('connected', 'Live');
+        ws.send(JSON.stringify({ type: 'auth', token: localStorage.getItem('auth_token') }));
     };
 
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
+            if (data.type === 'auth_ok') {
+                updateStatus('connected', 'Live');
+                return;
+            }
             const isObd = data.raw && (data.raw.type === 'obd' || data.raw.type === 'location_obd');
 
             if (data.imei && (data.latitude || isObd)) {
@@ -4160,8 +4164,12 @@ function connectWebSocket() {
         updateStatus('disconnected', 'Connection Error');
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
         updateStatus('disconnected', 'Disconnected');
+        if (event.code === 1008) {
+            window.AuthManager.logout();
+            return;
+        }
         setTimeout(connectWebSocket, 5000);
     };
 }
