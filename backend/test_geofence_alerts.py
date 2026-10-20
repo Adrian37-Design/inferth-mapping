@@ -33,6 +33,7 @@ POS = {"in": (LAT, LNG), "out": (LAT + 0.01, LNG + 0.01)}
 ENTRY = {"entry": True, "exit": False}
 EXIT = {"entry": False, "exit": True}
 BOTH = {"entry": True, "exit": True}
+OFF = {"entry": False, "exit": False}
 failures = []
 
 
@@ -82,16 +83,28 @@ async def new_device():
         return tenant.id, other.id, device.id
 
 
+async def add_device(tenant_id):
+    tag = uuid.uuid4().hex[:10]
+    async with AsyncSessionLocal() as db:
+        device = Device(imei=f"imei-{tag}", name=f"Truck {tag}", tenant_id=tenant_id, device_metadata={})
+        db.add(device)
+        await db.commit()
+        return device.id
+
+
 async def add_zone(tenant_id, assets, flags, geojson):
     async with AsyncSessionLocal() as db:
-        db.add(Geofence(name="Depot", color="#10b981", assets=assets, alert_rules=flags,
-                        notification={"channel": "system", "contact": ""}, geojson=geojson, tenant_id=tenant_id))
+        zone = Geofence(name="Depot", color="#10b981", assets=assets, alert_rules=flags,
+                        notification={"channel": "system", "contact": ""}, geojson=geojson, tenant_id=tenant_id)
+        db.add(zone)
         await db.commit()
+        return zone.id
 
 
-async def add_rule(tenant_id, event_type):
+async def add_rule(tenant_id, event_type, channel="system", contact=None):
     async with AsyncSessionLocal() as db:
-        db.add(Rule(tenant_id=tenant_id, device_id=None, event_type=event_type, channel="system", is_active=True))
+        db.add(Rule(tenant_id=tenant_id, device_id=None, event_type=event_type, channel=channel,
+                    contact=contact, is_active=True))
         await db.commit()
 
 
@@ -100,66 +113,129 @@ async def send(device_id, where):
     await AlertService.evaluate_rules(None, device_id, {"latitude": lat, "longitude": lng, "speed": 0, "raw": {}})
 
 
-async def count(device_id, kind):
+async def count(tenant_id, kind, device_id=None):
     async with AsyncSessionLocal() as db:
-        res = await db.execute(select(func.count(Alert.id)).where(
-            Alert.device_id == device_id, Alert.type == f"geofence_{kind}"))
-        return res.scalar()
+        query = select(func.count(Alert.id)).where(Alert.tenant_id == tenant_id, Alert.type == f"geofence_{kind}")
+        if device_id is not None:
+            query = query.where(Alert.device_id == device_id)
+        return (await db.execute(query)).scalar()
 
 
-async def run_sequence(name, seq, flags, rules, expect_entry=None, expect_exit=None,
+async def triggered(zone_id):
+    async with AsyncSessionLocal() as db:
+        return (await db.execute(select(Geofence.triggered_at).where(Geofence.id == zone_id))).scalar() is not None
+
+
+async def run_sequence(name, seq, flags, rules, expect_entry, expect_exit, expect_triggered,
                        assets=None, geojson=None, other_tenant=False, as_strings=False):
     tenant, other, dev = await new_device()
     ids = [str(dev)] if as_strings else [dev]
-    await add_zone(other if other_tenant else tenant, assets if assets is not None else ids, flags, geojson or polygon())
+    zone_id = await add_zone(other if other_tenant else tenant, assets if assets is not None else ids, flags, geojson or polygon())
     for event_type in rules:
         await add_rule(tenant, event_type)
     entry, leave = [], []
     try:
         for where in seq:
             await send(dev, where)
-            entry.append(await count(dev, "entry"))
-            leave.append(await count(dev, "exit"))
+            entry.append(await count(tenant, "entry", dev))
+            leave.append(await count(tenant, "exit", dev))
+        done = await triggered(zone_id)
     except Exception as exc:
         record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
         return
-    if expect_entry is not None:
-        record(f"{name} [entry]", entry == expect_entry, f"got {entry}, expected {expect_entry}")
-    if expect_exit is not None:
-        record(f"{name} [exit]", leave == expect_exit, f"got {leave}, expected {expect_exit}")
+    record(f"{name} [entry]", entry == expect_entry, f"got {entry}, expected {expect_entry}")
+    record(f"{name} [exit]", leave == expect_exit, f"got {leave}, expected {expect_exit}")
+    record(f"{name} [triggered]", done == expect_triggered, f"got {done}, expected {expect_triggered}")
 
 
 async def run_concurrent(name):
     tenant, other, dev = await new_device()
-    await add_zone(tenant, [dev], BOTH, polygon())
+    zone_id = await add_zone(tenant, [dev], BOTH, polygon())
     await add_rule(tenant, "geofence_entry")
     await add_rule(tenant, "geofence_exit")
     try:
         await asyncio.gather(*(send(dev, where) for where in ["out", "in", "out", "in"]))
+        done = await triggered(zone_id)
     except Exception as exc:
         record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
         return
-    entries, exits = await count(dev, "entry"), await count(dev, "exit")
-    record(name, (entries, exits) == (2, 1), f"entries={entries} exits={exits}, expected entries=2 exits=1")
+    entries, exits = await count(tenant, "entry", dev), await count(tenant, "exit", dev)
+    record(name, (entries, exits, done) == (1, 0, True), f"entries={entries} exits={exits} triggered={done}")
+
+
+async def run_shared_zone(name):
+    tenant, other, dev_a = await new_device()
+    dev_b = await add_device(tenant)
+    zone_id = await add_zone(tenant, [dev_a, dev_b], ENTRY, polygon())
+    await send(dev_a, "out")
+    await send(dev_b, "out")
+    try:
+        await asyncio.gather(send(dev_a, "in"), send(dev_b, "in"))
+        done = await triggered(zone_id)
+    except Exception as exc:
+        record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
+        return
+    total = await count(tenant, "entry")
+    record(name, (total, done) == (1, True), f"entry violations={total} triggered={done}")
+
+
+async def run_rule_notification(name, flags, expect_entries, expect_sent):
+    tenant, other, dev = await new_device()
+    await add_zone(tenant, [dev], flags, polygon())
+    await add_rule(tenant, "geofence_entry", channel="email", contact="ops@example.com")
+    sent = []
+
+    async def fake_email(to, subject, html):
+        sent.append(to)
+
+    original = AlertService._send_email_async
+    AlertService._send_email_async = staticmethod(fake_email)
+    try:
+        await send(dev, "out")
+        await send(dev, "in")
+        await asyncio.sleep(0.05)
+    except Exception as exc:
+        record(name, False, f"{type(exc).__name__}: {str(exc).splitlines()[0][:220]}")
+        return
+    finally:
+        AlertService._send_email_async = original
+    entries = await count(tenant, "entry", dev)
+    record(name, (entries, len(sent)) == (expect_entries, expect_sent), f"entries={entries} emails={len(sent)}")
 
 
 async def run_checks():
     await ensure_database()
     await reset_schema()
-    await run_sequence("exit rule, device inside", ["in"], EXIT, ["geofence_exit"], expect_exit=[0])
-    await run_sequence("entry only: out,in,out,in", ["out", "in", "out", "in"], ENTRY, ["geofence_entry"], expect_entry=[0, 1, 1, 2])
-    await run_sequence("exit only: in,out,in,out", ["in", "out", "in", "out"], EXIT, ["geofence_exit"], expect_exit=[0, 1, 1, 2])
-    await run_sequence("both rules, full cycle", ["out", "in", "out", "in", "out"], BOTH,
-                       ["geofence_entry", "geofence_exit"], expect_entry=[0, 1, 1, 2, 2], expect_exit=[0, 0, 1, 1, 2])
-    await run_sequence("zone entry flag off", ["out", "in", "out"], {"entry": False, "exit": False},
-                       ["geofence_entry"], expect_entry=[0, 0, 0])
-    await run_sequence("starts inside: no false entry", ["in", "out", "in"], ENTRY, ["geofence_entry"], expect_entry=[0, 0, 1])
-    await run_sequence("device not assigned to zone", ["out", "in"], ENTRY, ["geofence_entry"], assets=[999999], expect_entry=[0, 0])
-    await run_sequence("zone belongs to another tenant", ["out", "in"], ENTRY, ["geofence_entry"], other_tenant=True, expect_entry=[0, 0])
-    await run_sequence("asset ids stored as strings", ["out", "in"], ENTRY, ["geofence_entry"], as_strings=True, expect_entry=[0, 1])
-    await run_sequence("zone saved as Feature", ["out", "in"], ENTRY, ["geofence_entry"], geojson=feature(), expect_entry=[0, 1])
-    await run_sequence("repeated inside positions", ["out", "in", "in", "in"], ENTRY, ["geofence_entry"], expect_entry=[0, 1, 1, 1])
-    await run_concurrent("concurrent positions keep arrival order")
+    await run_sequence("entry only: out,in,out,in", ["out", "in", "out", "in"], ENTRY, ["geofence_entry"],
+                       expect_entry=[0, 1, 1, 1], expect_exit=[0, 0, 0, 0], expect_triggered=True)
+    await run_sequence("exit only: in,out,in,out", ["in", "out", "in", "out"], EXIT, ["geofence_exit"],
+                       expect_entry=[0, 0, 0, 0], expect_exit=[0, 1, 1, 1], expect_triggered=True)
+    await run_sequence("both: out,in,out,in,out", ["out", "in", "out", "in", "out"], BOTH,
+                       ["geofence_entry", "geofence_exit"],
+                       expect_entry=[0, 1, 1, 1, 1], expect_exit=[0, 0, 0, 0, 0], expect_triggered=True)
+    await run_sequence("both: in,out,in (exit comes first)", ["in", "out", "in"], BOTH,
+                       ["geofence_entry", "geofence_exit"],
+                       expect_entry=[0, 0, 0], expect_exit=[0, 1, 1], expect_triggered=True)
+    await run_sequence("no rules: the zone alone records the violation", ["out", "in", "out"], ENTRY, [],
+                       expect_entry=[0, 1, 1], expect_exit=[0, 0, 0], expect_triggered=True)
+    await run_sequence("entry flag off: nothing is watched", ["out", "in", "out"], OFF, ["geofence_entry"],
+                       expect_entry=[0, 0, 0], expect_exit=[0, 0, 0], expect_triggered=False)
+    await run_sequence("starts inside: first entry triggers, exits are not watched", ["in", "out", "in"], ENTRY,
+                       ["geofence_entry"], expect_entry=[0, 0, 1], expect_exit=[0, 0, 0], expect_triggered=True)
+    await run_sequence("device not assigned to zone", ["out", "in"], ENTRY, ["geofence_entry"], assets=[999999],
+                       expect_entry=[0, 0], expect_exit=[0, 0], expect_triggered=False)
+    await run_sequence("zone belongs to another tenant", ["out", "in"], ENTRY, ["geofence_entry"], other_tenant=True,
+                       expect_entry=[0, 0], expect_exit=[0, 0], expect_triggered=False)
+    await run_sequence("asset ids stored as strings", ["out", "in"], ENTRY, [], as_strings=True,
+                       expect_entry=[0, 1], expect_exit=[0, 0], expect_triggered=True)
+    await run_sequence("zone saved as Feature", ["out", "in"], ENTRY, [], geojson=feature(),
+                       expect_entry=[0, 1], expect_exit=[0, 0], expect_triggered=True)
+    await run_sequence("repeated inside positions", ["out", "in", "in", "in"], ENTRY, [],
+                       expect_entry=[0, 1, 1, 1], expect_exit=[0, 0, 0, 0], expect_triggered=True)
+    await run_concurrent("concurrent positions: one violation, in arrival order")
+    await run_shared_zone("two trackers share one zone: one violation")
+    await run_rule_notification("rule emails once, no duplicate violation", ENTRY, expect_entries=1, expect_sent=1)
+    await run_rule_notification("zone not watching entry: no violation, no email", EXIT, expect_entries=0, expect_sent=0)
     await engine.dispose()
 
 

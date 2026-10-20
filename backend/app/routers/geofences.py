@@ -16,7 +16,7 @@ async def get_db():
 @router.get("/", response_model=List[dict])
 async def get_geofences(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Only the platform super-admin (tenant 1, admin role) sees every tenant's geofences
-    query = select(Geofence)
+    query = select(Geofence).where(Geofence.triggered_at.is_(None))
     if current_user.tenant_id != 1 or current_user.role != "admin":
         query = query.where(Geofence.tenant_id == current_user.tenant_id)
         
