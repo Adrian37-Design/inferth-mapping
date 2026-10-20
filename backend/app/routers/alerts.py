@@ -23,12 +23,16 @@ class AlertOut(BaseModel):
         from_attributes = True
 
 @router.get("/", response_model=List[AlertOut])
-async def get_alerts(current_user: User = Depends(get_current_user), limit: int = 50):
+async def get_alerts(current_user: User = Depends(get_current_user), limit: int = 50, types: Optional[str] = None):
     async with AsyncSessionLocal() as db:
         # Join with Device to get the name
         stmt = select(Alert, Device.name).join(Device, Alert.device_id == Device.id).where(
             Alert.tenant_id == current_user.tenant_id
-        ).order_by(Alert.timestamp.desc()).limit(limit)
+        )
+        names = [t for t in (types or "").split(",") if t]
+        if names:
+            stmt = stmt.where(Alert.type.in_(names))
+        stmt = stmt.order_by(Alert.timestamp.desc()).limit(limit)
         
         results = await db.execute(stmt)
         alerts_out = []
