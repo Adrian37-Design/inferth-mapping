@@ -420,6 +420,10 @@ async def check_visibility_rules():
     record("zones: a triggered zone leaves every list", not ({"Vis own", "Vis listed"} & await zone_names_seen(platform)))
     company_zone = await draw_zone(acme, own, (-17.7, 31.3), "Vis company")
     platform_zone = await draw_zone(platform, own, (-17.6, 31.4), "Vis platform")
+    async with AsyncSessionLocal() as db:
+        flags = {zone["name"]: zone["canDelete"] for zone in await get_geofences(db=db, current_user=acme)}
+    record("zones: a company's list marks only the zones it drew as deletable",
+           flags.get("Vis company") is True and flags.get("Vis platform") is False, str(flags))
     record("zones: a company can delete a zone it drew", await status_of(delete_zone(company_zone, acme)) == 200)
     record("zones: a company cannot delete a zone the platform admin drew", await status_of(delete_zone(platform_zone, acme)) == 404)
     record("zones: the platform admin can delete it", await status_of(delete_zone(platform_zone, platform)) == 200)

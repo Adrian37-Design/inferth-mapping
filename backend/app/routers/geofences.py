@@ -46,7 +46,8 @@ async def get_geofences(db: Session = Depends(get_db), current_user: User = Depe
             "assets": z.assets,
             "alertRules": z.alert_rules,
             "notification": z.notification,
-            "geoJSON": z.geojson
+            "geoJSON": z.geojson,
+            "canDelete": is_platform_admin(current_user) or z.tenant_id == current_user.tenant_id
         } for z in zones
     ]
 
