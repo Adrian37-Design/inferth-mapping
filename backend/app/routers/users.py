@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
 from app.models import User, Tenant, AuditLog
-from app.auth_middleware import require_admin, require_manager, get_current_user
+from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List, Optional
@@ -53,7 +53,7 @@ async def get_users(
     
     # Filter by tenant unless it's a Tenant 1 Admin
     stmt = select(User).options(joinedload(User.tenant))
-    if current_user.tenant_id != 1:
+    if not is_platform_admin(current_user):
         stmt = stmt.where(User.tenant_id == current_user.tenant_id)
         
     result = await db.execute(stmt.offset(skip).limit(limit))
@@ -112,7 +112,7 @@ async def create_user(
     
     # Enforce tenant isolation: Can only create users in your same tenant 
     # (unless global admin)
-    if current_user.tenant_id != 1 and new_user.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and new_user.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Cannot create users for other companies")
 
     db.add(new_user)
@@ -175,8 +175,12 @@ async def update_user(
         )
         
     # Enforce tenant isolation
-    if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and user.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to update users in other companies")
+    if not is_platform_admin(current_user) and user_update.tenant_id not in (None, user.tenant_id):
+        raise HTTPException(status_code=403, detail="Only the platform administrator can move users between companies")
+    if not is_platform_admin(current_user) and user_update.role == "admin":
+        raise HTTPException(status_code=403, detail="Only the platform administrator can grant administrator access")
         
     # Protection: Managers cannot edit Admin users
     if current_user.role == "manager" and user.role == "admin":
@@ -231,7 +235,7 @@ async def delete_user(
         raise HTTPException(status_code=403, detail="The core account '***REMOVED***' is protected and cannot be deleted by Managers.")
         
     # Enforce tenant isolation
-    if current_user.tenant_id != 1 and user.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and user.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete users in other companies")
         
     # Nullify user_id in AuditLog before deleting user
