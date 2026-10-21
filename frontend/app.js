@@ -70,6 +70,28 @@ function parseTimestamp(timestamp) {
 }
 window.parseTimestamp = parseTimestamp;
 
+function markContact(deviceId, when) {
+    const ms = (when === undefined || when === null) ? Date.now() : window.ContactStatus.toMs(when);
+    if (!Number.isFinite(ms)) return;
+    const key = String(deviceId);
+    if (ms > (contactAt.get(key) || 0)) contactAt.set(key, ms);
+}
+
+function contactAgeFor(deviceId, fixTimestamp) {
+    const ms = contactAt.get(String(deviceId));
+    if (ms !== undefined) return Math.max(0, (Date.now() - ms) / 60000);
+    return window.ContactStatus.ageMins(fixTimestamp, Date.now());
+}
+
+function fixAgeFor(fixTimestamp) {
+    return window.ContactStatus.ageMins(fixTimestamp, Date.now());
+}
+
+function gpsFixNote(fixTimestamp) {
+    const age = fixAgeFor(fixTimestamp);
+    return (Number.isFinite(age) && age >= FIX_STALE_MINS) ? ` · GPS fix ${window.ContactStatus.formatAgo(age)}` : '';
+}
+
 function haversineDistanceKm(lat1, lon1, lat2, lon2) {
     if (lat1 === undefined || lon1 === undefined || lat2 === undefined || lon2 === undefined) return 0;
     const R = 6371;
@@ -83,10 +105,11 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 window.haversineDistanceKm = haversineDistanceKm;
 
 let fleetFilterFrame = null;
-// Offline threshold in minutes: plugged-in trackers heartbeat at least every
-// 20-60s (via /upsert or /get-commands). 1.5 min (90s) marks unplugged devices
-// Offline promptly without false-alarming between stationary command polls.
-const OFFLINE_THRESHOLD_MINS = 1.5;
+// Offline is decided from last contact with the server (an upload or a command
+// poll), not from the GPS fix time. Thresholds live in contact-status.js.
+const OFFLINE_THRESHOLD_MINS = window.ContactStatus.CONTACT_OFFLINE_MINS;
+const FIX_STALE_MINS = window.ContactStatus.FIX_STALE_MINS;
+const contactAt = new Map(); // device id -> epoch ms of the last contact with the server
 const dailyMileageFetchedAt = new Map();
 
 // Shared mileage fetch: /daily returns { daily_mileage, total_mileage } from the
@@ -316,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // as soon as OFFLINE_THRESHOLD_MINS elapses — without pressing Refresh.
     setInterval(() => {
         try {
+            allVehicles.forEach(v => { if (!vehiclePositions[v.id]) updateVehicleCard(v.id, 0, null); });
             Object.keys(vehiclePositions).forEach(id => {
                 const pos = vehiclePositions[id];
                 if (!pos) return;
@@ -341,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update each marker in place (never regress a fresher WS update)
             Object.values(posMap).forEach(pos => {
+                if (pos.last_seen) markContact(pos.device_id, pos.last_seen);
                 const rawData = pos.raw || {};
                 const lastAcceptedRaw = vehiclePositions[pos.device_id] && vehiclePositions[pos.device_id].timestamp;
                 const incomingTs = parseTimestamp(pos.timestamp);
@@ -1955,6 +1980,7 @@ async function loadVehicles() {
 
         const vehicles = await response.json();
         allVehicles = vehicles; // Store globally for geofence assignment
+        vehicles.forEach(v => { if (v.device_metadata && v.device_metadata.last_seen) markContact(v.id, v.device_metadata.last_seen); });
         updateChartVehicleSelector(allVehicles);
         populateHistoryVehicleSelect();
 
@@ -2108,8 +2134,8 @@ function updateDashboardKPIs(vehicles) {
         const pos = vehiclePositions[v.id];
         const timestamp = pos ? pos.timestamp : (marker ? marker.lastUpdate : null);
 
-        if (timestamp) {
-            const minsAgo = (Date.now() - parseTimestamp(timestamp).getTime()) / 60000;
+        if (timestamp || contactAt.has(String(v.id))) {
+            const minsAgo = contactAgeFor(v.id, timestamp);
 
             if (minsAgo < OFFLINE_MINS) {
                 // Use the marker's resolved status (speed persistence + 30s
@@ -2121,7 +2147,7 @@ function updateDashboardKPIs(vehicles) {
                     stationary++;
                 } else {
                     const speed = pos ? pos.speed : 0;
-                    if (speed > 3) {
+                    if (speed > 3 && fixAgeFor(timestamp) < FIX_STALE_MINS) {
                         moving++;
                     } else {
                         stationary++;
@@ -2164,14 +2190,10 @@ function getVehicleDashStatus(v) {
     const pos = vehiclePositions[v.id];
     const marker = markers[v.id];
     const ts = pos ? pos.timestamp : (marker ? marker.lastUpdate : null);
-    if (!ts) return 'offline';
-    const parsedTs = parseTimestamp(ts);
-    if (!parsedTs) return 'offline';
-    const minsAgo = (Date.now() - parsedTs.getTime()) / 60000;
-    if (minsAgo >= OFFLINE_THRESHOLD_MINS) return 'offline';
+    if (!(contactAgeFor(v.id, ts) < OFFLINE_THRESHOLD_MINS)) return 'offline';
     if (marker && marker.resolvedStatus === 'Moving') return 'moving';
     if (marker && marker.resolvedStatus === 'Stationary') return 'stationary';
-    return (pos && pos.speed > 3) ? 'moving' : 'stationary';
+    return (pos && pos.speed > 3 && fixAgeFor(ts) < FIX_STALE_MINS) ? 'moving' : 'stationary';
 }
 
 function renderDashVehicles() {
@@ -2559,8 +2581,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         resolvedName = marker.vehicleName;
     }
 
-    const timeDiff = Math.max(0, Date.now() - parseTimestamp(timestamp).getTime());
-    const minsOffline = timeDiff / (1000 * 60);
+    const minsOffline = contactAgeFor(id, timestamp);
+    const fixStale = fixAgeFor(timestamp) >= FIX_STALE_MINS;
 
     // Robust Speed Resolution: OBD/heartbeat packets carry NO speed value
     // (speed arrives as undefined). Persist last known speed per-marker so
@@ -2581,7 +2603,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             }
         }
     }
-    speed = resolvedSpeed;
+    speed = fixStale ? 0 : resolvedSpeed;
 
     // Robust Ignition State Merging
     let ignitionOn = (rawData && rawData.ignition !== undefined) ? rawData.ignition : (marker && marker.ignitionOn);
@@ -2594,7 +2616,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     // Motion persistence: brief speed dips (0 for a few seconds at a robot)
     // should not instantly flip status. Require speed>3 to START moving,
     // but keep "Moving" until we've seen ~30s of consecutive low speed.
-    const hardwareMoving = Boolean(rawData && String(rawData.state || '').toUpperCase() === 'MOVING');
+    const hardwareMoving = !fixStale && Boolean(rawData && String(rawData.state || '').toUpperCase() === 'MOVING');
     let assetStatus = 'Offline';
     if (minsOffline < OFFLINE_THRESHOLD_MINS) {
         if (speed > 3 || hardwareMoving) {
@@ -2602,7 +2624,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
             if (marker) marker.stationarySince = null;
         } else {
             if (marker && marker.wasMoving) {
-                const now = parseTimestamp(timestamp).getTime();
+                const now = Date.now();
                 if (!marker.stationarySince) marker.stationarySince = now;
                 const stoppedFor = (now - marker.stationarySince) / 1000;
                 if (stoppedFor < 30) {
@@ -2773,20 +2795,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const isOffline = assetStatus === 'Offline';
     const initialAddr = cachedAddr || ((lat && lng) ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : 'Location unavailable');
 
-    const lastSeenDate = parseTimestamp(timestamp);
-    const lastSeenValid = lastSeenDate && !isNaN(lastSeenDate.getTime());
-    const offlineDiffMs = lastSeenValid ? Math.max(0, Date.now() - lastSeenDate.getTime()) : 0;
-    const offlineDiffSecs = Math.floor(offlineDiffMs / 1000);
-    const offlineDiffMins = Math.floor(offlineDiffMs / 60000);
-    const offlineDiffHrs = Math.floor(offlineDiffMins / 60);
-    const offlineDiffDays = Math.floor(offlineDiffHrs / 24);
 
-    const updatedAgoLabel = !lastSeenValid ? 'Unavailable'
-        : offlineDiffDays > 0 ? `${offlineDiffDays}d ago`
-        : offlineDiffHrs > 0 ? `${offlineDiffHrs}h ago`
-        : offlineDiffMins > 0 ? `${offlineDiffMins}m ago`
-        : offlineDiffSecs > 15 ? `${offlineDiffSecs}s ago`
-        : 'Just now';
+    const updatedAgoLabel = window.ContactStatus.formatAgo(minsOffline) + gpsFixNote(timestamp);
 
     const statusBadgeColors = {
         Moving: { bg: '#dcfce7', fg: '#15803d', dot: '#16a34a' },
@@ -2965,8 +2975,8 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
     const card = document.querySelector(`.vehicle-card[data-id="${id}"]`);
     if (!card) return;
 
-    // Determine Status using timestamp (10-minute offline threshold)
-    const minsAgo = (Date.now() - parseTimestamp(timestamp).getTime()) / 60000;
+    // Determine status from last contact with the server
+    const minsAgo = contactAgeFor(id, timestamp);
     
     // Get persistent state from marker (includes motion grace period)
     const marker = markers[id];
@@ -2979,7 +2989,7 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
         // Use the resolved status computed in addOrUpdateMarker
         // (speed persistence + 30s motion grace) so card and marker agree
         status = marker.resolvedStatus.toLowerCase(); label = marker.resolvedStatus;
-    } else if (speed > 3) {
+    } else if (speed > 3 && fixAgeFor(timestamp) < FIX_STALE_MINS) {
         status = 'moving'; label = 'Moving';
     } else {
         status = 'stationary'; label = 'Stationary';
@@ -3171,9 +3181,8 @@ function updateAssetDetailUI(id) {
 
     const obd = obdDataMap[id] || {}; // Consistently scoped for the whole function
 
-    const parsedTs = parseTimestamp(data.timestamp);
-    const minsAgo = parsedTs ? Math.max(0, (Date.now() - parsedTs.getTime()) / 60000) : NaN;
-    const isOffline = !Number.isFinite(minsAgo) || minsAgo >= OFFLINE_THRESHOLD_MINS;
+    const minsAgo = contactAgeFor(id, data.timestamp);
+    const isOffline = !(minsAgo < OFFLINE_THRESHOLD_MINS);
 
     // Status Badge — prefer marker's resolved status (speed persistence + grace)
     const statusBadge = document.getElementById('detail-status');
@@ -3188,7 +3197,7 @@ function updateAssetDetailUI(id) {
     } else if (marker && marker.resolvedStatus) {
         status = marker.resolvedStatus;
         statusClass = `badge-${marker.resolvedStatus.toLowerCase()}`;
-    } else if (data.speed > 3) {
+    } else if (data.speed > 3 && fixAgeFor(data.timestamp) < FIX_STALE_MINS) {
         status = 'Moving'; statusClass = 'badge-moving';
     } else {
         status = 'Stationary'; statusClass = 'badge-stationary';
@@ -3238,9 +3247,8 @@ function updateAssetDetailUI(id) {
         coordsEl.style = greyStyle;
     }
 
-    const timeDiff = Math.floor(minsAgo);
     const lastSeenEl = document.getElementById('detail-last-seen');
-    if (lastSeenEl) lastSeenEl.textContent = !Number.isFinite(timeDiff) ? 'Unavailable' : (timeDiff < 1 ? 'Just now' : `${timeDiff} min ago`);
+    if (lastSeenEl) lastSeenEl.textContent = window.ContactStatus.formatAgo(minsAgo) + gpsFixNote(data.timestamp);
 
     // Tracker hardware telemetry — merge device_metadata (envelope fields),
     // persisted telemetry cache (obdDataMap) and the latest raw row
@@ -4110,6 +4118,10 @@ function connectWebSocket() {
                 updateStatus('connected', 'Live');
                 return;
             }
+            if (data.type === 'heartbeat') {
+                markContact(data.device_id, data.last_seen);
+                return;
+            }
             const isObd = data.raw && (data.raw.type === 'obd' || data.raw.type === 'location_obd');
 
             if (data.imei && (data.latitude || isObd)) {
@@ -4147,6 +4159,7 @@ function connectWebSocket() {
                 }
 
                 if (deviceId !== null && deviceId !== undefined) {
+                    markContact(deviceId);
                     const m = markers[deviceId];
                     let lat = data.latitude;
                     let lng = data.longitude;

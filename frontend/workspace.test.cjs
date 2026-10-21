@@ -56,6 +56,7 @@ function workspace() {
         cancelAnimationFrame(id) { canceled.push(id); frames.delete(id); }
     });
     context.window = context;
+    vm.runInContext(readFileSync(path.join(__dirname, 'contact-status.js'), 'utf8'), context);
     vm.runInContext(source, context);
     get('fleet-status-filter').value = 'all';
     selectors.set('.main-container', element());
@@ -203,6 +204,43 @@ test('asset details also treat invalid timestamps as offline and hide stale spee
     assert.equal(get('detail-status').textContent, 'Offline');
     assert.equal(get('detail-speed').textContent, '--');
     assert.equal(get('detail-last-seen').textContent, 'Unavailable');
+});
+
+test('a fresh contact with a stale fix stays online but never shows Moving', () => {
+    const { context, selectors } = workspace();
+    const card = element();
+    const time = element();
+    const badge = element();
+    card.querySelector = sel => sel === '.meta-time' ? time : sel === '.vehicle-status-badge' ? badge : null;
+    selectors.set('.vehicle-card[data-id="1"]', card);
+    vm.runInContext("markContact(1);", context);
+    const stale = new Date(Date.now() - 20 * 60000).toISOString();
+    context.updateVehicleCard(1, 50, stale);
+    assert.equal(card.dataset.status, 'stationary');
+    assert.equal(badge.textContent, 'Stationary');
+    assert.equal(time.textContent, new Date(stale).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+});
+
+test('a device silent for more than 3 minutes is offline even with a stored fix', () => {
+    const { context, selectors } = workspace();
+    const card = element();
+    card.querySelector = () => null;
+    selectors.set('.vehicle-card[data-id="1"]', card);
+    vm.runInContext("markContact(1, Date.now() - 10 * 60000);", context);
+    const old = new Date(Date.now() - 30 * 60000).toISOString();
+    context.updateVehicleCard(1, 0, old);
+    assert.equal(card.dataset.status, 'offline');
+});
+
+test('asset detail shows contact recency and flags a stale fix separately', () => {
+    const { context, get } = workspace();
+    const stale = new Date(Date.now() - 20 * 60000).toISOString();
+    vm.runInContext(`vehiclePositions[1] = { timestamp: '${stale}', speed: 50, lat: -17.8, lng: 31.0 };`, context);
+    vm.runInContext("markContact(1);", context);
+    get('tab-asset-detail').querySelectorAll = () => [];
+    context.updateAssetDetailUI(1);
+    assert.equal(get('detail-status').textContent, 'Stationary');
+    assert.equal(get('detail-last-seen').textContent, 'Just now · GPS fix 20m ago');
 });
 
 test('viewer accounts cannot open engine control', () => {
