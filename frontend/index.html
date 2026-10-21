@@ -1297,6 +1297,20 @@
                         <input type="text" id="vehicle-company" placeholder="e.g., Console Telematics">
                         <small>Optional: If this matches an existing company, the device will be assigned to that company.</small>
                     </div>
+                    <div class="form-group hidden" id="fuel-cal-group">
+                        <label>Fuel sensor calibration</label>
+                        <small>Record the live reading with the tank empty, then full. Tank size is optional and gives litres.</small>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+                            <input type="number" id="fuel-cal-empty" placeholder="Empty reading" step="any" min="0" max="4095" style="flex:1; width:auto;">
+                            <button type="button" class="btn-secondary" id="fuel-cal-use-empty">Use current</button>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:6px;">
+                            <input type="number" id="fuel-cal-full" placeholder="Full reading" step="any" min="0" max="4095" style="flex:1; width:auto;">
+                            <button type="button" class="btn-secondary" id="fuel-cal-use-full">Use current</button>
+                        </div>
+                        <input type="number" id="fuel-cal-capacity" placeholder="Tank size in litres (optional)" step="any" min="0" style="margin-top:6px;">
+                        <small id="fuel-cal-live">Live sensor reading: --</small>
+                    </div>
                     <div class="form-actions">
                         <button type="button" class="btn-secondary" id="cancel-add-vehicle">Cancel</button>
                         <button type="submit" class="btn-primary" id="vehicle-submit-btn">
@@ -1348,7 +1362,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script src="/static/auth.js?v=61"></script>
     <script src="/static/spotlight.js?v=3"></script>
-    <script src="/static/app.js?v=128"></script>
+    <script src="/static/app.js?v=129"></script>
     <script src="/static/geofence.js?v=3"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">

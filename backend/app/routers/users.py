@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
-from app.models import User, Tenant, AuditLog
+from app.models import User, Tenant, AuditLog, TrackerSecret, FuelCalibration
 from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
@@ -243,6 +243,8 @@ async def delete_user(
     await db.execute(
         update(AuditLog).where(AuditLog.user_id == user_id).values(user_id=None)
     )
+    await db.execute(update(TrackerSecret).where(TrackerSecret.created_by == user_id).values(created_by=None))
+    await db.execute(update(FuelCalibration).where(FuelCalibration.updated_by == user_id).values(updated_by=None))
     
     await db.delete(user)
     

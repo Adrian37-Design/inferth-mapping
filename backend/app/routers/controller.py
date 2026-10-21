@@ -10,7 +10,7 @@ import hashlib
 import hmac
 
 from app.db import get_db
-from app.models import Device, Position, Alert, User, TrackerSecret
+from app.models import Device, Position, Alert, User, TrackerSecret, FuelCalibration
 from app.config import settings
 from app.auth_middleware import require_super_admin
 from app.services.data_guardrails import (
@@ -23,6 +23,7 @@ from app.services.data_guardrails import (
 )
 from app.realtime import publish_position
 from app.services.alerts import AlertService
+from app.services.fuel import fuel_reading
 
 router = APIRouter(prefix="/api/controller", tags=["controller"])
 
@@ -163,6 +164,8 @@ async def upsert_tracking_data(
         await db.refresh(device)
     else:
         await check_tracker(request, device.imei, db)
+
+    fuel_cal = (await db.execute(select(FuelCalibration).where(FuelCalibration.device_id == device.id))).scalars().first()
 
     # Purge phantom devices created by historical hash collisions
     try:
@@ -313,7 +316,11 @@ async def upsert_tracking_data(
             prev_pos = adj_q.scalars().first()
 
         # Extract CAN/telemetry fields
-        fuel = row.get("fuel_level")
+        fuel, fuel_litres = fuel_reading(row.get("fuel_adc"), fuel_cal)
+        if fuel is not None:
+            row["fuel_percent"] = fuel
+            if fuel_litres is not None:
+                row["fuel_litres"] = fuel_litres
         vbatt = row.get("vbatt")
         ign = row.get("ignition")
         altitude = row.get("altitude")

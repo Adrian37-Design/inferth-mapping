@@ -216,9 +216,10 @@ def next_step():
     return step_counter
 
 
-async def upsert_as(imei, token=None, headers=None):
+async def upsert_as(imei, token=None, headers=None, extra=None):
     row = {"lat": LAT + next_step() * 0.0002, "lon": LNG, "speed": 10, "satellites": 8,
            "time_to": datetime.utcnow().strftime("%m/%d/%Y %H:%M:%S GMT")}
+    row.update(extra or {})
     request = FakeRequest({"imei": imei, "data": [row]}, cookies={"token": token} if token else {}, headers=headers)
     async with AsyncSessionLocal() as db:
         return await upsert_tracking_data(request=request, db=db)
@@ -261,6 +262,14 @@ async def alerts_for(imei):
         if device is None:
             return 0
         return len((await db.execute(select(Alert).where(Alert.device_id == device.id))).scalars().all())
+
+
+async def latest_position(imei):
+    async with AsyncSessionLocal() as db:
+        device = (await db.execute(select(Device).where(Device.imei == imei))).scalars().first()
+        position = (await db.execute(select(Position).where(Position.device_id == device.id)
+                                     .order_by(Position.timestamp.desc(), Position.id.desc()).limit(1))).scalars().first()
+        return {"fuel_level": position.fuel_level, "raw": position.raw or {}} if position else None
 
 
 async def device_exists(imei):
@@ -604,6 +613,83 @@ async def check_secret_registry():
         record("secrets: removing a secret stops verification", removed == 200 and gone == 401, f"delete {removed}, upload {gone}")
 
 
+async def check_user_delete_with_registered_secret():
+    from app.routers.tracker_secrets import SecretSet, set_tracker_secret
+    _, platform = await make_actor(1, "admin")
+    _, owner = await make_actor(1, "admin")
+    imei = await make_device(2)
+    registered = (await run(lambda db: set_tracker_secret(imei=imei, payload=SecretSet(secret="d" * 40), current_user=owner, db=db)))[0]
+    try:
+        deleted = (await run(lambda db: delete_user(user_id=owner.id, current_user=platform, db=db)))[0]
+    except Exception as exc:
+        deleted = f"error {type(exc).__name__}"
+    record("users: deleting a user who registered a tracker secret succeeds", registered == 200 and deleted == 200,
+           f"register {registered}, delete {deleted}")
+
+
+async def check_fuel_percent():
+    from types import SimpleNamespace
+    try:
+        from pydantic import ValidationError
+        from app.routers.devices import FuelCalibrationIn, set_fuel_calibration
+        from app.services.fuel import fuel_reading
+    except ImportError:
+        record("fuel: calibration, conversion and endpoint exist", False, "fuel calibration code missing")
+        return
+    cal = SimpleNamespace(empty_adc=3000.0, full_adc=1000.0, capacity_l=None)
+    record("fuel: a reading halfway between empty and full is 50%", fuel_reading(2000, cal) == (50.0, None), str(fuel_reading(2000, cal)))
+    record("fuel: a reading above full clamps to 100%", fuel_reading(500, cal)[0] == 100.0)
+    record("fuel: a reading below empty clamps to 0%", fuel_reading(3500, cal)[0] == 0.0)
+    record("fuel: a tank size gives litres from the same percent",
+           fuel_reading(2000, SimpleNamespace(empty_adc=3000.0, full_adc=1000.0, capacity_l=60.0)) == (50.0, 30.0))
+    record("fuel: no calibration or no reading gives no value", fuel_reading(2000, None) == (None, None) and fuel_reading(None, cal) == (None, None))
+    record("fuel: identical empty and full readings give no value",
+           fuel_reading(2000, SimpleNamespace(empty_adc=5.0, full_adc=5.0, capacity_l=None)) == (None, None))
+    record("fuel: non-numeric and non-finite readings give no value",
+           fuel_reading("abc", cal) == (None, None) and fuel_reading(float("nan"), cal) == (None, None))
+    try:
+        FuelCalibrationIn(empty_adc=3000, full_adc=1000, capacity_l=0)
+        rejected = False
+    except ValidationError:
+        rejected = True
+    record("fuel: a tank size must be positive", rejected)
+
+    _, platform = await make_actor(1, "admin")
+    _, acme_admin = await make_actor(2, "admin")
+    _, other_admin = await make_actor(3, "admin")
+    acme_imei = await make_device(2)
+    acme_id = await device_id_of(acme_imei)
+    set_ok = (await run(lambda db: set_fuel_calibration(device_id=acme_id, payload=FuelCalibrationIn(empty_adc=3000, full_adc=1000, capacity_l=60), current_user=acme_admin, db=db)))[0]
+    record("fuel: a company can calibrate its own tracker", set_ok == 200, str(set_ok))
+    cross = (await run(lambda db: set_fuel_calibration(device_id=acme_id, payload=FuelCalibrationIn(empty_adc=3000, full_adc=1000), current_user=other_admin, db=db)))[0]
+    record("fuel: another company cannot calibrate that tracker", cross == 403, str(cross))
+    same = (await run(lambda db: set_fuel_calibration(device_id=acme_id, payload=FuelCalibrationIn(empty_adc=500, full_adc=500), current_user=acme_admin, db=db)))[0]
+    record("fuel: empty and full readings must differ", same == 400, str(same))
+    platform_ok = (await run(lambda db: set_fuel_calibration(device_id=acme_id, payload=FuelCalibrationIn(empty_adc=3100, full_adc=900), current_user=platform, db=db)))[0]
+    record("fuel: the platform admin can calibrate any tracker", platform_ok == 200, str(platform_ok))
+    listed = [row for row in (await run(lambda db: list_devices(db=db, current_user=acme_admin)))[1] if row["id"] == acme_id]
+    record("fuel: the device list carries the calibration",
+           bool(listed) and listed[0].get("fuel_calibration") == {"empty_adc": 3100.0, "full_adc": 900.0, "capacity_l": None},
+           str(listed[:1]))
+
+    await run(lambda db: set_fuel_calibration(device_id=acme_id, payload=FuelCalibrationIn(empty_adc=3000, full_adc=1000, capacity_l=60), current_user=acme_admin, db=db))
+    await upsert_as(acme_imei, extra={"fuel_adc": 2000, "fuel_volume": 47})
+    row = await latest_position(acme_imei)
+    record("fuel: the stored percent comes from the raw counts, not the old fuel_volume",
+           row is not None and row["fuel_level"] == 50.0, str(row and row["fuel_level"]))
+    record("fuel: the raw row carries the percent and litres the popup reads",
+           row is not None and row["raw"].get("fuel_percent") == 50.0 and row["raw"].get("fuel_litres") == 30.0, str(row and row["raw"]))
+    await upsert_as(acme_imei, extra={"fuel_level": 321.5})
+    old_row = await latest_position(acme_imei)
+    record("fuel: an old row with only fuel_level is not read as a percent", old_row is not None and old_row["fuel_level"] is None)
+
+    bare_imei = await make_device(3)
+    await upsert_as(bare_imei, extra={"fuel_adc": 2000})
+    bare = await latest_position(bare_imei)
+    record("fuel: an uncalibrated tracker stores no percent",
+           bare is not None and bare["fuel_level"] is None and "fuel_percent" not in bare["raw"])
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -635,6 +721,8 @@ async def run_checks():
     await check_user_scope_rules()
     await check_assignment_rules()
     await check_secret_registry()
+    await check_user_delete_with_registered_secret()
+    await check_fuel_percent()
 
 
 async def main():
