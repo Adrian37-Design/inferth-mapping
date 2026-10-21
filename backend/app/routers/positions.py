@@ -268,6 +268,12 @@ async def get_fleet_snapshot(
     result = await db.execute(query)
     positions = result.scalars().all()
 
+    device_ids = {p.device_id for p in positions}
+    last_seen_by_device = {}
+    if device_ids:
+        meta_rows = await db.execute(select(Device.id, Device.device_metadata).where(Device.id.in_(device_ids)))
+        last_seen_by_device = {row.id: (row.device_metadata or {}).get("last_seen") for row in meta_rows}
+
     out = []
     for p in positions:
         lat = p.latitude
@@ -304,7 +310,8 @@ async def get_fleet_snapshot(
             "speed": min(max(0.0, p.speed or 0.0), 200.0),
             "timestamp": _iso_utc(p.timestamp),
             "course": course,
-            "raw": p.raw
+            "raw": p.raw,
+            "last_seen": last_seen_by_device.get(p.device_id)
         })
     return out
 

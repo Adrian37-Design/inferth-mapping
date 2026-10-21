@@ -272,6 +272,20 @@ async def latest_position(imei):
         return {"fuel_level": position.fuel_level, "raw": position.raw or {}} if position else None
 
 
+async def latest_fix(imei):
+    async with AsyncSessionLocal() as db:
+        device = (await db.execute(select(Device).where(Device.imei == imei))).scalars().first()
+        position = (await db.execute(select(Position).where(Position.device_id == device.id, Position.latitude.is_not(None))
+                                     .order_by(Position.timestamp.desc(), Position.id.desc()).limit(1))).scalars().first()
+        return {"id": position.id, "timestamp": position.timestamp, "latitude": position.latitude} if position else None
+
+
+async def device_meta(imei):
+    async with AsyncSessionLocal() as db:
+        device = (await db.execute(select(Device).where(Device.imei == imei))).scalars().first()
+        return dict(device.device_metadata or {})
+
+
 async def device_exists(imei):
     async with AsyncSessionLocal() as db:
         return (await db.execute(select(Device).where(Device.imei == imei))).scalars().first() is not None
@@ -690,6 +704,55 @@ async def check_fuel_percent():
            bare is not None and bare["fuel_level"] is None and "fuel_percent" not in bare["raw"])
 
 
+async def check_contact_separate_from_fix():
+    import app.routers.controller as controller_module
+    from app.realtime import Viewer
+    from app.routers.positions import get_fleet_snapshot
+    _, acme_admin = await make_actor(2, "admin")
+    _, other_admin = await make_actor(3, "admin")
+    imei = await make_device(2)
+    device_id = await device_id_of(imei)
+    await upsert_as(imei)
+    fix_before = await latest_fix(imei)
+    seen_before = (await device_meta(imei)).get("last_seen")
+
+    async def capture_publish(call):
+        sent = []
+
+        async def capture(payload):
+            sent.append(payload)
+
+        original = controller_module.publish_position
+        controller_module.publish_position = capture
+        try:
+            await call()
+        finally:
+            controller_module.publish_position = original
+        return sent
+
+    poll_sent = await capture_publish(lambda: poll_commands(imei))
+    fix_after_poll = await latest_fix(imei)
+    seen_after_poll = (await device_meta(imei)).get("last_seen")
+    upload_sent = await capture_publish(lambda: upsert_as(imei))
+    record("contact: a command poll does not rewrite the stored GPS fix", fix_after_poll == fix_before,
+           f"before {fix_before}, after {fix_after_poll}")
+    record("contact: a command poll moves last_seen forward", seen_after_poll is not None and seen_after_poll != seen_before)
+    poll_hb = [m for m in poll_sent if m.get("type") == "heartbeat" and m.get("device_id") == device_id]
+    upload_hb = [m for m in upload_sent if m.get("type") == "heartbeat" and m.get("device_id") == device_id]
+    record("contact: a command poll publishes one heartbeat for its device", len(poll_hb) == 1)
+    record("contact: an upload publishes one heartbeat for its device", len(upload_hb) == 1)
+    record("contact: heartbeats carry no coordinates",
+           bool(poll_hb) and all("latitude" not in m and "longitude" not in m for m in poll_hb + upload_hb))
+    record("contact: heartbeats reach only viewers who can see the device",
+           bool(poll_hb) and Viewer(acme_admin, "Acme").can_see(poll_hb[0]) and not Viewer(other_admin, "Other Co").can_see(poll_hb[0]))
+    snapshot = (await run(lambda db: get_fleet_snapshot(db=db, current_user=acme_admin)))[1] or []
+    entry = [e for e in snapshot if e["device_id"] == device_id]
+    current_seen = (await device_meta(imei)).get("last_seen")
+    record("contact: the fleet snapshot carries last_seen beside the fix time",
+           bool(entry) and entry[0].get("last_seen") == current_seen and entry[0].get("timestamp") is not None,
+           str(entry[:1]))
+
+
 async def run_checks():
     await ensure_database()
     await reset_schema()
@@ -723,6 +786,7 @@ async def run_checks():
     await check_secret_registry()
     await check_user_delete_with_registered_secret()
     await check_fuel_percent()
+    await check_contact_separate_from_fix()
 
 
 async def main():

@@ -105,6 +105,21 @@ async def check_tracker(request: Request, imei: Optional[str], db: AsyncSession)
     print(f"[TRACKER AUTH] monitor: {imei or 'unknown tracker'} {'signature rejected' if secret else 'no secret configured'}")
 
 
+async def publish_heartbeat(device, seen_at):
+    try:
+        await publish_position({
+            "type": "heartbeat",
+            "device_id": device.id,
+            "imei": device.imei,
+            "tenant_id": device.tenant_id,
+            "company": device.company,
+            "name": device.name,
+            "last_seen": seen_at.isoformat() + "Z"
+        })
+    except Exception:
+        pass
+
+
 @router.post("/upsert")
 async def upsert_tracking_data(
     request: Request,
@@ -424,6 +439,7 @@ async def upsert_tracking_data(
     await db.commit()
     for alert_input in alert_inputs:
         asyncio.create_task(AlertService.evaluate_rules(db, device.id, alert_input))
+    await publish_heartbeat(device, datetime.utcnow())
     return {"success": True, "count": inserted_count}
 
 
@@ -512,46 +528,10 @@ async def get_commands(
         meta["last_seen"] = now.isoformat() + "Z"
         device.device_metadata = meta
 
-        # Stationary trackers skip /upsert for up to 6 min but poll /get-commands
-        # every 60s. Refresh latest position timestamp and broadcast a heartbeat
-        # so the platform knows the device is plugged in, and can mark it Offline
-        # within ~90s as soon as it is unplugged.
-        latest_q = await db.execute(
-            select(Position)
-            .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None))
-            .order_by(Position.timestamp.desc())
-            .limit(1)
-        )
-        latest_pos = latest_q.scalars().first()
-        if latest_pos:
-            latest_pos.timestamp = now
-            await db.commit()
-            try:
-                await publish_position({
-                    "device_id": device.id,
-                    "imei": device.imei,
-                    "tenant_id": device.tenant_id,
-                    "company": device.company,
-                    "name": device.name,
-                    "latitude": latest_pos.latitude,
-                    "longitude": latest_pos.longitude,
-                    "speed": latest_pos.speed or 0.0,
-                    "altitude": latest_pos.altitude,
-                    "course": latest_pos.course,
-                    "fuel_level": latest_pos.fuel_level,
-                    "battery_voltage": latest_pos.battery_voltage,
-                    "ignition": latest_pos.ignition,
-                    "is_engine_locked": meta.get("is_engine_locked"),
-                    "signal_quality": meta.get("signal_quality"),
-                    "operator_name": meta.get("operator_name"),
-                    "ip_address": meta.get("ip_address"),
-                    "raw": latest_pos.raw or {},
-                    "timestamp": now.isoformat() + "Z"
-                })
-            except Exception:
-                pass
-        else:
-            await db.commit()
+        # Polls refresh contact time only. The stored GPS fix keeps its real time,
+        # so a silent tracker's last location is never shown as current.
+        await db.commit()
+        await publish_heartbeat(device, now)
 
     return {
         "success": True,
