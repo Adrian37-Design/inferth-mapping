@@ -190,3 +190,14 @@ class TrackerSecret(Base):
     secret = Column(String, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class FuelCalibration(Base):
+    __tablename__ = "fuel_calibrations"
+
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), primary_key=True)
+    empty_adc = Column(Float, nullable=False)
+    full_adc = Column(Float, nullable=False)
+    capacity_l = Column(Float, nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

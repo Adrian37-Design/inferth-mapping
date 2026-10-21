@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
-from app.models import Device, Tenant, User
+from app.models import AuditLog, Device, FuelCalibration, Tenant, User
 from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin, may_set_company
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.future import select
 from sqlalchemy import func
 from typing import Literal
@@ -16,6 +16,14 @@ class DeviceCreate(BaseModel):
     driver_name: str | None = None
     company: str | None = None
     tenant_name: str | None = None
+
+class FuelCalibrationIn(BaseModel):
+    empty_adc: float = Field(ge=0, le=4095)
+    full_adc: float = Field(ge=0, le=4095)
+    capacity_l: float | None = Field(default=None, gt=0)
+
+def fuel_calibration_out(cal):
+    return None if cal is None else {"empty_adc": cal.empty_adc, "full_adc": cal.full_adc, "capacity_l": cal.capacity_l}
 
 @router.post("/")
 async def create_device(
@@ -99,6 +107,9 @@ async def list_devices(
     result = await db.execute(stmt)
     devices = result.scalars().all()
     
+    cal_rows = (await db.execute(select(FuelCalibration).where(FuelCalibration.device_id.in_([d.id for d in devices])))).scalars().all()
+    cals = {c.device_id: c for c in cal_rows}
+
     # Robust serialization
     output = []
     for d in devices:
@@ -109,7 +120,8 @@ async def list_devices(
             "driver_name": getattr(d, 'driver_name', None),
             "company": getattr(d, 'company', None),
             "tenant_id": getattr(d, 'tenant_id', None),
-            "device_metadata": getattr(d, 'device_metadata', {})
+            "device_metadata": getattr(d, 'device_metadata', {}),
+            "fuel_calibration": fuel_calibration_out(cals.get(d.id))
         })
     return output
 
@@ -144,6 +156,36 @@ async def delete_device(
     await db.commit()
     
     return {"message": f"Device {device.imei} deleted successfully"}
+
+@router.put("/{device_id}/fuel-calibration")
+async def set_fuel_calibration(
+    device_id: int,
+    payload: FuelCalibrationIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    if payload.empty_adc == payload.full_adc:
+        raise HTTPException(status_code=400, detail="Empty and full readings must be different")
+    device = (await db.execute(select(Device).where(Device.id == device_id))).scalars().first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if not is_platform_admin(current_user) and device.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to calibrate this device")
+
+    cal = (await db.execute(select(FuelCalibration).where(FuelCalibration.device_id == device_id))).scalars().first()
+    if cal is None:
+        cal = FuelCalibration(device_id=device_id)
+        db.add(cal)
+    cal.empty_adc, cal.full_adc, cal.capacity_l, cal.updated_by = payload.empty_adc, payload.full_adc, payload.capacity_l, current_user.id
+    out = fuel_calibration_out(cal)
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="SET_FUEL_CALIBRATION",
+        details={"device_id": device_id, **out}
+    ))
+    await db.commit()
+    return {"id": device_id, "fuel_calibration": out}
 
 @router.put("/{device_id}")
 async def update_device(

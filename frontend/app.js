@@ -2531,7 +2531,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // Persist tracker telemetry too (satellites/hdop/state/geofence/signal)
         // so the detail panel can read them from obdDataMap
         const trackerFields = ['satellites', 'hdop', 'age', 'state', 'geofence_violation_state', 'geofence_id',
-            'battery_percentage', 'vbatt', 'fuel_level', 'fuel_adc', 'fuel_height', 'fuel_volume',
+            'battery_percentage', 'vbatt', 'fuel_adc', 'fuel_percent', 'fuel_litres',
             'signal_quality', 'operator_name', 'ip_address',
             'is_engine_locked', 'time_from', 'time_to'];
         trackerFields.forEach(field => {
@@ -2795,9 +2795,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     };
     const sb = statusBadgeColors[assetStatus] || statusBadgeColors.Offline;
 
-    const fuelLitres = (tracker.fuel_volume !== undefined && tracker.fuel_volume !== null)
-        ? tracker.fuel_volume : tracker.fuel_level;
-    const fuelDisplay = (fuelLitres !== undefined && fuelLitres !== null) ? `${Math.round(fuelLitres)} L` : '--';
+    const fuelDisplay = fuelReadingLabel(tracker);
 
     const battParts = [];
     if (tracker.vbatt !== undefined && tracker.vbatt !== null) battParts.push(`${Number(tracker.vbatt).toFixed(1)}V`);
@@ -3263,8 +3261,7 @@ function updateAssetDetailUI(id) {
     if (t.vbatt !== undefined && t.vbatt !== null) vbattParts.push(`${Number(t.vbatt).toFixed(1)}V`);
     if (t.battery_percentage !== undefined && t.battery_percentage !== null) vbattParts.push(`${t.battery_percentage}%`);
     setDetail('detail-vbatt', vbattParts.length ? vbattParts.join(' · ') : '--');
-    const detailFuelL = (t.fuel_volume !== undefined && t.fuel_volume !== null) ? t.fuel_volume : t.fuel_level;
-    setDetail('detail-fuel', (detailFuelL !== undefined && detailFuelL !== null) ? `${Math.round(detailFuelL)}L` : '--');
+    setDetail('detail-fuel', fuelReadingLabel(t));
     const lockedState = t.is_engine_locked !== undefined ? t.is_engine_locked : (isShutdown ? true : undefined);
     setDetail('detail-engine-lock', lockedState === undefined ? '--' : (lockedState ? 'Locked' : 'Unlocked'));
     if (t.geofence_violation_state) {
@@ -3492,7 +3489,67 @@ function closeModal() {
     document.getElementById('vehicle-name').value = '';
 }
 
-// Open edit modal
+function fuelReadingLabel(t) {
+    if (t.fuel_percent === undefined || t.fuel_percent === null) {
+        return (t.fuel_adc === undefined || t.fuel_adc === null) ? '--' : 'Not calibrated';
+    }
+    const litres = (t.fuel_litres === undefined || t.fuel_litres === null) ? '' : ` · ${Math.round(t.fuel_litres)} L`;
+    return `${Math.round(t.fuel_percent)}%${litres}`;
+}
+
+function readFuelCalibrationInputs() {
+    return {
+        empty: document.getElementById('fuel-cal-empty').value.trim(),
+        full: document.getElementById('fuel-cal-full').value.trim(),
+        capacity: document.getElementById('fuel-cal-capacity').value.trim()
+    };
+}
+
+function showFuelCalibration(vehicle) {
+    document.getElementById('fuel-cal-group').classList.toggle('hidden', !vehicle);
+    if (!vehicle) return;
+    const cal = vehicle.fuel_calibration || {};
+    document.getElementById('fuel-cal-empty').value = cal.empty_adc ?? '';
+    document.getElementById('fuel-cal-full').value = cal.full_adc ?? '';
+    document.getElementById('fuel-cal-capacity').value = cal.capacity_l ?? '';
+    const adc = obdDataMap[vehicle.id] ? obdDataMap[vehicle.id].fuel_adc : undefined;
+    document.getElementById('fuel-cal-live').textContent = `Live sensor reading: ${adc ?? '--'} (raw counts)`;
+}
+
+function useCurrentFuelReading(inputId) {
+    const adc = editingVehicleId && obdDataMap[editingVehicleId] ? obdDataMap[editingVehicleId].fuel_adc : undefined;
+    if (adc === undefined || adc === null) {
+        alert('No live fuel reading yet. Wait for the tracker to report, then try again.');
+        return;
+    }
+    document.getElementById(inputId).value = Math.round(adc);
+}
+
+async function saveFuelCalibration(id, cal) {
+    if (cal.empty === '' && cal.full === '' && cal.capacity === '') return;
+    if (cal.empty === '' || cal.full === '') {
+        alert('Enter both the empty and full readings to calibrate the fuel sensor.');
+        return;
+    }
+    const response = await fetch(`${API_URL}/devices/${id}/fuel-calibration`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...window.AuthManager.getAuthHeader() },
+        body: JSON.stringify({
+            empty_adc: Number(cal.empty),
+            full_adc: Number(cal.full),
+            capacity_l: cal.capacity === '' ? null : Number(cal.capacity)
+        })
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        alert(`Fuel calibration failed: ${typeof error.detail === 'string' ? error.detail : 'check the values'}`);
+    }
+    loadVehicles();
+}
+
+document.getElementById('fuel-cal-use-empty').addEventListener('click', () => useCurrentFuelReading('fuel-cal-empty'));
+document.getElementById('fuel-cal-use-full').addEventListener('click', () => useCurrentFuelReading('fuel-cal-full'));
+
 function applyCompanyFieldLock() {
     const input = document.getElementById('vehicle-company');
     if (!input) return;
@@ -3507,12 +3564,14 @@ function applyCompanyFieldLock() {
     }
 }
 
+// Open edit modal
 function openEditModal(vehicle) {
     editingVehicleId = vehicle.id;
     document.getElementById('vehicle-imei').value = vehicle.imei;
     document.getElementById('vehicle-name').value = vehicle.name;
     document.getElementById('vehicle-company').value = vehicle.company || '';
     applyCompanyFieldLock();
+    showFuelCalibration(vehicle);
     document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-edit"></i> Edit Vehicle';
     const submitBtn = document.getElementById('vehicle-submit-btn');
     if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
@@ -4212,7 +4271,9 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     }
 
     if (editingVehicleId) {
-        updateVehicle(editingVehicleId, imei, name, null, company);
+        const id = editingVehicleId;
+        const cal = readFuelCalibrationInputs();
+        updateVehicle(id, imei, name, null, company).then(() => saveFuelCalibration(id, cal));
     } else {
         addVehicle(imei, name, company);
     }
@@ -4642,6 +4703,7 @@ if (addVehicleBtn) {
         if (nameInput) nameInput.value = '';
         if (companyInput) companyInput.value = '';
         applyCompanyFieldLock();
+        showFuelCalibration(null);
 
         const modalTitle = document.querySelector('#add-vehicle-modal .modal-header h3');
         if (modalTitle) modalTitle.innerHTML = '<i class="fas fa-car"></i> Add New Vehicle';
@@ -5592,7 +5654,7 @@ function renderOBDVehicleCards() {
     container.innerHTML = vehiclesWithObd.map(v => {
         const obd = obdDataMap[v.id] || {};
         const rpm = obd.rpm !== undefined ? Math.round(obd.rpm) : null;
-        const fuelLevel = obd.fuel_level !== undefined ? parseFloat(obd.fuel_level).toFixed(1) : (obd.fuel !== undefined ? parseFloat(obd.fuel).toFixed(1) : null);
+        const fuelLevel = obd.fuel_percent !== undefined ? parseFloat(obd.fuel_percent).toFixed(1) : (obd.fuel !== undefined ? parseFloat(obd.fuel).toFixed(1) : null);
         const battery = obd.battery !== undefined ? parseFloat(obd.battery).toFixed(1) : (obd.voltage !== undefined ? parseFloat(obd.voltage).toFixed(1) : null);
         const coolant = obd.coolant !== undefined ? Math.round(obd.coolant) : null;
         const engineLoad = obd.engine_load !== undefined ? Math.round(obd.engine_load) : null;
