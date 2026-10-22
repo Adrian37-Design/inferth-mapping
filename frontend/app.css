@@ -5190,13 +5190,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 #add-vehicle-modal .modal-content {
     --primary: #18181b;
     --primary-dark: #000000;
-    --glass-bg: #ffffff;
+    --glass-bg: #f4f4f5;
     --card-bg: #ffffff;
     --border-color: #e4e4e7;
     --text-primary: #18181b;
     --text-secondary: #52525b;
     --text-muted: #71717a;
-    background: #ffffff;
+    background: #f4f4f5;
     backdrop-filter: none;
     border: 1px solid #e4e4e7;
     border-radius: 14px;
