@@ -5280,6 +5280,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
+#add-vehicle-modal #vehicle-submit-btn:hover,
+#add-vehicle-modal #vehicle-submit-btn:active,
+#add-vehicle-modal #vehicle-submit-btn:focus-visible {
+    background: rgba(16, 185, 129, 0.14);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.22);
+}
+
 #add-vehicle-modal .btn-secondary {
     background: #ffffff;
     color: #3f3f46;
@@ -5292,6 +5303,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 #add-vehicle-modal .btn-secondary:hover {
     background: #f4f4f5;
     border-color: #a1a1aa;
+}
+
+#add-vehicle-modal #cancel-add-vehicle:hover,
+#add-vehicle-modal #cancel-add-vehicle:active,
+#add-vehicle-modal #cancel-add-vehicle:focus-visible {
+    background: rgba(239, 68, 68, 0.12);
+    backdrop-filter: blur(8px);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(239, 68, 68, 0.18);
 }
 
 @media (max-width: 768px) {
