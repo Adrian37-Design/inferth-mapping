@@ -1,0 +1,49 @@
+# Standby deployment for Railway outages.
+# Runs the same image the deploy-standby workflow builds, behind Caddy for
+# automatic HTTPS. Postgres stays on Railway — the app reaches it through the
+# Railway public TCP proxy URL in .env DATABASE_URL.
+#
+# Layout on the VPS:
+#   /opt/inferth-standby/docker-compose.yml  (this file)
+#   /opt/inferth-standby/Caddyfile
+#   /opt/inferth-standby/.env                (from .env.example — never commit it)
+
+services:
+  app:
+    image: ghcr.io/adrian37-design/inferth-mapping:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: 8000
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    expose:
+      - "8000"
+    ports:
+      # GT06/Sinotrack TCP port. Trackers do not use it yet (they post to
+      # railway.app over HTTPS) but it is exposed now so a future firmware
+      # change to a dedicated hostname needs no infrastructure work.
+      - "9005:9005"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

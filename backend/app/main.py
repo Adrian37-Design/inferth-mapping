@@ -284,8 +284,17 @@ async def health_check():
             status["database_connected"] = True
     except Exception as e:
         status["error"] = str(e)
-        
+
     return status
+
+@app.get("/version")
+async def version():
+    """Which commit this instance is running — used to verify deploys actually
+    landed (Railway injects RAILWAY_GIT_COMMIT_SHA; the standby deploy passes
+    GIT_COMMIT)."""
+    return {
+        "commit": os.environ.get("GIT_COMMIT") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "unknown"
+    }
 
 @app.get("/admin/repair-production")
 async def repair_production_state(current_user: User = Depends(require_super_admin)):
