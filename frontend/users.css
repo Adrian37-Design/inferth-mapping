@@ -2,9 +2,9 @@
 
 .users-list-container,
 .audit-list-container {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(24, 24, 27, 0.045);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(24, 24, 27, 0.064);
     /* Slightly lighter border */
     border-radius: 16px;
     /* More rounded */
@@ -19,7 +19,7 @@
 
     /* Custom Scrollbar Styling */
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.05);
+    scrollbar-color: rgba(24, 24, 27, 0.25) rgba(24, 24, 27, 0.05);
 }
 
 /* Webkit Scrollbar */
@@ -30,15 +30,15 @@
 
 .users-list-container::-webkit-scrollbar-track,
 .audit-list-container::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(24, 24, 27, 0.045);
     border-radius: 4px;
 }
 
 .users-list-container::-webkit-scrollbar-thumb,
 .audit-list-container::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.3);
+    background-color: rgba(24, 24, 27, 0.25);
     border-radius: 4px;
-    border: 2px solid rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(24, 24, 27, 0.04);
     /* Creates padding effect */
 }
 
@@ -68,7 +68,7 @@
 
 /* Row Styling */
 .data-table tbody tr {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(24, 24, 27, 0.045);
     transition: all 0.25s ease;
     border-radius: 12px;
 }
@@ -84,7 +84,7 @@
 }
 
 .data-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(24, 24, 27, 0.045);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
@@ -105,7 +105,7 @@
 
 .user-email {
     font-weight: 600;
-    color: #fff;
+    color: var(--text-primary);
     font-size: 1rem;
 }
 
@@ -170,7 +170,7 @@
 }
 
 .icon-btn {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(24, 24, 27, 0.045);
     border: none;
     border-radius: 8px;
     width: 36px;
@@ -216,8 +216,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(24, 24, 27, 0.045);
+    border: 1px solid rgba(24, 24, 27, 0.15);
     transition: .4s;
     border-radius: 34px;
 }
