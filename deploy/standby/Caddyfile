@@ -1,0 +1,10 @@
+# The domain Caddy serves HTTPS for, taken from SITE_DOMAIN in .env.
+# For a dry run set SITE_DOMAIN=standby.inferthmapping.co.zw and point that
+# record at this VPS. During a real outage SITE_DOMAIN stays as the live
+# domain and the DNS flip at the registrar makes issuance succeed.
+#
+# First visit after a flip triggers certificate issuance (a few seconds).
+
+{$SITE_DOMAIN:www.inferthmapping.co.zw} {
+	reverse_proxy app:8000
+}
