@@ -5269,15 +5269,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 #add-vehicle-modal .btn-primary {
-    background: #18181b;
-    color: #fafafa;
+    background: #ffffff;
+    color: #18181b;
+    border: 1px solid #d4d4d8;
     border-radius: 8px;
-}
-
-#add-vehicle-modal .btn-primary:hover {
-    background: #000000;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
 #add-vehicle-modal #vehicle-submit-btn:hover,
@@ -5285,9 +5280,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 #add-vehicle-modal #vehicle-submit-btn:focus-visible {
     background: rgba(16, 185, 129, 0.14);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(16, 185, 129, 0.45);
+    border-color: rgba(16, 185, 129, 0.45);
     color: #059669;
-    transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(16, 185, 129, 0.22);
 }
 
@@ -5312,7 +5306,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     backdrop-filter: blur(8px);
     border-color: rgba(239, 68, 68, 0.45);
     color: #dc2626;
-    transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(239, 68, 68, 0.18);
 }
 
