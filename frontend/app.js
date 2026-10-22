@@ -1024,13 +1024,13 @@ function loadReports() {
             <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
                 <span>Projected</span> <span>$2,400</span>
             </div>
-            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 15px;">
+            <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px; margin-bottom: 15px;">
                 <div style="width:70%; background:var(--warning); height:100%; border-radius:4px;"></div>
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
                 <span>Actual</span> <span>$1,850</span>
             </div>
-             <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
+             <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px;">
                 <div style="width:55%; background:var(--success); height:100%; border-radius:4px;"></div>
             </div>
         </div>
@@ -1105,7 +1105,7 @@ function loadReports() {
                 <span style="color:var(--text-secondary);"><i class="fas fa-tachometer-alt"></i> Fleet Avg RPM</span> 
                 <span style="font-weight:bold; ${avgRPM > 3000 ? 'color:var(--danger)' : 'color:var(--success)'}">${avgRPM} RPM</span>
             </div>
-            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+            <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px; margin-bottom: 20px;">
                 <div style="width:${rpmPercent}%; background:var(--${avgRPM > 3000 ? 'danger' : 'success'}); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
             </div>
             
@@ -1113,7 +1113,7 @@ function loadReports() {
                 <span style="color:var(--text-secondary);"><i class="fas fa-thermometer-half"></i> Avg Coolant Temp</span> 
                 <span style="font-weight:bold; ${avgCoolant > 100 ? 'color:var(--danger)' : 'color:var(--warning)'}">${avgCoolant}°C</span>
             </div>
-            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+            <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px; margin-bottom: 20px;">
                 <div style="width:${coolantPercent}%; background:var(--${avgCoolant > 100 ? 'danger' : 'warning'}); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
             </div>
 
@@ -1121,7 +1121,7 @@ function loadReports() {
                 <span style="color:var(--text-secondary);"><i class="fas fa-cogs"></i> Avg Engine Load</span> 
                 <span style="font-weight:bold; color:#e040fb;">${avgLoad}%</span>
             </div>
-            <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; margin-bottom: 20px;">
+            <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px; margin-bottom: 20px;">
                 <div style="width:${loadPercent}%; background:#e040fb; height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
             </div>
 
@@ -1129,7 +1129,7 @@ function loadReports() {
                 <span style="color:var(--text-secondary);"><i class="fas fa-gas-pump"></i> Active Consumption</span> 
                 <span style="font-weight:bold;">${avgFuelText}</span>
             </div>
-             <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px;">
+             <div style="width:100%; background:rgba(24,24,27,0.08); height:8px; border-radius:4px;">
                 <div style="width:${fuelPercent}%; background:var(--secondary); height:100%; border-radius:4px; transition: width 0.5s ease;"></div>
             </div>
         </div>
@@ -1450,7 +1450,7 @@ async function initFleetAnalyticsCharts(canvasId, period = 'daily', start = null
                         type: 'linear',
                         display: true,
                         position: 'left',
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        grid: { color: 'rgba(24, 24, 27, 0.08)' },
                         ticks: { color: '#00d4ff', maxTicksLimit: 6, font: { size: 9 } },
                         title: { display: window.innerWidth > 480, text: 'km', color: '#00d4ff' }
                     },
@@ -3370,10 +3370,10 @@ function updateAssetDetailUI(id) {
                 </div>
             </div>
             <div style="margin-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85em;">
-                <div style="color:var(--text-secondary)">Coolant: <span style="color:white; font-weight:600">${obd.coolant || '--'}°C</span></div>
-                <div style="color:var(--text-secondary)">Engine Load: <span style="color:white; font-weight:600">${obd.engine_load || '--'}%</span></div>
-                <div style="color:var(--text-secondary)">Throttle: <span style="color:white; font-weight:600">${obd.throttle || '--'}%</span></div>
-                <div style="color:var(--text-secondary)">Fuel Used: <span style="color:white; font-weight:600">${obd.fuel_consumption ? obd.fuel_consumption.toFixed(1)+'L' : '--'}</span></div>
+                <div style="color:var(--text-secondary)">Coolant: <span style="color:var(--text-primary); font-weight:600">${obd.coolant || '--'}°C</span></div>
+                <div style="color:var(--text-secondary)">Engine Load: <span style="color:var(--text-primary); font-weight:600">${obd.engine_load || '--'}%</span></div>
+                <div style="color:var(--text-secondary)">Throttle: <span style="color:var(--text-primary); font-weight:600">${obd.throttle || '--'}%</span></div>
+                <div style="color:var(--text-secondary)">Fuel Used: <span style="color:var(--text-primary); font-weight:600">${obd.fuel_consumption ? obd.fuel_consumption.toFixed(1)+'L' : '--'}</span></div>
             </div>
         `;
         // Append to sidebar
@@ -5983,7 +5983,7 @@ async function loadUsageProductivityForIntel(start, end) {
                                 beginAtZero: true,
                                 max: 100,
                                 ticks: { color: '#94a3b8' },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
+                                grid: { color: 'rgba(24, 24, 27, 0.08)' }
                             },
                             x: {
                                 ticks: { color: '#94a3b8', maxRotation: 45 },
@@ -6334,7 +6334,7 @@ async function loadCompanies() {
             return `
             <tr>
                 <td>
-                    <div class="user-avatar" style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                    <div class="user-avatar" style="width: 40px; height: 40px; background: rgba(24,24,27,0.06); border-radius: 8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
                         <img src="${logoPath}" style="width:100%; height:100%; object-fit:contain;" onerror="this.src='${defaultLogo}'">
                     </div>
                 </td>

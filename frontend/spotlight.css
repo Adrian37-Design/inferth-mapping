@@ -12,12 +12,12 @@
     inset: 0;
     border-radius: 12px;
     pointer-events: none;
-    box-shadow: 0 0 0 0 rgba(255, 90, 0, 0);
+    box-shadow: 0 0 0 0 rgba(24, 24, 27, 0);
     transition: box-shadow 0.3s ease;
 }
 
 .spot.is-open::after {
-    box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.18);
+    box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.18);
 }
 
 .spot-input-wrap {
@@ -84,9 +84,9 @@
     z-index: 9600;
     min-width: 300px;
     overflow: hidden;
-    border: 1px solid #3f3f46;
+    border: 1px solid #e4e4e7;
     border-radius: 14px;
-    background: #18181b;
+    background: #ffffff;
     box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.75);
     transform-origin: top center;
     transform: translateY(-8px) scale(0.98);
@@ -112,7 +112,7 @@
 }
 
 .spot-shortcuts {
-    border-bottom: 1px solid #27272a;
+    border-bottom: 1px solid #e4e4e7;
 }
 
 .spot-shortcuts[hidden],
@@ -133,10 +133,10 @@
     align-items: center;
     gap: 6px;
     padding: 12px 6px;
-    border: 1px solid #27272a;
+    border: 1px solid #e4e4e7;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.03);
-    color: #d4d4d8;
+    background: rgba(24, 24, 27, 0.045);
+    color: var(--text-primary);
     font: inherit;
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
@@ -144,7 +144,7 @@
 
 .spot-shortcut i {
     font-size: 18px;
-    color: var(--primary, #ff5a00);
+    color: var(--primary, #18181b);
 }
 
 .spot-shortcut-label {
@@ -154,9 +154,9 @@
 
 .spot-shortcut:hover,
 .spot-shortcut.is-active {
-    background: #27272a;
-    border-color: #3f3f46;
-    color: #fafafa;
+    background: #e4e4e7;
+    border-color: #d4d4d8;
+    color: #18181b;
 }
 
 .spot.is-open .spot-shortcut {
@@ -208,7 +208,7 @@
 }
 
 .spot-result.is-active {
-    background: #27272a;
+    background: #e4e4e7;
 }
 
 @keyframes spot-row-in {
@@ -226,13 +226,13 @@
     border-radius: 10px;
     font-size: 15px;
     color: #a1a1aa;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(24, 24, 27, 0.045);
 }
 
 .spot-result-icon.tone-moving { color: #10b981; background: rgba(16, 185, 129, 0.14); }
 .spot-result-icon.tone-stationary { color: #d4d4d8; background: rgba(142, 148, 161, 0.18); }
 .spot-result-icon.tone-offline { color: #a1a1aa; background: rgba(107, 114, 128, 0.18); }
-.spot-result-icon.tone-page { color: var(--primary, #ff5a00); background: rgba(255, 90, 0, 0.14); }
+.spot-result-icon.tone-page { color: var(--primary, #18181b); background: rgba(24, 24, 27, 0.14); }
 
 .spot-result-text {
     flex: 1 1 auto;
@@ -251,7 +251,7 @@
 .spot-result-label {
     font-size: 0.92rem;
     font-weight: 500;
-    color: #fafafa;
+    color: var(--text-primary);
 }
 
 .spot-result-desc {
@@ -272,7 +272,7 @@
 
 .spot-hint {
     padding: 8px 12px;
-    border-top: 1px solid #27272a;
+    border-top: 1px solid #e4e4e7;
     font-size: 0.7rem;
     color: #8a8a93;
 }
@@ -301,7 +301,7 @@
 
 .nav-search.is-open {
     border-color: #3f3f46;
-    background: #18181b;
+    background: #ffffff;
     color: #a1a1aa;
 }
 
@@ -322,7 +322,7 @@
 }
 
 .nav-search.is-open .spot-input {
-    color: #fafafa;
+    color: var(--text-primary);
 }
 
 .spot-kbd {
@@ -352,13 +352,13 @@
 .dash-search-spot input {
     height: 34px;
     padding: 0 10px;
-    border: 1px solid #27272a;
+    border: 1px solid #e4e4e7;
     border-radius: 8px;
-    background: #09090b;
-    color: #fafafa;
+    background: #ffffff;
+    color: var(--text-primary);
     font-size: 0.8rem;
 }
 
 .dash-search-spot input:focus {
-    border-color: rgba(255, 90, 0, 0.55);
+    border-color: rgba(24, 24, 27, 0.55);
 }
