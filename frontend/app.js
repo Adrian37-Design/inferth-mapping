@@ -2269,6 +2269,15 @@ function initDashMap() {
     updateDashMapMarkers(true);
 }
 
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.dash-collapse-btn');
+    if (!btn) return;
+    const card = btn.closest('.dash-card');
+    if (!card) return;
+    card.classList.toggle('collapsed');
+    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 220);
+});
+
 function switchDashBase(which) {
     if (!dashMap || !dashBaseLayers || !dashBaseLayers[which]) return;
     Object.values(dashBaseLayers).forEach(l => dashMap.removeLayer(l));
