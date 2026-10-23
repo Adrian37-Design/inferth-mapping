@@ -2274,8 +2274,10 @@ document.addEventListener('click', (e) => {
     if (!btn) return;
     const card = btn.closest('.dash-card');
     if (!card) return;
-    card.classList.toggle('collapsed');
-    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 220);
+    const collapsed = card.classList.toggle('collapsed');
+    const grid = card.closest('.dash-mid-grid');
+    if (grid) grid.classList.toggle('vehicles-collapsed', collapsed && card.classList.contains('dash-vehicles-card'));
+    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 250);
 });
 
 function switchDashBase(which) {
