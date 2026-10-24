@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/app.css?v=143">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
-    <link rel="stylesheet" href="/static/geofence.css?v=3">
+    <link rel="stylesheet" href="/static/geofence.css?v=4">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -815,6 +815,9 @@
                                 <i class="fas fa-chevron-up" aria-hidden="true"></i>
                             </button>
                         </div>
+                        <button class="geo-markread-btn" id="geo-violations-markread" type="button">
+                            <i class="fas fa-check-double" aria-hidden="true"></i> Mark all read
+                        </button>
                         <div class="priority-list" id="geo-violations-list">
                             <!-- Mock Violations -->
                         </div>
@@ -1372,7 +1375,7 @@
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
     <script src="/static/app.js?v=143"></script>
-    <script src="/static/geofence.js?v=4"></script>
+    <script src="/static/geofence.js?v=5"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

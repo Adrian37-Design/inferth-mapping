@@ -7,7 +7,7 @@
     const DRAW_STYLE = { color: '#ff5a00', weight: 2, dashArray: '6 6', fillOpacity: 0.12 };
     const IDS = {
         listView: 'geo-view-list', trackerView: 'geo-view-tracker', list: 'geo-tracker-select',
-        violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle',
+        violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle', violationsMarkRead: 'geo-violations-markread',
         backBtn: 'geo-back-btn', exitBtn: 'geo-exit-btn', trackerName: 'geo-tracker-name', trackerMeta: 'geo-tracker-meta',
         trackerStatus: 'geo-tracker-status', tools: 'geo-tools', hint: 'geo-hint', flash: 'geo-flash', form: 'geo-form',
         name: 'geo-name', swatches: 'geo-swatches', entry: 'geo-rule-entry', exitRule: 'geo-rule-exit', channel: 'geo-channel',
@@ -298,34 +298,32 @@
     const violationRow = a => {
         const when = parseTimestamp(a.timestamp);
         const kind = { geofence_entry: 'Entry', geofence_exit: 'Exit', tracker_geofence: 'Tracker' }[a.type] || 'Exit';
-        const seenCtl = a.is_read
-            ? '<span class="geo-violation-seen-tag"><i class="fas fa-check" aria-hidden="true"></i> Seen</span>'
-            : `<button type="button" class="geo-violation-seen" data-seen="${escapeHTML(String(a.id))}">Seen</button>`;
         return `<div class="geo-violation${a.is_read ? ' is-seen' : ''}">
             <span class="geo-violation-kind is-${kind.toLowerCase()}">${kind}</span>
             <span class="geo-violation-message">${escapeHTML(a.message.replace(/^Geofence (Entry|Exit): /, ''))}</span>
             <time class="geo-violation-time" datetime="${escapeHTML(a.timestamp)}">${when ? when.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</time>
-            ${seenCtl}
         </div>`;
     };
 
-    async function markViolationSeen(id, btn) {
-        btn.disabled = true;
+    async function markAllAlertsRead() {
+        const btn = els.violationsMarkRead;
+        if (btn) btn.disabled = true;
         try {
-            const res = await window.AuthManager.fetchAPI(`/alerts/${id}/read`, { method: 'POST' });
-            if (!res.ok) throw new Error('Failed to mark alert as seen.');
+            const res = await window.AuthManager.fetchAPI('/alerts/mark-read', { method: 'POST' });
+            if (!res.ok) throw new Error('Failed to mark alerts as read.');
             // Reflect in the Alerts tab feed + rail badge immediately
-            const local = (typeof alerts !== 'undefined') ? alerts.find(a => String(a.id) === String(id)) : null;
-            if (local) local.read = true;
+            if (typeof alerts !== 'undefined') alerts.forEach(a => { a.read = true; });
             if (typeof renderAlerts === 'function') renderAlerts();
             if (typeof updateAlertsCount === 'function') updateAlertsCount();
             if (typeof updatePriorityAlertsPanel === 'function') updatePriorityAlertsPanel();
             const kpiAlerts = document.getElementById('kpi-alerts');
-            if (kpiAlerts && typeof alerts !== 'undefined') kpiAlerts.textContent = alerts.filter(a => !a.read).length;
+            if (kpiAlerts) kpiAlerts.textContent = '0';
             loadViolations();
         } catch (err) {
             console.error(err);
-            btn.disabled = false;
+            flash('Could not mark alerts as read.');
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -406,10 +404,7 @@
         els.list.addEventListener('change', e => {
             if (e.target.value) isolate(e.target.value);
         });
-        els.violationsList.addEventListener('click', e => {
-            const btn = e.target.closest('[data-seen]');
-            if (btn) markViolationSeen(btn.dataset.seen, btn);
-        });
+        els.violationsMarkRead.addEventListener('click', markAllAlertsRead);
         els.violationsToggle.addEventListener('click', () => {
             const collapsed = els.violationsList.classList.toggle('hidden');
             els.violationsToggle.setAttribute('aria-expanded', String(!collapsed));

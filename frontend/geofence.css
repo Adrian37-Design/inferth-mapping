@@ -443,7 +443,7 @@
 
 .geo-violation {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     gap: 10px;
     padding: 10px 0;
@@ -455,35 +455,32 @@
     opacity: 0.55;
 }
 
-.geo-violation-seen {
-    padding: 4px 12px;
+.geo-markread-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 4px;
+    padding: 5px 12px;
     border-radius: 999px;
     border: 1px solid rgba(24, 24, 27, 0.2);
     background: #ffffff;
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
 }
 
-.geo-violation-seen:hover:not(:disabled) {
+.geo-markread-btn:hover:not(:disabled) {
     background: #18181b;
     border-color: #18181b;
     color: #ffffff;
 }
 
-.geo-violation-seen:disabled {
+.geo-markread-btn:disabled {
     opacity: 0.5;
     cursor: default;
-}
-
-.geo-violation-seen-tag {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #10b981;
-    white-space: nowrap;
 }
 
 .geo-violation-kind {
