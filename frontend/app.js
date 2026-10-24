@@ -262,9 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
 
-    // Dashboard landing view: embedded map + vehicle table widgets
-    initDashMap();
-    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 350);
+    // Dashboard map/table init lazily on first switchTab('tab-dashboard')
     const dashSearch = document.getElementById('dash-vehicle-search');
     if (dashSearch) dashSearch.addEventListener('input', () => renderDashVehicles());
     document.querySelectorAll('.dash-chip').forEach(chip => {
