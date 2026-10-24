@@ -2261,6 +2261,12 @@ function initDashMap() {
     };
     dashBaseLayers.streets.addTo(dashMap);
 
+    // Keep the map painted at its true size on any container resize (collapse/expand, window, zoom)
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => dashMap && dashMap.invalidateSize());
+        ro.observe(el);
+    }
+
     const streetsBtn = document.getElementById('dash-map-streets');
     const satBtn = document.getElementById('dash-map-satellite');
     if (streetsBtn) streetsBtn.addEventListener('click', () => switchDashBase('streets'));
