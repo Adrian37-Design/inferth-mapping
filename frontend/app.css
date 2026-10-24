@@ -247,7 +247,7 @@ body {
     background: var(--nav-bg);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(24, 24, 27, 0.04);
-    padding: 15px 30px;
+    padding: 6px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -268,7 +268,7 @@ body {
 }
 
 .brand-logo {
-    height: 30px;
+    height: 28px;
     width: auto;
     max-width: 150px;
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.15));
@@ -281,6 +281,7 @@ body {
     text-transform: uppercase;
     line-height: 1.15;
     white-space: nowrap;
+    color: #ff8c00;
 }
 
 .nav-brand span {
@@ -5169,14 +5170,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .dash-map-btn {
     border: 1px solid var(--border-color);
-    background: rgba(24, 24, 27, 0.85);
-    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--text-primary);
     font-size: 0.72rem;
     font-weight: 600;
     border-radius: 6px;
     padding: 4px 10px;
     cursor: pointer;
 }
+.dash-map-btn:hover { border-color: var(--primary); color: var(--primary); }
 .dash-map-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 .sev-badge {
