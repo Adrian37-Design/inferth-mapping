@@ -5228,6 +5228,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 @media (min-width: 769px) {
     /* Scrollable dashboard: natural section heights; expansions push content down */
     #tab-dashboard { padding-top: 8px; }
+    #tab-dashboard > * { flex: 0 0 auto; }
     #tab-dashboard .dash-header { margin-bottom: 10px; align-items: center; }
     #tab-dashboard .dash-kpi-grid { margin-bottom: 12px; }
 
