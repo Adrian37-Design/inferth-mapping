@@ -5215,18 +5215,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     flex: 0 0 auto;
 }
 .dash-collapse-btn:hover { border-color: var(--primary); color: var(--primary); }
-.dash-card .dash-collapse-btn i { transition: transform 0.2s; }
+.dash-card .dash-collapse-btn i { transition: transform 0.2s; transform: rotate(180deg); }
+.dash-card.collapsed .dash-collapse-btn i { transform: rotate(0deg); }
 
 .dash-card.collapsed > *:not(.dash-card-header) { display: none; }
 .dash-card.collapsed { padding: 10px 14px; }
 .dash-card.collapsed .dash-card-header { margin-bottom: 0; }
 .dash-card.collapsed .dash-link { display: none; }
-.dash-alerts-card.collapsed .dash-collapse-btn i { transform: rotate(180deg); }
 
 @media (min-width: 769px) {
     /* Scrollable dashboard: natural section heights; expansions push content down */
-    #tab-dashboard { padding-top: 10px; }
-    #tab-dashboard .dash-header { margin-bottom: 12px; }
+    #tab-dashboard { padding-top: 8px; }
+    #tab-dashboard .dash-header { margin-bottom: 10px; align-items: center; }
     #tab-dashboard .dash-kpi-grid { margin-bottom: 12px; }
 
     #tab-dashboard .dash-mid-grid {
