@@ -3741,16 +3741,16 @@ body {
 
 /* ===== Leaflet Layers control (Map / Satellite / Terrain) — top-left ===== */
 .leaflet-control-layers {
-    background: rgba(24, 24, 27, 0.94);
+    background: rgba(255, 255, 255, 0.96);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(24, 24, 27, 0.096);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.09);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
     margin-top: 12px !important;
     margin-left: 12px !important;
     margin-bottom: 0 !important;
     margin-right: 0 !important;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     font-family: inherit;
 }
 
@@ -3759,7 +3759,6 @@ a.leaflet-control-layers-toggle {
     height: 36px;
     border-radius: 10px;
     background-position: center;
-    filter: invert(0.9);
 }
 
 .leaflet-control-layers.leaflet-control-layers-expanded {
@@ -3774,7 +3773,7 @@ a.leaflet-control-layers-toggle {
     padding: 5px 2px;
     font-size: 0.82rem;
     font-weight: 500;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     cursor: pointer;
 }
 

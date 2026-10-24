@@ -2513,6 +2513,16 @@ function animateMarker(marker, fromLatLng, toLatLng, duration) {
     marker.animationFrame = requestAnimationFrame(step);
 }
 
+// Fit the map so every marker is visible — used once on landing so the
+// fleet is never loaded zoomed-in on a random point.
+let initialMapFitDone = false;
+function fitMapToAllMarkers() {
+    if (!map) return;
+    const group = Object.values(markers);
+    if (!group.length) return;
+    map.fitBounds(new L.featureGroup(group).getBounds(), { padding: [40, 40], maxZoom: 15 });
+}
+
 // Load all vehicle positions (Optimized)
 async function loadAllPositions(vehicles) {
     try {
@@ -2531,6 +2541,7 @@ async function loadAllPositions(vehicles) {
                     addOrUpdateMarker(vehicle.id, vehicle.name, vehicle.imei, pos.latitude, pos.longitude, pos.speed, pos.timestamp, rawData);
                 }
             });
+            if (!initialMapFitDone) { initialMapFitDone = true; setTimeout(fitMapToAllMarkers, 400); }
             return;
         }
     } catch (e) {
@@ -2552,6 +2563,7 @@ async function loadAllPositions(vehicles) {
             console.error(`Error loading position for ${vehicle.imei}:`, error);
         }
     }
+    if (!initialMapFitDone) { initialMapFitDone = true; setTimeout(fitMapToAllMarkers, 400); }
 }
 
 // Add or update marker and update Control Panel Card
@@ -4278,7 +4290,15 @@ function connectWebSocket() {
         if (socket !== ws) return;
         updateStatus('disconnected', 'Disconnected');
         if (event.code === 1008) {
-            window.AuthManager.logout();
+            // Server rejected the socket's auth. Don't nuke the session on a
+            // transient rejection — verify with a real API call first; only
+            // log out when the token itself is genuinely dead.
+            window.AuthManager.getCurrentUser()
+                .then(() => {
+                    updateStatus('disconnected', 'Reconnecting');
+                    setTimeout(connectWebSocket, 5000);
+                })
+                .catch(() => window.AuthManager.logout());
             return;
         }
         setTimeout(connectWebSocket, 5000);
