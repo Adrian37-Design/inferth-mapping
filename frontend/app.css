@@ -268,18 +268,18 @@ body {
 }
 
 .brand-logo {
-    height: 34px;
+    height: 30px;
     width: auto;
     max-width: 150px;
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.15));
 }
 
 #nav-brand-name {
-    font-size: 11px;
+    font-size: 9.5px;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    line-height: 1.1;
+    line-height: 1.15;
     white-space: nowrap;
 }
 
@@ -4316,6 +4316,8 @@ input, select, textarea {
         padding: 4px 10px;
     }
 
+    #nav-brand-name { display: none; }
+
     .main-container {
         height: calc(100vh - 44px);
     }
@@ -5225,8 +5227,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     /* One-screen grid: header | kpi | mid(fill) | alerts | chart */
     #tab-dashboard {
         display: grid;
-        grid-template-rows: auto auto minmax(0, 1fr) auto minmax(0, 170px);
-        overflow: hidden;
+        grid-template-rows: auto auto minmax(220px, 1fr) auto minmax(120px, 170px);
+        overflow-y: auto;
+        overflow-x: hidden;
         gap: 10px;
         padding-bottom: 15px;
     }
