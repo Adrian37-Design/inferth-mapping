@@ -495,7 +495,7 @@ class AuthManager {
         const brandName = document.getElementById('nav-brand-name');
         if (brandName) {
             brandName.textContent = this.user.company_name || 'Inferth Mapping';
-            brandName.style.color = primary;
+            brandName.style.color = hasCustomLogo ? primary : '#ff8c00';
         }
 
         // Update Logo & Favicon
