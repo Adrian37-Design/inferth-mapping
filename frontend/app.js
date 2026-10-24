@@ -647,6 +647,7 @@ window.switchTab = function(targetId) {
             }
             if (selectedVehicle && histSelect) {
                 histSelect.value = String(selectedVehicle.id);
+                if (typeof syncHistoryAssetDropdown === 'function') syncHistoryAssetDropdown();
             }
             if (selectedVehicle) {
                 const sp = document.getElementById('history-start-date');
@@ -4826,6 +4827,40 @@ function populateHistoryVehicleSelect() {
     } else {
         sel.value = String(list[0].id);
     }
+    syncHistoryAssetDropdown();
+}
+
+// Animated dropdown overlay for the (hidden) native history asset select.
+let histDdOpen = false;
+function setHistDdOpen(open) {
+    histDdOpen = open;
+    const dd = document.getElementById('history-vehicle-dropdown');
+    const btn = document.getElementById('history-vehicle-btn');
+    const menu = document.getElementById('history-vehicle-menu');
+    if (!dd || !btn || !menu) return;
+    dd.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    menu.hidden = !open;
+}
+
+function syncHistoryAssetDropdown() {
+    const sel = document.getElementById('history-vehicle-select');
+    const menu = document.getElementById('history-vehicle-menu');
+    const label = document.getElementById('history-vehicle-label');
+    if (!sel || !menu || !label) return;
+    const list = Array.isArray(allVehicles) ? allVehicles : [];
+    if (!histDdOpen) {
+        menu.innerHTML = list.length ? list.map((v, i) => {
+            const s = getVehicleDashStatus(v);
+            const st = s.charAt(0).toUpperCase() + s.slice(1);
+            return `<button type="button" class="geo-dd-item" role="option" data-id="${v.id}" style="--i:${i}" aria-selected="${String(v.id) === sel.value}">
+                <span class="geo-dd-name">${escapeHTML(v.name || `Device ${v.imei}`)}</span>
+                <span class="geo-dd-meta">${escapeHTML(v.imei || '')} — ${st}</span>
+            </button>`;
+        }).join('') : '<p class="empty-state" style="padding:10px">No assets available</p>';
+    }
+    const cur = list.find(v => String(v.id) === String(sel.value));
+    label.textContent = cur ? (cur.name || `Device ${cur.imei}`) : 'Select an asset…';
 }
 
 function updateHistorySummaryStrip(distKm, tripsCount, stopsCount, maxSpeed) {
@@ -4941,6 +4976,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
     if (histSelect && String(histSelect.value) !== String(id)) {
         populateHistoryVehicleSelect();
         histSelect.value = String(id);
+        if (typeof syncHistoryAssetDropdown === 'function') syncHistoryAssetDropdown();
     }
 
     timeline.innerHTML = '<p class="loading">Loading route history…</p>';
@@ -5409,6 +5445,36 @@ if (historyVehicleSelect) {
         if (matched) selectedVehicle = matched;
         stopRouteAndExit();
         loadAssetHistory(vid, historyStartPicker ? historyStartPicker.value : null, historyEndPicker ? historyEndPicker.value : null);
+    });
+}
+
+// Custom animated dropdown driving the hidden native select
+const histDdBtn = document.getElementById('history-vehicle-btn');
+const histDdMenu = document.getElementById('history-vehicle-menu');
+const histDdWrap = document.getElementById('history-vehicle-dropdown');
+if (histDdBtn && histDdMenu && histDdWrap) {
+    histDdBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!histDdOpen) syncHistoryAssetDropdown();
+        setHistDdOpen(!histDdOpen);
+    });
+    document.addEventListener('mousedown', e => {
+        if (histDdOpen && !histDdWrap.contains(e.target)) setHistDdOpen(false);
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && histDdOpen) setHistDdOpen(false);
+    });
+    histDdMenu.addEventListener('click', e => {
+        const item = e.target.closest('.geo-dd-item');
+        if (!item) return;
+        setHistDdOpen(false);
+        if (String(historyVehicleSelect.value) !== String(item.dataset.id)) {
+            historyVehicleSelect.value = String(item.dataset.id);
+            syncHistoryAssetDropdown();
+            historyVehicleSelect.dispatchEvent(new Event('change'));
+        } else {
+            syncHistoryAssetDropdown();
+        }
     });
 }
 

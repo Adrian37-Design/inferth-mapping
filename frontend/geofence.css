@@ -145,6 +145,26 @@
     background: #f4f4f5;
 }
 
+.geo-dd-item[aria-selected="true"] {
+    background: rgba(24, 24, 27, 0.05);
+}
+
+.geo-dd-item[aria-selected="true"] .geo-dd-name {
+    color: #18181b;
+}
+
+.history-dropdown {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.history-dropdown .geo-dropdown-btn {
+    height: 36px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 7px;
+}
+
 @keyframes geoDdItem {
     from { opacity: 0; transform: translateX(-14px); }
     to { opacity: 1; transform: none; }

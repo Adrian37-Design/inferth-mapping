@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/app.css?v=143">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
-    <link rel="stylesheet" href="/static/geofence.css?v=6">
+    <link rel="stylesheet" href="/static/geofence.css?v=7">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -269,10 +269,17 @@
                 <div id="tab-history" class="tab-content">
                     <div class="history-panel-toolbar">
                         <div class="history-field-group">
-                            <label class="history-field-label" for="history-vehicle-select">Asset</label>
-                            <select id="history-vehicle-select" class="history-select">
+                            <label class="history-field-label">Asset</label>
+                            <select id="history-vehicle-select" class="history-select" hidden>
                                 <option value="">Select an asset…</option>
                             </select>
+                            <div class="geo-dropdown history-dropdown" id="history-vehicle-dropdown">
+                                <button type="button" class="geo-dropdown-btn" id="history-vehicle-btn" aria-haspopup="listbox" aria-expanded="false">
+                                    <span class="geo-dropdown-label" id="history-vehicle-label">Select an asset…</span>
+                                    <i class="fas fa-chevron-down geo-dropdown-chevron" aria-hidden="true"></i>
+                                </button>
+                                <div class="geo-dropdown-menu" id="history-vehicle-menu" role="listbox" hidden></div>
+                            </div>
                         </div>
 
                         <div class="history-presets" role="group" aria-label="Date range presets">
@@ -1378,7 +1385,7 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=143"></script>
+    <script src="/static/app.js?v=144"></script>
     <script src="/static/geofence.js?v=8"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
