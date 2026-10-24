@@ -5311,7 +5311,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 60;
+    z-index: 1500;
     box-shadow: 0 6px 18px rgba(24, 24, 27, 0.35);
     animation: dashCueBounce 1.6s ease-in-out infinite;
 }

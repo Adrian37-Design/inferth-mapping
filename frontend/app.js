@@ -595,7 +595,7 @@ window.switchTab = function(targetId) {
                 initDashMap();
                 renderDashVehicles();
                 setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 300);
-                setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 600);
+                setTimeout(() => { if (dashMap) { dashMap.invalidateSize(); updateDashMapMarkers(true); } }, 650);
                 setTimeout(updateDashScrollCue, 350);
             }
         }
@@ -2362,7 +2362,9 @@ function updateDashMapMarkers(fitBounds = false) {
         }
         bounds.push(ll);
     });
-    if ((fitBounds || !dashMapFitted) && bounds.length) {
+    const size = dashMap.getSize();
+    const mapVisible = size && size.x > 50 && size.y > 50;
+    if ((fitBounds || !dashMapFitted) && bounds.length && mapVisible) {
         dashMap.fitBounds(bounds, { padding: [30, 30] });
         dashMapFitted = true;
     }
