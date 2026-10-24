@@ -6348,10 +6348,10 @@ async function loadCompanies() {
             const hasCustom = Boolean(c.has_custom_logo);
             const safeName = (c.name || '').replace(/'/g, "\\'");
             const safeLogo = (logoPath || defaultLogo).replace(/'/g, "\\'");
-            const primaryColor = hasCustom ? (c.primary_color || '#ff8c00').replace(/'/g, "\\'") : '#ff8c00';
+            const primaryColor = hasCustom ? (c.primary_color || '#18181b').replace(/'/g, "\\'") : '#18181b';
             const secondaryColor = hasCustom ? (c.secondary_color || '#ef4835').replace(/'/g, "\\'") : '#ef4835';
             const navbarBg = hasCustom ? (c.navbar_bg || '#ffffff').replace(/'/g, "\\'") : '#ffffff';
-            const navbarTextColor = hasCustom ? (c.navbar_text_color || primaryColor).replace(/'/g, "\\'") : '#ff8c00';
+            const navbarTextColor = hasCustom ? (c.navbar_text_color || primaryColor).replace(/'/g, "\\'") : '#18181b';
 
             return `
             <tr>
@@ -6363,7 +6363,7 @@ async function loadCompanies() {
                 <td>
                     <strong>${c.name}</strong>
                     <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
-                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.primary_color || '#ff8c00'};"></span>
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.primary_color || '#18181b'};"></span>
                         <small class="text-muted" style="font-size:10px;">${hasCustom ? 'Custom Theme' : 'Inferth Theme'}</small>
                     </div>
                 </td>
@@ -6391,7 +6391,7 @@ async function loadCompanies() {
 // Function to update the live mini preview inside Edit Company modal
 function updateEditThemePreview() {
     const name = document.getElementById('edit-tenant-name')?.value || 'Company';
-    const primary = document.getElementById('edit-tenant-primary-color')?.value || '#ff8c00';
+    const primary = document.getElementById('edit-tenant-primary-color')?.value || '#18181b';
     let navBg = document.getElementById('edit-tenant-navbar-style')?.value || '#ffffff';
     if (navBg === 'primary') navBg = primary;
 
@@ -6440,7 +6440,7 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryCo
     if (preview) preview.src = currentLogo;
 
     // Theme values: strictly default to Inferth Mapping theme if no custom logo
-    const p = hasCustomLogo ? (primaryColor || '#ff8c00') : '#ff8c00';
+    const p = hasCustomLogo ? (primaryColor || '#18181b') : '#18181b';
     const s = hasCustomLogo ? (secondaryColor || '#ef4835') : '#ef4835';
     const nb = hasCustomLogo ? (navbarBg || 'linear-gradient(to right, #1a1c23, #2d3139)') : '#ffffff';
 
@@ -6451,8 +6451,8 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryCo
     const nbSelect = document.getElementById('edit-tenant-navbar-style');
     const statusPill = document.getElementById('theme-status-pill');
 
-    if (pInput) pInput.value = p.startsWith('#') && p.length === 7 ? p : '#ff8c00';
-    if (pHex) pHex.textContent = pInput ? pInput.value : '#ff8c00';
+    if (pInput) pInput.value = p.startsWith('#') && p.length === 7 ? p : '#18181b';
+    if (pHex) pHex.textContent = pInput ? pInput.value : '#18181b';
     if (sInput) sInput.value = s.startsWith('#') && s.length === 7 ? s : '#ef4835';
     if (sHex) sHex.textContent = sInput ? sInput.value : '#ef4835';
 
@@ -6485,14 +6485,14 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryCo
         if (badge) {
             badge.textContent = 'Default Inferth Logo';
             badge.style.background = 'rgba(255, 140, 0, 0.1)';
-            badge.style.color = '#ff8c00';
+            badge.style.color = '#18181b';
         }
         if (hint) hint.textContent = 'Using default Inferth Mapping logo & theme';
         if (removeBtn) removeBtn.style.display = 'none';
         if (statusPill) {
             statusPill.textContent = 'Inferth Theme';
             statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
-            statusPill.style.color = '#ff8c00';
+            statusPill.style.color = '#18181b';
         }
     }
 
@@ -6502,7 +6502,7 @@ window.openEditCompanyModal = function (id, name, logo, hasCustomLogo, primaryCo
 
 // Fallback alias
 window.editCompany = function (id, currentName) {
-    window.openEditCompanyModal(id, currentName, '/static/inferth_mapping_logo.png', false, '#ff8c00', '#ef4835', '#ffffff', '#ff8c00');
+    window.openEditCompanyModal(id, currentName, '/static/inferth_mapping_mark.png', false, '#18181b', '#ef4835', '#ffffff', '#18181b');
 };
 
 // Setup Edit Company modal form handlers
@@ -6555,15 +6555,15 @@ function setupEditCompanyListeners() {
     const presetInferth = document.getElementById('preset-inferth-btn');
     if (presetInferth) {
         presetInferth.addEventListener('click', () => {
-            if (pInput) pInput.value = '#ff8c00';
-            if (pHex) pHex.textContent = '#ff8c00';
+            if (pInput) pInput.value = '#18181b';
+            if (pHex) pHex.textContent = '#18181b';
             if (sInput) sInput.value = '#ef4835';
             if (sHex) sHex.textContent = '#ef4835';
             if (nbSelect) nbSelect.value = '#ffffff';
             if (statusPill) {
                 statusPill.textContent = 'Inferth Theme';
                 statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
-                statusPill.style.color = '#ff8c00';
+                statusPill.style.color = '#18181b';
             }
             updateEditThemePreview();
         });
@@ -6637,21 +6637,21 @@ function setupEditCompanyListeners() {
             if (badge) {
                 badge.textContent = 'Reverted to Default';
                 badge.style.background = 'rgba(255, 140, 0, 0.15)';
-                badge.style.color = '#ff8c00';
+                badge.style.color = '#18181b';
             }
             if (hint) hint.textContent = 'Logo removed — will use Inferth Mapping logo & theme';
             removeBtn.style.display = 'none';
 
             // Auto-revert theme to Inferth
-            if (pInput) pInput.value = '#ff8c00';
-            if (pHex) pHex.textContent = '#ff8c00';
+            if (pInput) pInput.value = '#18181b';
+            if (pHex) pHex.textContent = '#18181b';
             if (sInput) sInput.value = '#ef4835';
             if (sHex) sHex.textContent = '#ef4835';
             if (nbSelect) nbSelect.value = '#ffffff';
             if (statusPill) {
                 statusPill.textContent = 'Inferth Theme';
                 statusPill.style.background = 'rgba(255, 140, 0, 0.15)';
-                statusPill.style.color = '#ff8c00';
+                statusPill.style.color = '#18181b';
             }
             updateEditThemePreview();
         });
@@ -6673,7 +6673,7 @@ function setupEditCompanyListeners() {
                 return;
             }
 
-            const primaryColor = pInput ? pInput.value : '#ff8c00';
+            const primaryColor = pInput ? pInput.value : '#18181b';
             const secondaryColor = sInput ? sInput.value : '#ef4835';
             let navStyle = nbSelect ? nbSelect.value : '#ffffff';
             if (navStyle === 'primary') navStyle = primaryColor;
