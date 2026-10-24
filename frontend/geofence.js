@@ -6,7 +6,8 @@
     const PALETTE = ['#ff5a00', '#10b981', '#0ea5e9', '#f59e0b', '#ef4444', '#a1a1aa'];
     const DRAW_STYLE = { color: '#ff5a00', weight: 2, dashArray: '6 6', fillOpacity: 0.12 };
     const IDS = {
-        listView: 'geo-view-list', trackerView: 'geo-view-tracker', list: 'geo-tracker-select',
+        listView: 'geo-view-list', trackerView: 'geo-view-tracker', list: 'geo-tracker-menu',
+        dropdown: 'geo-tracker-dropdown', select: 'geo-tracker-select', trackerLabel: 'geo-tracker-label',
         violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle', violationsMarkRead: 'geo-violations-markread',
         backBtn: 'geo-back-btn', exitBtn: 'geo-exit-btn', trackerName: 'geo-tracker-name', trackerMeta: 'geo-tracker-meta',
         trackerStatus: 'geo-tracker-status', tools: 'geo-tools', hint: 'geo-hint', flash: 'geo-flash', form: 'geo-form',
@@ -51,10 +52,13 @@
     const badge = status => `<span class="status-badge badge-${status.toLowerCase()}">${status}</span>`;
     const alertSummary = z => [z.alertRules && z.alertRules.entry && 'Entry', z.alertRules && z.alertRules.exit && 'Exit'].filter(Boolean).join(' · ') || 'No alerts';
 
-    const trackerOption = v => {
+    const trackerOption = (v, i) => {
         const status = statusOf(v.id);
         const count = zonesFor(v.id).length;
-        return `<option value="${escapeHTML(v.id)}">${escapeHTML(nameOf(v))} · ${escapeHTML(v.imei)} — ${status} (${count} geofence${count === 1 ? '' : 's'})</option>`;
+        return `<button type="button" class="geo-dd-item" role="option" data-id="${escapeHTML(v.id)}" style="--i:${i}">
+            <span class="geo-dd-name">${escapeHTML(nameOf(v))}</span>
+            <span class="geo-dd-meta">${escapeHTML(v.imei)} — ${status} · ${count} geofence${count === 1 ? '' : 's'}</span>
+        </button>`;
     };
 
     const zoneRow = z => `<div class="geo-zone-row">
@@ -110,12 +114,22 @@
     }
 
     function renderTrackers() {
-        const rows = allVehicles.map(trackerOption);
-        const placeholder = allVehicles.length ? 'Choose a vehicle…' : 'No trackers registered yet';
-        const html = `<option value="">${placeholder}</option>` + rows.join('');
+        if (ddOpen) return; // don't rebuild/re-animate the open menu
+        const html = allVehicles.length
+            ? allVehicles.map(trackerOption).join('')
+            : '<p class="empty-state" style="padding:10px">No trackers registered yet.</p>';
         if (html === listHtml) return;
         listHtml = html;
         els.list.innerHTML = html;
+    }
+
+    let ddOpen = false;
+    function setDropdown(open) {
+        ddOpen = open;
+        if (!els.dropdown) return;
+        els.dropdown.classList.toggle('open', open);
+        els.select.setAttribute('aria-expanded', String(open));
+        els.list.hidden = !open;
     }
 
     function renderZones() {
@@ -351,7 +365,8 @@
         clearDraw();
         isolatedId = null;
         mode = 'list';
-        if (els.list) els.list.value = '';
+        setDropdown(false);
+        if (els.trackerLabel) els.trackerLabel.textContent = 'Choose a vehicle…';
         applyMap();
         renderView();
     }
@@ -362,6 +377,7 @@
         clearDraw();
         isolatedId = v.id;
         mode = 'isolated';
+        if (els.trackerLabel) els.trackerLabel.textContent = nameOf(v);
         map.closePopup();
         applyMap();
         renderView();
@@ -403,8 +419,22 @@
             mode = 'isolated';
             renderView();
         });
-        els.list.addEventListener('change', e => {
-            if (e.target.value) isolate(e.target.value);
+        els.select.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!ddOpen) { listHtml = null; renderTrackers(); } // fresh items + replay stagger
+            setDropdown(!ddOpen);
+        });
+        document.addEventListener('mousedown', e => {
+            if (ddOpen && els.dropdown && !els.dropdown.contains(e.target)) setDropdown(false);
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && ddOpen) setDropdown(false);
+        });
+        els.list.addEventListener('click', e => {
+            const item = e.target.closest('.geo-dd-item');
+            if (!item) return;
+            setDropdown(false);
+            isolate(item.dataset.id);
         });
         els.violationsMarkRead.addEventListener('click', markAllAlertsRead);
         els.violationsToggle.addEventListener('click', () => {

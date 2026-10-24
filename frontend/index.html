@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/app.css?v=143">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
-    <link rel="stylesheet" href="/static/geofence.css?v=4">
+    <link rel="stylesheet" href="/static/geofence.css?v=5">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -739,9 +739,13 @@
 
                         <div id="geo-view-list">
                             <label class="geo-select-label" for="geo-tracker-select">Vehicle</label>
-                            <select id="geo-tracker-select" class="glass-input geo-tracker-select" aria-label="Select a vehicle to geofence">
-                                <option value="">Choose a vehicle…</option>
-                            </select>
+                            <div class="geo-dropdown" id="geo-tracker-dropdown">
+                                <button type="button" class="geo-dropdown-btn" id="geo-tracker-select" aria-haspopup="listbox" aria-expanded="false">
+                                    <span class="geo-dropdown-label" id="geo-tracker-label">Choose a vehicle…</span>
+                                    <i class="fas fa-chevron-down geo-dropdown-chevron" aria-hidden="true"></i>
+                                </button>
+                                <div class="geo-dropdown-menu" id="geo-tracker-menu" role="listbox" hidden></div>
+                            </div>
                         </div>
 
                         <div id="geo-view-tracker" class="hidden">
@@ -1375,7 +1379,7 @@
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
     <script src="/static/app.js?v=143"></script>
-    <script src="/static/geofence.js?v=6"></script>
+    <script src="/static/geofence.js?v=7"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
