@@ -2314,6 +2314,8 @@ if (dashTabEl && dashScrollCue) {
         dashTabEl.scrollTo({ top: up ? 0 : dashTabEl.scrollHeight, behavior: 'smooth' });
     });
     window.addEventListener('resize', updateDashScrollCue);
+    // Content grows asynchronously (tables/markers fill in) — recheck overflow on every DOM change
+    new MutationObserver(updateDashScrollCue).observe(dashTabEl, { childList: true, subtree: true });
 }
 
 function switchDashBase(which) {
@@ -2568,6 +2570,7 @@ async function loadAllPositions(vehicles) {
                 }
             });
             if (!initialMapFitDone) { initialMapFitDone = true; setTimeout(fitMapToAllMarkers, 400); }
+            if (typeof updateDashMapMarkers === 'function') setTimeout(() => updateDashMapMarkers(true), 400);
             return;
         }
     } catch (e) {
@@ -2590,6 +2593,7 @@ async function loadAllPositions(vehicles) {
         }
     }
     if (!initialMapFitDone) { initialMapFitDone = true; setTimeout(fitMapToAllMarkers, 400); }
+    if (typeof updateDashMapMarkers === 'function') setTimeout(() => updateDashMapMarkers(true), 400);
 }
 
 // Add or update marker and update Control Panel Card
