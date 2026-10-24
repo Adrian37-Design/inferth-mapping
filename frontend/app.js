@@ -2284,7 +2284,7 @@ document.addEventListener('click', (e) => {
     const grid = card.closest('.dash-mid-grid');
     if (grid) grid.classList.toggle('vehicles-collapsed', collapsed && card.classList.contains('dash-vehicles-card'));
     // On expand, bring the opened section into view inside the scrollable tab
-    if (!collapsed) requestAnimationFrame(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    if (!collapsed) requestAnimationFrame(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     // Repaint the map at its new size — once after the layout settles, again late to catch tile fetches
     requestAnimationFrame(() => { if (dashMap) dashMap.invalidateSize(); });
     setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 200);
