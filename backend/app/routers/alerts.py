@@ -54,3 +54,15 @@ async def mark_read(current_user: User = Depends(get_current_user)):
         await db.execute(stmt)
         await db.commit()
         return {"message": "All alerts marked as read"}
+
+
+@router.post("/{alert_id}/read")
+async def mark_alert_read(alert_id: int, current_user: User = Depends(get_current_user)):
+    async with AsyncSessionLocal() as db:
+        stmt = update(Alert).where(Alert.id == alert_id).values(is_read=True)
+        if not is_platform_admin(current_user):
+            visible = select(Device.id).where(tracker_visibility(current_user, await tenant_name(db, current_user)))
+            stmt = stmt.where(or_(Alert.tenant_id == current_user.tenant_id, Alert.device_id.in_(visible)))
+        await db.execute(stmt)
+        await db.commit()
+        return {"message": "Alert marked as read"}

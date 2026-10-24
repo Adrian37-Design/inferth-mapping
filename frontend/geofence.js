@@ -6,7 +6,8 @@
     const PALETTE = ['#ff5a00', '#10b981', '#0ea5e9', '#f59e0b', '#ef4444', '#a1a1aa'];
     const DRAW_STYLE = { color: '#ff5a00', weight: 2, dashArray: '6 6', fillOpacity: 0.12 };
     const IDS = {
-        listView: 'geo-view-list', trackerView: 'geo-view-tracker', search: 'geo-tracker-search', list: 'geo-tracker-list',
+        listView: 'geo-view-list', trackerView: 'geo-view-tracker', list: 'geo-tracker-select',
+        violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle',
         backBtn: 'geo-back-btn', exitBtn: 'geo-exit-btn', trackerName: 'geo-tracker-name', trackerMeta: 'geo-tracker-meta',
         trackerStatus: 'geo-tracker-status', tools: 'geo-tools', hint: 'geo-hint', flash: 'geo-flash', form: 'geo-form',
         name: 'geo-name', swatches: 'geo-swatches', entry: 'geo-rule-entry', exitRule: 'geo-rule-exit', channel: 'geo-channel',
@@ -50,14 +51,10 @@
     const badge = status => `<span class="status-badge badge-${status.toLowerCase()}">${status}</span>`;
     const alertSummary = z => [z.alertRules && z.alertRules.entry && 'Entry', z.alertRules && z.alertRules.exit && 'Exit'].filter(Boolean).join(' · ') || 'No alerts';
 
-    const trackerRow = v => {
+    const trackerOption = v => {
         const status = statusOf(v.id);
         const count = zonesFor(v.id).length;
-        return `<button type="button" class="geo-tracker-row" data-id="${escapeHTML(v.id)}">
-            <span class="geo-tracker-main"><strong>${escapeHTML(nameOf(v))}</strong><small>${escapeHTML(v.imei)}${v.driver_name ? ` · ${escapeHTML(v.driver_name)}` : ''}</small></span>
-            <span class="geo-tracker-side">${badge(status)}<small>${count} geofence${count === 1 ? '' : 's'}</small></span>
-            <i class="fas fa-chevron-right" aria-hidden="true"></i>
-        </button>`;
+        return `<option value="${escapeHTML(v.id)}">${escapeHTML(nameOf(v))} · ${escapeHTML(v.imei)} — ${status} (${count} geofence${count === 1 ? '' : 's'})</option>`;
     };
 
     const zoneRow = z => `<div class="geo-zone-row">
@@ -113,11 +110,9 @@
     }
 
     function renderTrackers() {
-        const q = els.search.value.trim().toLowerCase();
-        const rows = allVehicles.filter(v => !q || [v.name, v.imei, v.driver_name, v.company].filter(Boolean).join(' ').toLowerCase().includes(q));
-        const html = rows.length
-            ? rows.map(trackerRow).join('')
-            : `<p class="empty-state">${allVehicles.length ? `No trackers match "${escapeHTML(q)}".` : 'No trackers registered yet. Add one from Live fleet.'}</p>`;
+        const rows = allVehicles.map(trackerOption);
+        const placeholder = allVehicles.length ? 'Choose a vehicle…' : 'No trackers registered yet';
+        const html = `<option value="">${placeholder}</option>` + rows.join('');
         if (html === listHtml) return;
         listHtml = html;
         els.list.innerHTML = html;
@@ -303,12 +298,36 @@
     const violationRow = a => {
         const when = parseTimestamp(a.timestamp);
         const kind = { geofence_entry: 'Entry', geofence_exit: 'Exit', tracker_geofence: 'Tracker' }[a.type] || 'Exit';
-        return `<div class="geo-violation">
+        const seenCtl = a.is_read
+            ? '<span class="geo-violation-seen-tag"><i class="fas fa-check" aria-hidden="true"></i> Seen</span>'
+            : `<button type="button" class="geo-violation-seen" data-seen="${escapeHTML(String(a.id))}">Seen</button>`;
+        return `<div class="geo-violation${a.is_read ? ' is-seen' : ''}">
             <span class="geo-violation-kind is-${kind.toLowerCase()}">${kind}</span>
             <span class="geo-violation-message">${escapeHTML(a.message.replace(/^Geofence (Entry|Exit): /, ''))}</span>
             <time class="geo-violation-time" datetime="${escapeHTML(a.timestamp)}">${when ? when.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</time>
+            ${seenCtl}
         </div>`;
     };
+
+    async function markViolationSeen(id, btn) {
+        btn.disabled = true;
+        try {
+            const res = await window.AuthManager.fetchAPI(`/alerts/${id}/read`, { method: 'POST' });
+            if (!res.ok) throw new Error('Failed to mark alert as seen.');
+            // Reflect in the Alerts tab feed + rail badge immediately
+            const local = (typeof alerts !== 'undefined') ? alerts.find(a => String(a.id) === String(id)) : null;
+            if (local) local.read = true;
+            if (typeof renderAlerts === 'function') renderAlerts();
+            if (typeof updateAlertsCount === 'function') updateAlertsCount();
+            if (typeof updatePriorityAlertsPanel === 'function') updatePriorityAlertsPanel();
+            const kpiAlerts = document.getElementById('kpi-alerts');
+            if (kpiAlerts && typeof alerts !== 'undefined') kpiAlerts.textContent = alerts.filter(a => !a.read).length;
+            loadViolations();
+        } catch (err) {
+            console.error(err);
+            btn.disabled = false;
+        }
+    }
 
     async function loadViolations() {
         const list = document.getElementById('geo-violations-list');
@@ -332,6 +351,7 @@
         clearDraw();
         isolatedId = null;
         mode = 'list';
+        if (els.list) els.list.value = '';
         applyMap();
         renderView();
     }
@@ -383,10 +403,18 @@
             mode = 'isolated';
             renderView();
         });
-        els.search.addEventListener('input', renderTrackers);
-        els.list.addEventListener('click', e => {
-            const row = e.target.closest('.geo-tracker-row');
-            if (row) isolate(row.dataset.id);
+        els.list.addEventListener('change', e => {
+            if (e.target.value) isolate(e.target.value);
+        });
+        els.violationsList.addEventListener('click', e => {
+            const btn = e.target.closest('[data-seen]');
+            if (btn) markViolationSeen(btn.dataset.seen, btn);
+        });
+        els.violationsToggle.addEventListener('click', () => {
+            const collapsed = els.violationsList.classList.toggle('hidden');
+            els.violationsToggle.setAttribute('aria-expanded', String(!collapsed));
+            els.violationsToggle.title = collapsed ? 'Expand violations' : 'Collapse violations';
+            els.violationsToggle.querySelector('i').className = collapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
         });
         els.backBtn.addEventListener('click', showList);
         els.exitBtn.addEventListener('click', () => window.switchTab('tab-fleet'));

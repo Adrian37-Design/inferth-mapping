@@ -17,6 +17,92 @@
     color: #a1a1aa;
 }
 
+/* Icon-only exit button — glows red on hover */
+.geo-exit-btn {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(24, 24, 27, 0.18);
+    background: #ffffff;
+    color: #52525b;
+    font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.geo-exit-btn:hover {
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.6);
+    background: rgba(220, 38, 38, 0.06);
+    box-shadow: 0 0 14px rgba(220, 38, 38, 0.45);
+}
+
+/* Vehicle dropdown picker */
+.geo-select-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.geo-tracker-select {
+    width: 100%;
+    height: 40px;
+    margin-bottom: 12px;
+    padding: 0 12px;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    background: #ffffff;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.geo-tracker-select:focus-visible {
+    outline: none;
+    border-color: rgba(24, 24, 27, 0.55);
+}
+
+/* Collapsible violations header */
+.geo-violations-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.geo-violations-head .section-title {
+    margin-bottom: 0;
+}
+
+.geo-violations-toggle {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(24, 24, 27, 0.14);
+    background: #ffffff;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.geo-violations-toggle:hover {
+    background: #f4f4f5;
+    border-color: rgba(24, 24, 27, 0.3);
+    color: var(--text-primary);
+}
+
 .geo-search {
     display: flex;
     align-items: center;
@@ -357,11 +443,47 @@
 
 .geo-violation {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     align-items: center;
     gap: 10px;
     padding: 10px 0;
     border-bottom: 1px solid #e4e4e7;
+}
+
+.geo-violation.is-seen .geo-violation-message,
+.geo-violation.is-seen .geo-violation-time {
+    opacity: 0.55;
+}
+
+.geo-violation-seen {
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(24, 24, 27, 0.2);
+    background: #ffffff;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.geo-violation-seen:hover:not(:disabled) {
+    background: #18181b;
+    border-color: #18181b;
+    color: #ffffff;
+}
+
+.geo-violation-seen:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.geo-violation-seen-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #10b981;
+    white-space: nowrap;
 }
 
 .geo-violation-kind {

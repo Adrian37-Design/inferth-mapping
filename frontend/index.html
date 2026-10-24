@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="/static/app.css?v=143">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
-    <link rel="stylesheet" href="/static/geofence.css?v=2">
+    <link rel="stylesheet" href="/static/geofence.css?v=3">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -732,18 +732,16 @@
                                 <h4 class="section-title">Geofences</h4>
                                 <p class="helper-text">Isolate a registered tracker on the map and draw its boundary.</p>
                             </div>
-                            <button class="btn-text" id="geo-exit-btn" type="button" title="Back to live fleet">
-                                <i class="fas fa-times"></i> Exit
+                            <button class="geo-exit-btn" id="geo-exit-btn" type="button" title="Back to Vehicles" aria-label="Exit geofences">
+                                <i class="fas fa-times" aria-hidden="true"></i>
                             </button>
                         </div>
 
                         <div id="geo-view-list">
-                            <label class="geo-search" for="geo-tracker-search">
-                                <i class="fas fa-search" aria-hidden="true"></i>
-                                <input id="geo-tracker-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off">
-                                <span class="sr-only">Search trackers</span>
-                            </label>
-                            <div class="geo-tracker-list" id="geo-tracker-list"></div>
+                            <label class="geo-select-label" for="geo-tracker-select">Vehicle</label>
+                            <select id="geo-tracker-select" class="glass-input geo-tracker-select" aria-label="Select a vehicle to geofence">
+                                <option value="">Choose a vehicle…</option>
+                            </select>
                         </div>
 
                         <div id="geo-view-tracker" class="hidden">
@@ -811,7 +809,12 @@
                     <hr class="panel-divider">
 
                     <div class="panel-section">
-                        <h4 class="section-title">Recent Violations</h4>
+                        <div class="geo-violations-head">
+                            <h4 class="section-title">Recent Violations</h4>
+                            <button class="geo-violations-toggle" id="geo-violations-toggle" type="button" aria-expanded="true" title="Collapse violations" aria-label="Toggle recent violations">
+                                <i class="fas fa-chevron-up" aria-hidden="true"></i>
+                            </button>
+                        </div>
                         <div class="priority-list" id="geo-violations-list">
                             <!-- Mock Violations -->
                         </div>
@@ -1368,8 +1371,8 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=142"></script>
-    <script src="/static/geofence.js?v=3"></script>
+    <script src="/static/app.js?v=143"></script>
+    <script src="/static/geofence.js?v=4"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

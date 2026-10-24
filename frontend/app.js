@@ -949,12 +949,13 @@ function renderAlerts() {
 
     list.innerHTML = '';
 
-    if (alerts.length === 0) {
+    const unread = alerts.filter(a => !a.read);
+    if (unread.length === 0) {
         list.innerHTML = '<p class="empty-state">No new alerts</p>';
         return;
     }
 
-    alerts.forEach(alert => {
+    unread.forEach(alert => {
         const item = document.createElement('div');
         item.className = `alert-item ${alert.read ? '' : 'unread'}`;
         // ... (rest is same)
