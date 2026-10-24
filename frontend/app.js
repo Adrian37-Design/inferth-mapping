@@ -2277,7 +2277,10 @@ document.addEventListener('click', (e) => {
     const collapsed = card.classList.toggle('collapsed');
     const grid = card.closest('.dash-mid-grid');
     if (grid) grid.classList.toggle('vehicles-collapsed', collapsed && card.classList.contains('dash-vehicles-card'));
-    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 250);
+    // Repaint the map at its new size — once after the layout settles, again late to catch tile fetches
+    requestAnimationFrame(() => { if (dashMap) dashMap.invalidateSize(); });
+    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 200);
+    setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 600);
 });
 
 function switchDashBase(which) {
