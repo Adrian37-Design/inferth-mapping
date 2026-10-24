@@ -596,6 +596,7 @@ window.switchTab = function(targetId) {
                 renderDashVehicles();
                 setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 300);
                 setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 600);
+                setTimeout(updateDashScrollCue, 350);
             }
         }
 
@@ -2288,7 +2289,32 @@ document.addEventListener('click', (e) => {
     requestAnimationFrame(() => { if (dashMap) dashMap.invalidateSize(); });
     setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 200);
     setTimeout(() => { if (dashMap) dashMap.invalidateSize(); }, 600);
+    setTimeout(updateDashScrollCue, 260);
 });
+
+// Dashboard scroll cue — down-bounce at top, up-bounce at bottom, click scrolls
+const dashScrollCue = document.getElementById('dash-scroll-cue');
+const dashTabEl = document.getElementById('tab-dashboard');
+function updateDashScrollCue() {
+    if (!dashScrollCue || !dashTabEl) return;
+    const { scrollTop, scrollHeight, clientHeight } = dashTabEl;
+    if (scrollHeight <= clientHeight + 8) { dashScrollCue.classList.remove('visible'); return; }
+    const atTop = scrollTop < 8;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - 8;
+    dashScrollCue.classList.toggle('visible', atTop || atBottom);
+    const pointUp = atBottom && !atTop;
+    dashScrollCue.classList.toggle('cue-up', pointUp);
+    const icon = dashScrollCue.querySelector('i');
+    if (icon) icon.className = pointUp ? 'fas fa-chevron-up' : 'fas fa-chevron-down';
+}
+if (dashTabEl && dashScrollCue) {
+    dashTabEl.addEventListener('scroll', updateDashScrollCue, { passive: true });
+    dashScrollCue.addEventListener('click', () => {
+        const up = dashScrollCue.classList.contains('cue-up');
+        dashTabEl.scrollTo({ top: up ? 0 : dashTabEl.scrollHeight, behavior: 'smooth' });
+    });
+    window.addEventListener('resize', updateDashScrollCue);
+}
 
 function switchDashBase(which) {
     if (!dashMap || !dashBaseLayers || !dashBaseLayers[which]) return;

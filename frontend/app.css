@@ -5295,6 +5295,39 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     .dash-mid-grid > .dash-card.collapsed .dash-collapse-btn i { transform: rotate(-90deg); }
 }
 
+/* Scroll cue — sticky chip at the bottom of the scrollable dashboard */
+.dash-scroll-cue {
+    position: sticky;
+    bottom: 14px;
+    margin: 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.9rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 60;
+    box-shadow: 0 6px 18px rgba(24, 24, 27, 0.35);
+    animation: dashCueBounce 1.6s ease-in-out infinite;
+}
+.dash-scroll-cue.visible { display: flex; }
+.dash-scroll-cue:hover { background: #000; }
+
+@keyframes dashCueBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+}
+.dash-scroll-cue.cue-up { animation-name: dashCueBounceUp; }
+@keyframes dashCueBounceUp {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
 /* ─── Vehicle modal: light professional theme ──────────────────────────
    Scoped to the Add/Edit Vehicle dialog. Swaps the dark zinc + orange
    palette for a clean white card with black accents. */
