@@ -55,9 +55,9 @@
                     <i class="fas fa-tachometer-alt"></i>
                     <span class="rail-label">Dashboard</span>
                 </button>
-                <button type="button" class="rail-item active" data-tab="tab-fleet" title="Live fleet" aria-current="page" aria-controls="tab-fleet">
+                <button type="button" class="rail-item active" data-tab="tab-fleet" title="Vehicles" aria-current="page" aria-controls="tab-fleet">
                     <i class="fas fa-map-marker-alt"></i>
-                    <span class="rail-label">Live fleet</span>
+                    <span class="rail-label">Vehicles</span>
                 </button>
                 <button type="button" class="rail-item" data-tab="tab-geofence" title="Geofences" aria-controls="tab-geofence">
                     <i class="fas fa-draw-polygon"></i>
@@ -107,7 +107,7 @@
             <!-- Panel Content -->
             <div class="sidebar-panel" id="workspace-panel" inert>
                 <div class="panel-header">
-                    <div><p class="workspace-eyebrow">Operations workspace</p><h3 id="panel-title">Live fleet</h3></div>
+                    <div><p class="workspace-eyebrow">Operations workspace</p><h3 id="panel-title">Vehicles</h3></div>
                     <button class="toggle-panel" id="toggle-sidebar-btn" aria-label="Hide workspace panel" aria-controls="workspace-panel" aria-expanded="false">
                         <i class="fas fa-chevron-left"></i>
                     </button>
@@ -331,7 +331,7 @@
                     <div class="fleet-toolbar">
                         <div class="fleet-heading"><div><h4>Your assets</h4><p id="fleet-result-count" role="status">Loading fleet…</p></div>
                         <button type="button" class="btn-small" id="add-vehicle-sidebar" hidden><i
-                                class="fas fa-plus"></i> Add asset</button></div>
+                                class="fas fa-plus"></i> Add Asset</button></div>
                         <div class="spot" data-spotlight><label class="fleet-search" for="fleet-search"><i class="fas fa-search" aria-hidden="true"></i><span class="spot-input-wrap"><input id="fleet-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off"></span><span class="sr-only">Search fleet</span></label></div>
                         <label class="fleet-status-label" for="fleet-status-filter">Asset status<select id="fleet-status-filter"><option value="all">All statuses</option><option value="moving">Moving</option><option value="stationary">Stationary</option><option value="offline">Offline</option></select></label>
                     </div>
