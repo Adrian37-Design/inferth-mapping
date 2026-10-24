@@ -552,6 +552,7 @@ function syncWorkspaceLayout() {
     document.getElementById('workspace-panel').inert = collapsed;
     ['workspace-toggle', 'toggle-sidebar-btn'].forEach(id => {
         const button = document.getElementById(id);
+        if (!button) return;
         button.setAttribute('aria-expanded', String(!collapsed));
         button.setAttribute('aria-label', collapsed ? 'Show workspace panel' : 'Hide workspace panel');
     });
@@ -880,11 +881,11 @@ function setupSidebarToggle() {
     if (btn && sidebar) {
         const toggle = () => {
             sidebar.classList.toggle('collapsed');
-            if (sidebar.classList.contains('collapsed')) document.getElementById('workspace-toggle').focus();
+            if (sidebar.classList.contains('collapsed')) document.getElementById('workspace-toggle')?.focus();
             syncWorkspaceLayout();
         };
         btn.addEventListener('click', toggle);
-        document.getElementById('workspace-toggle').addEventListener('click', toggle);
+        document.getElementById('workspace-toggle')?.addEventListener('click', toggle);
         syncWorkspaceLayout();
     }
 }

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth Mapping — Live Strategic Roadmap</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --surface: #111827;
+            --surface-border: #1f293d;
+            --primary: #10b981;
+            --primary-glow: rgba(16, 185, 129, 0.15);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 48px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--surface-border);
+        }
+        .header-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary-glow);
+            color: var(--primary);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .header-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--primary);
+        }
+        .refresh-btn {
+            background: #1f293d;
+            color: #e5e7eb;
+            border: 1px solid #374151;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .refresh-btn:hover {
+            background: #374151;
+            color: #ffffff;
+        }
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #38bdf8;
+            margin-top: 36px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+            padding-bottom: 8px;
+        }
+        h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #a7f3d0;
+            margin-top: 24px;
+            margin-bottom: 10px;
+        }
+        p, li {
+            color: #d1d5db;
+            font-size: 0.98rem;
+            margin-bottom: 12px;
+        }
+        ul, ol {
+            margin-left: 24px;
+            margin-bottom: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        blockquote {
+            background: rgba(17, 24, 39, 0.8);
+            border-left: 4px solid var(--primary);
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+            color: #e5e7eb;
+            font-size: 0.95rem;
+        }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background: #1e293b;
+            color: #38bdf8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.88rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+            font-size: 0.95rem;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--surface-border);
+        }
+        th {
+            background: rgba(31, 41, 61, 0.6);
+            color: #93c5fd;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        hr {
+            border: 0;
+            height: 1px;
+            background: var(--surface-border);
+            margin: 36px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <div class="header-badge">Live System Document</div>
+            <button class="refresh-btn" onclick="fetchRoadmap()">↻ Reload from ROADMAP.md</button>
+        </div>
+        <div id="content">Loading roadmap...</div>
+    </div>
+
+    <script>
+        const embeddedMarkdown = "# Inferth Mapping \u2014 Platform Ledger & Living Strategic Roadmap\n\n> **Document Purpose:** This is the single source of truth for Inferth Mapping's technical architecture, current live capabilities, strategic moat, and development roadmap. Any AI developer agent (Antigravity, Cursor, Windsurf, Devin, Claude Code, Aider) or human engineer must consult this file before making structural or strategic decisions.\n>\n> **Last Updated:** September 2026  \n> **Repository:** `Adrian37-Design/inferth-mapping`  \n> **Live Production:** `inferth-mapping.up.railway.app`\n\n---\n\n## 1. Executive Summary & Tech Stack\n\n* **Domain:** Fleet telematics, asset tracking, remote immobilizer security, and fuel monitoring optimized for Southern Africa (Zimbabwe focus).\n* **Backend:** FastAPI (Python 3.11, async SQLAlchemy, Alembic, Pydantic).\n* **Ingestion Layer:** Asynchronous TCP socket server (`backend/app/services/tcp_server.py`) handling high-concurrency binary hardware streams.\n* **Database:** PostgreSQL on Railway, equipped with partial indexes for high-frequency time-series coordinates and CAN-bus metrics.\n* **Realtime Layer:** WebSockets and Redis pub/sub for sub-second position broadcasting to active client sessions.\n* **Frontend:** Vanilla JS / HTML5 / CSS3 / Leaflet.js map engine (lightweight, zero-build step, responsive for mobile and desktop).\n* **Payments:** Native Paynow gateway integration (EcoCash, OneMoney, Zimswitch).\n* **Multi-Tenancy:** Strict tenant isolation enforced at SQL query level (`tenant_id = 1` reserved for global super-admin).\n\n---\n\n## 2. Live Platform State (What Currently Works in Production)\n\n### A. Telematics Ingestion & Protocol Support\n* **GT06 Protocol:** Decodes login, GPS location (with GPS fix validation bit `course_status & 0x1000`), status, and alarm packets.\n* **Sinotrack Protocol:** Full text/binary command decoding with boundary sanitization.\n* **Teltonika AVL:** AVL packet frame parsing into decoded dictionaries.\n* **H02 & GPS103:** Decoders implemented for legacy clone hardware.\n\n### B. 3-Step Data Guardrails Pipeline (`backend/app/services/data_guardrails.py`)\n1. **Coordinate & Range Sanitization:** Null Island `(0.0, 0.0)` rejection, NaN filtering, and strict lat/long bounding.\n2. **Speed & Clock Hygiene:** Speed clamping (>200 km/h anomaly cap), Haversine implied velocity checks (>250 km/h teleportation rejection), and hardware clock drift correction (<2024 reset filtering).\n3. **Deduplication & State Resolution:** Stationary ping deduplication (<10m, <4s) and ignition-aware offline/idling state machine.\n\n### C. Vehicle Control & Security\n* **Remote Tracker Shutdown Button:** Live web UI modal with double-confirmation triggering `POST /devices/{device_id}/command` (`shutdown` / `restore`).\n* **Audit Logging:** Every administrative action, tracker command, and login is immutably recorded in `AuditLog`.\n\n### D. CAN-bus / OBD-II Database Schema\n* Dedicated schema columns on `positions`: `fuel_level`, `rpm`, `engine_temp`, `battery_voltage`, `odometer`, `ignition`, `dtc_fault_codes`.\n* Auto-migrating database schema with optimized partial indexes for zero-downtime startup.\n\n---\n\n## 3. Strategic Framework: The 5 Pillars\n\n### Pillar 1: PROTECT (Defensible Strengths & Moats)\n*What would set the venture back most if lost before scaling?*\n1. **Hardware-to-Vehicle Scar Tissue:** Hard-won binary decoder logic handling quirks, clock resets, and packet bursts from Chinese clone trackers (GT06/Sinotrack) operating in real-world conditions.\n2. **Auto-Electrician Installation Network:** Ground-level relationships with technicians trusted to splice immobilizer relays into vehicle harnesses without voiding manufacturer warranties.\n3. **Live Road Vehicle Access & Trust:** Active trackers running on live Zimbabwean roads (Harare/Kadoma corridors), generating irreplaceable telemetry across cellular dead zones.\n\n### Pillar 2: IMPROVE (Workable but Weak as Currently Designed)\n*What functions today but requires architectural hardening?*\n1. **Ground-Truth Outcome Verification:** Anomaly detection catches fuel drops and speed spikes, but lacks an operator \"Incident Closure\" UI to label whether an event was confirmed theft, rough-road slosh, or a sensor glitch.\n2. **Teltonika Diagnostic Extraction:** Teltonika CAN/OBD fields remain nested in raw `io_elements` dictionaries rather than being extracted into dedicated columns.\n3. **Automated SMS Fallback for Remote Cut-Off:** Engine shutdowns currently rely on active GPRS TCP sockets. If a vehicle enters a dead zone, the command stalls; it requires an automated SMS API fallback loop (`RELAY,1#` or `DY,123456#`).\n\n### Pillar 3: REINVENT (Where the Industry Default is Broken)\n*What would we design differently if nobody had done it before?*\n1. **Behavior-Trained \"Zero-Dashboard\" Ops (WhatsApp-First):**\n   * *The Problem:* African fleet operators live on WhatsApp, not complex desktop web dashboards.\n   * *The Reinvention:* Use the web app as a behavioral training ground to learn which alerts the operator actually acts on. Once calibrated, distill 90% of daily operations into proactive, conversational WhatsApp summaries with 1-tap actions.\n2. **Always-On Hybrid Satellite Telemetry for Remote Corridors:**\n   * *The Problem:* Standard cellular trackers go blind for hours along mining, border, and agricultural corridors.\n   * *The Reinvention:* Deploy hybrid cellular/satellite micro-packet hardware (Iridium/Astrocast/Swarm) so vehicles never drop off the grid.\n3. **Crowdsourced Road & Network Hazard Intelligence:**\n   * *The Reinvention:* Aggregate tracker accelerometer shocks and cellular disconnects to build a live map of regional road hazards (pothole clusters) and network dead zones.\n\n### Pillar 4: REPLACE (Assumptions Carried Without Testing)\n*What was in the plan only because other telematics companies do it?*\n1. **REPLACE Flat Monthly SaaS Subscriptions ($15-$25/mo):**\n   * *Why:* Creates payment friction, monthly debt collection headaches, and resistance during vehicle maintenance downtime.\n   * *Replacement:* Prepaid Fleet Credits (pay-as-you-drive via EcoCash) or low-base + high-value incident fees (fuel recovery bounty).\n2. **REPLACE Complex Analytics Dashboards:**\n   * *Why:* Operators experience triage fatigue and rarely analyze trend graphs.\n   * *Replacement:* Binary exception reporting (only alert when action is required).\n3. **REPLACE Digital-Only Inbound Marketing:**\n   * *Why:* Vehicle tracking is a physical trust business requiring hands-on wiring.\n   * *Replacement:* Field-first distribution partnering with trusted mechanics, auto-electricians, and insurance brokers.\n\n### Pillar 5: REMOVE / DEPRECATE (Waste & Tech Debt to Eliminate)\n1. **Raw Heartbeat Ping Retention:** Deprecate indefinite storage of stationary zero-speed pings; use automated maintenance pruning (`POST /admin/storage/prune-heartbeats`).\n2. **Redundant Mock Fleet Generators:** Remove mock tracking scripts once production vehicle counts scale.\n3. **Double Commit Patterns:** Ensure all database transactions follow single-commit patterns to prevent async locking.\n\n---\n\n## 4. Priority Development Roadmap\n\n| Phase | Milestone | Priority | Status |\n|---|---|---|---|\n| **Phase 1** | Remote Engine Shutdown UI & Endpoints | High | **COMPLETE** |\n| **Phase 1** | 3-Step Telematics Data Guardrails & Tests | High | **COMPLETE** |\n| **Phase 1** | CAN-bus Database Columns & Partial Indexes | High | **COMPLETE** |\n| **Phase 2** | Incident Closure & Labeled Outcome UI (Theft vs Slosh) | Critical | **NEXT** |\n| **Phase 2** | Teltonika OBD/CAN Nested Field Extraction in TCP Server | High | Planned |\n| **Phase 2** | Automated Direct SMS Fallback for Tracker Shutdown | High | Planned |\n| **Phase 3** | In-App Telematics AI Copilot (RAG on Postgres Telemetry) | Medium | Designed (Paused by User) |\n| **Phase 3** | Operator Behavioral Profiling for Exception Reporting | Medium | Planned |\n| **Phase 4** | WhatsApp Conversational Ops Bot (Zero-Dashboard Engine) | High | Planned |\n| **Phase 4** | Prepaid Fleet Credits & EcoCash Token Billing Engine | Medium | Planned |\n";
+        async function fetchRoadmap() {
+            try {
+                const res = await fetch('ROADMAP.md?t=' + Date.now());
+                if (res.ok) {
+                    const text = await res.text();
+                    document.getElementById('content').innerHTML = marked.parse(text);
+                    return;
+                }
+            } catch (e) {}
+            document.getElementById('content').innerHTML = marked.parse(embeddedMarkdown);
+        }
+        fetchRoadmap();
+    </script>
+</body>
+</html>
