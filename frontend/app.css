@@ -4342,7 +4342,7 @@ input, select, textarea {
 
 .nav-brand { font-size: 1.05rem; gap: 2px; font-weight: 700; }
 .brand-logo { height: 28px; filter: none; }
-.nav-brand #user-role-display.role-badge {
+.navbar > #user-role-display.role-badge {
     font-size: 0.72rem !important;
     font-weight: 600 !important;
     text-transform: none !important;
