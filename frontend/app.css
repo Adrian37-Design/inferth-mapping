@@ -4335,13 +4335,13 @@ input, select, textarea {
 /* Operations workspace — enterprise telematics polish */
 .navbar {
     height: var(--header-height);
-    padding: 8px 20px;
+    padding: 4px 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);
     border-bottom: 1px solid rgba(148, 163, 184, 0.22);
 }
 
-.nav-brand { font-size: 1.05rem; gap: 10px; font-weight: 700; }
-.brand-logo { height: 32px; filter: none; }
+.nav-brand { font-size: 1.05rem; gap: 2px; font-weight: 700; }
+.brand-logo { height: 28px; filter: none; }
 .nav-brand #user-role-display.role-badge {
     font-size: 0.72rem !important;
     font-weight: 600 !important;
