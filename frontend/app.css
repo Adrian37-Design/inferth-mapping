@@ -4496,46 +4496,47 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
     gap: 6px;
 }
 .vehicle-card .action-buttons button {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border-radius: 6px;
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(24, 24, 27, 0.045);
-    color: #cbd5e1;
+    border: 1px solid rgba(24, 24, 27, 0.28);
+    background: #f4f4f5;
+    color: #18181b;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.78rem;
+    font-size: 0.95rem;
+    font-weight: 700;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
     transform: none !important;
     box-shadow: none !important;
 }
 .vehicle-card .action-buttons .locate-vehicle-btn:hover {
-    background: rgba(14, 165, 233, 0.18);
-    border-color: rgba(14, 165, 233, 0.45);
-    color: #38bdf8;
+    background: rgba(37, 99, 235, 0.12);
+    border-color: rgba(37, 99, 235, 0.5);
+    color: #2563eb;
 }
 .vehicle-card .action-buttons .shutdown-vehicle-btn {
-    color: #f87171;
-    border-color: rgba(239, 68, 68, 0.28);
-    background: rgba(239, 68, 68, 0.08);
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.4);
+    background: rgba(220, 38, 38, 0.08);
 }
 .vehicle-card .action-buttons .shutdown-vehicle-btn:hover {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: #dc2626;
+    border-color: #dc2626;
     color: #fff;
 }
 .vehicle-card .action-buttons .edit-vehicle-btn:hover {
-    background: rgba(24, 24, 27, 0.045);
-    border-color: rgba(24, 24, 27, 0.15);
-    color: #fff;
+    background: rgba(24, 24, 27, 0.1);
+    border-color: rgba(24, 24, 27, 0.4);
+    color: #18181b;
 }
 .vehicle-card .action-buttons .delete-vehicle-btn:hover {
-    background: rgba(239, 68, 68, 0.18);
-    border-color: rgba(239, 68, 68, 0.45);
-    color: #f87171;
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.5);
+    color: #dc2626;
 }
 .vehicle-open-btn { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
 .vehicle-open-btn:hover { text-decoration: underline; }
