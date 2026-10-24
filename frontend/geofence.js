@@ -331,10 +331,12 @@
         const list = document.getElementById('geo-violations-list');
         if (!list || !isOpen) return;
         try {
-            const res = await window.AuthManager.fetchAPI(`/alerts/?types=${VIOLATION_TYPES}&limit=5`);
+            const res = await window.AuthManager.fetchAPI(`/alerts/?types=${VIOLATION_TYPES}&limit=10`);
             if (!res.ok) return;
             const alerts = await res.json();
-            list.innerHTML = alerts.length ? alerts.map(violationRow).join('') : '<p class="empty-state">No geofence alerts yet.</p>';
+            // Only unacknowledged violations show — read ones stay saved/traced server-side
+            const unread = alerts.filter(a => !a.is_read);
+            list.innerHTML = unread.length ? unread.map(violationRow).join('') : '<p class="empty-state">No unacknowledged violations.</p>';
         } catch (err) {
             console.error('Failed to load geofence alerts:', err);
         }
