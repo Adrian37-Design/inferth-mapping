@@ -8,7 +8,7 @@
     const IDS = {
         listView: 'geo-view-list', trackerView: 'geo-view-tracker', list: 'geo-tracker-menu',
         dropdown: 'geo-tracker-dropdown', select: 'geo-tracker-select', trackerLabel: 'geo-tracker-label',
-        violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle', violationsMarkRead: 'geo-violations-markread',
+        violationsSection: 'geo-violations-section', violationsList: 'geo-violations-list', violationsToggle: 'geo-violations-toggle', violationsMarkRead: 'geo-violations-markread',
         backBtn: 'geo-back-btn', exitBtn: 'geo-exit-btn', trackerName: 'geo-tracker-name', trackerMeta: 'geo-tracker-meta',
         trackerStatus: 'geo-tracker-status', tools: 'geo-tools', hint: 'geo-hint', flash: 'geo-flash', form: 'geo-form',
         name: 'geo-name', swatches: 'geo-swatches', entry: 'geo-rule-entry', exitRule: 'geo-rule-exit', channel: 'geo-channel',
@@ -158,6 +158,7 @@
         const listMode = mode === 'list';
         els.listView.classList.toggle('hidden', !listMode);
         els.trackerView.classList.toggle('hidden', listMode);
+        if (els.violationsSection) els.violationsSection.classList.toggle('hidden', !listMode);
         els.tools.classList.toggle('hidden', !canEdit() || mode !== 'isolated');
         els.form.classList.toggle('hidden', mode !== 'review');
         els.hint.textContent = hintText();
