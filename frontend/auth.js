@@ -464,8 +464,8 @@ class AuthManager {
         console.log("Applying theme:", theme);
         const root = document.documentElement;
 
-        const defaultLogo = '/static/inferth_mapping_logo.png';
-        const hasCustomLogo = Boolean(theme.has_custom_logo && theme.logo && !theme.logo.includes('inferth_mapping_logo'));
+        const defaultLogo = '/static/inferth_mapping_mark.png';
+        const hasCustomLogo = Boolean(theme.has_custom_logo && theme.logo && !theme.logo.includes('inferth_mapping'));
 
         let primary = theme.primary;
         let secondary = theme.secondary;
@@ -474,13 +474,13 @@ class AuthManager {
 
         // Any company using the default logo MUST use the theme colours for Inferth Mapping
         if (!hasCustomLogo) {
-            primary = '#ff8c00';
+            primary = '#18181b';
             secondary = '#ef4835';
             navBg = '#ffffff';
-            navText = '#ff8c00';
+            navText = '#18181b';
             theme.logo = defaultLogo;
         } else {
-            primary = primary || '#ff8c00';
+            primary = primary || '#18181b';
             secondary = secondary || '#ef4835';
             navBg = navBg || 'linear-gradient(to right, #1a1c23, #2d3139)';
             navText = navText || (navBg === '#ffffff' || navBg === 'white' ? primary : '#ffffff');
