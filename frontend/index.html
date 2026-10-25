@@ -10,9 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=145">
+    <link rel="stylesheet" href="/static/app.css?v=146">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
-    <link rel="stylesheet" href="/static/geofence.css?v=7">
+    <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -279,17 +279,10 @@
                 <div id="tab-history" class="tab-content">
                     <div class="history-panel-toolbar">
                         <div class="history-field-group">
-                            <label class="history-field-label">Asset</label>
-                            <select id="history-vehicle-select" class="history-select" hidden>
+                            <label class="history-field-label" for="history-vehicle-select">Asset</label>
+                            <select id="history-vehicle-select" class="history-select">
                                 <option value="">Select an asset…</option>
                             </select>
-                            <div class="geo-dropdown history-dropdown" id="history-vehicle-dropdown">
-                                <button type="button" class="geo-dropdown-btn" id="history-vehicle-btn" aria-haspopup="listbox" aria-expanded="false">
-                                    <span class="geo-dropdown-label" id="history-vehicle-label">Select an asset…</span>
-                                    <i class="fas fa-chevron-down geo-dropdown-chevron" aria-hidden="true"></i>
-                                </button>
-                                <div class="geo-dropdown-menu" id="history-vehicle-menu" role="listbox" hidden></div>
-                            </div>
                         </div>
 
                         <div class="history-presets" role="group" aria-label="Date range presets">
@@ -756,13 +749,9 @@
 
                         <div id="geo-view-list">
                             <label class="geo-select-label" for="geo-tracker-select">Vehicle</label>
-                            <div class="geo-dropdown" id="geo-tracker-dropdown">
-                                <button type="button" class="geo-dropdown-btn" id="geo-tracker-select" aria-haspopup="listbox" aria-expanded="false">
-                                    <span class="geo-dropdown-label" id="geo-tracker-label">Choose a vehicle…</span>
-                                    <i class="fas fa-chevron-down geo-dropdown-chevron" aria-hidden="true"></i>
-                                </button>
-                                <div class="geo-dropdown-menu" id="geo-tracker-menu" role="listbox" hidden></div>
-                            </div>
+                            <select id="geo-tracker-select" class="geo-tracker-select">
+                                <option value="">Choose a vehicle…</option>
+                            </select>
                         </div>
 
                         <div id="geo-view-tracker" class="hidden">
@@ -1395,8 +1384,8 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=146"></script>
-    <script src="/static/geofence.js?v=9"></script>
+    <script src="/static/app.js?v=147"></script>
+    <script src="/static/geofence.js?v=10"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

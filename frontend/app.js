@@ -647,7 +647,6 @@ window.switchTab = function(targetId) {
             }
             if (selectedVehicle && histSelect) {
                 histSelect.value = String(selectedVehicle.id);
-                if (typeof syncHistoryAssetDropdown === 'function') syncHistoryAssetDropdown();
             }
             if (selectedVehicle) {
                 const sp = document.getElementById('history-start-date');
@@ -4897,7 +4896,8 @@ function populateHistoryVehicleSelect() {
     sel.innerHTML = list.map(v => {
         const label = escapeHTML(v.name || `Device ${v.imei}`);
         const imei = escapeHTML(v.imei || '');
-        return `<option value="${v.id}">${label} (${imei})</option>`;
+        const status = getVehicleDashStatus(v);
+        return `<option value="${v.id}" data-meta="${imei} — ${escapeHTML(status.charAt(0).toUpperCase() + status.slice(1))}">${label}</option>`;
     }).join('');
     if (prevVal && list.some(v => String(v.id) === String(prevVal))) {
         sel.value = String(prevVal);
@@ -4906,40 +4906,6 @@ function populateHistoryVehicleSelect() {
     } else {
         sel.value = String(list[0].id);
     }
-    syncHistoryAssetDropdown();
-}
-
-// Animated dropdown overlay for the (hidden) native history asset select.
-let histDdOpen = false;
-function setHistDdOpen(open) {
-    histDdOpen = open;
-    const dd = document.getElementById('history-vehicle-dropdown');
-    const btn = document.getElementById('history-vehicle-btn');
-    const menu = document.getElementById('history-vehicle-menu');
-    if (!dd || !btn || !menu) return;
-    dd.classList.toggle('open', open);
-    btn.setAttribute('aria-expanded', String(open));
-    menu.hidden = !open;
-}
-
-function syncHistoryAssetDropdown() {
-    const sel = document.getElementById('history-vehicle-select');
-    const menu = document.getElementById('history-vehicle-menu');
-    const label = document.getElementById('history-vehicle-label');
-    if (!sel || !menu || !label) return;
-    const list = Array.isArray(allVehicles) ? allVehicles : [];
-    if (!histDdOpen) {
-        menu.innerHTML = list.length ? list.map((v, i) => {
-            const s = getVehicleDashStatus(v);
-            const st = s.charAt(0).toUpperCase() + s.slice(1);
-            return `<button type="button" class="geo-dd-item" role="option" data-id="${v.id}" style="--i:${i}" aria-selected="${String(v.id) === sel.value}">
-                <span class="geo-dd-name">${escapeHTML(v.name || `Device ${v.imei}`)}</span>
-                <span class="geo-dd-meta">${escapeHTML(v.imei || '')} — ${st}</span>
-            </button>`;
-        }).join('') : '<p class="empty-state" style="padding:10px">No assets available</p>';
-    }
-    const cur = list.find(v => String(v.id) === String(sel.value));
-    label.textContent = cur ? (cur.name || `Device ${cur.imei}`) : 'Select an asset…';
 }
 
 function updateHistorySummaryStrip(distKm, tripsCount, stopsCount, maxSpeed) {
@@ -5055,7 +5021,6 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
     if (histSelect && String(histSelect.value) !== String(id)) {
         populateHistoryVehicleSelect();
         histSelect.value = String(id);
-        if (typeof syncHistoryAssetDropdown === 'function') syncHistoryAssetDropdown();
     }
 
     timeline.innerHTML = '<p class="loading">Loading route history…</p>';
@@ -5524,36 +5489,6 @@ if (historyVehicleSelect) {
         if (matched) selectedVehicle = matched;
         stopRouteAndExit();
         loadAssetHistory(vid, historyStartPicker ? historyStartPicker.value : null, historyEndPicker ? historyEndPicker.value : null);
-    });
-}
-
-// Custom animated dropdown driving the hidden native select
-const histDdBtn = document.getElementById('history-vehicle-btn');
-const histDdMenu = document.getElementById('history-vehicle-menu');
-const histDdWrap = document.getElementById('history-vehicle-dropdown');
-if (histDdBtn && histDdMenu && histDdWrap) {
-    histDdBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        if (!histDdOpen) syncHistoryAssetDropdown();
-        setHistDdOpen(!histDdOpen);
-    });
-    document.addEventListener('mousedown', e => {
-        if (histDdOpen && !histDdWrap.contains(e.target)) setHistDdOpen(false);
-    });
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && histDdOpen) setHistDdOpen(false);
-    });
-    histDdMenu.addEventListener('click', e => {
-        const item = e.target.closest('.geo-dd-item');
-        if (!item) return;
-        setHistDdOpen(false);
-        if (String(historyVehicleSelect.value) !== String(item.dataset.id)) {
-            historyVehicleSelect.value = String(item.dataset.id);
-            syncHistoryAssetDropdown();
-            historyVehicleSelect.dispatchEvent(new Event('change'));
-        } else {
-            syncHistoryAssetDropdown();
-        }
     });
 }
 
@@ -7056,3 +6991,126 @@ function setupPaymentListeners() {
         };
     }
 }
+
+const Dropdown = (() => {
+    let active = null;
+    const isOpen = select => active !== null && active.select === select;
+
+    function render(select, menu) {
+        menu.innerHTML = Array.from(select.options).map((o, i) => `<button type="button" class="dd-item" role="option" data-index="${i}" aria-selected="${o.selected}" style="--i:${Math.min(i, 12)}"${o.disabled ? ' disabled' : ''}><span class="dd-item-name">${escapeHTML(o.text)}</span>${o.dataset.meta ? `<span class="dd-item-meta">${escapeHTML(o.dataset.meta)}</span>` : ''}</button>`).join('') || '<p class="dd-empty">No options</p>';
+    }
+
+    function place(select, menu) {
+        const r = select.getBoundingClientRect();
+        const gap = 6, edge = 12;
+        const below = window.innerHeight - r.bottom - gap - edge;
+        const above = r.top - gap - edge;
+        const up = below < 180 && above > below;
+        menu.style.minWidth = `${r.width}px`;
+        menu.style.maxHeight = `${Math.max(120, Math.min(280, up ? above : below))}px`;
+        menu.style.left = `${Math.max(edge, Math.min(r.left, window.innerWidth - menu.offsetWidth - edge))}px`;
+        menu.style.top = up ? 'auto' : `${r.bottom + gap}px`;
+        menu.style.bottom = up ? `${window.innerHeight - r.top + gap}px` : 'auto';
+        menu.dataset.placement = up ? 'top' : 'bottom';
+    }
+
+    function close(refocus) {
+        if (!active) return;
+        const { select, menu, observer } = active;
+        active = null;
+        observer.disconnect();
+        menu.remove();
+        select.classList.remove('dd-open');
+        if (refocus) select.focus({ preventScroll: true });
+    }
+
+    function choose(index) {
+        const { select } = active;
+        const option = select.options[index];
+        const changed = option && !option.disabled && select.selectedIndex !== index;
+        close(true);
+        if (!changed) return;
+        select.selectedIndex = index;
+        select.dispatchEvent(new Event('input', { bubbles: true }));
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function open(select) {
+        close();
+        const menu = document.createElement('div');
+        menu.className = 'dd-menu';
+        menu.setAttribute('role', 'listbox');
+        document.body.appendChild(menu);
+        render(select, menu);
+        place(select, menu);
+        const observer = new MutationObserver(() => {
+            if (!isOpen(select)) return;
+            const focused = menu.contains(document.activeElement) ? document.activeElement.dataset.index : undefined;
+            render(select, menu);
+            if (focused !== undefined) menu.querySelector(`[data-index="${focused}"]`)?.focus({ preventScroll: true });
+        });
+        observer.observe(select, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled', 'data-meta'] });
+        menu.addEventListener('click', e => {
+            const item = e.target.closest('.dd-item');
+            if (item && !item.disabled && isOpen(select)) choose(Number(item.dataset.index));
+        });
+        active = { select, menu, observer };
+        select.classList.add('dd-open');
+        (menu.querySelector('.dd-item[aria-selected="true"]') || menu.querySelector('.dd-item'))?.focus({ preventScroll: true });
+    }
+
+    function enhance(select) {
+        if (!select.multiple && select.size <= 1) select.classList.add('dd-select');
+    }
+
+    document.addEventListener('mousedown', e => {
+        const target = e.target instanceof Element ? e.target : null;
+        const select = target && target.closest('select.dd-select');
+        if (select) {
+            e.preventDefault();
+            if (select.disabled) return;
+            select.focus({ preventScroll: true });
+            if (isOpen(select)) close(true);
+            else open(select);
+            return;
+        }
+        if (active && !(target && target.closest('.dd-menu'))) close();
+    }, true);
+
+    document.addEventListener('keydown', e => {
+        if (active) {
+            const items = Array.from(active.menu.querySelectorAll('.dd-item:not([disabled])'));
+            const at = items.indexOf(document.activeElement);
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                close(true);
+            } else if (e.key === 'Tab') {
+                close(true);
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                items[(at + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus({ preventScroll: true });
+            } else if (e.key === 'Home' || e.key === 'End') {
+                e.preventDefault();
+                (e.key === 'Home' ? items[0] : items[items.length - 1])?.focus({ preventScroll: true });
+            }
+            return;
+        }
+        const target = e.target instanceof Element ? e.target : null;
+        const select = target && target.closest('select.dd-select');
+        if (select && !select.disabled && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+            e.preventDefault();
+            open(select);
+        }
+    }, true);
+
+    window.addEventListener('resize', () => { if (active) place(active.select, active.menu); });
+    document.addEventListener('scroll', e => {
+        if (!active || (e.target instanceof Element && active.menu.contains(e.target))) return;
+        if (active.select.getClientRects().length === 0) close();
+        else place(active.select, active.menu);
+    }, { capture: true, passive: true });
+
+    return { enhance, enhanceAll: (root = document) => root.querySelectorAll('select').forEach(enhance), close };
+})();
+Dropdown.enhanceAll();

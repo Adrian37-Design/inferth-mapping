@@ -41,7 +41,6 @@
     box-shadow: 0 0 14px rgba(220, 38, 38, 0.45);
 }
 
-/* Vehicle dropdown picker — animated custom dropdown */
 .geo-select-label {
     display: block;
     margin-bottom: 6px;
@@ -52,18 +51,10 @@
     color: var(--text-muted);
 }
 
-.geo-dropdown {
-    position: relative;
-    margin-bottom: 12px;
-}
-
-.geo-dropdown-btn {
+.geo-tracker-select {
     width: 100%;
     height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    margin-bottom: 12px;
     padding: 0 12px;
     border: 1px solid #e4e4e7;
     border-radius: 10px;
@@ -71,114 +62,6 @@
     color: var(--text-primary);
     font-size: 0.88rem;
     cursor: pointer;
-    transition: border-color 0.15s;
-}
-
-.geo-dropdown-btn:hover,
-.geo-dropdown.open .geo-dropdown-btn {
-    border-color: rgba(24, 24, 27, 0.45);
-}
-
-.geo-dropdown-btn:focus-visible {
-    outline: none;
-    border-color: rgba(24, 24, 27, 0.55);
-}
-
-.geo-dropdown-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.geo-dropdown-chevron {
-    flex: 0 0 auto;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    transition: transform 0.2s ease-in-out;
-}
-
-.geo-dropdown.open .geo-dropdown-chevron {
-    transform: rotate(180deg);
-}
-
-.geo-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    z-index: 1200;
-    max-height: 280px;
-    overflow-y: auto;
-    background: #ffffff;
-    border: 1px solid #e4e4e7;
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(24, 24, 27, 0.16);
-    animation: geoDdIn 0.18s ease-out;
-}
-
-@keyframes geoDdIn {
-    from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-    to { opacity: 1; transform: none; }
-}
-
-.geo-dd-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    width: 100%;
-    padding: 9px 12px;
-    border: 0;
-    border-bottom: 1px solid #f1f1f2;
-    background: #ffffff;
-    text-align: left;
-    cursor: pointer;
-    animation: geoDdItem 0.25s ease-out both;
-    animation-delay: calc(var(--i) * 30ms);
-    transition: background 0.12s;
-}
-
-.geo-dd-item:last-child {
-    border-bottom: 0;
-}
-
-.geo-dd-item:hover {
-    background: #f4f4f5;
-}
-
-.geo-dd-item[aria-selected="true"] {
-    background: rgba(24, 24, 27, 0.05);
-}
-
-.geo-dd-item[aria-selected="true"] .geo-dd-name {
-    color: #18181b;
-}
-
-.history-dropdown {
-    width: 100%;
-    margin-bottom: 0;
-}
-
-.history-dropdown .geo-dropdown-btn {
-    height: 36px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    border-radius: 7px;
-}
-
-@keyframes geoDdItem {
-    from { opacity: 0; transform: translateX(-14px); }
-    to { opacity: 1; transform: none; }
-}
-
-.geo-dd-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.geo-dd-meta {
-    font-size: 0.72rem;
-    color: var(--text-muted);
 }
 
 /* Collapsible violations header */
