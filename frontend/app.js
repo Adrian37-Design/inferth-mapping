@@ -290,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // If switch to cluster, render dots
                 if (playbackViewMode === 'cluster') {
                     renderClusterMode();
+                    trailSetVisible(false);
                     // Hide polyline if exists (handles array or single layer)
                     if (selectedVehicle && routes[selectedVehicle.id]) {
                         if (Array.isArray(routes[selectedVehicle.id])) {
@@ -299,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } else {
+                    trailSetVisible(true);
                     // Switch back to standard: clear cluster dots
                     historyMarkers = historyMarkers.filter(m => {
                         if (m._isClusterDot) {
@@ -310,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Re-render route line if standard (playbackRoute is
                     // already cleaned/snapped by the loaders)
-                    if (selectedVehicle && playbackRoute) {
+                    if (selectedVehicle && playbackRoute && !trailMode) {
                         if (routes[selectedVehicle.id]) {
                             if (Array.isArray(routes[selectedVehicle.id])) {
                                 routes[selectedVehicle.id].forEach(l => { try { map.removeLayer(l); } catch(e){} });
@@ -3594,6 +3596,7 @@ async function showRoute() {
             return;
         }
 
+        trailReset();
         // Clear existing route (handles both array and single layer)
         if (routes[selectedVehicle.id]) {
             if (Array.isArray(routes[selectedVehicle.id])) {
@@ -3610,8 +3613,8 @@ async function showRoute() {
         if (snapped && snapped.matched) {
             segments = snapped.segments;
             playbackRoute = [];
-            snapped.segments.forEach(seg => {
-                seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true }));
+            snapped.segments.forEach((seg, k) => {
+                seg.forEach((c, j) => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true, segStart: j === 0 && k > 0 }));
             });
         } else {
             segments = splitTraceAtGaps(clean);
@@ -4013,10 +4016,11 @@ async function loadTrips() {
                     // Snap to roads for realistic playback path
                     const snapped = await snapRouteToRoad(clean);
                     if (drawSeq !== routeDrawSeq) return;
+                    trailReset();
                     if (snapped && snapped.matched) {
                         playbackRoute = [];
-                        snapped.segments.forEach(seg => {
-                            seg.forEach(c => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true }));
+                        snapped.segments.forEach((seg, k) => {
+                            seg.forEach((c, j) => playbackRoute.push({ lat: c[0], lng: c[1], timestamp: clean[0].timestamp, snapped: true, segStart: j === 0 && k > 0 }));
                         });
                         playbackSegments = snapped.segments;
                         // Draw snapped segments
@@ -4729,6 +4733,99 @@ function filterSpikePass(inputPoints) {
 // Playback Engine (Smooth 60fps Interpolation & Unified Controls)
 // ============================================================
 let markerAnimFrame = null;
+let trailMode = false;
+let trailStyle = { color: '#0284c7', weight: 5, opacity: 0.9, smoothFactor: 1.0, lineJoin: 'round', lineCap: 'round' };
+let trailLayers = [];
+let trailLine = null;
+let trailBreaks = new Set();
+let trailDrawnTo = -1;
+let trailTip = null;
+let trailPendingIndex = null;
+
+function historyAutoPlayTrips() {
+    try { return localStorage.getItem('historyAutoPlayTrips') === '1'; } catch (e) { return false; }
+}
+
+function trailAdd(layer) {
+    if (playbackViewMode !== 'cluster') layer.addTo(map);
+    return layer;
+}
+
+function trailBreakSet() {
+    const breaks = new Set();
+    for (let i = 1; i < playbackRoute.length; i++) {
+        const a = playbackRoute[i - 1];
+        const b = playbackRoute[i];
+        if (b.segStart || Math.abs(parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp)) / 60000 > 120) breaks.add(i);
+    }
+    return breaks;
+}
+
+function trailTipClear() {
+    if (trailTip) { try { map.removeLayer(trailTip); } catch (e) {} trailTip = null; }
+}
+
+function trailClear() {
+    trailTipClear();
+    trailLayers.forEach(l => { try { map.removeLayer(l); } catch (e) {} });
+    trailLayers = [];
+    trailLine = null;
+    trailDrawnTo = -1;
+    trailPendingIndex = null;
+}
+
+function trailReset() {
+    trailClear();
+    trailMode = false;
+    trailBreaks = new Set();
+}
+
+function trailBegin() {
+    const ref = Object.values(routes).flat().find(Boolean);
+    if (ref && ref.options && ref.options.color) {
+        trailStyle = { ...trailStyle, color: ref.options.color, weight: ref.options.weight, opacity: ref.options.opacity };
+    }
+    trailMode = true;
+    trailBreaks = trailBreakSet();
+    Object.values(routes).forEach(entry => (Array.isArray(entry) ? entry : [entry]).forEach(l => { try { map.removeLayer(l); } catch (e) {} }));
+}
+
+function trailTo(target) {
+    const last = Math.min(target, playbackRoute.length - 1);
+    if (last < trailDrawnTo) trailClear();
+    for (let i = trailDrawnTo + 1; i <= last; i++) {
+        const ll = [playbackRoute[i].lat, playbackRoute[i].lng];
+        if (trailLine && !trailBreaks.has(i)) {
+            trailLine.addLatLng(ll);
+        } else {
+            trailLine = trailAdd(L.polyline([ll], trailStyle));
+            trailLayers.push(trailLine);
+        }
+    }
+    trailDrawnTo = Math.max(trailDrawnTo, last);
+}
+
+function trailTipTo(lat, lng) {
+    if (trailDrawnTo < 0) return;
+    const from = playbackRoute[trailDrawnTo];
+    const pts = [[from.lat, from.lng], [lat, lng]];
+    if (trailTip) trailTip.setLatLngs(pts);
+    else trailTip = trailAdd(L.polyline(pts, trailStyle));
+}
+
+function trailFlush() {
+    if (trailPendingIndex === null) return;
+    trailTo(trailPendingIndex);
+    trailPendingIndex = null;
+    trailTipClear();
+}
+
+function trailSetVisible(on) {
+    (trailTip ? [...trailLayers, trailTip] : trailLayers).forEach(l => {
+        if (on && !map.hasLayer(l)) l.addTo(map);
+        else if (!on && map.hasLayer(l)) map.removeLayer(l);
+    });
+}
 
 function playRoute() {
     if (!playbackRoute || playbackRoute.length === 0) return;
@@ -4739,6 +4836,9 @@ function playRoute() {
     if (playbackInterval) clearInterval(playbackInterval);
 
     if (playbackIndex >= playbackRoute.length - 1) playbackIndex = 0;
+    trailFlush();
+    trailBegin();
+    trailTo(playbackIndex);
 
     const timelineSlider = document.getElementById('timeline-slider');
     if (timelineSlider) {
@@ -4798,6 +4898,7 @@ function clearAllRoutePolylines() {
         }
         delete routes[vid];
     });
+    trailReset();
 }
 
 function stopRouteAndExit(opts = {}) {
@@ -4855,6 +4956,14 @@ function updatePlaybackMarker(index) {
     const targetLng = point.lng;
 
     if (markerAnimFrame) cancelAnimationFrame(markerAnimFrame);
+    trailFlush();
+    if (!trailMode) trailBegin();
+    if (index === trailDrawnTo + 1 && !trailBreaks.has(index)) {
+        trailPendingIndex = index;
+    } else {
+        trailTipClear();
+        trailTo(index);
+    }
 
     const startLatLng = playbackMarker.getLatLng();
     const startTime = performance.now();
@@ -4869,6 +4978,10 @@ function updatePlaybackMarker(index) {
 
         if (playbackMarker) {
             playbackMarker.setLatLng([curLat, curLng]);
+        }
+        if (trailPendingIndex !== null) {
+            if (progress < 1) trailTipTo(curLat, curLng);
+            else trailFlush();
         }
 
         if (progress < 1) {
@@ -5004,9 +5117,10 @@ function scheduleHistoryReload(load, delay = 300) {
 }
 
 function drawRouteLayers(id, segments, waypoints, fit) {
+    trailReset();
     const playbackPoints = [];
-    segments.forEach(seg => {
-        seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
+    segments.forEach((seg, k) => {
+        seg.forEach((c, j) => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true, segStart: j === 0 && k > 0 }));
     });
 
     (Array.isArray(routes[id]) ? routes[id] : []).forEach(l => { try { map.removeLayer(l); } catch (e) {} });
@@ -5438,7 +5552,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 item.onclick = async () => {
                     document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    await renderAndPrepareRouteOnMap(id, itemData.points, true);
+                    await renderAndPrepareRouteOnMap(id, itemData.points, historyAutoPlayTrips());
                 };
             } else {
                 item.innerHTML = `
@@ -5560,6 +5674,41 @@ if (historyStartPicker && historyEndPicker) {
 
     historyStartPicker.addEventListener('change', historyOnChange);
     historyEndPicker.addEventListener('change', historyOnChange);
+}
+
+const histSettingsBtn = document.getElementById('history-settings-btn');
+const histSettingsPop = document.getElementById('history-settings-pop');
+const histAutoPlayToggle = document.getElementById('history-autoplay-trips');
+if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
+    document.body.appendChild(histSettingsPop);
+    const setHistSettingsOpen = open => {
+        if (open) {
+            const r = histSettingsBtn.getBoundingClientRect();
+            histSettingsPop.style.top = `${r.bottom + 8}px`;
+            histSettingsPop.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+        }
+        histSettingsPop.hidden = !open;
+        histSettingsBtn.setAttribute('aria-expanded', String(open));
+    };
+    histAutoPlayToggle.checked = historyAutoPlayTrips();
+    histSettingsBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        setHistSettingsOpen(histSettingsPop.hidden);
+    });
+    histAutoPlayToggle.addEventListener('change', () => {
+        try { localStorage.setItem('historyAutoPlayTrips', histAutoPlayToggle.checked ? '1' : '0'); } catch (e) {}
+    });
+    document.addEventListener('mousedown', e => {
+        if (!histSettingsPop.hidden && !histSettingsPop.contains(e.target) && !histSettingsBtn.contains(e.target)) setHistSettingsOpen(false);
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !histSettingsPop.hidden) {
+            setHistSettingsOpen(false);
+            histSettingsBtn.focus();
+        }
+    });
+    window.addEventListener('resize', () => setHistSettingsOpen(false));
+    window.addEventListener('scroll', () => setHistSettingsOpen(false), true);
 }
 
 // Clear History Handler

@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=148">
+    <link rel="stylesheet" href="/static/app.css?v=149">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -309,6 +309,16 @@
                             <button type="button" class="btn-small history-clear-btn" id="clear-history-btn" title="Clear route from map">
                                 <i class="fas fa-xmark"></i> Clear
                             </button>
+                            <button type="button" class="btn-small history-clear-btn history-settings-btn" id="history-settings-btn" aria-haspopup="true" aria-expanded="false" aria-controls="history-settings-pop" aria-label="Route history settings" title="Route history settings">
+                                <i class="fas fa-gear" aria-hidden="true"></i>
+                            </button>
+                            <div class="history-settings-pop" id="history-settings-pop" role="group" aria-label="Route history settings" hidden>
+                                <p class="history-settings-title">Trip clicks</p>
+                                <label class="history-settings-row" for="history-autoplay-trips">
+                                    <span class="history-settings-text"><strong>Auto-play trip when clicked</strong><small>Off: the trip is drawn and waits for Play.</small></span>
+                                    <span class="history-switch"><input type="checkbox" id="history-autoplay-trips" role="switch"><span class="history-switch-track" aria-hidden="true"></span></span>
+                                </label>
+                            </div>
                         </div>
 
                         <div class="history-summary-strip" id="history-summary-strip">
@@ -1384,7 +1394,7 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=148"></script>
+    <script src="/static/app.js?v=149"></script>
     <script src="/static/geofence.js?v=10"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
