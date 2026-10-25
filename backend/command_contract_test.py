@@ -122,5 +122,31 @@ class DeviceProfileTests(unittest.IsolatedAsyncioTestCase):
         self.db.commit.assert_not_awaited()
 
 
+class RouteQueryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_route_is_built_from_column_rows(self):
+        from datetime import datetime, timedelta
+        from unittest.mock import patch
+        from app.routers import positions as positions_router
+
+        device_result = Mock()
+        device_result.scalars.return_value.first.return_value = SimpleNamespace(id=1, tenant_id=2)
+        base = datetime(2026, 10, 25, 8, 0, 0)
+        rows = [
+            SimpleNamespace(latitude=-17.8 + i * 0.009, longitude=31.03, speed=40.0,
+                            timestamp=base + timedelta(seconds=30 * i), raw=None)
+            for i in range(3)
+        ]
+        rows_result = Mock()
+        rows_result.all.return_value = rows
+        db = SimpleNamespace(execute=AsyncMock(side_effect=[device_result, rows_result]))
+        user = SimpleNamespace(id=7, tenant_id=2)
+        with patch.object(positions_router, "can_see_device", AsyncMock(return_value=True)):
+            response = await positions_router.get_device_route(1, None, None, db, user)
+        self.assertEqual(response["total_points"], 3)
+        self.assertEqual([p["lat"] for p in response["points"]], [r.latitude for r in rows])
+        self.assertTrue(all(p["timestamp"].endswith("Z") for p in response["points"]))
+        self.assertGreater(response["total_distance_km"], 1.9)
+
+
 if __name__ == "__main__":
     unittest.main()

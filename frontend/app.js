@@ -35,11 +35,16 @@ let editingVehicleId = null;
 let allVehicles = [];
 let isHistoryMode = false;
 const addressCache = new Map(); // Global cache for reverse geocoding
+const addressPending = new Map();
 let fleetChartDashboard = null;
 let fleetChartReports = null;
 let historyMarkers = []; // Track markers added during history view
+let routeEndpointMarkers = [];
+let historyFetchAbort = null;
+let historyReloadTimer = null;
 let playbackViewMode = 'standard';
 let geocodingRateLimitExpiry = 0; // Back-off timer for reverse geocoding
+let nominatimNextSlot = 0;
 let obdDataMap = {}; // Global persistence for telemetry independently of map markers
 
 // Centralized timezone-aware timestamp parser:
@@ -3106,13 +3111,23 @@ function updateVehicleCard(id, speed, timestamp, lat, lng) {
 
 // Reverse Geocoding Helper
 async function getAddress(lat, lng) {
-    if (Date.now() < geocodingRateLimitExpiry) {
-        return "Rate limited (waiting...)";
-    }
+    if (Date.now() < geocodingRateLimitExpiry) return null;
 
     const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (addressCache.has(cacheKey)) return addressCache.get(cacheKey);
+    if (addressPending.has(cacheKey)) return addressPending.get(cacheKey);
 
+    const slot = Math.max(Date.now(), nominatimNextSlot);
+    nominatimNextSlot = slot + 1100;
+    const lookup = new Promise(resolve => setTimeout(resolve, slot - Date.now()))
+        .then(() => lookupAddress(lat, lng, cacheKey))
+        .finally(() => addressPending.delete(cacheKey));
+    addressPending.set(cacheKey, lookup);
+    return lookup;
+}
+
+async function lookupAddress(lat, lng, cacheKey) {
+    if (Date.now() < geocodingRateLimitExpiry) return null;
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
             headers: {
@@ -3125,7 +3140,7 @@ async function getAddress(lat, lng) {
             if (response.status === 429) {
                 console.warn("Geocoding rate limit hit. Backing off for 60s.");
                 geocodingRateLimitExpiry = Date.now() + 60000;
-                return "Rate limited (backing off...)";
+                return null;
             }
             throw new Error(`HTTP ${response.status}`);
         }
@@ -4086,66 +4101,35 @@ function extractTravelWaypoints(points) {
 // Snap a GPS trace to the road network using OSRM Routing + Map Matching
 // so that even sparse waypoints (e.g. Hatfield -> Harare CBD across a 17m
 // reconnect window) produce a single continuous, gap-free road polyline.
-async function snapRouteToRoad(points) {
+async function snapRouteToRoad(points, isCurrent = () => true) {
     if (!points || points.length < 2) return null;
 
     const waypoints = extractTravelWaypoints(points);
     if (waypoints.length < 2) return null;
 
     const CHUNK = 25; // OSRM /route/v1 handles 25 waypoints reliably in one continuous road leg
-    const fullRoadCoords = [];
-
+    const chunks = [];
     for (let i = 0; i < waypoints.length; i += CHUNK - 1) {
         const chunk = waypoints.slice(i, i + CHUNK);
         if (chunk.length < 2) break;
+        chunks.push(chunk);
+    }
 
-        const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
-        let chunkCoords = null;
-
-        // 1. Primary: OSRM /route/v1/driving connects all waypoints continuously
-        // along the real road network with zero gaps between sparse fixes.
-        try {
-            const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=true`;
-            const res = await fetch(routeUrl);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.code === 'Ok' && data.routes && data.routes.length > 0 && data.routes[0].geometry?.coordinates?.length > 1) {
-                    chunkCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                }
-            }
-        } catch (e) {
-            console.warn('OSRM route request error:', e);
+    const results = new Array(chunks.length).fill(null);
+    let nextChunk = 0;
+    const worker = async () => {
+        while (nextChunk < chunks.length && isCurrent()) {
+            const index = nextChunk++;
+            results[index] = await snapChunkToRoad(chunks[index]);
         }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
+    if (!isCurrent()) return null;
 
-        // 2. Fallback: OSRM /match/v1/driving with gaps=ignore
-        if (!chunkCoords) {
-            try {
-                const radiuses = chunk.map(() => '50').join(';');
-                const matchUrl = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=ignore&radiuses=${radiuses}`;
-                const res = await fetch(matchUrl);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-                        const merged = [];
-                        data.matchings.forEach(m => {
-                            if (m.geometry?.coordinates?.length > 1) {
-                                m.geometry.coordinates.forEach(c => merged.push([c[1], c[0]]));
-                            }
-                        });
-                        if (merged.length > 1) chunkCoords = merged;
-                    }
-                }
-            } catch (e) {
-                console.warn('OSRM match fallback error:', e);
-            }
-        }
-
-        // 3. Final fallback: raw waypoint coordinates
-        if (!chunkCoords) {
-            chunkCoords = chunk.map(p => [p.lat, p.lng]);
-        }
-
-        if (fullRoadCoords.length > 0 && chunkCoords.length > 0) {
+    const fullRoadCoords = [];
+    for (let chunkCoords of results) {
+        if (!chunkCoords || chunkCoords.length === 0) continue;
+        if (fullRoadCoords.length > 0) {
             // Avoid duplicating the shared boundary waypoint between chunks
             const last = fullRoadCoords[fullRoadCoords.length - 1];
             const first = chunkCoords[0];
@@ -4159,6 +4143,52 @@ async function snapRouteToRoad(points) {
     if (fullRoadCoords.length < 2) return null;
     const densified = densifyCoordList(fullRoadCoords, 20);
     return { segments: [densified], matched: true };
+}
+
+async function snapChunkToRoad(chunk) {
+    const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
+    let chunkCoords = null;
+
+    // 1. Primary: OSRM /route/v1/driving connects all waypoints continuously
+    // along the real road network with zero gaps between sparse fixes.
+    try {
+        const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=true`;
+        const res = await fetch(routeUrl);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0 && data.routes[0].geometry?.coordinates?.length > 1) {
+                chunkCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }
+        }
+    } catch (e) {
+        console.warn('OSRM route request error:', e);
+    }
+
+    // 2. Fallback: OSRM /match/v1/driving with gaps=ignore
+    if (!chunkCoords) {
+        try {
+            const radiuses = chunk.map(() => '50').join(';');
+            const matchUrl = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=ignore&radiuses=${radiuses}`;
+            const res = await fetch(matchUrl);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+                    const merged = [];
+                    data.matchings.forEach(m => {
+                        if (m.geometry?.coordinates?.length > 1) {
+                            m.geometry.coordinates.forEach(c => merged.push([c[1], c[0]]));
+                        }
+                    });
+                    if (merged.length > 1) chunkCoords = merged;
+                }
+            }
+        } catch (e) {
+            console.warn('OSRM match fallback error:', e);
+        }
+    }
+
+    // 3. Final fallback: raw waypoint coordinates
+    return chunkCoords || chunk.map(p => [p.lat, p.lng]);
 }
 
 // Fallback: convert points to a continuous coordinate segment (only split on
@@ -4927,6 +4957,7 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
     playbackIndex = 0;
     historyMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
     historyMarkers = [];
+    routeEndpointMarkers = [];
     if (playbackMarker) { try { map.removeLayer(playbackMarker); } catch (e) {} playbackMarker = null; }
     clearAllRoutePolylines();
 
@@ -4935,25 +4966,50 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
     if (filteredPoints.length < 2) return false;
 
     const waypoints = extractTravelWaypoints(filteredPoints);
-    const snapped = await snapRouteToRoad(filteredPoints);
-    if (drawSeq !== routeDrawSeq) return false; // stopped/cleared while OSRM fetch was in flight
-    let segments;
-    let playbackPoints;
+    const isCurrent = () => drawSeq === routeDrawSeq;
+    if (!autoPlay) drawRouteLayers(id, splitTraceAtGaps(waypoints), waypoints, true);
 
+    const snapped = await snapRouteToRoad(filteredPoints, isCurrent);
+    if (!isCurrent()) return false; // stopped/cleared while OSRM fetch was in flight
     if (snapped && snapped.matched) {
-        segments = snapped.segments;
-        playbackPoints = [];
-        segments.forEach(seg => {
-            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
-        });
-    } else {
-        segments = splitTraceAtGaps(waypoints);
-        playbackPoints = [];
-        segments.forEach(seg => {
-            seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
-        });
+        drawRouteLayers(id, snapped.segments, waypoints, autoPlay);
+    } else if (autoPlay) {
+        drawRouteLayers(id, splitTraceAtGaps(waypoints), waypoints, true);
     }
 
+    if (autoPlay) {
+        if (window.innerWidth < 768) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.add('collapsed');
+            syncWorkspaceLayout();
+        }
+        setTimeout(() => {
+            if (drawSeq !== routeDrawSeq) return;
+            if (map) map.invalidateSize();
+            playRoute();
+        }, 250);
+    }
+    return true;
+}
+
+function beginHistoryFetch() {
+    if (historyFetchAbort) historyFetchAbort.abort();
+    historyFetchAbort = new AbortController();
+    return historyFetchAbort.signal;
+}
+
+function scheduleHistoryReload(load, delay = 300) {
+    clearTimeout(historyReloadTimer);
+    historyReloadTimer = setTimeout(load, delay);
+}
+
+function drawRouteLayers(id, segments, waypoints, fit) {
+    const playbackPoints = [];
+    segments.forEach(seg => {
+        seg.forEach(c => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true }));
+    });
+
+    (Array.isArray(routes[id]) ? routes[id] : []).forEach(l => { try { map.removeLayer(l); } catch (e) {} });
     const layers = [];
     const allCoords = [];
     segments.forEach(seg => {
@@ -4969,20 +5025,21 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
         allCoords.push(...seg);
     });
     routes[id] = layers;
-    if (allCoords.length > 0 && map) {
+    if (fit && allCoords.length > 0 && map) {
         map.fitBounds(L.latLngBounds(allCoords), { padding: [55, 55] });
     }
 
+    routeEndpointMarkers.forEach(m => { try { map.removeLayer(m); } catch (e) {} });
+    historyMarkers = historyMarkers.filter(m => !routeEndpointMarkers.includes(m));
     const startPt = waypoints[0];
     const endPt = waypoints[waypoints.length - 1];
     const startMarker = L.circleMarker([startPt.lat, startPt.lng], {
         radius: 8, fillColor: '#10b981', color: '#fff', weight: 2.5, opacity: 1, fillOpacity: 1
     }).bindPopup('<b>Start:</b> ' + parseTimestamp(startPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })).addTo(map);
-
     const endMarker = L.circleMarker([endPt.lat, endPt.lng], {
         radius: 8, fillColor: '#ef4444', color: '#fff', weight: 2.5, opacity: 1, fillOpacity: 1
     }).bindPopup('<b>Destination:</b> ' + parseTimestamp(endPt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })).addTo(map);
-
+    routeEndpointMarkers = [startMarker, endMarker];
     historyMarkers.push(startMarker, endMarker);
 
     isHistoryMode = true;
@@ -4992,20 +5049,6 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
 
     const routeControls = document.getElementById('route-controls');
     if (routeControls) routeControls.classList.remove('hidden');
-
-    if (autoPlay) {
-        if (window.innerWidth < 768) {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.add('collapsed');
-            syncWorkspaceLayout();
-        }
-        setTimeout(() => {
-            if (drawSeq !== routeDrawSeq) return;
-            if (map) map.invalidateSize();
-            playRoute();
-        }, 250);
-    }
-    return true;
 }
 
 // Load Asset History
@@ -5048,10 +5091,12 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         const ed = new Date(endDateStr);
         const urlPath = `/positions/routes/${id}?start_date=${encodeURIComponent(sd.toISOString())}&end_date=${encodeURIComponent(ed.toISOString())}`;
 
+        const signal = beginHistoryFetch();
         const response = (window.AuthManager && typeof window.AuthManager.fetchAPI === 'function')
-            ? await window.AuthManager.fetchAPI(urlPath)
+            ? await window.AuthManager.fetchAPI(urlPath, { signal })
             : await fetch(`${API_URL}${urlPath}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+                signal
             });
 
         if (!response.ok) {
@@ -5441,10 +5486,11 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // Automatically render the route on the map when trips exist so the
         // user sees the path immediately upon selecting the asset/date range
         if (tripsCount > 0 && points.length >= 2) {
-            await renderAndPrepareRouteOnMap(id, points, false);
+            renderAndPrepareRouteOnMap(id, points, false).catch(e => console.warn('Route render failed:', e));
         }
 
     } catch (e) {
+        if (e && e.name === 'AbortError') return;
         console.error("History load error", e);
         timeline.innerHTML = '<p class="empty-state">Failed to load route history. Check your connection and retry.</p>';
     }
@@ -5506,10 +5552,10 @@ if (historyStartPicker && historyEndPicker) {
 
     const historyOnChange = () => {
         document.querySelectorAll('.history-preset-btn').forEach(b => b.classList.remove('active'));
-        const vid = (historyVehicleSelect && historyVehicleSelect.value) || (selectedVehicle && selectedVehicle.id);
-        if (vid) {
-            loadAssetHistory(vid, historyStartPicker.value, historyEndPicker.value);
-        }
+        scheduleHistoryReload(() => {
+            const vid = (historyVehicleSelect && historyVehicleSelect.value) || (selectedVehicle && selectedVehicle.id);
+            if (vid) loadAssetHistory(vid, historyStartPicker.value, historyEndPicker.value);
+        });
     };
 
     historyStartPicker.addEventListener('change', historyOnChange);

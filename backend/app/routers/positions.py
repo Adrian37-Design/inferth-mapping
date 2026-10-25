@@ -369,7 +369,7 @@ async def get_device_route(
     from datetime import datetime
     from app.services.data_guardrails import haversine_distance_km
     
-    query = select(Position).where(
+    query = select(Position.latitude, Position.longitude, Position.speed, Position.timestamp, Position.raw).where(
         Position.device_id == device_id,
         Position.latitude.is_not(None),
         Position.longitude.is_not(None),
@@ -391,7 +391,7 @@ async def get_device_route(
     query = query.order_by(Position.timestamp.asc())
     
     result = await db.execute(query)
-    positions = result.scalars().all()
+    positions = result.all()
 
     # Find first real GNSS coordinate in window (if any) so coarse LBS rows
     # (satellites >= 200 or 0) keep their timestamps (preserving parked/stationary
