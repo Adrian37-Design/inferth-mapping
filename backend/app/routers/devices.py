@@ -26,11 +26,17 @@ class DeviceProfileIn(BaseModel):
     model: str | None = Field(default=None, max_length=60)
     plate: str | None = Field(default=None, max_length=16, pattern=r"^[A-Za-z0-9 \-]*$")
     sim: str | None = Field(default=None, max_length=24, pattern=r"^(\+?[0-9][0-9 \-]{4,22})?$")
+    vin: str | None = Field(default=None, max_length=24, pattern=r"^[A-Za-z0-9 \-]*$")
 
-    @field_validator("model", "plate", "sim", mode="before")
+    @field_validator("model", "plate", "sim", "vin", mode="before")
     @classmethod
     def strip_text(cls, value):
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("vin", mode="after")
+    @classmethod
+    def uppercase_vin(cls, value):
+        return value.upper() if value else value
 
 def fuel_calibration_out(cal):
     return None if cal is None else {"empty_adc": cal.empty_adc, "full_adc": cal.full_adc, "capacity_l": cal.capacity_l}

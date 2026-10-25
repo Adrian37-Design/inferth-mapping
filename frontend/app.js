@@ -2841,7 +2841,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
         if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
         if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Total Odometer: ${obdData.mileage}km</div>`;
-        if (obdData.vin !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#607d8b;"><i class="fas fa-id-card"></i> VIN: ${obdData.vin}</div>`;
+        if (obdData.vin !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#607d8b;"><i class="fas fa-id-card"></i> Chassis number: ${obdData.vin}</div>`;
         if (obdData.dtc !== undefined && obdData.dtc.length > 0) {
             const dtcList = Array.isArray(obdData.dtc) ? obdData.dtc : [obdData.dtc];
             diagnosticHtml += `<div style="font-size:0.85em; color:#f44336;"><i class="fas fa-exclamation-triangle"></i> DTC: ${dtcList.join(', ')}</div>`;
@@ -3216,6 +3216,7 @@ function openAssetDetail(vehicle) {
         if (editable) el.tabIndex = 0;
         else el.removeAttribute('tabindex');
     });
+    document.querySelectorAll('#tab-asset-detail .detail-section-head').forEach(head => setDetailSectionOpen(head, false));
 
     // Command requests are not acknowledgements of the physical engine state.
     const detailPowerBtn = document.getElementById('detail-power-btn');
@@ -3247,8 +3248,16 @@ function closeAssetDetail() {
     }
 }
 
-const DETAIL_EDIT_LIMITS = { model: 60, plate: 16, sim: 24 };
-const DETAIL_EDIT_LABELS = { model: 'model', plate: 'plate', sim: 'SIM number' };
+const DETAIL_EDIT_LIMITS = { model: 60, plate: 16, vin: 24, sim: 24 };
+const DETAIL_EDIT_LABELS = { model: 'model', plate: 'plate', vin: 'chassis number', sim: 'SIM number' };
+
+function setDetailSectionOpen(head, open) {
+    const body = head.parentElement.querySelector('.detail-section-body');
+    const toggle = head.querySelector('.detail-section-toggle');
+    body.classList.toggle('hidden', !open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.title = open ? 'Collapse' : 'Expand';
+}
 
 function beginDetailEdit(item) {
     const field = item.dataset.edit;
@@ -3301,11 +3310,7 @@ const assetDetailPanel = document.getElementById('tab-asset-detail');
 assetDetailPanel.addEventListener('click', e => {
     const head = e.target.closest('.detail-section-head');
     if (head) {
-        const body = head.parentElement.querySelector('.detail-section-body');
-        const toggle = head.querySelector('.detail-section-toggle');
-        const collapsed = body.classList.toggle('hidden');
-        toggle.setAttribute('aria-expanded', String(!collapsed));
-        toggle.title = collapsed ? 'Expand' : 'Collapse';
+        setDetailSectionOpen(head, head.querySelector('.detail-section-toggle').getAttribute('aria-expanded') !== 'true');
         return;
     }
     const item = e.target.closest('.status-item.is-editable');
@@ -5924,7 +5929,7 @@ function renderOBDVehicleCards() {
                     <div class="obd-metric-label"><i class="fas fa-road"></i> km Odo</div>
                 </div>
             </div>
-            ${vin ? `<div class="obd-vin-row"><i class="fas fa-fingerprint"></i><span>VIN: <strong style="color:var(--text-primary);font-family:monospace;">${vin}</strong></span></div>` : ''}
+            ${vin ? `<div class="obd-vin-row"><i class="fas fa-fingerprint"></i><span>Chassis number: <strong style="color:var(--text-primary);font-family:monospace;">${vin}</strong></span></div>` : ''}
             ${odometer !== null ? `<div class="obd-odo-row"><i class="fas fa-road"></i><span>Odometer: <strong style="color:var(--text-primary);">${odometer} km</strong></span></div>` : ''}
         </div>`;
     }).join('');

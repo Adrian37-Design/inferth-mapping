@@ -156,10 +156,11 @@
                                     <span class="status-value" id="detail-plate">--</span>
                                     <i class="fas fa-pen detail-edit-hint" aria-hidden="true"></i>
                                 </div>
-                                <div class="status-item">
+                                <div class="status-item" data-edit="vin" title="Vehicle Identification Number (VIN)">
                                     <i class="fas fa-fingerprint"></i>
-                                    <span class="status-label">VIN</span>
+                                    <span class="status-label">Chassis Number</span>
                                     <span class="status-value" id="detail-vin">--</span>
+                                    <i class="fas fa-pen detail-edit-hint" aria-hidden="true"></i>
                                 </div>
                                 <div class="status-item" data-edit="sim">
                                     <i class="fas fa-sim-card"></i>
@@ -174,9 +175,9 @@
                         <div class="detail-section">
                             <div class="detail-section-head">
                                 <h4 class="section-title">Current Status</h4>
-                                <button type="button" class="detail-section-toggle" aria-expanded="true" title="Collapse"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
+                                <button type="button" class="detail-section-toggle" aria-expanded="false" title="Expand"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
                             </div>
-                            <div class="status-grid detail-section-body">
+                            <div class="status-grid detail-section-body hidden">
                                 <div class="status-item">
                                     <i class="fas fa-tachometer-alt"></i>
                                     <span class="status-label">Speed</span>
@@ -204,9 +205,9 @@
                         <div class="detail-section">
                             <div class="detail-section-head">
                                 <h4 class="section-title">Tracker</h4>
-                                <button type="button" class="detail-section-toggle" aria-expanded="true" title="Collapse"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
+                                <button type="button" class="detail-section-toggle" aria-expanded="false" title="Expand"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
                             </div>
-                            <div class="status-grid detail-section-body">
+                            <div class="status-grid detail-section-body hidden">
                                 <div class="status-item">
                                     <i class="fas fa-satellite"></i>
                                     <span class="status-label">GPS Fix</span>
@@ -1394,7 +1395,7 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=145"></script>
+    <script src="/static/app.js?v=146"></script>
     <script src="/static/geofence.js?v=9"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">

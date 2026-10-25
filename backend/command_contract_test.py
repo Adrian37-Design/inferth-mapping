@@ -102,6 +102,18 @@ class DeviceProfileTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(ValidationError):
                     DeviceProfileIn(**kwargs)
 
+    async def test_vin_is_saved_in_capitals_and_accepts_older_chassis_numbers(self):
+        await update_device_profile(1, DeviceProfileIn(vin=" kzn165-0012345 "), self.db, self.user)
+        self.assertEqual(self.device.device_metadata["vin"], "KZN165-0012345")
+        await update_device_profile(1, DeviceProfileIn(vin="1HGCM82633A004352"), self.db, self.user)
+        self.assertEqual(self.device.device_metadata["vin"], "1HGCM82633A004352")
+
+    async def test_vin_rejects_symbols_and_overlong_values(self):
+        for value in ("VIN<>", "X" * 25):
+            with self.subTest(value=value):
+                with self.assertRaises(ValidationError):
+                    DeviceProfileIn(vin=value)
+
     async def test_profile_cannot_target_another_tenant(self):
         self.user.tenant_id = 3
         with self.assertRaises(HTTPException) as error:
