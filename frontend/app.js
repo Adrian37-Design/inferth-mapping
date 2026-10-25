@@ -3210,6 +3210,12 @@ function openAssetDetail(vehicle) {
     if (document.getElementById('detail-plate')) document.getElementById('detail-plate').textContent = meta.plate || '--';
     if (document.getElementById('detail-vin')) document.getElementById('detail-vin').textContent = meta.vin || '--';
     if (document.getElementById('detail-sim')) document.getElementById('detail-sim').textContent = meta.sim || '--';
+    document.querySelectorAll('#tab-asset-detail [data-edit]').forEach(el => {
+        const editable = window.AuthManager.canEdit();
+        el.classList.toggle('is-editable', editable);
+        if (editable) el.tabIndex = 0;
+        else el.removeAttribute('tabindex');
+    });
 
     // Command requests are not acknowledgements of the physical engine state.
     const detailPowerBtn = document.getElementById('detail-power-btn');
@@ -3240,6 +3246,75 @@ function closeAssetDetail() {
         playbackSegments = null;
     }
 }
+
+const DETAIL_EDIT_LIMITS = { model: 60, plate: 16, sim: 24 };
+const DETAIL_EDIT_LABELS = { model: 'model', plate: 'plate', sim: 'SIM number' };
+
+function beginDetailEdit(item) {
+    const field = item.dataset.edit;
+    const valueEl = item.querySelector('.status-value');
+    const vehicle = selectedVehicle;
+    if (!valueEl || !vehicle || item.querySelector('.detail-edit-input')) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'detail-edit-input';
+    input.maxLength = DETAIL_EDIT_LIMITS[field];
+    input.placeholder = `Enter ${DETAIL_EDIT_LABELS[field]}`;
+    input.value = (vehicle.device_metadata || {})[field] || '';
+    valueEl.classList.add('hidden');
+    valueEl.after(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = save => {
+        if (done) return;
+        done = true;
+        const next = input.value.trim();
+        const current = (vehicle.device_metadata || {})[field] || '';
+        input.remove();
+        valueEl.classList.remove('hidden');
+        if (save && next !== current) saveDetailField(vehicle, field, next, valueEl);
+    };
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+}
+
+async function saveDetailField(vehicle, field, value, valueEl) {
+    try {
+        const res = await window.AuthManager.fetchAPI(`/devices/${vehicle.id}/profile`, { method: 'PATCH', body: JSON.stringify({ [field]: value }) });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'That value is not allowed. Check the format and length, then try again.');
+        const metadata = body.device_metadata || {};
+        vehicle.device_metadata = metadata;
+        const row = Array.isArray(allVehicles) ? allVehicles.find(v => String(v.id) === String(vehicle.id)) : null;
+        if (row) row.device_metadata = metadata;
+        valueEl.textContent = metadata[field] || '--';
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+const assetDetailPanel = document.getElementById('tab-asset-detail');
+assetDetailPanel.addEventListener('click', e => {
+    const head = e.target.closest('.detail-section-head');
+    if (head) {
+        const body = head.parentElement.querySelector('.detail-section-body');
+        const toggle = head.querySelector('.detail-section-toggle');
+        const collapsed = body.classList.toggle('hidden');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.title = collapsed ? 'Expand' : 'Collapse';
+        return;
+    }
+    const item = e.target.closest('.status-item.is-editable');
+    if (item && !e.target.closest('.detail-edit-input')) beginDetailEdit(item);
+});
+assetDetailPanel.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.classList.contains('is-editable')) beginDetailEdit(e.target);
+});
+document.addEventListener('geofences:changed', () => { if (selectedVehicle) updateAssetDetailUI(selectedVehicle.id); });
 
 // Update Asset Detail UI with real-time data
 function updateAssetDetailUI(id) {
@@ -3339,13 +3414,12 @@ function updateAssetDetailUI(id) {
     setDetail('detail-fuel', fuelReadingLabel(t));
     const lockedState = t.is_engine_locked !== undefined ? t.is_engine_locked : (isShutdown ? true : undefined);
     setDetail('detail-engine-lock', lockedState === undefined ? '--' : (lockedState ? 'Locked' : 'Unlocked'));
-    if (t.geofence_violation_state) {
-        const gs = String(t.geofence_violation_state);
-        const noFence = gs === 'INVALID_POLYGON' || gs === 'NO_POLYGON';
-        setDetail('detail-geofence', noFence ? 'Not configured' : gs.replace(/_/g, ' '));
-    } else {
-        setDetail('detail-geofence', '--');
-    }
+    const engineLockEl = document.getElementById('detail-engine-lock');
+    if (engineLockEl) engineLockEl.classList.toggle('is-locked', lockedState === true);
+    const zoneNames = window.Geofence && window.Geofence.namesFor ? window.Geofence.namesFor(id) : [];
+    const hwState = t.geofence_violation_state ? String(t.geofence_violation_state) : '';
+    const noTrackerFence = !hwState || hwState === 'INVALID_POLYGON' || hwState === 'NO_POLYGON';
+    setDetail('detail-geofence', zoneNames.length ? zoneNames.join(', ') : (noTrackerFence ? 'Not configured' : hwState.replace(/_/g, ' ')));
 
     // 5. Vehicle Overview: Total Mileage — prefer a hardware odometer field if the
     // tracker sends one, otherwise the all-time distance computed from stored

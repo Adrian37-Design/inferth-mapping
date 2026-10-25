@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=144">
+    <link rel="stylesheet" href="/static/app.css?v=145">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=7">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -144,33 +144,39 @@
                                     <span class="status-label">IMEI</span>
                                     <span class="status-value" id="detail-imei-val">--</span>
                                 </div>
-                                <div class="status-item">
+                                <div class="status-item" data-edit="model">
                                     <i class="fas fa-car-side"></i>
                                     <span class="status-label">Model</span>
                                     <span class="status-value" id="detail-model">--</span>
+                                    <i class="fas fa-pen detail-edit-hint" aria-hidden="true"></i>
                                 </div>
-                                <div class="status-item">
+                                <div class="status-item" data-edit="plate">
                                     <i class="fas fa-id-card"></i>
                                     <span class="status-label">Plate</span>
                                     <span class="status-value" id="detail-plate">--</span>
+                                    <i class="fas fa-pen detail-edit-hint" aria-hidden="true"></i>
                                 </div>
                                 <div class="status-item">
                                     <i class="fas fa-fingerprint"></i>
                                     <span class="status-label">VIN</span>
                                     <span class="status-value" id="detail-vin">--</span>
                                 </div>
-                                <div class="status-item">
+                                <div class="status-item" data-edit="sim">
                                     <i class="fas fa-sim-card"></i>
                                     <span class="status-label">SIM Number</span>
                                     <span class="status-value" id="detail-sim">--</span>
+                                    <i class="fas fa-pen detail-edit-hint" aria-hidden="true"></i>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Section 1: Current Status -->
                         <div class="detail-section">
-                            <h4 class="section-title">Current Status</h4>
-                            <div class="status-grid">
+                            <div class="detail-section-head">
+                                <h4 class="section-title">Current Status</h4>
+                                <button type="button" class="detail-section-toggle" aria-expanded="true" title="Collapse"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="status-grid detail-section-body">
                                 <div class="status-item">
                                     <i class="fas fa-tachometer-alt"></i>
                                     <span class="status-label">Speed</span>
@@ -196,8 +202,11 @@
 
                         <!-- Section 1b: Tracker Hardware Telemetry -->
                         <div class="detail-section">
-                            <h4 class="section-title">Tracker</h4>
-                            <div class="status-grid">
+                            <div class="detail-section-head">
+                                <h4 class="section-title">Tracker</h4>
+                                <button type="button" class="detail-section-toggle" aria-expanded="true" title="Collapse"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="status-grid detail-section-body">
                                 <div class="status-item">
                                     <i class="fas fa-satellite"></i>
                                     <span class="status-label">GPS Fix</span>
@@ -1385,8 +1394,8 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=144"></script>
-    <script src="/static/geofence.js?v=8"></script>
+    <script src="/static/app.js?v=145"></script>
+    <script src="/static/geofence.js?v=9"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

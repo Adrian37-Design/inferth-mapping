@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import AuditLog, Device, FuelCalibration, Tenant, User
 from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin, may_set_company
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.future import select
 from sqlalchemy import func
 from typing import Literal
@@ -21,6 +21,16 @@ class FuelCalibrationIn(BaseModel):
     empty_adc: float = Field(ge=0, le=4095)
     full_adc: float = Field(ge=0, le=4095)
     capacity_l: float | None = Field(default=None, gt=0)
+
+class DeviceProfileIn(BaseModel):
+    model: str | None = Field(default=None, max_length=60)
+    plate: str | None = Field(default=None, max_length=16, pattern=r"^[A-Za-z0-9 \-]*$")
+    sim: str | None = Field(default=None, max_length=24, pattern=r"^(\+?[0-9][0-9 \-]{4,22})?$")
+
+    @field_validator("model", "plate", "sim", mode="before")
+    @classmethod
+    def strip_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 def fuel_calibration_out(cal):
     return None if cal is None else {"empty_adc": cal.empty_adc, "full_adc": cal.full_adc, "capacity_l": cal.capacity_l}
@@ -237,6 +247,31 @@ async def update_device(
     await db.refresh(device)
     
     return {"id": device.id, "imei": device.imei, "name": device.name, "driver_name": device.driver_name, "company": device.company, "device_metadata": device.device_metadata}
+
+
+@router.patch("/{device_id}/profile")
+async def update_device_profile(
+    device_id: int,
+    payload: DeviceProfileIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    device = (await db.execute(select(Device).where(Device.id == device_id))).scalars().first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if not is_platform_admin(current_user) and device.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this device")
+    changes = {field: value or None for field, value in payload.model_dump(exclude_unset=True).items()}
+    device.device_metadata = {**(device.device_metadata or {}), **changes}
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="UPDATE_DEVICE_PROFILE",
+        details={"device_id": device_id, "imei": device.imei, "changes": changes}
+    ))
+    await db.commit()
+    await db.refresh(device)
+    return {"id": device.id, "device_metadata": device.device_metadata}
 
 
 import datetime

@@ -298,6 +298,7 @@
             const next = await res.json();
             if (request !== zonesRequest) return;
             zones = next;
+            document.dispatchEvent(new Event('geofences:changed'));
             drawZones();
             if (isOpen) renderView();
         } catch (err) {
@@ -482,5 +483,5 @@
         if (id !== null) isolate(id);
     };
 
-    window.Geofence = { init, allows, onTabChange, attachMap, refresh };
+    window.Geofence = { init, allows, onTabChange, attachMap, refresh, namesFor: id => zonesFor(id).map(z => z.name) };
 })();

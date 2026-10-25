@@ -4989,6 +4989,90 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     font-weight: 600;
     color: var(--text-primary) !important;
 }
+.status-value.is-locked {
+    color: #dc2626 !important;
+}
+.status-item.is-editable {
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.status-item.is-editable:hover,
+.status-item.is-editable:focus-visible,
+.status-item.is-editable:focus-within {
+    border-color: rgba(24, 24, 27, 0.45);
+    box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.06);
+    outline: none;
+}
+.status-item .detail-edit-hint {
+    position: absolute;
+    top: 9px;
+    right: 10px;
+    margin: 0;
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.status-item.is-editable:hover .detail-edit-hint,
+.status-item.is-editable:focus-visible .detail-edit-hint {
+    opacity: 1;
+}
+.detail-edit-input {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid rgba(24, 24, 27, 0.35);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    outline: none;
+}
+.detail-edit-input:focus {
+    border-color: #18181b;
+    box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.12);
+}
+.detail-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+.detail-section-head .section-title {
+    margin-bottom: 0;
+}
+.detail-section-toggle {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid rgba(24, 24, 27, 0.14);
+    background: #ffffff;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.detail-section-toggle:hover {
+    background: #f4f4f5;
+    border-color: rgba(24, 24, 27, 0.3);
+    color: var(--text-primary);
+}
+.detail-section-toggle i {
+    transition: transform 0.2s ease-in-out;
+}
+.detail-section-toggle[aria-expanded="false"] i {
+    transform: rotate(180deg);
+}
 .action-btn {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
