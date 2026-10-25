@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=146">
+    <link rel="stylesheet" href="/static/app.css?v=147">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -280,7 +280,7 @@
                     <div class="history-panel-toolbar">
                         <div class="history-field-group">
                             <label class="history-field-label" for="history-vehicle-select">Asset</label>
-                            <select id="history-vehicle-select" class="history-select">
+                            <select id="history-vehicle-select" class="dd-select history-select">
                                 <option value="">Select an asset…</option>
                             </select>
                         </div>
@@ -342,7 +342,7 @@
                         <div class="fleet-heading"><div><h4>Your assets</h4><p id="fleet-result-count" role="status">Loading fleet…</p></div>
                         <button type="button" class="btn-small" id="add-vehicle-sidebar" hidden>Add Asset</button></div>
                         <div class="spot" data-spotlight><label class="fleet-search" for="fleet-search"><i class="fas fa-search" aria-hidden="true"></i><span class="spot-input-wrap"><input id="fleet-search" type="search" placeholder="Search name, IMEI or driver" autocomplete="off"></span><span class="sr-only">Search fleet</span></label></div>
-                        <label class="fleet-status-label" for="fleet-status-filter">Asset status<select id="fleet-status-filter"><option value="all">All statuses</option><option value="moving">Moving</option><option value="stationary">Stationary</option><option value="offline">Offline</option></select></label>
+                        <label class="fleet-status-label" for="fleet-status-filter">Asset status<select id="fleet-status-filter" class="dd-select"><option value="all">All statuses</option><option value="moving">Moving</option><option value="stationary">Stationary</option><option value="offline">Offline</option></select></label>
                     </div>
                     <div class="vehicle-list" id="vehicle-list">
                         <p class="loading">Loading vehicles...</p>
@@ -469,10 +469,10 @@
                         <div class="section-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; flex-wrap: wrap;">
                             <h4 class="section-title" id="performance-title" style="margin: 0; flex-shrink: 0;">Fleet Performance (Today)</h4>
                             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                                <select id="chart-vehicle-select" class="inline-select-small" title="Select vehicle">
+                                <select id="chart-vehicle-select" class="dd-select inline-select-small" title="Select vehicle">
                                     <option value="fleet">All Vehicles</option>
                                 </select>
-                                <select id="fleet-period-select" class="inline-select-small">
+                                <select id="fleet-period-select" class="dd-select inline-select-small">
                                     <option value="daily">Daily</option>
                                     <option value="weekly">Weekly</option>
                                     <option value="monthly">Monthly</option>
@@ -507,12 +507,12 @@
                     <div class="rules-builder-card">
                         <div class="sentence-builder">
                             <span>Notify me when</span>
-                            <select id="rule-asset" class="inline-select">
+                            <select id="rule-asset" class="dd-select inline-select">
                                 <option value="all">Any Vehicle</option>
                                 <option value="group_a">Heavy Trucks</option>
                             </select>
                             <span>triggers</span>
-                            <select id="rule-event" class="inline-select">
+                            <select id="rule-event" class="dd-select inline-select">
                                 <option value="speeding">Speeding</option>
                                 <option value="geofence_entry">Geofence Entry</option>
                                 <option value="geofence_exit">Geofence Exit</option>
@@ -530,7 +530,7 @@
                         </div>
                         <div class="sentence-builder-row2">
                             <span>via</span>
-                            <select id="rule-channel" class="inline-select">
+                            <select id="rule-channel" class="dd-select inline-select">
                                 <option value="email">Email</option>
                                 <option value="sms">SMS</option>
                             </select>
@@ -569,11 +569,11 @@
                     <div class="reports-controls">
                         <div class="report-control-group">
                             <label>Vehicle</label>
-                            <select id="report-vehicle" class="glass-input"></select>
+                            <select id="report-vehicle" class="dd-select glass-input"></select>
                         </div>
                         <div class="report-control-group">
                             <label>Report</label>
-                            <select id="report-type" class="glass-input">
+                            <select id="report-type" class="dd-select glass-input">
                                 <option value="trips">Trip Reports</option>
                                 <option value="stops">Stop Reports</option>
                                 <option value="mileage">Mileage Reports</option>
@@ -592,7 +592,7 @@
                         </div>
                         <div class="report-control-group">
                             <label>Group</label>
-                            <select id="report-group" class="glass-input">
+                            <select id="report-group" class="dd-select glass-input">
                                 <option value="day">Day</option>
                                 <option value="week">Week</option>
                                 <option value="month">Month</option>
@@ -749,7 +749,7 @@
 
                         <div id="geo-view-list">
                             <label class="geo-select-label" for="geo-tracker-select">Vehicle</label>
-                            <select id="geo-tracker-select" class="geo-tracker-select">
+                            <select id="geo-tracker-select" class="dd-select geo-tracker-select">
                                 <option value="">Choose a vehicle…</option>
                             </select>
                         </div>
@@ -795,7 +795,7 @@
                                 <div class="geo-field">
                                     <span>Notify</span>
                                     <div class="geo-notify">
-                                        <select id="geo-channel" class="glass-input">
+                                        <select id="geo-channel" class="dd-select glass-input">
                                             <option value="system">System only</option>
                                             <option value="email">Email</option>
                                             <option value="sms">SMS</option>
@@ -1014,7 +1014,7 @@
                 </button>
                 <div class="mode-selector">
                     <label>Mode:</label>
-                    <select id="playback-view-mode" class="inline-select-small">
+                    <select id="playback-view-mode" class="dd-select inline-select-small">
                         <option value="standard">Standard</option>
                         <option value="cluster">Cluster (Dots)</option>
                     </select>
@@ -1047,7 +1047,7 @@
                         <input type="email" id="invite-email" placeholder="Email Address" required>
                     </div>
                     <div class="form-group">
-                        <select id="invite-role">
+                        <select id="invite-role" class="dd-select">
                             <option value="viewer">Viewer</option>
                             <option value="manager">Manager</option>
                             <option value="admin">Admin</option>
@@ -1055,7 +1055,7 @@
                     </div>
                     <div class="form-group">
                         <label for="invite-tenant">Assign to Company</label>
-                        <select id="invite-tenant" required>
+                        <select id="invite-tenant" required class="dd-select">
                             <!-- Populated by JS -->
                         </select>
                     </div>
@@ -1084,7 +1084,7 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-user-role">Role</label>
-                        <select id="edit-user-role" required>
+                        <select id="edit-user-role" required class="dd-select">
                             <option value="viewer">Viewer</option>
                             <option value="manager">Manager</option>
                             <option value="admin">Admin</option>
@@ -1092,7 +1092,7 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-user-tenant">Company</label>
-                        <select id="edit-user-tenant" required>
+                        <select id="edit-user-tenant" required class="dd-select">
                             <!-- Populated by JS -->
                         </select>
                     </div>
@@ -1261,7 +1261,7 @@
                         <!-- Navbar Style -->
                         <div style="margin-bottom: 12px;">
                             <label style="font-size: 11px; color: #aaa; margin-bottom: 4px; display: block;">Navbar Background Style</label>
-                            <select id="edit-tenant-navbar-style" style="width: 100%; padding: 8px; background: #1a1c23; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 12px;">
+                            <select id="edit-tenant-navbar-style" style="width: 100%; padding: 8px; background: #1a1c23; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 12px;" class="dd-select">
                                 <option value="#ffffff">Light / White Navbar (Inferth Default)</option>
                                 <option value="linear-gradient(to right, #1a1c23, #2d3139)">Dark Grey Gradient</option>
                                 <option value="#1a1c23">Deep Charcoal Black</option>
