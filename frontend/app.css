@@ -1445,6 +1445,43 @@ body {
     transform: scale(1.1);
 }
 
+#play-route:hover, #play-route:focus-visible {
+    color: #15803d;
+    border-color: #16a34a;
+    background: rgba(34, 197, 94, 0.14);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22), 0 0 16px 4px rgba(34, 197, 94, 0.55);
+}
+#play-route:active {
+    color: #ffffff;
+    border-color: #16a34a;
+    background: #16a34a;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.35), 0 0 24px 8px rgba(34, 197, 94, 0.7);
+}
+#pause-route:hover, #pause-route:focus-visible {
+    color: #b45309;
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.14);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22), 0 0 16px 4px rgba(245, 158, 11, 0.55);
+}
+#pause-route:active {
+    color: #18181b;
+    border-color: #f59e0b;
+    background: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35), 0 0 24px 8px rgba(245, 158, 11, 0.7);
+}
+#stop-route:hover, #stop-route:focus-visible {
+    color: #b91c1c;
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.14);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22), 0 0 16px 4px rgba(239, 68, 68, 0.55);
+}
+#stop-route:active {
+    color: #ffffff;
+    border-color: #ef4444;
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35), 0 0 24px 8px rgba(239, 68, 68, 0.7);
+}
+
 #playback-speed {
     width: 120px;
 }
@@ -4924,8 +4961,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     line-height: 1.4;
 }
 #tab-history .timeline-desc strong {
-    color: #cbd5e1;
-    font-weight: 600;
+    color: var(--text-primary);
+    font-weight: 700;
+    opacity: 1;
 }
 
 /* SaaS Dark-Slate Polish for Asset Details (#tab-asset-detail) */
