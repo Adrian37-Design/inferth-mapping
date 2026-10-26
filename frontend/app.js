@@ -4079,9 +4079,9 @@ function densifyCoordList(coords, maxStepMeters = 20) {
     return out;
 }
 
-// Collapse stationary clusters (<15m) into clean travel waypoints so parked
-// hours don't bloat OSRM requests or cause gaps, keeping the departure
-// timestamp on the last point before movement.
+// Collapse stationary clusters (<15m) into one waypoint each, keeping the departure
+// timestamp on the last point before movement. Used for the start/end markers and
+// timestamps; road snapping never routes through these waypoints.
 function extractTravelWaypoints(points) {
     if (!Array.isArray(points) || points.length === 0) return [];
     const wps = [ { ...points[0] } ];
@@ -4102,116 +4102,203 @@ function extractTravelWaypoints(points) {
     return wps;
 }
 
-// Snap a GPS trace to the road network using OSRM Routing + Map Matching
-// so that even sparse waypoints (e.g. Hatfield -> Harare CBD across a 17m
-// reconnect window) produce a single continuous, gap-free road polyline.
-async function snapRouteToRoad(points, isCurrent = () => true) {
-    if (!points || points.length < 2) return null;
+const ROUTE_GAP_MINUTES = 5;
+const ROUTE_PARK_KM = 0.015;
+const ROUTE_CHORD_KM = 1;
+const ROUTE_WAYPOINT_KM = 0.12;
+const ROUTE_RETRY_KM = 0.3;
+const ROUTE_CHUNK = 25;
+const ROUTE_BEARING_RANGE = 60;
 
-    const waypoints = extractTravelWaypoints(points);
-    if (waypoints.length < 2) return null;
-
-    const CHUNK = 25; // OSRM /route/v1 handles 25 waypoints reliably in one continuous road leg
-    const chunks = [];
-    for (let i = 0; i < waypoints.length; i += CHUNK - 1) {
-        const chunk = waypoints.slice(i, i + CHUNK);
-        if (chunk.length < 2) break;
-        chunks.push(chunk);
+function splitIntoTravelPieces(points) {
+    const pieces = [];
+    let piece = [];
+    const endPiece = () => { if (piece.length > 1) pieces.push(piece); piece = []; };
+    let i = 0;
+    while (i < points.length) {
+        const p = points[i];
+        if (p.stitched) { endPiece(); i++; continue; }
+        let j = i + 1;
+        while (j < points.length && !points[j].stitched && haversineDistanceKm(p.lat, p.lng, points[j].lat, points[j].lng) < ROUTE_PARK_KM) j++;
+        const parkedMinutes = Math.abs(parseTimestamp(points[j - 1].timestamp) - parseTimestamp(p.timestamp)) / 60000;
+        if (j - i >= 5 || (j - i >= 2 && parkedMinutes >= 1)) { endPiece(); i = j; continue; }
+        if (piece.length && Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(piece[piece.length - 1].timestamp)) / 60000 > ROUTE_GAP_MINUTES) endPiece();
+        piece.push(p);
+        i++;
     }
-
-    const results = new Array(chunks.length).fill(null);
-    let nextChunk = 0;
-    const worker = async () => {
-        while (nextChunk < chunks.length && isCurrent()) {
-            const index = nextChunk++;
-            results[index] = await snapChunkToRoad(chunks[index]);
-        }
-    };
-    await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
-    if (!isCurrent()) return null;
-
-    const fullRoadCoords = [];
-    for (let chunkCoords of results) {
-        if (!chunkCoords || chunkCoords.length === 0) continue;
-        if (fullRoadCoords.length > 0) {
-            // Avoid duplicating the shared boundary waypoint between chunks
-            const last = fullRoadCoords[fullRoadCoords.length - 1];
-            const first = chunkCoords[0];
-            if (haversineDistanceKm(last[0], last[1], first[0], first[1]) < 0.005) {
-                chunkCoords = chunkCoords.slice(1);
-            }
-        }
-        fullRoadCoords.push(...chunkCoords);
-    }
-
-    if (fullRoadCoords.length < 2) return null;
-    const densified = densifyCoordList(fullRoadCoords, 20);
-    return { segments: [densified], matched: true };
+    endPiece();
+    return pieces;
 }
 
-async function snapChunkToRoad(chunk) {
-    const coords = chunk.map(p => `${p.lng},${p.lat}`).join(';');
-    let chunkCoords = null;
+function thinWaypoints(items, minKm) {
+    if (items.length < 3) return items;
+    const out = [items[0]];
+    for (let i = 1; i < items.length - 1; i++) {
+        const last = out[out.length - 1];
+        if (haversineDistanceKm(last.lat, last.lng, items[i].lat, items[i].lng) >= minKm) out.push(items[i]);
+    }
+    out.push(items[items.length - 1]);
+    return out;
+}
 
-    // 1. Primary: OSRM /route/v1/driving connects all waypoints continuously
-    // along the real road network with zero gaps between sparse fixes.
-    try {
-        const routeUrl = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&continue_straight=true`;
-        const res = await fetch(routeUrl);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0 && data.routes[0].geometry?.coordinates?.length > 1) {
-                chunkCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+function travelBearing(piece, i) {
+    const bearingTo = (a, b) => {
+        const phi1 = a.lat * Math.PI / 180, phi2 = b.lat * Math.PI / 180, dLambda = (b.lng - a.lng) * Math.PI / 180;
+        const y = Math.sin(dLambda) * Math.cos(phi2);
+        const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLambda);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    };
+    for (let j = i + 1; j < piece.length; j++) {
+        if (haversineDistanceKm(piece[i].lat, piece[i].lng, piece[j].lat, piece[j].lng) >= 0.04) return bearingTo(piece[i], piece[j]);
+    }
+    for (let j = i - 1; j >= 0; j--) {
+        if (haversineDistanceKm(piece[j].lat, piece[j].lng, piece[i].lat, piece[i].lng) >= 0.04) return bearingTo(piece[j], piece[i]);
+    }
+    return null;
+}
+
+function pathKm(coords) {
+    let km = 0;
+    for (let i = 1; i < coords.length; i++) km += haversineDistanceKm(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]);
+    return km;
+}
+
+function metersToPolyline(p, line) {
+    const k = Math.cos(p[0] * Math.PI / 180);
+    let best = Infinity;
+    for (let i = 1; i < line.length; i++) {
+        const ax = (line[i - 1][1] - p[1]) * k * 111320, ay = (line[i - 1][0] - p[0]) * 111320;
+        const dx = (line[i][1] - p[1]) * k * 111320 - ax, dy = (line[i][0] - p[0]) * 111320 - ay;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+        best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+    return best;
+}
+
+function backtrackCount(coords) {
+    let count = 0;
+    for (let i = 0; i < coords.length; i++) {
+        let len = 0;
+        for (let j = i + 1; j < coords.length && j <= i + 400; j++) {
+            len += haversineDistanceKm(coords[j - 1][0], coords[j - 1][1], coords[j][0], coords[j][1]);
+            if (len > 1.5) break;
+            if (len >= 0.06 && haversineDistanceKm(coords[i][0], coords[i][1], coords[j][0], coords[j][1]) <= 0.008) {
+                count++;
+                i = j;
+                break;
             }
         }
+    }
+    return count;
+}
+
+function routeIsFaithful(coords, raw) {
+    if (pathKm(coords) > pathKm(raw) * 1.15 + 0.03) return false;
+    for (let i = 0; i < coords.length; i += 2) {
+        if (metersToPolyline(coords[i], raw) > 40) return false;
+    }
+    return backtrackCount(coords) <= backtrackCount(raw);
+}
+
+async function osrmRouteThrough(piece, items) {
+    const path = items.map(w => `${w.lng},${w.lat}`).join(';');
+    const bearings = items.map(w => {
+        const b = travelBearing(piece, w.i);
+        return b === null ? '' : `${Math.round(b)},${ROUTE_BEARING_RANGE}`;
+    });
+    const bearingParam = bearings.some(Boolean) ? `&bearings=${bearings.join(';')}` : '';
+    try {
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson${bearingParam}`);
+        const data = res.ok ? await res.json() : null;
+        const coords = data && data.code === 'Ok' ? data.routes?.[0]?.geometry?.coordinates : null;
+        return coords && coords.length > 1 ? coords.map(c => [c[1], c[0]]) : null;
     } catch (e) {
         console.warn('OSRM route request error:', e);
+        return null;
     }
-
-    // 2. Fallback: OSRM /match/v1/driving with gaps=ignore
-    if (!chunkCoords) {
-        try {
-            const radiuses = chunk.map(() => '50').join(';');
-            const matchUrl = `https://router.project-osrm.org/match/v1/driving/${coords}?overview=full&geometries=geojson&gaps=ignore&radiuses=${radiuses}`;
-            const res = await fetch(matchUrl);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-                    const merged = [];
-                    data.matchings.forEach(m => {
-                        if (m.geometry?.coordinates?.length > 1) {
-                            m.geometry.coordinates.forEach(c => merged.push([c[1], c[0]]));
-                        }
-                    });
-                    if (merged.length > 1) chunkCoords = merged;
-                }
-            }
-        } catch (e) {
-            console.warn('OSRM match fallback error:', e);
-        }
-    }
-
-    // 3. Final fallback: raw waypoint coordinates
-    return chunkCoords || chunk.map(p => [p.lat, p.lng]);
 }
 
-// Fallback: convert points to a continuous coordinate segment (only split on
-// multi-hour offline gaps > 120 min so normal trips never have missing legs).
-function splitTraceAtGaps(points, maxGapMinutes = 120) {
-    const segments = [];
-    let current = [];
-    for (let i = 0; i < points.length; i++) {
-        const p = points[i];
-        if (i > 0) {
-            const gap = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(points[i - 1].timestamp)) / 60000);
-            if (gap > maxGapMinutes) {
-                if (current.length > 1) segments.push(densifyCoordList(current, 20));
-                current = [];
-            }
+async function snapJob(job) {
+    const raw = job.raw.map(p => [p.lat, p.lng]);
+    let coords = await osrmRouteThrough(job.piece, job.chunk);
+    if (coords && !routeIsFaithful(coords, raw)) coords = null;
+    if (!coords) {
+        const sparse = thinWaypoints(job.chunk, ROUTE_RETRY_KM);
+        if (sparse.length > 1 && sparse.length < job.chunk.length) {
+            coords = await osrmRouteThrough(job.piece, sparse);
+            if (coords && !routeIsFaithful(coords, raw)) coords = null;
         }
-        current.push([p.lat, p.lng]);
     }
-    if (current.length > 1) segments.push(densifyCoordList(current, 20));
+    return coords ? { coords, routed: true } : { coords: raw, routed: false };
+}
+
+function splitAtChords(coords) {
+    const parts = [[coords[0]]];
+    for (let i = 1; i < coords.length; i++) {
+        if (haversineDistanceKm(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]) > ROUTE_CHORD_KM) parts.push([]);
+        parts[parts.length - 1].push(coords[i]);
+    }
+    return parts;
+}
+
+async function snapRouteToRoad(points, isCurrent = () => true) {
+    const pieces = splitIntoTravelPieces(points);
+    if (pieces.length === 0) return null;
+
+    const jobs = [];
+    pieces.forEach((piece, pi) => {
+        const items = thinWaypoints(piece.map((p, i) => ({ lat: p.lat, lng: p.lng, i })), ROUTE_WAYPOINT_KM);
+        for (let s = 0; s < items.length - 1; s += ROUTE_CHUNK - 1) {
+            const chunk = items.slice(s, s + ROUTE_CHUNK);
+            jobs.push({ pi, piece, chunk, raw: piece.slice(chunk[0].i, chunk[chunk.length - 1].i + 1) });
+        }
+    });
+
+    const results = new Array(jobs.length);
+    let nextJob = 0;
+    const worker = async () => {
+        while (nextJob < jobs.length && isCurrent()) {
+            const index = nextJob++;
+            results[index] = await snapJob(jobs[index]);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, worker));
+    if (!isCurrent()) return null;
+
+    const segments = [];
+    let open = null;
+    let openPiece = -1;
+    jobs.forEach((job, index) => {
+        if (job.pi !== openPiece) { open = null; openPiece = job.pi; }
+        const { coords, routed } = results[index];
+        const parts = routed ? [coords] : splitAtChords(coords);
+        parts.forEach(part => {
+            const end = open ? open[open.length - 1] : null;
+            const gap = end ? haversineDistanceKm(end[0], end[1], part[0][0], part[0][1]) : Infinity;
+            if (gap <= ROUTE_CHORD_KM) {
+                open.push(...part.slice(gap < 0.005 ? 1 : 0));
+            } else {
+                open = part.slice();
+                segments.push(open);
+            }
+        });
+    });
+
+    const lines = segments.map(seg => densifyCoordList(seg, 20)).filter(seg => seg.length > 1);
+    if (lines.length === 0) return null;
+    return { segments: lines, matched: results.some(r => r.routed) };
+}
+
+// Raw route geometry: one polyline per travel piece, so raw lines never cross a
+// parked spot, a data gap or a stitched origin.
+function splitTraceAtGaps(points) {
+    const segments = [];
+    splitIntoTravelPieces(points).forEach(piece => {
+        splitAtChords(piece.map(p => [p.lat, p.lng])).forEach(part => {
+            if (part.length > 1) segments.push(densifyCoordList(part, 20));
+        });
+    });
     return segments;
 }
 
@@ -4557,12 +4644,20 @@ if (timelineSlider) {
 // randomly with real trip points, producing the fan pattern. A spatial NN
 // walk groups the parked duplicates together and unrolls the drive chain
 // in travel order.
-function nearestNeighborOrder(points) {
+function nearestNeighborOrder(points, anchor = null) {
     const n = points.length;
     if (n > 3000) return points; // O(n^2) — too slow beyond this, trips are smaller
     const visited = new Array(n).fill(false);
-    const order = [0];
-    visited[0] = true;
+    let start = 0;
+    if (anchor) {
+        let bestD = Infinity;
+        points.forEach((p, i) => {
+            const d = (p.lat - anchor.lat) ** 2 + (p.lng - anchor.lng) ** 2;
+            if (d < bestD) { bestD = d; start = i; }
+        });
+    }
+    const order = [start];
+    visited[start] = true;
     for (let k = 1; k < n; k++) {
         const last = points[order[order.length - 1]];
         let best = -1, bestD = Infinity;
@@ -4579,6 +4674,20 @@ function nearestNeighborOrder(points) {
     return order.map(i => points[i]);
 }
 
+function reorderCollapsedBursts(sorted) {
+    const out = [];
+    let i = 0;
+    while (i < sorted.length) {
+        let j = i + 1;
+        while (j < sorted.length && Math.abs(new Date(sorted[j].timestamp) - new Date(sorted[j - 1].timestamp)) < 1000) j++;
+        const run = sorted.slice(i, j);
+        const ordered = run.length >= 3 ? nearestNeighborOrder(run, out[out.length - 1]) : run;
+        for (const p of ordered) out.push(p);
+        i = j;
+    }
+    return out;
+}
+
 // ============================================================
 // Robust Telemetry & Route Point Filtering (Fixes Starburst Fans & Jumps)
 // ============================================================
@@ -4591,22 +4700,9 @@ function filterValidRoutePoints(points) {
     if (points.every(p => p && p.snapped)) return points;
 
     // 1. Sort chronologically by timestamp
-    let sorted = [...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    // Detect collapsed timestamps: when a tracker dumps buffered data, the
-    // burst points share ~the same receipt timestamp and their relative
-    // order after sorting is arbitrary (this is what produces the fan
-    // pattern). Scan the WHOLE array — a burst can be buried anywhere,
-    // especially in mixed data where newer points have real GPS timestamps.
-    let zeroDeltas = 0;
-    for (let i = 0; i < sorted.length - 1; i++) {
-        const dt = Math.abs(new Date(sorted[i + 1].timestamp) - new Date(sorted[i].timestamp));
-        if (dt < 1000) zeroDeltas++;
-    }
-    if (sorted.length >= 10 && zeroDeltas / (sorted.length - 1) > 0.5) {
-        console.warn(`Collapsed timestamps detected (${zeroDeltas}/${sorted.length - 1} zero deltas) — reconstructing path spatially`);
-        sorted = nearestNeighborOrder(sorted);
-    }
+    // Buffered dumps stamp many fixes with the same receipt time. Only those bursts
+    // are reordered spatially; the rest of the day keeps its chronological order.
+    const sorted = reorderCollapsedBursts([...points].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
 
     // 2. Filter invalid / zero / NaN coords
     const validCoords = sorted.filter(p => {
@@ -5080,14 +5176,14 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
 
     const waypoints = extractTravelWaypoints(filteredPoints);
     const isCurrent = () => drawSeq === routeDrawSeq;
-    if (!autoPlay) drawRouteLayers(id, splitTraceAtGaps(waypoints), waypoints, true);
+    if (!autoPlay) drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, true);
 
     const snapped = await snapRouteToRoad(filteredPoints, isCurrent);
     if (!isCurrent()) return false; // stopped/cleared while OSRM fetch was in flight
     if (snapped && snapped.matched) {
         drawRouteLayers(id, snapped.segments, waypoints, autoPlay);
     } else if (autoPlay) {
-        drawRouteLayers(id, splitTraceAtGaps(waypoints), waypoints, true);
+        drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, true);
     }
 
     if (autoPlay) {
@@ -5444,14 +5540,9 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 if (curr.type === 'trip' && anchorPt) {
                     const jumpKm = haversineDistanceKm(anchorPt.lat, anchorPt.lng, curr.start.lat, curr.start.lng);
                     if (jumpKm >= 0.05 && jumpKm <= 30.0) {
-                        const originPt = { lat: anchorPt.lat, lng: anchorPt.lng, timestamp: curr.start.timestamp, speed: 0 };
+                        const originPt = { lat: anchorPt.lat, lng: anchorPt.lng, timestamp: curr.start.timestamp, speed: 0, stitched: true };
                         curr.points = [originPt, ...curr.points];
                         curr.start = originPt;
-                        let recalcKm = 0;
-                        for (let j = 1; j < curr.points.length; j++) {
-                            recalcKm += haversineDistanceKm(curr.points[j - 1].lat, curr.points[j - 1].lng, curr.points[j].lat, curr.points[j].lng);
-                        }
-                        curr.distance = recalcKm.toFixed(1);
                     }
                 }
             }
