@@ -4104,11 +4104,13 @@ function extractTravelWaypoints(points) {
 
 const ROUTE_GAP_MINUTES = 5;
 const ROUTE_PARK_KM = 0.015;
-const ROUTE_CHORD_KM = 1;
+const ROUTE_RAW_CHORD_KM = 0.15;
+const ROUTE_JOIN_KM = 0.05;
 const ROUTE_WAYPOINT_KM = 0.12;
-const ROUTE_RETRY_KM = 0.3;
 const ROUTE_CHUNK = 25;
 const ROUTE_BEARING_RANGE = 60;
+const ROUTE_BEARING_MAX_KM = 2;
+const ROUTE_CALL_BUDGET = 12;
 
 function splitIntoTravelPieces(points) {
     const pieces = [];
@@ -4149,31 +4151,14 @@ function travelBearing(piece, i) {
         return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
     };
     for (let j = i + 1; j < piece.length; j++) {
-        if (haversineDistanceKm(piece[i].lat, piece[i].lng, piece[j].lat, piece[j].lng) >= 0.04) return bearingTo(piece[i], piece[j]);
+        const d = haversineDistanceKm(piece[i].lat, piece[i].lng, piece[j].lat, piece[j].lng);
+        if (d >= 0.04) return d <= ROUTE_BEARING_MAX_KM ? bearingTo(piece[i], piece[j]) : null;
     }
     for (let j = i - 1; j >= 0; j--) {
-        if (haversineDistanceKm(piece[j].lat, piece[j].lng, piece[i].lat, piece[i].lng) >= 0.04) return bearingTo(piece[j], piece[i]);
+        const d = haversineDistanceKm(piece[j].lat, piece[j].lng, piece[i].lat, piece[i].lng);
+        if (d >= 0.04) return d <= ROUTE_BEARING_MAX_KM ? bearingTo(piece[j], piece[i]) : null;
     }
     return null;
-}
-
-function pathKm(coords) {
-    let km = 0;
-    for (let i = 1; i < coords.length; i++) km += haversineDistanceKm(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]);
-    return km;
-}
-
-function metersToPolyline(p, line) {
-    const k = Math.cos(p[0] * Math.PI / 180);
-    let best = Infinity;
-    for (let i = 1; i < line.length; i++) {
-        const ax = (line[i - 1][1] - p[1]) * k * 111320, ay = (line[i - 1][0] - p[0]) * 111320;
-        const dx = (line[i][1] - p[1]) * k * 111320 - ax, dy = (line[i][0] - p[0]) * 111320 - ay;
-        const len2 = dx * dx + dy * dy;
-        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
-        best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
-    }
-    return best;
 }
 
 function backtrackCount(coords) {
@@ -4193,12 +4178,13 @@ function backtrackCount(coords) {
     return count;
 }
 
-function routeIsFaithful(coords, raw) {
-    if (pathKm(coords) > pathKm(raw) * 1.15 + 0.03) return false;
-    for (let i = 0; i < coords.length; i += 2) {
-        if (metersToPolyline(coords[i], raw) > 40) return false;
-    }
-    return backtrackCount(coords) <= backtrackCount(raw);
+function legsPlausible(route, items) {
+    return route.legs.map((legM, k) => {
+        const a = items[k], b = items[k + 1];
+        const chordKm = haversineDistanceKm(a.lat, a.lng, b.lat, b.lng);
+        const hours = Math.max(5, Math.abs(b.t - a.t) / 1000) / 3600;
+        return legM / 1000 <= 2 * chordKm + 0.15 && legM / 1000 / hours <= 150;
+    });
 }
 
 async function osrmRouteThrough(piece, items) {
@@ -4211,35 +4197,82 @@ async function osrmRouteThrough(piece, items) {
     try {
         const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson${bearingParam}`);
         const data = res.ok ? await res.json() : null;
-        const coords = data && data.code === 'Ok' ? data.routes?.[0]?.geometry?.coordinates : null;
-        return coords && coords.length > 1 ? coords.map(c => [c[1], c[0]]) : null;
+        const route = data && data.code === 'Ok' ? data.routes?.[0] : null;
+        const coords = route?.geometry?.coordinates;
+        if (!coords || coords.length < 2 || !route.legs || route.legs.length !== items.length - 1) return null;
+        return { coords: coords.map(c => [c[1], c[0]]), legs: route.legs.map(l => l.distance) };
     } catch (e) {
         console.warn('OSRM route request error:', e);
         return null;
     }
 }
 
-async function snapJob(job) {
-    const raw = job.raw.map(p => [p.lat, p.lng]);
-    let coords = await osrmRouteThrough(job.piece, job.chunk);
-    if (coords && !routeIsFaithful(coords, raw)) coords = null;
-    if (!coords) {
-        const sparse = thinWaypoints(job.chunk, ROUTE_RETRY_KM);
-        if (sparse.length > 1 && sparse.length < job.chunk.length) {
-            coords = await osrmRouteThrough(job.piece, sparse);
-            if (coords && !routeIsFaithful(coords, raw)) coords = null;
-        }
-    }
-    return coords ? { coords, routed: true } : { coords: raw, routed: false };
-}
-
 function splitAtChords(coords) {
     const parts = [[coords[0]]];
     for (let i = 1; i < coords.length; i++) {
-        if (haversineDistanceKm(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]) > ROUTE_CHORD_KM) parts.push([]);
+        if (haversineDistanceKm(coords[i - 1][0], coords[i - 1][1], coords[i][0], coords[i][1]) > ROUTE_RAW_CHORD_KM) parts.push([]);
         parts[parts.length - 1].push(coords[i]);
     }
     return parts;
+}
+
+function rawRuns(piece, items) {
+    const coords = piece.slice(items[0].i, items[items.length - 1].i + 1).map(p => [p.lat, p.lng]);
+    return splitAtChords(coords).filter(part => part.length > 1).map(part => ({ coords: part, routed: false }));
+}
+
+function metersToPolyline(p, line) {
+    const k = Math.cos(p[0] * Math.PI / 180);
+    let best = Infinity;
+    for (let i = 1; i < line.length; i++) {
+        const ax = (line[i - 1][1] - p[1]) * k * 111320, ay = (line[i - 1][0] - p[0]) * 111320;
+        const dx = (line[i][1] - p[1]) * k * 111320 - ax, dy = (line[i][0] - p[0]) * 111320 - ay;
+        const len2 = dx * dx + dy * dy;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+        best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+    return best;
+}
+
+function routeAcceptable(route, items, raw) {
+    if (!legsPlausible(route, items).every(Boolean) || backtrackCount(route.coords) > 0) return false;
+    let maxChordM = 0;
+    for (let k = 0; k < items.length - 1; k++) {
+        maxChordM = Math.max(maxChordM, haversineDistanceKm(items[k].lat, items[k].lng, items[k + 1].lat, items[k + 1].lng) * 1000);
+    }
+    const dense = maxChordM <= 200;
+    const reference = dense ? raw : items.map(w => [w.lat, w.lng]);
+    const toleranceM = dense ? 40 : Math.max(60, 0.6 * maxChordM);
+    for (let i = 0; i < route.coords.length; i += 2) {
+        if (metersToPolyline(route.coords[i], reference) > toleranceM) return false;
+    }
+    return true;
+}
+
+async function routeRun(piece, items, budget) {
+    if (budget.calls > 0 && budget.alive()) {
+        budget.calls--;
+        const route = await osrmRouteThrough(piece, items);
+        const raw = piece.slice(items[0].i, items[items.length - 1].i + 1).map(p => [p.lat, p.lng]);
+        if (route && routeAcceptable(route, items, raw)) return [{ coords: route.coords, routed: true }];
+        if (items.length === 2) return rawRuns(piece, items);
+        const bad = route ? legsPlausible(route, items).indexOf(false) : -1;
+        const parts = [];
+        if (bad >= 0) {
+            if (bad > 0) parts.push(items.slice(0, bad + 1));
+            parts.push([items[bad], items[bad + 1]]);
+            if (bad + 1 < items.length - 1) parts.push(items.slice(bad + 1));
+        } else {
+            const mid = Math.floor((items.length - 1) / 2);
+            parts.push(items.slice(0, mid + 1), items.slice(mid));
+        }
+        const runs = [];
+        for (const part of parts) runs.push(...await routeRun(piece, part, budget));
+        return runs;
+    }
+    if (items.length === 2) return rawRuns(piece, items);
+    const mid = Math.floor((items.length - 1) / 2);
+    return [...await routeRun(piece, items.slice(0, mid + 1), budget), ...await routeRun(piece, items.slice(mid), budget)];
 }
 
 async function snapRouteToRoad(points, isCurrent = () => true) {
@@ -4248,10 +4281,9 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
 
     const jobs = [];
     pieces.forEach((piece, pi) => {
-        const items = thinWaypoints(piece.map((p, i) => ({ lat: p.lat, lng: p.lng, i })), ROUTE_WAYPOINT_KM);
+        const items = thinWaypoints(piece.map((p, i) => ({ lat: p.lat, lng: p.lng, i, t: parseTimestamp(p.timestamp).getTime() })), ROUTE_WAYPOINT_KM);
         for (let s = 0; s < items.length - 1; s += ROUTE_CHUNK - 1) {
-            const chunk = items.slice(s, s + ROUTE_CHUNK);
-            jobs.push({ pi, piece, chunk, raw: piece.slice(chunk[0].i, chunk[chunk.length - 1].i + 1) });
+            jobs.push({ pi, piece, chunk: items.slice(s, s + ROUTE_CHUNK) });
         }
     });
 
@@ -4260,7 +4292,7 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
     const worker = async () => {
         while (nextJob < jobs.length && isCurrent()) {
             const index = nextJob++;
-            results[index] = await snapJob(jobs[index]);
+            results[index] = await routeRun(jobs[index].piece, jobs[index].chunk, { calls: ROUTE_CALL_BUDGET, alive: isCurrent });
         }
     };
     await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, worker));
@@ -4271,12 +4303,11 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
     let openPiece = -1;
     jobs.forEach((job, index) => {
         if (job.pi !== openPiece) { open = null; openPiece = job.pi; }
-        const { coords, routed } = results[index];
-        const parts = routed ? [coords] : splitAtChords(coords);
-        parts.forEach(part => {
+        results[index].forEach(run => {
+            const part = run.coords;
             const end = open ? open[open.length - 1] : null;
             const gap = end ? haversineDistanceKm(end[0], end[1], part[0][0], part[0][1]) : Infinity;
-            if (gap <= ROUTE_CHORD_KM) {
+            if (gap <= ROUTE_JOIN_KM) {
                 open.push(...part.slice(gap < 0.005 ? 1 : 0));
             } else {
                 open = part.slice();
@@ -4287,7 +4318,7 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
 
     const lines = segments.map(seg => densifyCoordList(seg, 20)).filter(seg => seg.length > 1);
     if (lines.length === 0) return null;
-    return { segments: lines, matched: results.some(r => r.routed) };
+    return { segments: lines, matched: results.some(runs => runs.some(run => run.routed)) };
 }
 
 // Raw route geometry: one polyline per travel piece, so raw lines never cross a
@@ -5180,10 +5211,10 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
 
     const snapped = await snapRouteToRoad(filteredPoints, isCurrent);
     if (!isCurrent()) return false; // stopped/cleared while OSRM fetch was in flight
-    if (snapped && snapped.matched) {
+    if (snapped) {
         drawRouteLayers(id, snapped.segments, waypoints, autoPlay);
-    } else if (autoPlay) {
-        drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, true);
+    } else {
+        drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, autoPlay);
     }
 
     if (autoPlay) {
