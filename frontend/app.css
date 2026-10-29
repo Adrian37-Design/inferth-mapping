@@ -2222,8 +2222,29 @@ body {
     color: var(--text-muted);
 }
 
-.alert-read-btn {
+.alert-expand-btn {
     margin-left: auto;
+    align-self: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+}
+
+.alert-expand-btn:hover { background: rgba(24, 24, 27, 0.06); color: var(--text-primary); }
+.alert-expand-btn i { transition: transform 0.2s; }
+.alert-item.expanded .alert-expand-btn i { transform: rotate(180deg); }
+
+.alert-read-btn {
+    align-self: center;
     align-self: center;
     flex-shrink: 0;
     width: 26px;

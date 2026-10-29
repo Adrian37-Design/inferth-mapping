@@ -983,6 +983,9 @@ function renderAlerts() {
                     <span class="alert-detail-meta">${escapeHTML(alert.type || 'alert')} · ${alert.time.toLocaleString()} · #${escapeHTML(String(alert.id))}</span>
                 </div>
             </div>
+            <button type="button" class="alert-expand-btn" title="Expand" aria-label="Expand alert details">
+                <i class="fas fa-chevron-down"></i>
+            </button>
             <button type="button" class="alert-read-btn" title="Mark as read" aria-label="Mark alert as read">
                 <i class="fas fa-check"></i>
             </button>
