@@ -178,7 +178,7 @@ async def upsert_tracking_data(
     # resolve to one device. Postgres JSONB '?' tests array membership.
     if not device:
         res = await db.execute(
-            select(Device).where(text("device_metadata -> 'aliases' ? :ident")).params(ident=ident)
+            select(Device).where(text("device_metadata::jsonb -> 'aliases' ? :ident")).params(ident=ident)
         )
         device = res.scalars().first()
 
@@ -622,7 +622,7 @@ async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
     if not device:
         # Alias list on the device record (see ingest lookup for rationale)
         res = await db.execute(
-            select(Device).where(text("device_metadata -> 'aliases' ? :ident")).params(ident=ident)
+            select(Device).where(text("device_metadata::jsonb -> 'aliases' ? :ident")).params(ident=ident)
         )
         device = res.scalars().first()
     # No catch-all fallback: an unmatched identity must NOT bind to a random
