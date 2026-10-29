@@ -5243,8 +5243,18 @@ async function matchTripSegments(id, item) {
 
 // Matched geometry for every trip in the list, in timeline order. Trips that
 // could not be matched fall back to their own raw pieces so no segment is lost.
+// Matches run through a small worker pool — firing every trip at once floods
+// the matching engine, trips time out, and their segments draw as gaps.
 async function buildMatchedTripSegments(id, trips, isCurrent) {
-    const results = await Promise.all(trips.map(t => matchTripSegments(id, t)));
+    const results = new Array(trips.length).fill(null);
+    let next = 0;
+    const workers = Array.from({ length: Math.min(6, trips.length) }, async () => {
+        while (next < trips.length && isCurrent()) {
+            const i = next++;
+            results[i] = await matchTripSegments(id, trips[i]);
+        }
+    });
+    await Promise.all(workers);
     if (!isCurrent() || results.every(r => !r)) return null;
     const segs = [];
     trips.forEach((t, i) => {

@@ -48,6 +48,16 @@ def _is_coarse_lbs_row(raw) -> bool:
         return False
 
 
+def _is_coarse_sats(sats) -> bool:
+    """Same LBS/no-fix test as _is_coarse_lbs_row but on the projected
+    raw->>'satellites' value (int/str/NULL) returned by _route_rows."""
+    try:
+        s = int(sats)
+        return s == 0 or s >= 200
+    except (ValueError, TypeError):
+        return False
+
+
 @router.post("/", response_model=PositionOut)
 async def create_position(payload: PositionCreate, request: Request, db: AsyncSession = Depends(get_db)):
     # Tracker-facing write: verify the request carries a valid signature for
@@ -362,8 +372,13 @@ async def list_positions(
     ]
 
 async def _route_rows(device_id: int, start_dt, end_dt, db: AsyncSession):
-    """Valid GPS rows for a device in a time window, oldest first."""
-    query = select(Position.latitude, Position.longitude, Position.speed, Position.timestamp, Position.raw).where(
+    """Valid GPS rows for a device in a time window, oldest first.
+
+    Projects only raw->>'satellites' instead of the full raw JSON blob —
+    on multi-day windows (10k+ rows) the raw column is the bulk of the
+    query cost, and only the satellite count is consumed downstream."""
+    query = select(Position.latitude, Position.longitude, Position.speed, Position.timestamp,
+                   Position.raw["satellites"].as_string().label("sats")).where(
         Position.device_id == device_id,
         Position.latitude.is_not(None),
         Position.longitude.is_not(None),
@@ -425,7 +440,7 @@ async def match_device_trip(
     points = [
         {"lat": r.latitude, "lng": r.longitude, "t": r.timestamp.timestamp()}
         for r in rows
-        if r.timestamp is not None and not _is_coarse_lbs_row(r.raw)
+        if r.timestamp is not None and not _is_coarse_sats(r.sats)
     ]
     if len(points) < 2:
         return {"segments": [], "matched": False, "engine": "none"}
@@ -499,7 +514,7 @@ async def get_device_route(
     # (satellites >= 200 or 0) keep their timestamps (preserving parked/stationary
     # coverage up to the current time) while pinning coordinates to the last
     # real GNSS fix instead of jumping to cell towers.
-    first_gnss = next((p for p in positions if not _is_coarse_lbs_row(p.raw)), None)
+    first_gnss = next((p for p in positions if not _is_coarse_sats(p.sats)), None)
     last_gnss_lat = first_gnss.latitude if first_gnss else None
     last_gnss_lng = first_gnss.longitude if first_gnss else None
 
@@ -509,7 +524,7 @@ async def get_device_route(
     last_valid_point = None
 
     for p in positions:
-        is_lbs = _is_coarse_lbs_row(p.raw)
+        is_lbs = _is_coarse_sats(p.sats)
         if not is_lbs:
             last_gnss_lat = p.latitude
             last_gnss_lng = p.longitude
