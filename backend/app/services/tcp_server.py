@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 from app.db import AsyncSessionLocal
 from app.models import Position, Device
+from app.services.device_resolver import resolve_device
 from sqlalchemy import select
 import sys
 from app.realtime import publish_position
@@ -219,9 +220,10 @@ class TCPTrackerProtocol(asyncio.Protocol):
             if decoded.get("imei"):
                 async with AsyncSessionLocal() as db:
                     try:
-                        # Find or create device
-                        result = await db.execute(select(Device).filter(Device.imei == decoded["imei"]))
-                        device = result.scalars().first()
+                        # Find or create device — via the shared resolver so
+                        # alternate identities (short id, plate, SIM alias)
+                        # bind to the existing row instead of a duplicate.
+                        device = await resolve_device(db, decoded["imei"])
                         
                         if not device:
                             print(f"[{datetime.now()}] AUTO-CREATING device {decoded['imei']} for Tenant 1")

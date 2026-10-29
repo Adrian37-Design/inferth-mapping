@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, text
+from sqlalchemy import select, update
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import json
@@ -13,6 +13,7 @@ from app.db import get_db
 from app.models import Device, Position, Alert, User, TrackerSecret, FuelCalibration
 from app.config import settings
 from app.auth_middleware import require_super_admin
+from app.services.device_resolver import resolve_device
 from app.services.data_guardrails import (
     validate_coordinates,
     validate_and_sanitize_speed,
@@ -150,37 +151,10 @@ async def upsert_tracking_data(
     raw_ident = body.get("imei") or jwt_plate or "XYZ4321"
     ident = str(raw_ident).strip()
 
-    # Look up authoritative device:
-    # 1. Exact match on IMEI
-    device = None
-    res = await db.execute(select(Device).where(Device.imei == ident))
-    device = res.scalars().first()
-
-    # 2. Match short suffix if plate length is 7 (e.g. YZ4321)
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
-        device = res.scalars().first()
-
-    # 3. Match device name containing YZ4321 or XYZ4321
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
-        device = res.scalars().first()
-
-    # 3b. Suffix binding: firmware alternates full IMEI and short ids across
-    # message types — a short ident that is the tail of a stored IMEI belongs
-    # to that device, not a new duplicate row.
-    if not device and len(ident) < 15:
-        res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
-        device = res.scalars().first()
-
-    # 3c. Aliases: device_metadata {"aliases": [...]} records every identity a
-    # physical tracker reports (full IMEI, SIM number, plate id) so all of them
-    # resolve to one device. Postgres JSONB '?' tests array membership.
-    if not device:
-        res = await db.execute(
-            select(Device).where(text("device_metadata::jsonb -> 'aliases' ? :ident")).params(ident=ident)
-        )
-        device = res.scalars().first()
+    # Resolve via the shared chain: exact IMEI, short id, name tail,
+    # IMEI suffix, then device_metadata aliases — so every identity a
+    # tracker reports binds to one device row instead of spawning dupes.
+    device = await resolve_device(db, ident)
 
     # 4. If still not found, auto-provision in monitor mode only. In enforce
     # mode an unauthenticated request is rejected before a device row (or any
@@ -520,15 +494,7 @@ async def get_commands(
         imei = extract_plate_from_jwt(token) or "XYZ4321"
 
     ident = str(imei).strip()
-    device = None
-    res = await db.execute(select(Device).where(Device.imei == ident))
-    device = res.scalars().first()
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
-        device = res.scalars().first()
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
-        device = res.scalars().first()
+    device = await resolve_device(db, ident)
     # NOTE: no "Xcela Tracker%" fallback here. Commands belong to exactly one
     # resolved device; anything else returns an empty list.
 
@@ -577,9 +543,8 @@ async def handle_sos_alerts(
     alert_type = body.get("type", "SOS_PANIC")
     message = body.get("message", "Emergency button triggered on vehicle")
 
-    # Look up device
-    res = await db.execute(select(Device).where(Device.imei == str(imei).strip()))
-    device = res.scalars().first()
+    # Look up device via the shared resolver so alias identities bind too
+    device = await resolve_device(db, str(imei))
     await check_tracker(request, device.imei if device else None, db)
     tenant_id = device.tenant_id if device else 1
     device_id = device.id if device else None
@@ -605,29 +570,9 @@ TRACKER_VIOLATIONS = {
 
 
 async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
-    res = await db.execute(select(Device).where(Device.imei == ident))
-    device = res.scalars().first()
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.imei == ident[-6:]))
-        device = res.scalars().first()
-    if not device and len(ident) >= 6:
-        res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
-        device = res.scalars().first()
-    if not device and len(ident) < 15:
-        # Suffix binding: firmware sometimes reports a shorter IMEI/SIM id in
-        # one message type and the full IMEI in another. A short ident must
-        # bind to a device whose imei ends with it — not spawn a duplicate.
-        res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
-        device = res.scalars().first()
-    if not device:
-        # Alias list on the device record (see ingest lookup for rationale)
-        res = await db.execute(
-            select(Device).where(text("device_metadata::jsonb -> 'aliases' ? :ident")).params(ident=ident)
-        )
-        device = res.scalars().first()
     # No catch-all fallback: an unmatched identity must NOT bind to a random
     # "Xcela Tracker"-named device — that cross-contaminates foreign data.
-    return device
+    return await resolve_device(db, ident)
 
 
 @router.post("/violations")

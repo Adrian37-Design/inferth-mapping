@@ -10,6 +10,7 @@ from typing import List, Optional
 import asyncio
 from pydantic import BaseModel
 from app.realtime import publish_position
+from app.services.device_resolver import resolve_device
 from app.services.data_guardrails import (
     validate_coordinates,
     validate_and_sanitize_speed,
@@ -54,9 +55,8 @@ async def create_position(payload: PositionCreate, request: Request, db: AsyncSe
     from app.routers.controller import check_tracker
     await check_tracker(request, payload.imei, db)
 
-    # find device by IMEI
-    q = await db.execute(select(Device).where(Device.imei == payload.imei))
-    device = q.scalars().first()
+    # find device via the shared resolver (exact, suffix, name, aliases)
+    device = await resolve_device(db, payload.imei)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
@@ -141,9 +141,9 @@ async def ingest_position(payload: dict, request: Request, db: AsyncSession = De
         await check_tracker(request, data["imei"], db)
 
         # Save to DB
-        # Find Device
-        device_q = await db.execute(select(Device).where(Device.imei == data["imei"]))
-        device = device_q.scalars().first()
+        # Find Device via the shared resolver so alternate identities bind
+        # to the existing row instead of auto-creating a duplicate.
+        device = await resolve_device(db, data["imei"])
 
         if not device:
             # Auto-create for Tenant 1
