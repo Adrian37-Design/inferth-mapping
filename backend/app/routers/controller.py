@@ -166,6 +166,13 @@ async def upsert_tracking_data(
         res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
         device = res.scalars().first()
 
+    # 3b. Suffix binding: firmware alternates full IMEI and short ids across
+    # message types — a short ident that is the tail of a stored IMEI belongs
+    # to that device, not a new duplicate row.
+    if not device and len(ident) < 15:
+        res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
+        device = res.scalars().first()
+
     # 4. If still not found, auto-provision in monitor mode only. In enforce
     # mode an unauthenticated request is rejected before a device row (or any
     # position data) can be created for an identity the caller cannot prove.
@@ -596,6 +603,12 @@ async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
         device = res.scalars().first()
     if not device and len(ident) >= 6:
         res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
+        device = res.scalars().first()
+    if not device and len(ident) < 15:
+        # Suffix binding: firmware sometimes reports a shorter IMEI/SIM id in
+        # one message type and the full IMEI in another. A short ident must
+        # bind to a device whose imei ends with it — not spawn a duplicate.
+        res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
         device = res.scalars().first()
     # No catch-all fallback: an unmatched identity must NOT bind to a random
     # "Xcela Tracker"-named device — that cross-contaminates foreign data.
