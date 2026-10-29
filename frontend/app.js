@@ -5895,16 +5895,18 @@ const histAutoPlayToggle = document.getElementById('history-autoplay-trips');
 if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
     document.body.appendChild(histSettingsPop);
     const setHistSettingsOpen = open => {
-        if (open) {
-            // The button lives in the left icon rail — open the popover to
-            // its right so it isn't clipped by the viewport edge.
-            const r = histSettingsBtn.getBoundingClientRect();
-            histSettingsPop.style.left = `${r.right + 8}px`;
-            histSettingsPop.style.right = 'auto';
-            histSettingsPop.style.top = `${Math.max(8, r.top)}px`;
-        }
         histSettingsPop.hidden = !open;
         histSettingsBtn.setAttribute('aria-expanded', String(open));
+        if (open) {
+            // The button lives in the left icon rail — open the popover to
+            // its right, clamped into the viewport (the rail item sits near
+            // the bottom of the screen, so an unclamped top renders off-view).
+            const r = histSettingsBtn.getBoundingClientRect();
+            const popH = histSettingsPop.offsetHeight || 160;
+            histSettingsPop.style.left = `${r.right + 8}px`;
+            histSettingsPop.style.right = 'auto';
+            histSettingsPop.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - popH - 8))}px`;
+        }
     };
     histAutoPlayToggle.checked = historyAutoPlayTrips();
     histSettingsBtn.addEventListener('click', e => {
