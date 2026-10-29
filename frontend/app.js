@@ -5371,6 +5371,15 @@ function drawRouteLayers(id, segments, waypoints, fit) {
 
     const routeControls = document.getElementById('route-controls');
     if (routeControls) routeControls.classList.remove('hidden');
+
+    // Cluster mode persists across route loads: picking another trip or
+    // Play Full Route re-dots the new playbackRoute instead of silently
+    // dropping back to the line view.
+    if (playbackViewMode === 'cluster') {
+        layers.forEach(l => { try { map.removeLayer(l); } catch (e) {} });
+        renderClusterMode();
+        trailSetVisible(false);
+    }
 }
 
 // Load Asset History
