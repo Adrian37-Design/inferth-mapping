@@ -1274,6 +1274,8 @@ window.loadReport = async function () {
         const response = await window.AuthManager.fetchAPI(url);
         if (!response.ok) throw new Error('Failed to load report');
         const data = await response.json();
+        _lastReportType = reportType;
+        _lastReportData = data;
         renderReportOutput(reportType, data, output);
     } catch (err) {
         console.error(err);
@@ -1319,8 +1321,118 @@ function renderReportOutput(type, data, container) {
             </div>`;
     }
 
-    container.innerHTML = summaryCards + buildReportTable(type, data);
+    const visual = document.getElementById('report-visual')?.value || 'table';
+    if (visual === 'table') {
+        container.innerHTML = summaryCards + buildReportTable(type, data);
+    } else {
+        container.innerHTML = summaryCards + '<div class="report-chart-wrap"><canvas id="report-chart-canvas"></canvas></div>';
+        renderReportChart(visual, type, data, container);
+    }
 }
+
+let _lastReportType = null;
+let _lastReportData = null;
+let _reportChart = null;
+
+function extractReportSeries(type, data) {
+    const shortDate = iso => {
+        const d = new Date(iso);
+        return isNaN(d) ? String(iso || '') : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+    if (type === 'trips') {
+        return {
+            metric: 'Distance (km)',
+            labels: (data.trips || []).map(t => shortDate(t.start_time)),
+            values: (data.trips || []).map(t => t.distance_km || 0)
+        };
+    }
+    if (type === 'stops' || type === 'idle') {
+        return {
+            metric: 'Duration (min)',
+            labels: (data.stops || []).map(s => shortDate(s.start_time)),
+            values: (data.stops || []).map(s => s.duration_minutes || 0)
+        };
+    }
+    if (type === 'mileage') {
+        return {
+            metric: 'Distance (km)',
+            labels: (data.entries || []).map(e => e.period || ''),
+            values: (data.entries || []).map(e => e.distance_km || 0)
+        };
+    }
+    if (type === 'speed') {
+        return {
+            metric: 'Speed (km/h)',
+            labels: (data.speeding_instances || []).map(i => shortDate(i.time)),
+            values: (data.speeding_instances || []).map(i => i.speed_kmh || 0)
+        };
+    }
+    if (type === 'summary') {
+        return {
+            metric: 'Distance (km)',
+            labels: (data.summaries || []).map(s => s.period || ''),
+            values: (data.summaries || []).map(s => s.distance_km || 0)
+        };
+    }
+    return { metric: 'Value', labels: [], values: [] };
+}
+
+function renderReportChart(visual, type, data, container) {
+    const canvas = document.getElementById('report-chart-canvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (_reportChart) { _reportChart.destroy(); _reportChart = null; }
+
+    let { metric, labels, values } = extractReportSeries(type, data);
+    if (values.length === 0) {
+        container.innerHTML = '<p class="empty-state">No data for selected period.</p>';
+        return;
+    }
+
+    const isPie = visual === 'pie' || visual === 'doughnut';
+    // Pie/doughnut slices become unreadable past ~8 — keep the largest and
+    // aggregate the remainder into "Other" so totals stay honest.
+    if (isPie && labels.length > 8) {
+        const order = values.map((_, i) => i).sort((a, b) => values[b] - values[a]);
+        const top = order.slice(0, 8), rest = order.slice(8);
+        labels = top.map(i => labels[i]).concat(['Other']);
+        values = top.map(i => values[i]).concat([rest.reduce((s, i) => s + values[i], 0)]);
+    }
+
+    const palette = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899', '#64748b'];
+    _reportChart = new Chart(canvas.getContext('2d'), {
+        type: visual,
+        data: {
+            labels,
+            datasets: [{
+                label: metric,
+                data: values,
+                backgroundColor: isPie ? labels.map((_, i) => palette[i % palette.length]) : 'rgba(249, 115, 22, 0.75)',
+                borderColor: isPie ? '#ffffff' : '#f97316',
+                borderWidth: isPie ? 1 : (visual === 'line' ? 2 : 0),
+                fill: visual === 'line' ? 'origin' : false,
+                tension: 0.3,
+                pointRadius: visual === 'line' ? 2 : 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: isPie, position: 'right' },
+                tooltip: { enabled: true }
+            },
+            scales: isPie ? {} : {
+                x: { ticks: { maxTicksLimit: 12, autoSkip: true } },
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// Re-render the last loaded report when the Data Type changes — no refetch.
+document.getElementById('report-visual')?.addEventListener('change', () => {
+    if (_lastReportData) renderReportOutput(_lastReportType, _lastReportData, document.getElementById('report-output'));
+});
 
 function buildReportTable(type, data) {
     let rows = [];

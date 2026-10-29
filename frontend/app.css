@@ -3473,7 +3473,7 @@ body {
     gap: 12px;
     align-items: flex-end;
     padding: 16px;
-    background: rgba(24, 24, 27, 0.6);
+    background: var(--card-bg);
     border: 1px solid rgba(24, 24, 27, 0.08);
     border-radius: 12px;
     margin-bottom: 16px;
@@ -3523,8 +3523,13 @@ body {
     margin-left: auto;
 }
 
+.report-chart-wrap {
+    height: 340px;
+    padding: 12px 8px;
+}
+
 .report-output {
-    background: rgba(24, 24, 27, 0.5);
+    background: var(--card-bg);
     border: 1px solid rgba(24, 24, 27, 0.08);
     border-radius: 12px;
     padding: 16px;
