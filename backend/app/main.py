@@ -422,9 +422,10 @@ if _allowed_hosts:
 _CSP = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
-    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+    "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
     "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
-    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://*.basemaps.cartocdn.com; "
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com "
+    "https://*.tile.opentopomap.org https://unpkg.com https://*.basemaps.cartocdn.com; "
     "connect-src 'self' https: wss:; "
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 )
