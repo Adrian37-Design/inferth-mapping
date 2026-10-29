@@ -1850,20 +1850,18 @@ window.showInviteSuccessModal = function (link, email, phone) {
     modal.style.justifyContent = 'center';
     modal.style.alignItems = 'center';
 
-    // WhatsApp URL
+    // WhatsApp URL (only rendered when no phone was given — with WhatsApp
+    // delivery the link itself stays hidden from the modal)
     const waText = encodeURIComponent(`Hello! I've invited you to join the Inferth Mapping Platform. Click here to set up your account: ${link}`);
     const waUrl = `https://wa.me/?text=${waText}`;
 
-    modal.innerHTML = `
-        <div class="modal-content" style="margin: auto; max-width: 500px; width: 90%; text-align: center; position: relative; z-index: 11001; background: #18181b; border: 1px solid #3f3f46; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-            <div class="modal-header">
-                <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
-                <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <p>An invitation email has been sent to <strong>${escapeHTML(email)}</strong>.</p>
-                ${phone ? `<p><i class="fab fa-whatsapp" style="color:#25D366;"></i> The setup link was also sent to <strong>${escapeHTML(phone)}</strong> on WhatsApp.</p>` : ''}
-                <p>You can also share this link manually:</p>
+    const bodyHtml = phone ? `
+                <p>Invite created for <strong>${escapeHTML(email)}</strong>.</p>
+                <p style="margin-top:14px;"><i class="fab fa-whatsapp" style="color:#25D366; font-size:1.2em;"></i>
+                    The setup link was sent to <strong>${escapeHTML(phone)}</strong> on WhatsApp.</p>
+                <p style="font-size:0.85em; color:var(--text-muted);">Ask them to open the link and set their password.</p>`
+        : `
+                <p>Invite created for <strong>${escapeHTML(email)}</strong>. Share this link manually:</p>
 
                 <div style="display: flex; gap: 10px; margin: 15px 0;">
                     <input type="text" value="${escapeHTML(link)}" id="invite-link-copy" readonly
@@ -1877,7 +1875,16 @@ window.showInviteSuccessModal = function (link, email, phone) {
                     <a href="${waUrl}" target="_blank" class="btn" style="background-color: #25D366; color: white; text-decoration: none; display: inline-block; width: 100%; padding: 10px; border-radius: 4px; cursor: pointer;">
                         <i class="fab fa-whatsapp"></i> Share via WhatsApp
                     </a>
-                </div>
+                </div>`;
+
+    modal.innerHTML = `
+        <div class="modal-content" style="margin: auto; max-width: 500px; width: 90%; text-align: center; position: relative; z-index: 11001; background: #18181b; border: 1px solid #3f3f46; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+            <div class="modal-header">
+                <h2>Invitation Sent! <i class="fas fa-check-circle" style="color: var(--success);"></i></h2>
+                <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                ${bodyHtml}
             </div>
         </div>
     `;
