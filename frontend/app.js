@@ -978,8 +978,35 @@ function renderAlerts() {
                 <h5>${escapeHTML(alert.title)}</h5>
                 <p>${escapeHTML(alert.message)}</p>
                 <span class="alert-time">${alert.time.toLocaleTimeString()}</span>
+                <div class="alert-detail">
+                    <p>${escapeHTML(alert.message)}</p>
+                    <span class="alert-detail-meta">${escapeHTML(alert.type || 'alert')} · ${alert.time.toLocaleString()} · #${escapeHTML(String(alert.id))}</span>
+                </div>
             </div>
+            <button type="button" class="alert-read-btn" title="Mark as read" aria-label="Mark alert as read">
+                <i class="fas fa-check"></i>
+            </button>
         `;
+
+        // Expand/collapse on item click
+        item.addEventListener('click', () => item.classList.toggle('expanded'));
+
+        // Mark-as-read removes it from the unread list
+        const readBtn = item.querySelector('.alert-read-btn');
+        readBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            readBtn.disabled = true;
+            try {
+                const r = await window.AuthManager.fetchAPI(`/alerts/${alert.id}/read`, { method: 'POST' });
+                if (!r.ok) throw new Error('mark-read failed');
+                alert.read = true;
+                renderAlerts();
+                if (typeof updateAlertsCount === 'function') updateAlertsCount();
+            } catch (err) {
+                readBtn.disabled = false;
+            }
+        });
+
         list.appendChild(item);
     });
 }

@@ -2202,6 +2202,46 @@ body {
     font-weight: 500;
 }
 
+.alert-item { cursor: pointer; }
+
+.alert-content { flex: 1; min-width: 0; }
+
+.alert-detail {
+    display: none;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(24, 24, 27, 0.12);
+}
+
+.alert-item.expanded .alert-detail { display: block; }
+
+.alert-detail p { margin: 0 0 4px 0; }
+
+.alert-detail-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.alert-read-btn {
+    margin-left: auto;
+    align-self: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.alert-read-btn:hover { background: rgba(16, 185, 129, 0.25); }
+.alert-read-btn:disabled { opacity: 0.5; cursor: default; }
+
 .alert-time {
     font-size: 0.7rem;
     color: var(--text-muted);
