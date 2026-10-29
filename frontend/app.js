@@ -5906,12 +5906,18 @@ if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
             histSettingsPop.style.left = `${r.right + 8}px`;
             histSettingsPop.style.right = 'auto';
             histSettingsPop.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - popH - 8))}px`;
+            histSettingsPop.style.zIndex = '2000'; // above the expanded workspace panel
         }
     };
     histAutoPlayToggle.checked = historyAutoPlayTrips();
     histSettingsBtn.addEventListener('click', e => {
         e.stopPropagation();
         setHistSettingsOpen(histSettingsPop.hidden);
+    });
+    // Switching to a real tab closes the popover instead of leaving it
+    // floating over the newly opened panel.
+    document.querySelectorAll('.rail-item').forEach(item => {
+        if (item !== histSettingsBtn) item.addEventListener('click', () => setHistSettingsOpen(false));
     });
     histAutoPlayToggle.addEventListener('change', () => {
         try { localStorage.setItem('historyAutoPlayTrips', histAutoPlayToggle.checked ? '1' : '0'); } catch (e) {}
