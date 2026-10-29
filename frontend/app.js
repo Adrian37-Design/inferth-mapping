@@ -2003,6 +2003,7 @@ async function loadVehicles() {
         vehicles.forEach(v => { if (v.device_metadata && v.device_metadata.last_seen) markContact(v.id, v.device_metadata.last_seen); });
         updateChartVehicleSelector(allVehicles);
         populateHistoryVehicleSelect();
+        populateRuleAssetSelect();
 
         // document.getElementById('vehicle-count').textContent = vehicles.length; // Element removed in new design
 
@@ -6012,6 +6013,41 @@ document.head.appendChild(style);
 
 let activeRules = [];
 
+// Populate the "Notify me when" dropdown with every vehicle the user can
+// see, grouped under their company when companies are assigned.
+function populateRuleAssetSelect() {
+    const sel = document.getElementById('rule-asset');
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="all">Any Vehicle</option>';
+    const list = Array.isArray(allVehicles) ? allVehicles : [];
+    const byCompany = new Map();
+    list.forEach(v => {
+        const company = (v.company || '').trim();
+        if (!byCompany.has(company)) byCompany.set(company, []);
+        byCompany.get(company).push(v);
+    });
+    const addOpt = (parent, v) => {
+        const opt = document.createElement('option');
+        opt.value = String(v.id);
+        opt.textContent = v.name || v.imei || `Device ${v.id}`;
+        parent.appendChild(opt);
+    };
+    const companies = [...byCompany.keys()].filter(c => c);
+    if (companies.length === 0) {
+        list.forEach(v => addOpt(sel, v));
+    } else {
+        companies.sort().forEach(company => {
+            const group = document.createElement('optgroup');
+            group.label = company;
+            byCompany.get(company).forEach(v => addOpt(group, v));
+            sel.appendChild(group);
+        });
+        (byCompany.get('') || []).forEach(v => addOpt(sel, v)); // unassigned last
+    }
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
 // Global function for Save Rule to ensure accessibility
 window.saveRule = async function () {
     const assetSelect = document.getElementById('rule-asset');
@@ -6037,7 +6073,7 @@ window.saveRule = async function () {
         return;
     }
 
-    if ((channel === 'email' || channel === 'sms') && !contact) {
+    if ((channel === 'email' || channel === 'sms' || channel === 'whatsapp') && !contact) {
         alert("Please enter contact details (Email or Phone).");
         return;
     }
@@ -6147,15 +6183,20 @@ function setupRulesEngine() {
 
     if (channelSelect && contactContainer) {
         channelSelect.addEventListener('change', () => {
-            if (channelSelect.value === 'email' || channelSelect.value === 'sms') {
+            if (channelSelect.value === 'email' || channelSelect.value === 'sms' || channelSelect.value === 'whatsapp') {
                 contactContainer.classList.remove('hidden');
-                if (contactInput) contactInput.placeholder = channelSelect.value === 'email' ? 'Enter email address' : 'Enter phone number';
+                if (contactInput) {
+                    contactInput.placeholder = channelSelect.value === 'email' ? 'Enter email address'
+                        : channelSelect.value === 'whatsapp' ? 'WhatsApp number e.g. +263771234567'
+                        : 'Enter phone number';
+                }
             } else {
                 contactContainer.classList.add('hidden');
             }
         });
     }
 
+    populateRuleAssetSelect();
     loadRules();
     loadRecentAlerts();
     setInterval(loadRecentAlerts, 10000); // Poll Alerts every 10s

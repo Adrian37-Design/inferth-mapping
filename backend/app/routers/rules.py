@@ -30,6 +30,12 @@ class RuleOut(RuleBase):
 
 @router.post("/", response_model=RuleOut)
 async def create_rule(rule: RuleCreate, current_user: User = Depends(get_current_user)):
+    contact = rule.contact
+    if rule.channel == "whatsapp" and contact:
+        from app.services.whatsapp import normalize_msisdn
+        contact = normalize_msisdn(contact)
+        if not contact:
+            raise HTTPException(status_code=400, detail="Invalid WhatsApp number — use international format, e.g. +263771234567")
     async with AsyncSessionLocal() as db:
         new_rule = Rule(
             tenant_id=current_user.tenant_id,
@@ -37,7 +43,7 @@ async def create_rule(rule: RuleCreate, current_user: User = Depends(get_current
             event_type=rule.event_type,
             threshold=rule.threshold,
             channel=rule.channel,
-            contact=rule.contact,
+            contact=contact,
             is_active=rule.is_active
         )
         db.add(new_rule)

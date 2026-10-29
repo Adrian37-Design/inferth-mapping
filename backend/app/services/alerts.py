@@ -136,12 +136,27 @@ class AlertService:
                     # Trigger actual SMS via configured provider
                     asyncio.create_task(SMSService.send_sms_async(rule.contact, message))
 
+                elif rule.channel == "whatsapp" and rule.contact:
+                    asyncio.create_task(AlertService._send_whatsapp_async(rule.contact, message))
+
     @staticmethod
     async def _send_email_async(to, subject, html):
         try:
             send_email(to, subject, html)
         except Exception as e:
             print(f"FAILED to send alert email: {e}")
+
+    @staticmethod
+    async def _send_whatsapp_async(to, message):
+        try:
+            from app.services.whatsapp import send_whatsapp, normalize_msisdn
+            msisdn = normalize_msisdn(to)
+            if not msisdn:
+                print(f"FAILED to send alert WhatsApp: unusable number {to!r}")
+                return
+            await send_whatsapp(msisdn, f"Inferth Mapping Alert\n{message}")
+        except Exception as e:
+            print(f"FAILED to send alert WhatsApp: {e}")
 
     @staticmethod
     async def _check_geofence(db: Session, device: Device, lat: float, lng: float, before=None):
