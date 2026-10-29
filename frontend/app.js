@@ -1349,10 +1349,30 @@ const REPORT_METRIC_OPTIONS = {
               ['moving_minutes', 'Moving (min)'], ['idle_minutes', 'Idle (min)'], ['points', 'Points']]
 };
 
+// Each metric field gets a stable colour so the same parameter always
+// renders the same hue across bar/line/scatter/heatmap views.
+const REPORT_METRIC_COLORS = {
+    distance_km: '#f97316',
+    duration_minutes: '#3b82f6',
+    harsh_events_count: '#ef4444',
+    points: '#64748b',
+    speed_kmh: '#10b981',
+    max_speed_kmh: '#dc2626',
+    avg_speed_kmh: '#06b6d4',
+    moving_minutes: '#8b5cf6',
+    idle_minutes: '#f59e0b'
+};
+
 function selectedReportMetric(type) {
     const opts = REPORT_METRIC_OPTIONS[type] || [];
     const sel = document.getElementById('report-metric')?.value;
     return opts.find(o => o[0] === sel) || opts[0] || ['value', 'Value'];
+}
+
+function reportMetricColor(type, alpha = 0.75) {
+    const hex = REPORT_METRIC_COLORS[selectedReportMetric(type)[0]] || '#f97316';
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function updateReportMetricOptions() {
@@ -1424,7 +1444,7 @@ function renderReportChart(visual, type, data, container) {
         if (!points.length) { container.innerHTML = '<p class="empty-state">No data for selected period.</p>'; return; }
         _reportChart = new Chart(canvas.getContext('2d'), {
             type: 'scatter',
-            data: { datasets: [{ label: metric, data: points, backgroundColor: 'rgba(249, 115, 22, 0.7)', pointRadius: 4 }] },
+            data: { datasets: [{ label: metric, data: points, backgroundColor: reportMetricColor(type, 0.7), pointRadius: 4 }] },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
@@ -1452,7 +1472,7 @@ function renderReportChart(visual, type, data, container) {
         } else {
             const s = extractReportSeries(type, data);
             labels = s.labels;
-            datasets = [{ label: s.metric, data: s.values, backgroundColor: 'rgba(249, 115, 22, 0.75)' }];
+            datasets = [{ label: s.metric, data: s.values, backgroundColor: reportMetricColor(type) }];
         }
         if (!labels.length) { container.innerHTML = '<p class="empty-state">No data for selected period.</p>'; return; }
         _reportChart = new Chart(canvas.getContext('2d'), {
@@ -1490,8 +1510,8 @@ function renderReportChart(visual, type, data, container) {
             datasets: [{
                 label: metric,
                 data: values,
-                backgroundColor: isPie ? labels.map((_, i) => palette[i % palette.length]) : 'rgba(249, 115, 22, 0.75)',
-                borderColor: isPie ? '#ffffff' : '#f97316',
+                backgroundColor: isPie ? labels.map((_, i) => palette[i % palette.length]) : reportMetricColor(type, visual === 'line' ? 0.15 : 0.75),
+                borderColor: isPie ? '#ffffff' : reportMetricColor(type, 1),
                 borderWidth: isPie ? 1 : (visual === 'line' ? 2 : 0),
                 fill: visual === 'line' ? 'origin' : false,
                 tension: 0.3,
@@ -1547,12 +1567,12 @@ function buildReportHeatmap(type, data) {
     for (let d = new Date(start); d <= endD; d.setDate(d.getDate() + 1)) {
         const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const v = map[k] || 0;
-        const style = v > 0 ? `background:rgba(249,115,22,${(0.15 + 0.85 * v / max).toFixed(2)})` : '';
+        const style = v > 0 ? `background:${reportMetricColor(type, 0.15 + 0.85 * v / max)}` : '';
         cells += `<div class="hm-cell" title="${k}: ${Number(v.toFixed(1))} ${unit}" style="${style}"></div>`;
     }
 
     return `<div class="report-heatmap"><div class="hm-grid">${cells}</div>` +
-        `<div class="hm-legend"><span>Less</span><i style="background:rgba(249,115,22,.2)"></i><i style="background:rgba(249,115,22,.55)"></i><i style="background:rgba(249,115,22,1)"></i><span>More</span></div></div>`;
+        `<div class="hm-legend"><span>Less</span><i style="background:${reportMetricColor(type, .2)}"></i><i style="background:${reportMetricColor(type, .55)}"></i><i style="background:${reportMetricColor(type, 1)}"></i><span>More</span></div></div>`;
 }
 
 // Re-render the last loaded report when Data Type or Metric changes — no refetch.
