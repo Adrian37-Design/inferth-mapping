@@ -45,7 +45,9 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
         logger.warning("WHATSAPP_API_URL unset; cannot send to %s", msisdn)
         return False
 
-    base = settings.WHATSAPP_API_URL.rstrip("/")
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:  # bare host -> assume https so httpx accepts it
+        base = "https://" + base
     try:
         if settings.WHATSAPP_PROVIDER == "waha":
             # WAHA: POST /api/sendText {chatId: "<msisdn>@c.us", text, session}
