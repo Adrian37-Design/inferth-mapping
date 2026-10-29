@@ -542,6 +542,7 @@ let usersLoaded = false;
 function setupTabs() {
     const railItems = document.querySelectorAll('.rail-item');
     railItems.forEach(item => {
+        if (!item.dataset.tab) return; // action items (e.g. settings) wire their own click
         item.addEventListener('click', () => {
             window.switchTab(item.dataset.tab);
         });
@@ -5895,9 +5896,12 @@ if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
     document.body.appendChild(histSettingsPop);
     const setHistSettingsOpen = open => {
         if (open) {
+            // The button lives in the left icon rail — open the popover to
+            // its right so it isn't clipped by the viewport edge.
             const r = histSettingsBtn.getBoundingClientRect();
-            histSettingsPop.style.top = `${r.bottom + 8}px`;
-            histSettingsPop.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+            histSettingsPop.style.left = `${r.right + 8}px`;
+            histSettingsPop.style.right = 'auto';
+            histSettingsPop.style.top = `${Math.max(8, r.top)}px`;
         }
         histSettingsPop.hidden = !open;
         histSettingsBtn.setAttribute('aria-expanded', String(open));
@@ -5921,15 +5925,6 @@ if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
     });
     window.addEventListener('resize', () => setHistSettingsOpen(false));
     window.addEventListener('scroll', () => setHistSettingsOpen(false), true);
-}
-
-// Clear History Handler
-const clearHistoryBtn = document.getElementById('clear-history-btn');
-if (clearHistoryBtn) {
-    clearHistoryBtn.addEventListener('click', () => {
-        stopRouteAndExit({ clearTimeline: false });
-        document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
-    });
 }
 
 // Safe sidebar close for mobile

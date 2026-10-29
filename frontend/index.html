@@ -101,6 +101,11 @@
                     <i class="fas fa-shield-alt"></i>
                     <span class="rail-label">Audit</span>
                 </button>
+                <!-- Route history settings (opens popover, not a tab) -->
+                <button type="button" class="rail-item" id="history-settings-btn" title="Route history settings" aria-haspopup="true" aria-expanded="false" aria-controls="history-settings-pop">
+                    <i class="fas fa-gear"></i>
+                    <span class="rail-label">Settings</span>
+                </button>
 
             </div>
 
@@ -305,12 +310,6 @@
                         <div class="history-action-row">
                             <button type="button" class="btn-small history-play-all-btn" id="history-play-all-btn" disabled>
                                 <i class="fas fa-play"></i> Play Full Route
-                            </button>
-                            <button type="button" class="btn-small history-clear-btn" id="clear-history-btn" title="Clear route from map">
-                                <i class="fas fa-xmark"></i> Clear
-                            </button>
-                            <button type="button" class="btn-small history-clear-btn history-settings-btn" id="history-settings-btn" aria-haspopup="true" aria-expanded="false" aria-controls="history-settings-pop" aria-label="Route history settings" title="Route history settings">
-                                <i class="fas fa-gear" aria-hidden="true"></i>
                             </button>
                             <div class="history-settings-pop" id="history-settings-pop" role="group" aria-label="Route history settings" hidden>
                                 <p class="history-settings-title">Trip clicks</p>
