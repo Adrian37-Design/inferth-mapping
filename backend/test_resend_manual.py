@@ -1,9 +1,11 @@
 import os
+import httpx
+import asyncio
 
 # Configuration
 # NEVER COMMIT SECRETS TO GIT!
-RESEND_API_KEY = os.getenv("RESEND_API_KEY") 
-TO_EMAIL = "***REMOVED***" # MUST be the account email for unverified domains
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+TO_EMAIL = os.getenv("RESEND_TEST_TO")  # MUST be the account email for unverified domains
 FROM_EMAIL = "onboarding@resend.dev" # Default for testing
 
 async def send_resend_email():
