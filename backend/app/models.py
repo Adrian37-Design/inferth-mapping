@@ -56,6 +56,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+    phone = Column(String, nullable=True)  # WhatsApp number, digits-only MSISDN
     accessible_assets = Column(JSON, default=["*"]) # Default to all, or list of IDs
     tenant = relationship("Tenant")
 

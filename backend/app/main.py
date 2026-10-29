@@ -120,6 +120,7 @@ async def run_migrations_and_branding():
                     # Auth hardening: token revocation + setup link expiry
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 0",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_token_expires TIMESTAMP WITH TIME ZONE DEFAULT NULL",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR DEFAULT NULL",
                     # Road-matched route geometry cache (one row per device trip window)
                     "CREATE TABLE IF NOT EXISTS matched_routes (id SERIAL PRIMARY KEY, device_id INTEGER REFERENCES devices(id), start_ts TIMESTAMP WITH TIME ZONE NOT NULL, end_ts TIMESTAMP WITH TIME ZONE NOT NULL, fingerprint VARCHAR NOT NULL, segments JSON NOT NULL, engine VARCHAR NOT NULL DEFAULT 'valhalla', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "CREATE INDEX IF NOT EXISTS idx_matched_routes_lookup ON matched_routes(device_id, start_ts, end_ts)"

@@ -1715,6 +1715,7 @@ document.getElementById('close-edit-user').addEventListener('click', () => {
 document.getElementById('invite-user-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('invite-email').value;
+    const phone = document.getElementById('invite-phone').value.trim();
     const role = document.getElementById('invite-role').value;
     const tenantId = document.getElementById('invite-tenant').value;
     const btn = e.target.querySelector('button');
@@ -1728,7 +1729,8 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
             body: JSON.stringify({
                 email,
                 role,
-                tenant_id: parseInt(tenantId)
+                tenant_id: parseInt(tenantId),
+                ...(phone ? { phone } : {})
             })
         });
 
@@ -1743,9 +1745,10 @@ document.getElementById('invite-user-form').addEventListener('submit', async (e)
         const inviteLink = `${window.location.origin}/static/signup.html?token=${data.setup_token}`;
 
         // Show Custom Modal instead of Alert
-        showInviteSuccessModal(inviteLink, email);
+        showInviteSuccessModal(inviteLink, email, phone);
 
         document.getElementById('invite-email').value = '';
+        document.getElementById('invite-phone').value = '';
         loadUsers();
 
     } catch (error) {
@@ -1817,7 +1820,7 @@ document.getElementById('edit-user-tenant')?.addEventListener('change', (e) => {
 });
 
 // Helper for Invite Success Modal
-window.showInviteSuccessModal = function (link, email) {
+window.showInviteSuccessModal = function (link, email, phone) {
     // Create modal elements dynamically
     const modalId = 'invite-success-modal';
     let modal = document.getElementById(modalId);
@@ -1859,6 +1862,7 @@ window.showInviteSuccessModal = function (link, email) {
             </div>
             <div class="modal-body">
                 <p>An invitation email has been sent to <strong>${escapeHTML(email)}</strong>.</p>
+                ${phone ? `<p><i class="fab fa-whatsapp" style="color:#25D366;"></i> The setup link was also sent to <strong>${escapeHTML(phone)}</strong> on WhatsApp.</p>` : ''}
                 <p>You can also share this link manually:</p>
 
                 <div style="display: flex; gap: 10px; margin: 15px 0;">

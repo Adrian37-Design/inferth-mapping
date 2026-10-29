@@ -11,6 +11,7 @@ import secrets
 from app.config import settings
 from app.security import hash_password
 from app.services.email import send_email
+from app.services.whatsapp import normalize_msisdn, send_invite_whatsapp
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -21,11 +22,13 @@ class UserCreate(BaseModel):
     role: str = "viewer"
     tenant_id: int
     password: Optional[str] = None
+    phone: Optional[str] = None  # WhatsApp number for the invite link
 
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     tenant_id: Optional[int] = None
+    phone: Optional[str] = None
 
 class UserOut(BaseModel):
     id: int
@@ -33,6 +36,7 @@ class UserOut(BaseModel):
     role: str
     is_active: bool
     setup_token: Optional[str] = None
+    phone: Optional[str] = None
     tenant_id: int
     last_login: Optional[datetime] = None
     accessible_assets: Optional[List[str]] = None
@@ -95,6 +99,11 @@ async def create_user(
             detail="You do not have permission to create Administrator accounts"
         )
     
+    # Normalize the WhatsApp number once — stored digits-only, or None
+    phone = normalize_msisdn(user_in.phone)
+    if user_in.phone and not phone:
+        raise HTTPException(status_code=400, detail="Phone number is not a valid WhatsApp number (use e.g. 0772123456 or +263772123456)")
+
     # If password provided, create pre-activated user; otherwise use invite flow
     if user_in.password:
         new_user = User(
@@ -104,6 +113,7 @@ async def create_user(
             hashed_password=hash_password(user_in.password),
             is_active=True,
             setup_token=None,
+            phone=phone,
             accessible_assets=["*"]
         )
     else:
@@ -114,6 +124,7 @@ async def create_user(
             is_active=False,
             setup_token=setup_token,
             setup_token_expires=datetime.utcnow() + timedelta(hours=settings.SETUP_TOKEN_EXPIRE_HOURS),
+            phone=phone,
             accessible_assets=["*"]  # Default to all
         )
     
@@ -137,10 +148,13 @@ async def create_user(
     await db.commit()
     await db.refresh(new_user)
     
-    # Send Invite Email
+    # Send Invite — WhatsApp when a phone number was given, email as well
+    # whenever email delivery is configured.
     if background_tasks:
-        base_url = "https://inferth-mapping.up.railway.app" 
+        base_url = settings.APP_BASE_URL.rstrip("/")
         link = f"{base_url}/static/signup.html?token={setup_token}"
+        if new_user.phone:
+            background_tasks.add_task(send_invite_whatsapp, new_user.phone, new_user.role, link)
         
         subject = "Welcome to Console Telematics - Setup Your Account"
         html_content = f"""
@@ -210,6 +224,11 @@ async def update_user(
     if user_update.tenant_id is not None:
         user.tenant_id = user_update.tenant_id
         revoke = True
+    if user_update.phone is not None:
+        normalized = normalize_msisdn(user_update.phone)
+        if user_update.phone and not normalized:
+            raise HTTPException(status_code=400, detail="Phone number is not a valid WhatsApp number")
+        user.phone = normalized  # no revoke needed — contact detail only
     if revoke:
         # Kill every JWT this user holds — role/tenant/activation changes must
         # not leave stale privileges in already-issued tokens.

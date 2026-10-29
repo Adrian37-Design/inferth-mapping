@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     SMS_PROVIDER: str = "mock" # infobip, twilio, or mock
     SMS_API_KEY: str | None = None
     SMS_API_BASE_URL: str | None = None
+
+    # Base URL used in invite/reset links — set to the custom domain in prod
+    APP_BASE_URL: str = "https://inferth-mapping.up.railway.app"
+
+    # WhatsApp invite/notification gateway (self-hosted: Evolution API or WAHA)
+    WHATSAPP_ENABLED: bool = False
+    WHATSAPP_PROVIDER: str = "evolution"  # "evolution" | "waha"
+    WHATSAPP_API_URL: str | None = None
+    WHATSAPP_API_KEY: str | None = None
+    WHATSAPP_SESSION: str = "inferth"  # Evolution "instance" / WAHA "session" name
     SMS_SENDER: str = "Inferth" # Sender ID (Alphanumeric or Number)
     
     # Twilio Specific
