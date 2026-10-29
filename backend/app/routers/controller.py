@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select, update, text
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import json
@@ -171,6 +171,15 @@ async def upsert_tracking_data(
     # to that device, not a new duplicate row.
     if not device and len(ident) < 15:
         res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
+        device = res.scalars().first()
+
+    # 3c. Aliases: device_metadata {"aliases": [...]} records every identity a
+    # physical tracker reports (full IMEI, SIM number, plate id) so all of them
+    # resolve to one device. Postgres JSONB '?' tests array membership.
+    if not device:
+        res = await db.execute(
+            select(Device).where(text("device_metadata -> 'aliases' ? :ident")).params(ident=ident)
+        )
         device = res.scalars().first()
 
     # 4. If still not found, auto-provision in monitor mode only. In enforce
@@ -609,6 +618,12 @@ async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
         # one message type and the full IMEI in another. A short ident must
         # bind to a device whose imei ends with it — not spawn a duplicate.
         res = await db.execute(select(Device).where(Device.imei.like(f"%{ident}")))
+        device = res.scalars().first()
+    if not device:
+        # Alias list on the device record (see ingest lookup for rationale)
+        res = await db.execute(
+            select(Device).where(text("device_metadata -> 'aliases' ? :ident")).params(ident=ident)
+        )
         device = res.scalars().first()
     # No catch-all fallback: an unmatched identity must NOT bind to a random
     # "Xcela Tracker"-named device — that cross-contaminates foreign data.
