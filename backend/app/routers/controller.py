@@ -597,9 +597,8 @@ async def _find_tracker(db: AsyncSession, ident: str) -> Optional[Device]:
     if not device and len(ident) >= 6:
         res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
         device = res.scalars().first()
-    if not device:
-        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
-        device = res.scalars().first()
+    # No catch-all fallback: an unmatched identity must NOT bind to a random
+    # "Xcela Tracker"-named device — that cross-contaminates foreign data.
     return device
 
 
@@ -617,7 +616,7 @@ async def handle_violations(
         body = {}
 
     token = request.cookies.get("token") or request.headers.get("Authorization", "").replace("Bearer ", "")
-    ident = str(body.get("imei") or extract_plate_from_jwt(token) or "XYZ4321").strip()
+    ident = str(body.get("imei") or extract_plate_from_jwt(token) or "").strip()
     device = await _find_tracker(db, ident)
     await check_tracker(request, device.imei if device else None, db)
     items = body["violations"] if isinstance(body.get("violations"), list) else [body]
