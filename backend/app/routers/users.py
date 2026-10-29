@@ -5,13 +5,16 @@ from app.db import get_db
 from app.models import User, Tenant, AuditLog, TrackerSecret, FuelCalibration
 from app.auth_middleware import require_admin, require_manager, get_current_user, is_platform_admin
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 import secrets
+from app.config import settings
 from app.security import hash_password
 from app.services.email import send_email
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+VALID_ROLES = {"admin", "manager", "viewer"}
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -78,9 +81,12 @@ async def create_user(
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    if user_in.role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role '{user_in.role}'")
+
     # Generate setup token
     setup_token = secrets.token_urlsafe(32)
-    
+
     # Enforce role restriction: Admin only for Tenant 1 (Inferth Mapping)
     # AND: Managers cannot create Administrators
     if user_in.role == "admin" and (user_in.tenant_id != 1 or current_user.role != "admin"):
@@ -107,6 +113,7 @@ async def create_user(
             tenant_id=user_in.tenant_id,
             is_active=False,
             setup_token=setup_token,
+            setup_token_expires=datetime.utcnow() + timedelta(hours=settings.SETUP_TOKEN_EXPIRE_HOURS),
             accessible_assets=["*"]  # Default to all
         )
     
@@ -167,7 +174,10 @@ async def update_user(
     # Enforce role restriction
     target_role = user_update.role if user_update.role is not None else user.role
     target_tenant = user_update.tenant_id if user_update.tenant_id is not None else user.tenant_id
-    
+
+    if target_role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role '{target_role}'")
+
     if target_role == "admin" and target_tenant != 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -190,12 +200,20 @@ async def update_user(
     if current_user.role == "manager" and user.email.lower() == "***REMOVED***":
         raise HTTPException(status_code=403, detail="The core account '***REMOVED***' is protected and cannot be modified by Managers.")
         
-    if user_update.role is not None:
+    revoke = False
+    if user_update.role is not None and user_update.role != user.role:
         user.role = user_update.role
-    if user_update.is_active is not None:
+        revoke = True
+    if user_update.is_active is not None and user_update.is_active != user.is_active:
         user.is_active = user_update.is_active
+        revoke = True
     if user_update.tenant_id is not None:
         user.tenant_id = user_update.tenant_id
+        revoke = True
+    if revoke:
+        # Kill every JWT this user holds — role/tenant/activation changes must
+        # not leave stale privileges in already-issued tokens.
+        user.token_version = (user.token_version or 0) + 1
         
     # Audit Log
     audit = AuditLog(

@@ -974,8 +974,8 @@ function renderAlerts() {
         item.innerHTML = `
             <div class="alert-icon"><i class="fas ${icon}"></i></div>
             <div class="alert-content">
-                <h5>${alert.title}</h5>
-                <p>${alert.message}</p>
+                <h5>${escapeHTML(alert.title)}</h5>
+                <p>${escapeHTML(alert.message)}</p>
                 <span class="alert-time">${alert.time.toLocaleTimeString()}</span>
             </div>
         `;
@@ -1198,7 +1198,7 @@ function initReportControls() {
     if (!vehicleSel) return;
 
     vehicleSel.innerHTML = '<option value="">Select vehicle</option>' +
-        allVehicles.map(v => `<option value="${v.id}">${v.name || v.imei}</option>`).join('');
+        allVehicles.map(v => `<option value="${escapeHTML(String(v.id))}">${escapeHTML(v.name || v.imei)}</option>`).join('');
 
     const today = new Date();
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1249,7 +1249,7 @@ window.loadReport = async function () {
         renderReportOutput(reportType, data, output);
     } catch (err) {
         console.error(err);
-        if (output) output.innerHTML = `<p class="empty-state">Error: ${err.message}</p>`;
+        if (output) output.innerHTML = `<p class="empty-state">Error: ${escapeHTML(err.message)}</p>`;
     }
 }
 
@@ -1527,10 +1527,10 @@ async function loadAuditLogs() {
 
             tr.innerHTML = `
                 <td class="text-muted" style="font-size:0.85rem">${time}</td>
-                <td>${log.user_email || 'System'}</td>
-                <td><span class="badge badge-neutral">${log.action}</span></td>
-                <td class="text-truncate" style="max-width:300px" title="${detailsStr}">${detailsStr}</td>
-                <td class="text-muted" style="font-size:0.85rem">${log.ip_address || '-'}</td>
+                <td>${escapeHTML(log.user_email || 'System')}</td>
+                <td><span class="badge badge-neutral">${escapeHTML(log.action)}</span></td>
+                <td class="text-truncate" style="max-width:300px" title="${escapeHTML(detailsStr)}">${escapeHTML(detailsStr)}</td>
+                <td class="text-muted" style="font-size:0.85rem">${escapeHTML(log.ip_address || '-')}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1564,12 +1564,12 @@ async function loadUsers() {
             tr.innerHTML = `
                 <td>
                     <div class="user-info-cell">
-                        <div class="user-email">${user.email}</div>
+                        <div class="user-email">${escapeHTML(user.email)}</div>
                         ${user.is_admin ? '<i class="fas fa-crown admin-icon" title="Admin"></i>' : ''}
                     </div>
                 </td>
-                <td><span class="badge badge-${user.role}">${user.role.toUpperCase()}</span></td>
-                <td>${user.tenant_name || 'N/A'}</td>
+                <td><span class="badge badge-${escapeHTML(user.role)}">${escapeHTML(user.role.toUpperCase())}</span></td>
+                <td>${escapeHTML(user.tenant_name || 'N/A')}</td>
                 <td>${lastLogin}</td>
                 <td>${scope}</td>
                 <td class="text-center">
@@ -1595,7 +1595,7 @@ async function loadUsers() {
 
     } catch (error) {
         console.error('Error loading users:', error);
-        tbody.innerHTML = `<tr><td colspan="7" class="error">Failed to load users: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="error">Failed to load users: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
 
@@ -1858,11 +1858,11 @@ window.showInviteSuccessModal = function (link, email) {
                 <span class="close" style="cursor: pointer; font-size: 28px;" onclick="document.getElementById('${modalId}').remove()">&times;</span>
             </div>
             <div class="modal-body">
-                <p>An invitation email has been sent to <strong>${email}</strong>.</p>
+                <p>An invitation email has been sent to <strong>${escapeHTML(email)}</strong>.</p>
                 <p>You can also share this link manually:</p>
-                
+
                 <div style="display: flex; gap: 10px; margin: 15px 0;">
-                    <input type="text" value="${link}" id="invite-link-copy" readonly 
+                    <input type="text" value="${escapeHTML(link)}" id="invite-link-copy" readonly
                            style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f9f9f9; color: #333; cursor: text;">
                     <button onclick="window.copyInviteLink()" class="btn btn-secondary" title="Copy Link" style="cursor: pointer;">
                         <i class="fas fa-copy"></i> Copy
@@ -2022,10 +2022,10 @@ async function loadVehicles() {
                     </div>
                 </div>
                 <div class="action-buttons">
-                    <button class="locate-vehicle-btn" data-id="${vehicle.id}" title="Locate on Map">
+                    <button class="locate-vehicle-btn" data-id="${escapeHTML(String(vehicle.id))}" title="Locate on Map">
                         <i class="fas fa-crosshairs"></i>
                     </button>
-                    ${window.AuthManager.canEdit() ? `<button class="shutdown-vehicle-btn" data-id="${vehicle.id}" title="Engine control — not tracker sleep" aria-label="Engine control">
+                    ${window.AuthManager.canEdit() ? `<button class="shutdown-vehicle-btn" data-id="${escapeHTML(String(vehicle.id))}" title="Engine control — not tracker sleep" aria-label="Engine control">
                         <i class="fas fa-lock"></i>
                     </button>` : ''}
                     ${window.AuthManager.canEdit() ? `
@@ -2356,7 +2356,7 @@ function updateDashMapMarkers(fitBounds = false) {
         const s = getVehicleDashStatus(v);
         const color = s === 'moving' ? '#16a34a' : (s === 'offline' ? '#dc2626' : '#2563eb');
         const ll = [pos.lat, pos.lng];
-        const label = `<b>${v.name || v.imei}</b><br>${s.charAt(0).toUpperCase() + s.slice(1)} · ${Math.round(pos.speed || 0)} km/h`;
+        const label = `<b>${escapeHTML(v.name || v.imei)}</b><br>${s.charAt(0).toUpperCase() + s.slice(1)} · ${Math.round(pos.speed || 0)} km/h`;
         let m = dashMarkers.get(v.id);
         if (!m) {
             m = L.circleMarker(ll, { radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1 });
@@ -2847,10 +2847,10 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (obdData.engine_load !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#e040fb;"><i class="fas fa-cogs"></i> Load: ${obdData.engine_load}%</div>`;
         if (obdData.throttle !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#ff9800;"><i class="fas fa-shoe-prints"></i> Throttle: ${obdData.throttle}%</div>`;
         if (obdData.mileage !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#9c27b0;"><i class="fas fa-road"></i> Total Odometer: ${obdData.mileage}km</div>`;
-        if (obdData.vin !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#607d8b;"><i class="fas fa-id-card"></i> Chassis number: ${obdData.vin}</div>`;
+        if (obdData.vin !== undefined) diagnosticHtml += `<div style="font-size:0.85em; color:#607d8b;"><i class="fas fa-id-card"></i> Chassis number: ${escapeHTML(obdData.vin)}</div>`;
         if (obdData.dtc !== undefined && obdData.dtc.length > 0) {
             const dtcList = Array.isArray(obdData.dtc) ? obdData.dtc : [obdData.dtc];
-            diagnosticHtml += `<div style="font-size:0.85em; color:#f44336;"><i class="fas fa-exclamation-triangle"></i> DTC: ${dtcList.join(', ')}</div>`;
+            diagnosticHtml += `<div style="font-size:0.85em; color:#f44336;"><i class="fas fa-exclamation-triangle"></i> DTC: ${escapeHTML(dtcList.join(', '))}</div>`;
         }
     }
 
@@ -2950,7 +2950,7 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
                 </div>
             </div>
             ${diagnosticHtml ? `<div class="pro-popup-obd">${diagnosticHtml}</div>` : ''}
-            <button class="popup-history-btn" onclick="window.openHistorySearch('${id}', '${imei}')">
+            <button class="popup-history-btn" onclick="window.openHistorySearch('${escapeHTML(String(id))}', '${escapeHTML(String(imei))}')">
                 <i class="fas fa-clock-rotate-left"></i> Route History
             </button>
         </div>
@@ -3995,8 +3995,8 @@ async function loadTrips() {
                 const eAddr = await getAddress(trip.end_location.lat, trip.end_location.lng);
                 const sEl = document.getElementById(`trip-start-addr-${index}`);
                 const eEl = document.getElementById(`trip-end-addr-${index}`);
-                if (sEl) sEl.innerHTML = `<strong>From:</strong> ${sAddr || 'Unknown Address'}`;
-                if (eEl) eEl.innerHTML = `<strong>To:</strong> ${eAddr || 'Unknown Address'}`;
+                if (sEl) sEl.innerHTML = `<strong>From:</strong> ${escapeHTML(sAddr || 'Unknown Address')}`;
+                if (eEl) eEl.innerHTML = `<strong>To:</strong> ${escapeHTML(eAddr || 'Unknown Address')}`;
             }, 100);
 
             item.addEventListener('click', async () => {
@@ -6286,9 +6286,9 @@ window.refreshDTCCodes = function() {
     container.innerHTML = allDTCs.map(d => `
         <div class="dtc-item">
             <i class="fas fa-exclamation-triangle"></i>
-            <span class="dtc-code">${d.code}</span>
-            <span class="dtc-desc">${dtcDescriptions[d.code] || 'Engine fault code'}</span>
-            <span class="dtc-vehicle">${d.vehicle}</span>
+            <span class="dtc-code">${escapeHTML(d.code)}</span>
+            <span class="dtc-desc">${escapeHTML(dtcDescriptions[d.code] || 'Engine fault code')}</span>
+            <span class="dtc-vehicle">${escapeHTML(d.vehicle)}</span>
         </div>
     `).join('');
 };
@@ -6556,7 +6556,7 @@ async function loadComplianceForIntel() {
         listEl.innerHTML = data.map(m => `
             <div class="compliance-item ${m.status === 'Good' ? 'ok' : m.status === 'Due Soon' ? 'warning' : 'danger'}">
                 <i class="fas ${m.status === 'Good' ? 'fa-check' : m.status === 'Due Soon' ? 'fa-exclamation-triangle' : 'fa-times'}"></i>
-                ${m.device_name}: ${m.km_until_service.toFixed(0)}km until service
+                ${escapeHTML(m.device_name)}: ${m.km_until_service.toFixed(0)}km until service
             </div>
         `).join('');
     } catch (err) {
@@ -6600,8 +6600,8 @@ async function loadDriverPerformance(start, end) {
         grid.innerHTML = data.map(driver => `
             <div class="analytics-card">
                 <div class="analytics-card-header">
-                    <h5>${driver.device_name}</h5>
-                    <span class="driver-name">${driver.driver_name}</span>
+                    <h5>${escapeHTML(driver.device_name)}</h5>
+                    <span class="driver-name">${escapeHTML(driver.driver_name)}</span>
                 </div>
                 <div class="analytics-metrics">
                     <div class="metric">
@@ -6649,7 +6649,7 @@ async function loadFuelEfficiency(start, end) {
         grid.innerHTML = data.map(fuel => `
             <div class="analytics-card">
                 <div class="analytics-card-header">
-                    <h5>${fuel.device_name}</h5>
+                    <h5>${escapeHTML(fuel.device_name)}</h5>
                 </div>
                 <div class="analytics-metrics">
                     <div class="metric">
@@ -6701,7 +6701,7 @@ async function loadVehicleUtilization(start, end) {
         grid.innerHTML = data.map(util => `
             <div class="analytics-card">
                 <div class="analytics-card-header">
-                    <h5>${util.device_name}</h5>
+                    <h5>${escapeHTML(util.device_name)}</h5>
                 </div>
                 <div class="analytics-metrics">
                     <div class="metric">
@@ -6754,8 +6754,8 @@ async function loadMaintenanceStatus() {
         grid.innerHTML = data.map(maint => `
             <div class="analytics-card">
                 <div class="analytics-card-header">
-                    <h5>${maint.device_name}</h5>
-                    <span class="status-badge ${maint.status === 'Good' ? 'success' : maint.status === 'Due Soon' ? 'warning' : 'danger'}">${maint.status}</span>
+                    <h5>${escapeHTML(maint.device_name)}</h5>
+                    <span class="status-badge ${maint.status === 'Good' ? 'success' : maint.status === 'Due Soon' ? 'warning' : 'danger'}">${escapeHTML(maint.status)}</span>
                 </div>
                 <div class="analytics-metrics">
                     <div class="metric">
@@ -6893,7 +6893,7 @@ async function loadCompanies() {
 
     } catch (error) {
         console.error("Failed to load companies:", error);
-        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${error.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
 

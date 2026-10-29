@@ -50,6 +50,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False) # Keep for backward compat, but rely on role
     is_active = Column(Boolean, default=False)  # False until password is set
     setup_token = Column(String, nullable=True, unique=True)  # For first-time setup
+    setup_token_expires = Column(DateTime(timezone=True), nullable=True)
+    token_version = Column(Integer, default=0)  # bump to revoke all issued JWTs
     tenant_id = Column(Integer, ForeignKey("tenants.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

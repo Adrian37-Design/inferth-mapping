@@ -17,6 +17,24 @@ class Settings(BaseSettings):
 
     TRACKER_AUTH_MODE: str = "monitor"
     TRACKER_JWT_SECRETS: dict[str, str] = {}
+    # Engine lock/unlock commands are only delivered to a tracker that presents
+    # a valid HMAC signature for its per-IMEI secret (tracker_secrets table or
+    # TRACKER_JWT_SECRETS). Keep True; unsigned trackers still ingest data in
+    # monitor mode but never receive engine commands.
+    TRACKER_COMMANDS_REQUIRE_SIGNATURE: bool = True
+
+    # Environment: "production" enables strict checks (docs off, secret enforcement).
+    APP_ENV: str = "development"
+    # Comma-separated exact origins allowed for credentialed CORS. Never "*".
+    ALLOWED_ORIGINS: str = "https://inferth-mapping.up.railway.app,https://www.inferthmapping.co.zw,https://inferthmapping.co.zw,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
+    ENABLE_API_DOCS: bool = False
+    # Opt-in Host allowlist (comma separated). Empty = middleware disabled.
+    ALLOWED_HOSTS: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_LOCKOUT_MINUTES: int = 15
+    SETUP_TOKEN_EXPIRE_HOURS: int = 72
+    MAX_UPLOAD_MB: int = 5
 
     # Route map-matching engine (Valhalla trace_attributes). Set to a self-hosted
     # Valhalla base URL for production; the default is the FOSSGIS public demo

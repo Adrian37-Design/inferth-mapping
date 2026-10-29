@@ -47,7 +47,7 @@ async def list_pending_payments(
     return result.scalars().all()
 
 @router.get("/debug-logs", response_class=PlainTextResponse)
-async def get_tracker_debug_logs():
+async def get_tracker_debug_logs(current_user: User = Depends(require_admin)):
     """Returns the last 16KB of the tracker debug log efficiently."""
     log_path = "tracker_debug.log"
     if not os.path.exists(log_path):

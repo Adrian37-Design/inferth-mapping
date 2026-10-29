@@ -1,3 +1,4 @@
+import os
 
 import asyncio
 import random
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta
 # Configuration
 API_URL = "http://localhost:8000"  # Adjust if running remotely
 ADMIN_EMAIL = "admin@example.com"
-ADMIN_PASSWORD = "password123"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "password123")
 
 # Test Data
 VEHICLES = [

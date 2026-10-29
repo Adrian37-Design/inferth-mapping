@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import User, Tenant, AuditLog
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.config import settings
 from app.security import hash_password, verify_password, create_access_token
 from app.auth_middleware import require_admin, get_current_user, get_current_user_optional
 from pydantic import BaseModel, EmailStr
@@ -376,11 +377,49 @@ async def delete_tenant(
 
 
 
+# In-memory login brute-force limiter: per (IP, email) pair, N failures lock
+# the pair for LOCKOUT minutes. Process-local (single uvicorn worker); a Redis
+# backend can replace it if multi-worker is ever enabled.
+_login_attempts: dict[str, list] = {}
+
+def _login_key(request: Request, email: str) -> str:
+    # Keyed on the account only: client IPs are spoofable through the proxy
+    # headers, while the credential under attack is the email+password pair.
+    return email.strip().lower()
+
+def _check_login_rate(key: str) -> None:
+    rec = _login_attempts.get(key)
+    if not rec:
+        return
+    fails, locked_until = rec
+    if locked_until and datetime.utcnow() < locked_until:
+        retry = int((locked_until - datetime.utcnow()).total_seconds()) + 1
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many failed attempts. Try again in {retry} seconds.",
+            headers={"Retry-After": str(retry)},
+        )
+
+def _record_login_failure(key: str) -> None:
+    fails, _ = _login_attempts.get(key, [0, None])
+    fails += 1
+    locked_until = None
+    if fails >= settings.LOGIN_MAX_ATTEMPTS:
+        locked_until = datetime.utcnow() + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
+    _login_attempts[key] = [fails, locked_until]
+    if len(_login_attempts) > 20000:
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        for k in [k for k, v in _login_attempts.items() if v[1] and v[1] < cutoff]:
+            _login_attempts.pop(k, None)
+
 @router.post("/login", response_model=LoginResponse)
 async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Login with email and password"""
     if not getattr(request.app.state, "db_ready", False):
         raise HTTPException(status_code=503, detail="Database is initializing. Please try again in a few seconds.")
+
+    rate_key = _login_key(request, data.email)
+    _check_login_rate(rate_key)
 
     try:
         # Python 3.10: Use wait_for instead of timeout context manager
@@ -389,39 +428,41 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
             timeout=10
         )
         user = result.scalars().first()
-            
-        if not user or not user.hashed_password:
+
+        if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
+            _record_login_failure(rate_key)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
             )
-            
+
         if data.tenant_id and user.tenant_id != data.tenant_id:
+                _record_login_failure(rate_key)
                 raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User does not belong to this company"
-            )
-        
-        if not verify_password(data.password, user.hashed_password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
             )
-        
+
         if not user.is_active:
-            # Auto-activate: user has valid credentials but never completed setup link
-            user.is_active = True
-            user.setup_token = None
-        
+            # A deactivated account must never silently reactivate on login —
+            # an admin must re-enable it. (Invited users activate via their
+            # setup link, which sets is_active and clears setup_token.)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account disabled. Contact your administrator."
+            )
+
+        _login_attempts.pop(rate_key, None)
+
         # Update last_login
         user.last_login = datetime.utcnow()
-        
+
         # Audit Log
         audit = AuditLog(
             user_id=user.id,
             action="LOGIN",
             details={"email": user.email},
-            ip_address="127.0.0.1" 
+            ip_address=request.client.host if request.client else None
         )
         db.add(audit)
         await db.commit()
@@ -432,13 +473,14 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
     except Exception as e:
         print(f"Login error: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred during login")
-    
+
     token = create_access_token({
         "sub": user.email,
         "user_id": user.id,
         "tenant_id": user.tenant_id,
         "role": user.role,
-        "is_admin": user.is_admin
+        "is_admin": user.is_admin,
+        "tv": user.token_version or 0
     })
     
     return {
@@ -481,21 +523,35 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Account already activated"
         )
-    
-    # Set password and activate account
+
+    expires = user.setup_token_expires
+    if expires is not None:
+        if expires.tzinfo is None:
+            from datetime import timezone
+            expires = expires.replace(tzinfo=timezone.utc)
+        if datetime.utcnow().replace(tzinfo=expires.tzinfo) > expires:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid or expired setup token"
+            )
+
+    # Set password, activate account, invalidate any previously issued tokens
     user.hashed_password = hash_password(data.password)
     user.is_active = True
     user.setup_token = None  # Invalidate token
-    
+    user.setup_token_expires = None
+    user.token_version = (user.token_version or 0) + 1
+
     await db.commit()
     await db.refresh(user)
-    
+
     # Generate login token
     token = create_access_token({
         "sub": user.email,
         "user_id": user.id,
         "tenant_id": user.tenant_id,
-        "is_admin": user.is_admin
+        "is_admin": user.is_admin,
+        "tv": user.token_version or 0
     })
     
     return {
@@ -544,13 +600,21 @@ async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
     """Verify if a setup token is valid"""
     result = await db.execute(select(User).where(User.setup_token == token))
     user = result.scalars().first()
-    
-    if not user or user.is_active:
+
+    expired = False
+    if user and user.setup_token_expires is not None:
+        exp = user.setup_token_expires
+        if exp.tzinfo is None:
+            from datetime import timezone
+            exp = exp.replace(tzinfo=timezone.utc)
+        expired = datetime.utcnow().replace(tzinfo=exp.tzinfo) > exp
+
+    if not user or user.is_active or expired:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invalid or expired setup token"
         )
-    
+
     return {
         "email": user.email,
         "valid": True

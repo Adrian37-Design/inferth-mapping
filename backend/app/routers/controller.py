@@ -94,15 +94,22 @@ def _tracker_signed(token: str, secret: str) -> bool:
     return hmac.compare_digest(expected, provided)
 
 
-async def check_tracker(request: Request, imei: Optional[str], db: AsyncSession):
+async def tracker_signature_valid(request: Request, imei: Optional[str], db: AsyncSession) -> bool:
+    """True only when the request carries a valid HMAC signature for THIS imei's
+    secret. A forged plate/JWT claim can pick an identity, but cannot produce
+    that identity's signature."""
     secret = settings.TRACKER_JWT_SECRETS.get(imei) if imei else None
     if not secret and imei:
         secret = (await db.execute(select(TrackerSecret.secret).where(TrackerSecret.imei == imei))).scalar()
-    if secret and _tracker_signed(_tracker_token(request), secret):
+    return bool(secret and _tracker_signed(_tracker_token(request), secret))
+
+
+async def check_tracker(request: Request, imei: Optional[str], db: AsyncSession):
+    if await tracker_signature_valid(request, imei, db):
         return
     if settings.TRACKER_AUTH_MODE == "enforce":
         raise HTTPException(status_code=401, detail="Tracker authentication failed")
-    print(f"[TRACKER AUTH] monitor: {imei or 'unknown tracker'} {'signature rejected' if secret else 'no secret configured'}")
+    print(f"[TRACKER AUTH] monitor: {imei or 'unknown tracker'} auth not verified")
 
 
 async def publish_heartbeat(device, seen_at):
@@ -159,14 +166,11 @@ async def upsert_tracking_data(
         res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
         device = res.scalars().first()
 
-    # 4. Match device named "Xcela Tracker"
+    # 4. If still not found, auto-provision in monitor mode only. In enforce
+    # mode an unauthenticated request is rejected before a device row (or any
+    # position data) can be created for an identity the caller cannot prove.
     if not device:
-        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
-        device = res.scalars().first()
-
-    # 5. If STILL not found, create the ONE legitimate device (never use hash!)
-    if not device:
-        await check_tracker(request, None, db)
+        await check_tracker(request, ident, db)
         suffix = ident[-6:] if len(ident) >= 6 else ident
         device = Device(
             imei=ident,
@@ -509,9 +513,8 @@ async def get_commands(
     if not device and len(ident) >= 6:
         res = await db.execute(select(Device).where(Device.name.ilike(f"%{ident[-6:]}%")))
         device = res.scalars().first()
-    if not device:
-        res = await db.execute(select(Device).where(Device.name.ilike("%Xcela Tracker%")))
-        device = res.scalars().first()
+    # NOTE: no "Xcela Tracker%" fallback here. Commands belong to exactly one
+    # resolved device; anything else returns an empty list.
 
     await check_tracker(request, device.imei if device else None, db)
     if device:
@@ -519,6 +522,8 @@ async def get_commands(
         meta = dict(device.device_metadata or {})
         pending = meta.get("pending_command")
         if pending:
+            if settings.TRACKER_COMMANDS_REQUIRE_SIGNATURE and not await tracker_signature_valid(request, device.imei, db):
+                raise HTTPException(status_code=401, detail="Tracker signature required for command delivery")
             if pending in ["SHUTDOWN", "SLEEP", "LOCK"]:
                 commands_to_send.append({"code": "ENGINE_LOCK"})
             elif pending in ["RESTORE", "UNLOCK"]:

@@ -1,3 +1,4 @@
+import os
 import asyncpg
 import asyncio
 
@@ -40,7 +41,7 @@ async def create_admin_user():
         print("✅ Admin user created successfully!")
         print("\nLogin credentials:")
         print("Email: ***REMOVED***")
-        print("Password: ***REMOVED***")
+        print("Password: (set via ADMIN_PASSWORD / setup link)")
         
         await conn.close()
         

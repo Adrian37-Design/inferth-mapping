@@ -15,12 +15,12 @@ DECLARE
 BEGIN
     SELECT id INTO tenant_id_var FROM tenants WHERE name = 'Inferth Mapping' LIMIT 1;
     
-    -- Insert admin user with bcrypt hash for '***REMOVED***'
+    -- Insert admin user with a bcrypt hash generated via gen_hash.py
     -- Note: This hash needs to be generated properly with bcrypt
     INSERT INTO users (email, hashed_password, is_admin, is_active, tenant_id, created_at)
     VALUES (
         '***REMOVED***',
-        '$2b$12$vHZ1YhI8K3YZ8j6nRKj6nOEQjKVVX9YZ8j6nRKj6nY6puLZKqX8ze',  -- Placeholder hash
+        '<bcrypt-hash-generated-with-gen_hash.py>',
         true,
         true,
         tenant_id_var,

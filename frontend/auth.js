@@ -221,7 +221,7 @@ class AuthManager {
             .catch(error => {
                 welcomeMessage.innerHTML = `
                     <i class="fas fa-times-circle" style="color: var(--error-color);"></i>
-                    <p>${error.message}</p>
+                    <p>${escapeHTML(error.message)}</p>
                 `;
             });
 

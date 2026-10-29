@@ -10,7 +10,7 @@ import sys
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587  # TLS Port
 SMTP_EMAIL = "***REMOVED***"
-SMTP_PASSWORD = "***REMOVED***"
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 
 TO_EMAIL = "adriantakudzwa7337@gmail.com"
 

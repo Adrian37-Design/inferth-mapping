@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.getcwd(), 'backend'))
 from app.models import Tenant
 
 # DB URL from .env but replacing 'db' with 'localhost' assuming port 5432 is exposed
-DB_URL = "postgresql+asyncpg://postgres:***REMOVED***@localhost:5432/inferth"
+DB_URL = os.environ["DATABASE_URL"].replace("postgres://", "postgresql+asyncpg://") if os.environ.get("DATABASE_URL", "").startswith("postgres://") else os.environ.get("DATABASE_URL", "")
 
 engine = create_async_engine(DB_URL)
 async_session = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)

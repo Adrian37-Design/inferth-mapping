@@ -62,6 +62,8 @@ async def authenticate(websocket: WebSocket):
         return None
     if user is None or not user.is_active:
         return None
+    if payload.get("tv", 0) != (user.token_version or 0):
+        return None
     return Viewer(user, user.tenant.name if user.tenant else None)
 
 async def ws_listener(websocket: WebSocket):

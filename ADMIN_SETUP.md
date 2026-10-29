@@ -17,8 +17,8 @@ RETURNING id;
 -- Create super admin user (replace <tenant_id> with the ID from above)
 INSERT INTO users (email, hashed_password, is_admin, is_active, tenant_id, created_at)
 VALUES (
-    '***REMOVED***',
-    '$2b$12$LQv49r3qQq7gZP6Y6k1xXuqK7jK7J7K7qQq7gZP6Y6k1xXuqK7jK7O',  -- This is '***REMOVED***' hashed
+    '<admin-email>',
+    '<generate-hash-with-gen_hash.py>',
     true,
     true,
     1,  -- Use the tenant ID from above
@@ -38,7 +38,7 @@ pip install bcrypt
 Generate the password hash:
 ```python
 import bcrypt
-password = "***REMOVED***"
+password = "<your-chosen-password>"
 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 print(hashed.decode('utf-8'))
 ```
@@ -66,8 +66,8 @@ docker-compose exec backend python /app/create_admin.py
 
 Once created, login at: **http://localhost:3000/login.html**
 
-- **Email**: ***REMOVED***
-- **Password**: ***REMOVED***
+- **Email**: <admin-email>
+- **Password**: (set via setup link / ADMIN_PASSWORD env — not stored in the repo)
 - **Role**: Super Administrator
 
 ## What's Already Done ✅

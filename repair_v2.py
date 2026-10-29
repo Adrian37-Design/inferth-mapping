@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
-DATABASE_URL = "postgresql+asyncpg://postgres:***REMOVED***@localhost:5432/inferth"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 ENV_URL = os.environ.get("DATABASE_URL")
 if ENV_URL:
     DATABASE_URL = ENV_URL.replace("postgres://", "postgresql+asyncpg://")

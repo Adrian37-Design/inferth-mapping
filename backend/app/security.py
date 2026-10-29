@@ -18,9 +18,9 @@ def verify_password(plain, hashed):
         print(f"Password verification error: {e}")
         return False
 
-def create_access_token(data: dict, expires_minutes: int = 60*24*7):
+def create_access_token(data: dict, expires_minutes: int = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt

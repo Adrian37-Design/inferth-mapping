@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 
 
 def get_url():
-    return "postgresql+asyncpg://postgres:***REMOVED***@localhost/inferth"
+    return os.environ.get("ALEMBIC_DATABASE_URL") or os.environ.get("DATABASE_URL", "").replace("postgres://", "postgresql+asyncpg://")
 
 
 def run_migrations_offline():

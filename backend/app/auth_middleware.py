@@ -42,10 +42,11 @@ async def get_current_user(
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         email: str = payload.get("sub")
         user_id: int = payload.get("user_id")
-        
+        token_tv = payload.get("tv", 0)
+
         if email is None or user_id is None:
             raise credentials_exception
-            
+
     except JWTError:
         raise credentials_exception
     
@@ -65,7 +66,12 @@ async def get_current_user(
     
     if user is None or not user.is_active:
         raise credentials_exception
-    
+
+    # Token revocation: tokens minted before a role change, password reset or
+    # account disable carry an older token_version and are rejected here.
+    if token_tv != (user.token_version or 0):
+        raise credentials_exception
+
     return user
 
 async def get_current_user_optional(

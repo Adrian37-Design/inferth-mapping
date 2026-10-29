@@ -5,13 +5,16 @@ import sys
 # ...
 
 # Configuration
-USER = "postgres"
-PASSWORD = "***REMOVED***"
-HOST = "switchback.proxy.rlwy.net"
-PORT = 30894
-DATABASE = "railway"
-TARGET_EMAIL = "adriantakudzwa7337@gmail.com"
-NEW_PASSWORD = "***REMOVED***"
+import os
+USER = os.environ.get("DB_USER", "postgres")
+PASSWORD = os.environ.get("DB_PASSWORD")
+HOST = os.environ.get("DB_HOST", "localhost")
+PORT = int(os.environ.get("DB_PORT", "5432"))
+DATABASE = os.environ.get("DB_NAME", "railway")
+TARGET_EMAIL = os.environ.get("TARGET_EMAIL", "")
+NEW_PASSWORD = os.environ.get("NEW_PASSWORD")
+if not PASSWORD or not NEW_PASSWORD:
+    sys.exit("Set DB_PASSWORD and NEW_PASSWORD (and DB_HOST/DB_PORT/TARGET_EMAIL) in the environment.")
 
 # pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

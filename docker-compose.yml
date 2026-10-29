@@ -11,7 +11,7 @@ services:
       - "80:8000"   # Frontend/API
       - "9005:9005" # Tracker TCP Server
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:***REMOVED***@db:5432/inferth
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-dev_local_pw}@db:5432/inferth
       - REDIS_URL=redis://redis:6379/0
       - PORT=8000
     depends_on:
@@ -25,8 +25,8 @@ services:
       container_name: inferth-db
       restart: always
       environment:
-        - POSTGRES_USER=postgres
-        - POSTGRES_PASSWORD=***REMOVED***
+        - POSTGRES_USER=${POSTGRES_USER:-postgres}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dev_local_pw}
         - POSTGRES_DB=inferth
       volumes:
         - postgres_data:/var/lib/postgresql/data

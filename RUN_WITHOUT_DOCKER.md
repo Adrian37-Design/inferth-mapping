@@ -15,11 +15,11 @@ pip install fastapi uvicorn pydantic pydantic-settings python-jose passlib bcryp
 
 3. **Create admin user**:
 ```bash
-python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('***REMOVED***'))"
+python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('<your-chosen-password>'))"
 ```
 Copy the output hash, then:
 ```bash
-docker exec -i inferth-mapping-db-1 psql -U postgres -d inferth -c "UPDATE users SET hashed_password = 'PASTE_HASH_HERE' WHERE email = '***REMOVED***';"
+docker exec -i inferth-mapping-db-1 psql -U postgres -d inferth -c "UPDATE users SET hashed_password = 'PASTE_HASH_HERE' WHERE email = '<admin-email>';"
 ```
 
 4. **Run the backend**:
@@ -34,5 +34,5 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 **No CORS issues!** Everything runs on localhost:8000.
 
 ## Your Credentials
-- Email: ***REMOVED***
-- Password: ***REMOVED***
+- Email: <admin-email>
+- Password: (your chosen password — never committed)

@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
 # Standalone repair script - no dependency on app package
-DATABASE_URL = "postgresql+asyncpg://postgres:takudzwa99@localhost:5432/inferth_mapping"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # Try to get from env if available
 if os.environ.get("DATABASE_URL"):

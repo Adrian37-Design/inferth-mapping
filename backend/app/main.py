@@ -15,9 +15,22 @@ from app.models import User
 from app.branding import init_branding
 import os
 
-app = FastAPI(title="Inferth Mapping")
+_IS_PROD = (settings.APP_ENV or "").strip().lower() in ("production", "prod")
+_docs_off = _IS_PROD and not settings.ENABLE_API_DOCS
+app = FastAPI(
+    title="Inferth Mapping",
+    docs_url=None if _docs_off else "/docs",
+    redoc_url=None if _docs_off else "/redoc",
+    openapi_url=None if _docs_off else "/openapi.json",
+)
 # Production Stability: db_ready flag tracks successful background initialization
 app.state.db_ready = False
+
+if _IS_PROD:
+    if settings.JWT_SECRET in ("change_this_secret_key_in_production", "", None):
+        raise RuntimeError("JWT_SECRET must be set to a strong secret in production")
+    if not os.getenv("ADMIN_PASSWORD"):
+        print("WARNING: ADMIN_PASSWORD not set — a seeded admin would use the default password")
 
 async def run_migrations_and_branding():
     print("\n" + "="*50)
@@ -104,6 +117,9 @@ async def run_migrations_and_branding():
                     "CREATE INDEX IF NOT EXISTS idx_positions_routes ON positions(device_id, timestamp ASC) WHERE latitude IS NOT NULL AND latitude != 0.0",
                     "CREATE INDEX IF NOT EXISTS idx_positions_fuel ON positions(device_id, timestamp DESC) WHERE fuel_level IS NOT NULL",
                     "CREATE INDEX IF NOT EXISTS idx_positions_engine ON positions(device_id, timestamp DESC) WHERE rpm IS NOT NULL",
+                    # Auth hardening: token revocation + setup link expiry
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 0",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_token_expires TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     # Road-matched route geometry cache (one row per device trip window)
                     "CREATE TABLE IF NOT EXISTS matched_routes (id SERIAL PRIMARY KEY, device_id INTEGER REFERENCES devices(id), start_ts TIMESTAMP WITH TIME ZONE NOT NULL, end_ts TIMESTAMP WITH TIME ZONE NOT NULL, fingerprint VARCHAR NOT NULL, segments JSON NOT NULL, engine VARCHAR NOT NULL DEFAULT 'valhalla', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "CREATE INDEX IF NOT EXISTS idx_matched_routes_lookup ON matched_routes(device_id, start_ts, end_ts)"
@@ -223,10 +239,9 @@ from fastapi.responses import JSONResponse
 
 @app.exception_handler(Exception)
 async def debug_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}", "type": type(exc).__name__}
-    )
+    # Never leak internals (paths, SQL, stack details) to clients.
+    print(f"Unhandled error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 # Mount static files (frontend)
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -264,10 +279,17 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    # Minimal public probe — no counts, ports or error strings.
+    return {"status": "ok"}
+
+
+@app.get("/admin/health")
+async def admin_health_check(current_user: User = Depends(require_super_admin)):
+    """Detailed platform health for the super-admin only."""
     from app.db import AsyncSessionLocal
     from app.models import Tenant, User
     from sqlalchemy import func
-    
+
     status = {
         "db_ready": getattr(app.state, "db_ready", False),
         "tcp_server_active": getattr(app.state, "tcp_server_ready", False),
@@ -276,17 +298,16 @@ async def health_check():
         "users_count": 0,
         "database_connected": False
     }
-    
+
     try:
         async with AsyncSessionLocal() as db:
-            # Simple count to verify connection and data
             t_count = await db.execute(select(func.count()).select_from(Tenant))
             u_count = await db.execute(select(func.count()).select_from(User))
             status["tenants_count"] = t_count.scalar()
             status["users_count"] = u_count.scalar()
             status["database_connected"] = True
     except Exception as e:
-        status["error"] = str(e)
+        status["database_connected"] = False
 
     return status
 
@@ -380,23 +401,46 @@ async def repair_production_state(current_user: User = Depends(require_super_adm
     return results
 
 
-# Add CORS middleware for frontend
+# CORS: exact-origin allowlist only — never wildcard with credentials.
+_allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
 )
 
-# Add explicit CORS headers middleware
+# Optional Host allowlist (deploy-time opt-in via ALLOWED_HOSTS).
+_allowed_hosts = [h.strip() for h in settings.ALLOWED_HOSTS.split(",") if h.strip()]
+if _allowed_hosts:
+    from fastapi.middleware.trustedhost import TrustedHostMiddleware
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=_allowed_hosts)
+
+# Security headers on every response. CSP applies to HTML pages served from
+# /static (API JSON ignores it harmlessly).
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+    "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://unpkg.com https://*.basemaps.cartocdn.com; "
+    "connect-src 'self' https: wss:; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+)
+
+
 @app.middleware("http")
-async def add_cors_headers(request, call_next):
+async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
+    response.headers["Content-Security-Policy"] = _CSP
+    forwarded = request.headers.get("x-forwarded-proto", request.url.scheme)
+    if forwarded.split(",")[0].strip() == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 @app.middleware("http")

@@ -1,3 +1,4 @@
+import os
 import asyncio
 from app.db import AsyncSessionLocal
 from app.models import User
@@ -12,7 +13,7 @@ async def fix_admin_password():
         
         if admin:
             # Hash the password properly
-            admin.hashed_password = hash_password("***REMOVED***")
+            admin.hashed_password = hash_password(os.environ["ADMIN_PASSWORD"])
             admin.is_active = True
             admin.is_admin = True
             

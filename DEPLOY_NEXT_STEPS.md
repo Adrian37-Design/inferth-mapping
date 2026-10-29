@@ -63,8 +63,8 @@ Replace `YOUR_USERNAME` with your GitHub username.
 3. Run: `python create_admin.py`
 
 Your admin account will be created with:
-- Email: ***REMOVED***
-- Password: ***REMOVED***
+- Email: <admin-email>
+- Password: (set via ADMIN_PASSWORD — not committed)
 
 ### Test Your Login
 1. Go to: `https://YOUR-APP.up.railway.app/static/login.html`

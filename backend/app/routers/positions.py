@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.models import Position, Device, User
@@ -48,7 +48,12 @@ def _is_coarse_lbs_row(raw) -> bool:
 
 
 @router.post("/", response_model=PositionOut)
-async def create_position(payload: PositionCreate, db: AsyncSession = Depends(get_db)):
+async def create_position(payload: PositionCreate, request: Request, db: AsyncSession = Depends(get_db)):
+    # Tracker-facing write: verify the request carries a valid signature for
+    # this IMEI's secret when TRACKER_AUTH_MODE=enforce (monitor logs only).
+    from app.routers.controller import check_tracker
+    await check_tracker(request, payload.imei, db)
+
     # find device by IMEI
     q = await db.execute(select(Device).where(Device.imei == payload.imei))
     device = q.scalars().first()
@@ -90,7 +95,7 @@ async def create_position(payload: PositionCreate, db: AsyncSession = Depends(ge
     return pos
 
 @router.post("/ingest")
-async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
+async def ingest_position(payload: dict, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Ingest Raw Data from Gateway
     Payload: {"raw_hex": "...", "source_ip": "..."}
@@ -130,11 +135,16 @@ async def ingest_position(payload: dict, db: AsyncSession = Depends(get_db)):
 
     # Handle Location AND OBD packets
     if "imei" in data and ("latitude" in data or data.get("type") == "obd"):
+        # Tracker-facing write: enforce mode requires a valid signature for
+        # this IMEI's secret before anything is written or provisioned.
+        from app.routers.controller import check_tracker
+        await check_tracker(request, data["imei"], db)
+
         # Save to DB
         # Find Device
         device_q = await db.execute(select(Device).where(Device.imei == data["imei"]))
         device = device_q.scalars().first()
-        
+
         if not device:
             # Auto-create for Tenant 1
             print(f"AUTO-CREATING device {data['imei']} for Tenant 1")

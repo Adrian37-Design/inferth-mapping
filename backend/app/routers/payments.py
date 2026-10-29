@@ -11,8 +11,11 @@ import time
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-PAYNOW_ID = os.getenv("PAYNOW_ID", "17646") # Integration ID
-PAYNOW_KEY = os.getenv("PAYNOW_KEY", "***REMOVED***") # Integration Key
+# Paynow credentials come from the environment only — never a code default.
+# (The integration key previously committed here must be considered leaked:
+# rotate it in the Paynow merchant portal.)
+PAYNOW_ID = os.getenv("PAYNOW_ID", "")
+PAYNOW_KEY = os.getenv("PAYNOW_KEY", "")
 
 paynow = Paynow(
     PAYNOW_ID,
@@ -21,8 +24,24 @@ paynow = Paynow(
     "https://inferth-mapping.up.railway.app/"
 )
 
+ALLOWED_UPLOAD_TYPES = {
+    b"\x89PNG": ".png",
+    b"\xff\xd8\xff": ".jpg",
+    b"%PDF": ".pdf",
+}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+def _upload_extension(data: bytes):
+    for magic, ext in ALLOWED_UPLOAD_TYPES.items():
+        if data.startswith(magic):
+            return ext
+    return None
+
 @router.post("/paynow/initiate")
 async def initiate_paynow(plan_name: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not PAYNOW_ID or not PAYNOW_KEY:
+        raise HTTPException(status_code=503, detail="Online payments are not configured")
+    # Calculate Price
     # Calculate Price
     price_map = {"Basic": 12, "Professional": 17, "Enterprise": 100} # Enterprise placeholder
     amount = price_map.get(plan_name, 12)
@@ -77,19 +96,28 @@ async def upload_pop(
         txn.status = "approval_pending"
         txn.payment_method = "bank_transfer"
 
-    # 2. Determine Upload Dir dynamically
+    # 2. Validate the upload: size cap, extension/MIME from the actual bytes
+    # (filename is attacker-controlled and ignored for the stored type).
+    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 5 MB)")
+    ext = _upload_extension(data)
+    if ext is None:
+        raise HTTPException(status_code=400, detail="Only PNG, JPEG or PDF proofs are accepted")
+
+    # 3. Determine Upload Dir dynamically
     # backend/app/routers/payments.py -> app/routers -> app -> backend -> root -> frontend/uploads
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     upload_parent = os.path.join(root_dir, "frontend", "uploads")
     os.makedirs(upload_parent, exist_ok=True)
-    
+
     file_uuid = uuid.uuid4()
-    file_name = f"pop_{file_uuid}.png"
+    file_name = f"pop_{file_uuid}{ext}"
     file_path = os.path.join(upload_parent, file_name)
-    
+
     with open(file_path, "wb") as f:
-        f.write(await file.read())
-    
+        f.write(data)
+
     txn.proof_url = f"/static/uploads/{file_name}"
     await db.commit()
     
