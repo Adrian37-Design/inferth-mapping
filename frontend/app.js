@@ -5189,7 +5189,61 @@ function updateHistorySummaryStrip(distKm, tripsCount, stopsCount, maxSpeed) {
     setEl('hist-stat-maxspd', `${Math.round(maxSpeed || 0)} km/h`);
 }
 
-async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
+// Fetch road-matched geometry for one trip from the backend (Valhalla match,
+// cached server-side). Returns an array of [lat,lng] segments or null when the
+// matching engine is unavailable — callers then use the local fallback.
+const _tripMatchCache = new Map();
+async function matchTripSegments(id, item) {
+    const real = item.points.filter(p => !p.stitched);
+    if (real.length < 2) return null;
+    const first = real[0], last = real[real.length - 1];
+    const startIso = parseTimestamp(first.timestamp).toISOString();
+    const endIso = parseTimestamp(last.timestamp).toISOString();
+    let before = null;
+    const anchor = item.points[0];
+    if (anchor && anchor.stitched && haversineDistanceKm(anchor.lat, anchor.lng, first.lat, first.lng) >= 0.05) {
+        before = [anchor.lat, anchor.lng];
+    }
+    const key = `${id}|${startIso}|${endIso}|${before ? before.join(',') : ''}`;
+    if (_tripMatchCache.has(key)) return _tripMatchCache.get(key);
+    try {
+        const body = JSON.stringify({ start: startIso, end: endIso, before });
+        const response = (window.AuthManager && typeof window.AuthManager.fetchAPI === 'function')
+            ? await window.AuthManager.fetchAPI(`/positions/match/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body
+            })
+            : await fetch(`${API_URL}/positions/match/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+                body
+            });
+        const data = response.ok ? await response.json() : null;
+        const segs = data && Array.isArray(data.segments) && data.segments.length ? data.segments : null;
+        if (_tripMatchCache.size > 250) _tripMatchCache.clear();
+        _tripMatchCache.set(key, segs);
+        return segs;
+    } catch (e) {
+        console.warn('Route match request failed:', e);
+        return null;
+    }
+}
+
+// Matched geometry for every trip in the list, in timeline order. Trips that
+// could not be matched fall back to their own raw pieces so no segment is lost.
+async function buildMatchedTripSegments(id, trips, isCurrent) {
+    const results = await Promise.all(trips.map(t => matchTripSegments(id, t)));
+    if (!isCurrent() || results.every(r => !r)) return null;
+    const segs = [];
+    trips.forEach((t, i) => {
+        if (results[i]) segs.push(...results[i]);
+        else segs.push(...splitTraceAtGaps(t.points));
+    });
+    return segs;
+}
+
+async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opts = {}) {
     if (!Array.isArray(inputPoints) || inputPoints.length === 0) return false;
 
     const drawSeq = ++routeDrawSeq; // this render supersedes any in-flight render
@@ -5209,10 +5263,16 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false) {
     const isCurrent = () => drawSeq === routeDrawSeq;
     if (!autoPlay) drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, true);
 
-    const snapped = await snapRouteToRoad(filteredPoints, isCurrent);
-    if (!isCurrent()) return false; // stopped/cleared while OSRM fetch was in flight
+    // Timeline paths (day view, trip cards, Play All) ask the backend's map
+    // matcher for one continuous line per trip: no splits at junction waits,
+    // no invented road through parked spots, no gaps or chords.
+    const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
+    const matched = trips ? await buildMatchedTripSegments(id, trips, isCurrent) : null;
+    if (!isCurrent()) return false;
+    const snapped = matched || await snapRouteToRoad(filteredPoints, isCurrent);
+    if (!isCurrent()) return false; // stopped/cleared while matching was in flight
     if (snapped) {
-        drawRouteLayers(id, snapped.segments, waypoints, autoPlay);
+        drawRouteLayers(id, matched ? matched.map(seg => densifyCoordList(seg, 20)) : snapped.segments, waypoints, autoPlay);
     } else {
         drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, autoPlay);
     }
@@ -5636,7 +5696,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             playAllBtn.disabled = false;
             playAllBtn.onclick = async () => {
                 document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
-                await renderAndPrepareRouteOnMap(id, points, true);
+                await renderAndPrepareRouteOnMap(id, points, true, { trips: consolidatedTimeline.filter(t => t.type === 'trip') });
             };
         }
 
@@ -5674,7 +5734,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 item.onclick = async () => {
                     document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    await renderAndPrepareRouteOnMap(id, itemData.points, historyAutoPlayTrips());
+                    await renderAndPrepareRouteOnMap(id, itemData.points, historyAutoPlayTrips(), { trips: [itemData] });
                 };
             } else {
                 item.innerHTML = `
@@ -5722,7 +5782,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // Automatically render the route on the map when trips exist so the
         // user sees the path immediately upon selecting the asset/date range
         if (tripsCount > 0 && points.length >= 2) {
-            renderAndPrepareRouteOnMap(id, points, false).catch(e => console.warn('Route render failed:', e));
+            renderAndPrepareRouteOnMap(id, points, false, { trips: consolidatedTimeline.filter(t => t.type === 'trip') }).catch(e => console.warn('Route render failed:', e));
         }
 
     } catch (e) {

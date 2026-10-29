@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     TRACKER_AUTH_MODE: str = "monitor"
     TRACKER_JWT_SECRETS: dict[str, str] = {}
 
+    # Route map-matching engine (Valhalla trace_attributes). Set to a self-hosted
+    # Valhalla base URL for production; the default is the FOSSGIS public demo
+    # server (1 request/second, not for high-traffic production use).
+    MAP_MATCH_URL: str = "https://valhalla1.openstreetmap.de"
+
     SECONDARY_DESTINATION: str | None = None
 
     # Email Settings

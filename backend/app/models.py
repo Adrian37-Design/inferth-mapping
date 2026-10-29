@@ -201,3 +201,18 @@ class FuelCalibration(Base):
     capacity_l = Column(Float, nullable=True)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class MatchedRoute(Base):
+    """Cached road-matched geometry for one trip window of one device, so a
+    route is only sent to the matching engine once per user/device/date."""
+    __tablename__ = "matched_routes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), index=True)
+    start_ts = Column(DateTime(timezone=True), nullable=False)
+    end_ts = Column(DateTime(timezone=True), nullable=False)
+    fingerprint = Column(String, nullable=False)
+    segments = Column(JSON, nullable=False)
+    engine = Column(String, nullable=False, default="valhalla")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

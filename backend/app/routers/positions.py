@@ -6,6 +6,9 @@ from app.schemas import PositionCreate, PositionOut
 from app.auth_middleware import get_current_user, can_see_device, scope_devices
 from sqlalchemy.future import select
 from datetime import datetime
+from typing import List, Optional
+import asyncio
+from pydantic import BaseModel
 from app.realtime import publish_position
 from app.services.data_guardrails import (
     validate_coordinates,
@@ -348,6 +351,115 @@ async def list_positions(
         for p in positions
     ]
 
+async def _route_rows(device_id: int, start_dt, end_dt, db: AsyncSession):
+    """Valid GPS rows for a device in a time window, oldest first."""
+    query = select(Position.latitude, Position.longitude, Position.speed, Position.timestamp, Position.raw).where(
+        Position.device_id == device_id,
+        Position.latitude.is_not(None),
+        Position.longitude.is_not(None),
+        Position.latitude != 0.0,
+        Position.longitude != 0.0,
+        Position.latitude.between(-90.0, 90.0),
+        Position.longitude.between(-180.0, 180.0)
+    )
+    if start_dt:
+        query = query.where(Position.timestamp >= start_dt)
+    if end_dt:
+        query = query.where(Position.timestamp <= end_dt)
+    query = query.order_by(Position.timestamp.asc())
+    result = await db.execute(query)
+    return result.all()
+
+
+class TripMatchRequest(BaseModel):
+    start: str
+    end: str
+    before: Optional[List[float]] = None
+    after: Optional[List[float]] = None
+
+
+_match_inflight: dict = {}
+
+
+@router.post("/match/{device_id}")
+async def match_device_trip(
+    device_id: int,
+    body: TripMatchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Road-matched geometry for one trip window of a device.
+
+    The frontend asks for one trip at a time; results are cached in
+    matched_routes so a trip is only sent to the matching engine once
+    (recomputed only when the underlying points change)."""
+    from app.services import mapmatch
+    from app.models import MatchedRoute
+
+    device_q = await db.execute(select(Device).where(Device.id == device_id))
+    device = device_q.scalars().first()
+    if not device:
+        raise HTTPException(404, "Device not found")
+    if not await can_see_device(db, current_user, device):
+        raise HTTPException(403, "Not authorized to view this device's route")
+
+    try:
+        start_dt = datetime.fromisoformat(body.start.replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(body.end.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        raise HTTPException(400, "Invalid start/end timestamps")
+    if (end_dt - start_dt).total_seconds() < 0 or (end_dt - start_dt).total_seconds() > 8 * 3600:
+        raise HTTPException(400, "Invalid trip window")
+
+    rows = await _route_rows(device_id, start_dt, end_dt, db)
+    points = [
+        {"lat": r.latitude, "lng": r.longitude, "t": r.timestamp.timestamp()}
+        for r in rows
+        if r.timestamp is not None and not _is_coarse_lbs_row(r.raw)
+    ]
+    if len(points) < 2:
+        return {"segments": [], "matched": False, "engine": "none"}
+
+    fingerprint = mapmatch.trip_fingerprint(points, mapmatch.engine_params_version())
+    key = (device_id, start_dt, end_dt)
+
+    cached = await db.execute(
+        select(MatchedRoute).where(
+            MatchedRoute.device_id == device_id,
+            MatchedRoute.start_ts == start_dt,
+            MatchedRoute.end_ts == end_dt
+        )
+    )
+    row = cached.scalars().first()
+    if row and row.fingerprint == fingerprint:
+        return {"segments": row.segments, "matched": True, "engine": row.engine, "cached": True}
+
+    if key not in _match_inflight:
+        async def _do_match():
+            try:
+                return await mapmatch.match_trip_shape(points, before=body.before, after=body.after)
+            finally:
+                _match_inflight.pop(key, None)
+        _match_inflight[key] = asyncio.ensure_future(_do_match())
+
+    result = await _match_inflight[key]
+    if result is None:
+        return {"segments": [], "matched": False, "engine": "unavailable"}
+
+    if row:
+        row.fingerprint = fingerprint
+        row.segments = result["segments"]
+        row.engine = "valhalla"
+    else:
+        db.add(MatchedRoute(
+            device_id=device_id, start_ts=start_dt, end_ts=end_dt,
+            fingerprint=fingerprint, segments=result["segments"], engine="valhalla"
+        ))
+    await db.commit()
+
+    return {"segments": result["segments"], "matched": result["matched"], "engine": "valhalla"}
+
+
 @router.get("/routes/{device_id}")
 async def get_device_route(
     device_id: int,
@@ -369,29 +481,9 @@ async def get_device_route(
     from datetime import datetime
     from app.services.data_guardrails import haversine_distance_km
     
-    query = select(Position.latitude, Position.longitude, Position.speed, Position.timestamp, Position.raw).where(
-        Position.device_id == device_id,
-        Position.latitude.is_not(None),
-        Position.longitude.is_not(None),
-        Position.latitude != 0.0,
-        Position.longitude != 0.0,
-        Position.latitude.between(-90.0, 90.0),
-        Position.longitude.between(-180.0, 180.0)
-    )
-    
-    # Add date filtering
-    if start_date:
-        start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        query = query.where(Position.timestamp >= start_dt)
-    
-    if end_date:
-        end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-        query = query.where(Position.timestamp <= end_dt)
-    
-    query = query.order_by(Position.timestamp.asc())
-    
-    result = await db.execute(query)
-    positions = result.all()
+    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00')) if start_date else None
+    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if end_date else None
+    positions = await _route_rows(device_id, start_dt, end_dt, db)
 
     # Find first real GNSS coordinate in window (if any) so coarse LBS rows
     # (satellites >= 200 or 0) keep their timestamps (preserving parked/stationary

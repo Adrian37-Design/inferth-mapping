@@ -103,7 +103,10 @@ async def run_migrations_and_branding():
                     "CREATE INDEX IF NOT EXISTS idx_positions_valid_coords ON positions(device_id, timestamp DESC) WHERE latitude IS NOT NULL AND latitude != 0.0",
                     "CREATE INDEX IF NOT EXISTS idx_positions_routes ON positions(device_id, timestamp ASC) WHERE latitude IS NOT NULL AND latitude != 0.0",
                     "CREATE INDEX IF NOT EXISTS idx_positions_fuel ON positions(device_id, timestamp DESC) WHERE fuel_level IS NOT NULL",
-                    "CREATE INDEX IF NOT EXISTS idx_positions_engine ON positions(device_id, timestamp DESC) WHERE rpm IS NOT NULL"
+                    "CREATE INDEX IF NOT EXISTS idx_positions_engine ON positions(device_id, timestamp DESC) WHERE rpm IS NOT NULL",
+                    # Road-matched route geometry cache (one row per device trip window)
+                    "CREATE TABLE IF NOT EXISTS matched_routes (id SERIAL PRIMARY KEY, device_id INTEGER REFERENCES devices(id), start_ts TIMESTAMP WITH TIME ZONE NOT NULL, end_ts TIMESTAMP WITH TIME ZONE NOT NULL, fingerprint VARCHAR NOT NULL, segments JSON NOT NULL, engine VARCHAR NOT NULL DEFAULT 'valhalla', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "CREATE INDEX IF NOT EXISTS idx_matched_routes_lookup ON matched_routes(device_id, start_ts, end_ts)"
                 ]
                 
                 for stmt in migration_statements:
