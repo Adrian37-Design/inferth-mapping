@@ -1337,62 +1337,79 @@ let _lastReportType = null;
 let _lastReportData = null;
 let _reportChart = null;
 
+// Numeric fields each report type can chart — the Metric dropdown is built
+// from this so mixed units never share a single axis.
+const REPORT_METRIC_OPTIONS = {
+    trips:   [['distance_km', 'Distance (km)'], ['duration_minutes', 'Duration (min)'], ['harsh_events_count', 'Harsh events']],
+    stops:   [['duration_minutes', 'Duration (min)']],
+    idle:    [['duration_minutes', 'Duration (min)']],
+    mileage: [['distance_km', 'Distance (km)'], ['points', 'Points']],
+    speed:   [['speed_kmh', 'Speed (km/h)']],
+    summary: [['distance_km', 'Distance (km)'], ['max_speed_kmh', 'Max km/h'], ['avg_speed_kmh', 'Avg km/h'],
+              ['moving_minutes', 'Moving (min)'], ['idle_minutes', 'Idle (min)'], ['points', 'Points']]
+};
+
+function selectedReportMetric(type) {
+    const opts = REPORT_METRIC_OPTIONS[type] || [];
+    const sel = document.getElementById('report-metric')?.value;
+    return opts.find(o => o[0] === sel) || opts[0] || ['value', 'Value'];
+}
+
+function updateReportMetricOptions() {
+    const type = document.getElementById('report-type')?.value;
+    const sel = document.getElementById('report-metric');
+    const group = document.getElementById('report-metric-group');
+    if (!sel || !group) return;
+    const prev = sel.value;
+    const opts = REPORT_METRIC_OPTIONS[type] || [];
+    sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+    if (opts.some(o => o[0] === prev)) sel.value = prev;
+    // Metric only matters for visual renderings — hide it for plain tables.
+    const visual = document.getElementById('report-visual')?.value || 'table';
+    group.style.display = visual === 'table' ? 'none' : '';
+}
+
 function extractReportSeries(type, data) {
     const shortDate = iso => {
         const d = new Date(iso);
         return isNaN(d) ? String(iso || '') : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     };
+    const [field, metric] = selectedReportMetric(type);
+    const num = r => Number(r[field]) || 0;
     if (type === 'trips') {
-        return {
-            metric: 'Distance (km)',
-            labels: (data.trips || []).map(t => shortDate(t.start_time)),
-            values: (data.trips || []).map(t => t.distance_km || 0)
-        };
+        const rows = data.trips || [];
+        return { metric, labels: rows.map(t => shortDate(t.start_time)), values: rows.map(num) };
     }
     if (type === 'stops' || type === 'idle') {
-        return {
-            metric: 'Duration (min)',
-            labels: (data.stops || []).map(s => shortDate(s.start_time)),
-            values: (data.stops || []).map(s => s.duration_minutes || 0)
-        };
+        const rows = data.stops || [];
+        return { metric, labels: rows.map(s => shortDate(s.start_time)), values: rows.map(num) };
     }
-    if (type === 'mileage') {
-        return {
-            metric: 'Distance (km)',
-            labels: (data.entries || []).map(e => e.period || ''),
-            values: (data.entries || []).map(e => e.distance_km || 0)
-        };
+    if (type === 'mileage' || type === 'summary') {
+        const rows = type === 'summary' ? (data.summaries || []) : (data.entries || []);
+        return { metric, labels: rows.map(r => r.period || ''), values: rows.map(num) };
     }
     if (type === 'speed') {
-        return {
-            metric: 'Speed (km/h)',
-            labels: (data.speeding_instances || []).map(i => shortDate(i.time)),
-            values: (data.speeding_instances || []).map(i => i.speed_kmh || 0)
-        };
-    }
-    if (type === 'summary') {
-        return {
-            metric: 'Distance (km)',
-            labels: (data.summaries || []).map(s => s.period || ''),
-            values: (data.summaries || []).map(s => s.distance_km || 0)
-        };
+        const rows = data.speeding_instances || [];
+        return { metric, labels: rows.map(i => shortDate(i.time)), values: rows.map(num) };
     }
     return { metric: 'Value', labels: [], values: [] };
 }
 
 function extractScatterPoints(type, data) {
     const hourOf = iso => { const d = new Date(iso); return isNaN(d) ? 0 : d.getHours() + d.getMinutes() / 60; };
+    const [field, metric] = selectedReportMetric(type);
+    const num = r => Number(r[field]) || 0;
     if (type === 'trips') {
-        return { metric: 'Distance (km)', xTitle: 'Hour of day', points: (data.trips || []).map(t => ({ x: hourOf(t.start_time), y: t.distance_km || 0 })) };
+        return { metric, xTitle: 'Hour of day', points: (data.trips || []).map(t => ({ x: hourOf(t.start_time), y: num(t) })) };
     }
     if (type === 'stops' || type === 'idle') {
-        return { metric: 'Duration (min)', xTitle: 'Hour of day', points: (data.stops || []).map(s => ({ x: hourOf(s.start_time), y: s.duration_minutes || 0 })) };
+        return { metric, xTitle: 'Hour of day', points: (data.stops || []).map(s => ({ x: hourOf(s.start_time), y: num(s) })) };
     }
     if (type === 'speed') {
-        return { metric: 'Speed (km/h)', xTitle: 'Hour of day', points: (data.speeding_instances || []).map(i => ({ x: hourOf(i.time), y: i.speed_kmh || 0 })) };
+        return { metric, xTitle: 'Hour of day', points: (data.speeding_instances || []).map(i => ({ x: hourOf(i.time), y: num(i) })) };
     }
     const rows = type === 'summary' ? (data.summaries || []) : (data.entries || []);
-    return { metric: 'Distance (km)', xTitle: 'Period', points: rows.map((r, i) => ({ x: i, y: r.distance_km || 0 })), xLabels: rows.map(r => r.period || '') };
+    return { metric, xTitle: 'Period', points: rows.map((r, i) => ({ x: i, y: num(r) })), xLabels: rows.map(r => r.period || '') };
 }
 
 function renderReportChart(visual, type, data, container) {
@@ -1503,19 +1520,19 @@ function buildReportHeatmap(type, data) {
     };
     const map = {};
     const add = (k, v) => { if (k) map[k] = (map[k] || 0) + v; };
-    let unit = 'km';
+    const [field, metricLabel] = selectedReportMetric(type);
+    let unit = metricLabel.toLowerCase();
 
-    if (type === 'trips') {
-        (data.trips || []).forEach(t => add(dayOf(t.start_time), t.distance_km || 0));
-    } else if (type === 'stops' || type === 'idle') {
-        (data.stops || []).forEach(s => add(dayOf(s.start_time), s.duration_minutes || 0));
-        unit = 'min';
-    } else if (type === 'speed') {
+    if (type === 'speed') {
         (data.speeding_instances || []).forEach(i => add(dayOf(i.time), 1));
         unit = 'events';
+    } else if (type === 'trips') {
+        (data.trips || []).forEach(t => add(dayOf(t.start_time), Number(t[field]) || 0));
+    } else if (type === 'stops' || type === 'idle') {
+        (data.stops || []).forEach(s => add(dayOf(s.start_time), Number(s[field]) || 0));
     } else {
         const rows = type === 'summary' ? (data.summaries || []) : (data.entries || []);
-        rows.forEach(e => { if (/^\d{4}-\d{2}-\d{2}/.test(e.period || '')) add(e.period.slice(0, 10), e.distance_km || 0); });
+        rows.forEach(e => { if (/^\d{4}-\d{2}-\d{2}/.test(e.period || '')) add(e.period.slice(0, 10), Number(e[field]) || 0); });
     }
 
     const keys = Object.keys(map).sort();
@@ -1538,10 +1555,21 @@ function buildReportHeatmap(type, data) {
         `<div class="hm-legend"><span>Less</span><i style="background:rgba(249,115,22,.2)"></i><i style="background:rgba(249,115,22,.55)"></i><i style="background:rgba(249,115,22,1)"></i><span>More</span></div></div>`;
 }
 
-// Re-render the last loaded report when the Data Type changes — no refetch.
+// Re-render the last loaded report when Data Type or Metric changes — no refetch.
+function maybeRerenderReport() {
+    const curType = document.getElementById('report-type')?.value;
+    if (_lastReportData && curType === _lastReportType) {
+        renderReportOutput(_lastReportType, _lastReportData, document.getElementById('report-output'));
+    }
+}
+
 document.getElementById('report-visual')?.addEventListener('change', () => {
-    if (_lastReportData) renderReportOutput(_lastReportType, _lastReportData, document.getElementById('report-output'));
+    updateReportMetricOptions();
+    maybeRerenderReport();
 });
+document.getElementById('report-metric')?.addEventListener('change', maybeRerenderReport);
+document.getElementById('report-type')?.addEventListener('change', updateReportMetricOptions);
+updateReportMetricOptions();
 
 function buildReportTable(type, data) {
     let rows = [];
