@@ -3528,6 +3528,44 @@ body {
     padding: 12px 8px;
 }
 
+.report-heatmap {
+    padding: 16px 12px;
+    overflow-x: auto;
+}
+
+.hm-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 14px);
+    grid-auto-columns: 14px;
+    gap: 3px;
+    width: max-content;
+}
+
+.hm-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: rgba(24, 24, 27, 0.05);
+}
+
+.hm-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.hm-legend i {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+    background: rgba(24, 24, 27, 0.05);
+}
+
 .report-output {
     background: var(--card-bg);
     border: 1px solid rgba(24, 24, 27, 0.08);

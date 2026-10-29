@@ -1321,9 +1321,12 @@ function renderReportOutput(type, data, container) {
             </div>`;
     }
 
+    if (_reportChart) { _reportChart.destroy(); _reportChart = null; }
     const visual = document.getElementById('report-visual')?.value || 'table';
     if (visual === 'table') {
         container.innerHTML = summaryCards + buildReportTable(type, data);
+    } else if (visual === 'heatmap') {
+        container.innerHTML = summaryCards + buildReportHeatmap(type, data);
     } else {
         container.innerHTML = summaryCards + '<div class="report-chart-wrap"><canvas id="report-chart-canvas"></canvas></div>';
         renderReportChart(visual, type, data, container);
@@ -1377,10 +1380,75 @@ function extractReportSeries(type, data) {
     return { metric: 'Value', labels: [], values: [] };
 }
 
+function extractScatterPoints(type, data) {
+    const hourOf = iso => { const d = new Date(iso); return isNaN(d) ? 0 : d.getHours() + d.getMinutes() / 60; };
+    if (type === 'trips') {
+        return { metric: 'Distance (km)', xTitle: 'Hour of day', points: (data.trips || []).map(t => ({ x: hourOf(t.start_time), y: t.distance_km || 0 })) };
+    }
+    if (type === 'stops' || type === 'idle') {
+        return { metric: 'Duration (min)', xTitle: 'Hour of day', points: (data.stops || []).map(s => ({ x: hourOf(s.start_time), y: s.duration_minutes || 0 })) };
+    }
+    if (type === 'speed') {
+        return { metric: 'Speed (km/h)', xTitle: 'Hour of day', points: (data.speeding_instances || []).map(i => ({ x: hourOf(i.time), y: i.speed_kmh || 0 })) };
+    }
+    const rows = type === 'summary' ? (data.summaries || []) : (data.entries || []);
+    return { metric: 'Distance (km)', xTitle: 'Period', points: rows.map((r, i) => ({ x: i, y: r.distance_km || 0 })), xLabels: rows.map(r => r.period || '') };
+}
+
 function renderReportChart(visual, type, data, container) {
     const canvas = document.getElementById('report-chart-canvas');
     if (!canvas || typeof Chart === 'undefined') return;
     if (_reportChart) { _reportChart.destroy(); _reportChart = null; }
+
+    const palette = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899', '#64748b'];
+
+    if (visual === 'scatter') {
+        const { metric, xTitle, points, xLabels } = extractScatterPoints(type, data);
+        if (!points.length) { container.innerHTML = '<p class="empty-state">No data for selected period.</p>'; return; }
+        _reportChart = new Chart(canvas.getContext('2d'), {
+            type: 'scatter',
+            data: { datasets: [{ label: metric, data: points, backgroundColor: 'rgba(249, 115, 22, 0.7)', pointRadius: 4 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => `${c.parsed.y} ${metric.split(' ').pop()} @ ${xLabels ? (xLabels[c.parsed.x] || c.parsed.x) : c.parsed.x.toFixed(1) + ':00'}` } }
+                },
+                scales: {
+                    x: { title: { display: true, text: xTitle }, min: xLabels ? undefined : 0, max: xLabels ? undefined : 24 },
+                    y: { beginAtZero: true, title: { display: true, text: metric } }
+                }
+            }
+        });
+        return;
+    }
+
+    if (visual === 'stacked') {
+        const summaries = data.summaries || [];
+        let labels, datasets;
+        if (type === 'summary' && summaries.length) {
+            labels = summaries.map(s => s.period || '');
+            datasets = [
+                { label: 'Moving (min)', data: summaries.map(s => s.moving_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.8)' },
+                { label: 'Idle (min)', data: summaries.map(s => s.idle_minutes || 0), backgroundColor: 'rgba(249, 115, 22, 0.8)' }
+            ];
+        } else {
+            const s = extractReportSeries(type, data);
+            labels = s.labels;
+            datasets = [{ label: s.metric, data: s.values, backgroundColor: 'rgba(249, 115, 22, 0.75)' }];
+        }
+        if (!labels.length) { container.innerHTML = '<p class="empty-state">No data for selected period.</p>'; return; }
+        _reportChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: datasets.length > 1 } },
+                scales: { x: { stacked: true, ticks: { maxTicksLimit: 12, autoSkip: true } }, y: { stacked: true, beginAtZero: true } }
+            }
+        });
+        return;
+    }
 
     let { metric, labels, values } = extractReportSeries(type, data);
     if (values.length === 0) {
@@ -1398,7 +1466,6 @@ function renderReportChart(visual, type, data, container) {
         values = top.map(i => values[i]).concat([rest.reduce((s, i) => s + values[i], 0)]);
     }
 
-    const palette = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899', '#64748b'];
     _reportChart = new Chart(canvas.getContext('2d'), {
         type: visual,
         data: {
@@ -1427,6 +1494,48 @@ function renderReportChart(visual, type, data, container) {
             }
         }
     });
+}
+
+function buildReportHeatmap(type, data) {
+    const dayOf = iso => {
+        const d = new Date(iso);
+        return isNaN(d) ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const map = {};
+    const add = (k, v) => { if (k) map[k] = (map[k] || 0) + v; };
+    let unit = 'km';
+
+    if (type === 'trips') {
+        (data.trips || []).forEach(t => add(dayOf(t.start_time), t.distance_km || 0));
+    } else if (type === 'stops' || type === 'idle') {
+        (data.stops || []).forEach(s => add(dayOf(s.start_time), s.duration_minutes || 0));
+        unit = 'min';
+    } else if (type === 'speed') {
+        (data.speeding_instances || []).forEach(i => add(dayOf(i.time), 1));
+        unit = 'events';
+    } else {
+        const rows = type === 'summary' ? (data.summaries || []) : (data.entries || []);
+        rows.forEach(e => { if (/^\d{4}-\d{2}-\d{2}/.test(e.period || '')) add(e.period.slice(0, 10), e.distance_km || 0); });
+    }
+
+    const keys = Object.keys(map).sort();
+    if (!keys.length) return '<p class="empty-state">No daily data for a heatmap — set Group to Day (or use Trips/Stops/Speed reports).</p>';
+
+    const endD = new Date(keys[keys.length - 1] + 'T00:00:00');
+    const start = new Date(keys[0] + 'T00:00:00');
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7)); // align to Monday
+
+    const max = Math.max(...Object.values(map), 0.0001);
+    let cells = '';
+    for (let d = new Date(start); d <= endD; d.setDate(d.getDate() + 1)) {
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const v = map[k] || 0;
+        const style = v > 0 ? `background:rgba(249,115,22,${(0.15 + 0.85 * v / max).toFixed(2)})` : '';
+        cells += `<div class="hm-cell" title="${k}: ${Number(v.toFixed(1))} ${unit}" style="${style}"></div>`;
+    }
+
+    return `<div class="report-heatmap"><div class="hm-grid">${cells}</div>` +
+        `<div class="hm-legend"><span>Less</span><i style="background:rgba(249,115,22,.2)"></i><i style="background:rgba(249,115,22,.55)"></i><i style="background:rgba(249,115,22,1)"></i><span>More</span></div></div>`;
 }
 
 // Re-render the last loaded report when the Data Type changes — no refetch.
