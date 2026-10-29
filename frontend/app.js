@@ -983,9 +983,6 @@ function renderAlerts() {
                     <span class="alert-detail-meta">${escapeHTML(alert.type || 'alert')} · ${alert.time.toLocaleString()} · #${escapeHTML(String(alert.id))}</span>
                 </div>
             </div>
-            <button type="button" class="alert-expand-btn" title="Expand" aria-label="Expand alert details">
-                <i class="fas fa-chevron-down"></i>
-            </button>
             <button type="button" class="alert-read-btn" title="Mark as read" aria-label="Mark alert as read">
                 <i class="fas fa-check"></i>
             </button>
@@ -5964,6 +5961,18 @@ if (histSettingsBtn && histSettingsPop && histAutoPlayToggle) {
     });
     window.addEventListener('resize', () => setHistSettingsOpen(false));
     window.addEventListener('scroll', () => setHistSettingsOpen(false), true);
+}
+
+// Recent Alerts — header chevron collapses/expands the whole list at once
+const alertsCollapseBtn = document.getElementById('alerts-collapse-btn');
+const alertsListEl = document.getElementById('alerts-list');
+if (alertsCollapseBtn && alertsListEl) {
+    alertsCollapseBtn.addEventListener('click', () => {
+        const collapsed = alertsListEl.classList.toggle('collapsed');
+        alertsCollapseBtn.classList.toggle('collapsed', collapsed);
+        alertsCollapseBtn.setAttribute('aria-expanded', String(!collapsed));
+        alertsCollapseBtn.title = collapsed ? 'Expand alerts' : 'Collapse alerts';
+    });
 }
 
 // Safe sidebar close for mobile

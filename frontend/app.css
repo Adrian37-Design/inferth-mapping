@@ -642,9 +642,30 @@ body {
 
 .alert-controls {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 10px;
 }
+
+.alerts-collapse-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background 0.15s;
+}
+
+.alerts-collapse-btn:hover { background: rgba(24, 24, 27, 0.06); color: var(--text-primary); }
+.alerts-collapse-btn i { transition: transform 0.2s; }
+.alerts-collapse-btn.collapsed i { transform: rotate(-90deg); }
+
+#alerts-list.collapsed { display: none; }
 
 .btn-text {
     background: none;
@@ -2221,27 +2242,6 @@ body {
     font-size: 0.7rem;
     color: var(--text-muted);
 }
-
-.alert-expand-btn {
-    margin-left: auto;
-    align-self: center;
-    flex-shrink: 0;
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.15s, background 0.15s;
-}
-
-.alert-expand-btn:hover { background: rgba(24, 24, 27, 0.06); color: var(--text-primary); }
-.alert-expand-btn i { transition: transform 0.2s; }
-.alert-item.expanded .alert-expand-btn i { transform: rotate(180deg); }
 
 .alert-read-btn {
     align-self: center;
