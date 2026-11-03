@@ -166,7 +166,12 @@ async def upsert_tracking_data(
             imei=ident,
             name=f"Xcela Tracker ({suffix})",
             tenant_id=1,
-            device_metadata={}
+            device_metadata={
+                "model": "Honda Fit GP1 Hybrid",
+                "can_bus": True,
+                "protocol": "Xcela R19",
+                "plate": suffix
+            }
         )
         db.add(device)
         await db.commit()
@@ -200,6 +205,10 @@ async def upsert_tracking_data(
 
     # Update device metadata with latest hardware telemetry
     meta = dict(device.device_metadata or {})
+    if "can_bus" not in meta:
+        meta["can_bus"] = True
+    if not meta.get("model") and ("YZ4321" in (device.name or "") or "Xcela Tracker" in (device.name or "")):
+        meta["model"] = "Honda Fit GP1 Hybrid"
     if "is_engine_locked" in body:
         meta["is_engine_locked"] = body["is_engine_locked"]
         meta["is_shutdown"] = bool(body["is_engine_locked"])

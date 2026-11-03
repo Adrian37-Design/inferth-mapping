@@ -3542,9 +3542,13 @@ function openAssetDetail(vehicle) {
     
     // Populate Metadata Fields Immediately
     const meta = vehicle.device_metadata || {};
+    const isXcelaDevice = Boolean(vehicle && (
+        (vehicle.name && (vehicle.name.includes('YZ4321') || vehicle.name.includes('Xcela Tracker'))) ||
+        (vehicle.imei && (vehicle.imei.includes('YZ4321') || vehicle.imei.includes('XYZ4321')))
+    ));
     if (document.getElementById('detail-imei-val')) document.getElementById('detail-imei-val').textContent = vehicle.imei || '--';
-    if (document.getElementById('detail-model')) document.getElementById('detail-model').textContent = meta.model || '--';
-    if (document.getElementById('detail-plate')) document.getElementById('detail-plate').textContent = meta.plate || '--';
+    if (document.getElementById('detail-model')) document.getElementById('detail-model').textContent = meta.model || (isXcelaDevice ? 'Honda Fit GP1 Hybrid' : '--');
+    if (document.getElementById('detail-plate')) document.getElementById('detail-plate').textContent = meta.plate || (isXcelaDevice ? (vehicle.name.includes('YZ4321') ? 'YZ4321' : '--') : '--');
     if (document.getElementById('detail-vin')) document.getElementById('detail-vin').textContent = meta.vin || '--';
     if (document.getElementById('detail-sim')) document.getElementById('detail-sim').textContent = meta.sim || '--';
     document.querySelectorAll('#tab-asset-detail [data-edit]').forEach(el => {
@@ -3765,13 +3769,22 @@ function updateAssetDetailUI(id) {
 
     // Honda CAN & Telemetry Section
     const canSection = document.getElementById('detail-can-section');
-    const hasCanData = t.gear !== undefined || t.hybrid_soc !== undefined || t.motor_kw !== undefined ||
+    const isXcelaTracker = Boolean(vehicle && (
+        (vehicle.name && (vehicle.name.includes('YZ4321') || vehicle.name.includes('Xcela Tracker'))) ||
+        (vehicle.imei && (vehicle.imei.includes('YZ4321') || vehicle.imei.includes('XYZ4321'))) ||
+        (vehicle.device_metadata && (vehicle.device_metadata.can_bus || vehicle.device_metadata.model === 'Honda Fit GP1 Hybrid'))
+    ));
+    const hasCanData = isXcelaTracker || t.gear !== undefined || t.hybrid_soc !== undefined || t.motor_kw !== undefined ||
                        t.brake_bar !== undefined || t.cvt_fluid_temp !== undefined || t.check_engine_mil !== undefined ||
                        t.ws_fl !== undefined || t.door_driver !== undefined || t.tpms_warning !== undefined ||
                        t.obd_speed !== undefined || t.pedal_pct !== undefined || t.oil_life_pct !== undefined;
 
     if (canSection) {
         canSection.style.display = hasCanData ? '' : 'none';
+        const canTitleEl = canSection.querySelector('.section-title');
+        if (canTitleEl && isXcelaTracker) {
+            canTitleEl.innerHTML = '<i class="fas fa-microchip"></i> CAN & Hybrid Telemetry <span style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem; padding:2px 8px; border-radius:4px; font-weight:600; margin-left:8px;">Xcela Tracker (YZ4321)</span>';
+        }
         if (hasCanData) {
             setDetail('detail-can-gear', t.gear || '--');
             setDetail('detail-can-speed', t.obd_speed !== undefined ? `${t.obd_speed} km/h` : '--');
@@ -6746,9 +6759,14 @@ function renderOBDVehicleCards() {
         return;
     }
 
-    const vehiclesWithObd = allVehicles.filter(v => obdDataMap[v.id]);
+    const vehiclesWithObd = allVehicles.filter(v => 
+        Boolean(obdDataMap[v.id]) ||
+        (v.name && (v.name.includes('YZ4321') || v.name.includes('Xcela Tracker'))) ||
+        (v.imei && (v.imei.includes('YZ4321') || v.imei.includes('XYZ4321'))) ||
+        (v.device_metadata && (v.device_metadata.can_bus || v.device_metadata.model === 'Honda Fit GP1 Hybrid'))
+    );
     if (vehiclesWithObd.length === 0) {
-        container.innerHTML = '<p class="empty-state">No OBD telemetry received yet. Connect a Teltonika FMC003 or FMB140 device.</p>';
+        container.innerHTML = '<p class="empty-state">No OBD/CAN telemetry received yet. Connect an Xcela Tracker or OBD-compatible device.</p>';
         return;
     }
 

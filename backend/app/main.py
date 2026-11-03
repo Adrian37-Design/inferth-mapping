@@ -178,6 +178,30 @@ async def run_migrations_and_branding():
                 
                 print("Schema migrations complete.")
 
+                # Ensure Xcela Tracker (YZ4321) has CAN bus & Honda Fit GP1 metadata
+                try:
+                    from app.models import Device
+                    x_res = await db.execute(select(Device).where(
+                        (Device.name.ilike("%YZ4321%")) | (Device.name.ilike("%Xcela Tracker%")) | (Device.imei.in_(["XYZ4321", "YZ4321"]))
+                    ))
+                    x_devs = x_res.scalars().all()
+                    for xd in x_devs:
+                        dmeta = dict(xd.device_metadata or {})
+                        changed = False
+                        if not dmeta.get("model") or dmeta.get("model") == "--":
+                            dmeta["model"] = "Honda Fit GP1 Hybrid"
+                            changed = True
+                        if not dmeta.get("can_bus"):
+                            dmeta["can_bus"] = True
+                            changed = True
+                        if changed:
+                            xd.device_metadata = dmeta
+                    if x_devs:
+                        await db.commit()
+                        print("Synced Xcela Tracker (YZ4321) metadata.")
+                except Exception as ex:
+                    print(f"Xcela metadata check note: {ex}")
+
                 # Initialize Branding
                 try:
                     await init_branding()
