@@ -23,8 +23,6 @@ class AuthManager {
         }
     }
 
-
-
     // Clear authentication data
     clearAuth() {
         this.token = null;
@@ -63,7 +61,7 @@ class AuthManager {
         return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
     }
 
-    // Login — now handles both the direct token response and the OTP challenge
+    // Login — handles both direct token response and OTP challenge
     async login(email, password, tenantId = null) {
         const body = { email, password };
         if (tenantId) body.tenant_id = tenantId;
@@ -81,17 +79,36 @@ class AuthManager {
 
         const data = await response.json();
 
-        // If the server wants an OTP, return the challenge data without touching auth state
+        // If the server requires OTP verification
         if (data.otp_required) {
-            return data;  // { otp_required: true, temp_token, phone_masked, message }
+            return data;
         }
 
-        // Direct token — store and return
+        // Direct token fallback
         this.setAuth(data.access_token, data.user);
         return data;
     }
 
-    // Verify a WhatsApp OTP against a temp_token
+    // Send or resend OTP (with optional phone update)
+    async sendOtp(tempToken, phone = null) {
+        const body = { temp_token: tempToken };
+        if (phone) body.phone = phone;
+
+        const response = await fetch(`${API_BASE}/auth/send-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Could not send verification code');
+        }
+
+        return await response.json();
+    }
+
+    // Verify WhatsApp OTP against a temp_token
     async verifyOtp(tempToken, otp) {
         const response = await fetch(`${API_BASE}/auth/verify-otp`, {
             method: 'POST',
@@ -111,18 +128,7 @@ class AuthManager {
 
     // Resend OTP
     async resendOtp(tempToken) {
-        const response = await fetch(`${API_BASE}/auth/resend-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ temp_token: tempToken })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Could not resend code');
-        }
-
-        return await response.json();
+        return await this.sendOtp(tempToken);
     }
 
     // Setup account
@@ -164,7 +170,7 @@ class AuthManager {
 
         const response = await fetch(`${API_BASE}/auth/tenants`, {
             method: 'POST',
-            headers: this.getAuthHeader(), // Content-Type is auto-set for FormData
+            headers: this.getAuthHeader(),
             body: formData
         });
 
@@ -176,7 +182,7 @@ class AuthManager {
         return await response.json();
     }
 
-    // Update Tenant (Admin Only) - support rename, logo upload, logo removal, and theme colors
+    // Update Tenant (Admin Only)
     async updateTenant(id, name, logoFile = null, removeLogo = false, themeData = null) {
         const formData = new FormData();
         if (name) formData.append('name', name);
@@ -222,8 +228,6 @@ class AuthManager {
         window.location.href = 'login.html';
     }
 
-
-
     // Initialize signup page
     initSignupPage() {
         const form = document.getElementById('signup-form');
@@ -236,7 +240,6 @@ class AuthManager {
         const togglePassword = document.getElementById('toggle-password');
         const toggleConfirm = document.getElementById('toggle-confirm');
 
-        // Get token from URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
 
@@ -248,7 +251,6 @@ class AuthManager {
             return;
         }
 
-        // Verify token
         this.verifyToken(token)
             .then(data => {
                 welcomeMessage.classList.add('hidden');
@@ -262,7 +264,6 @@ class AuthManager {
                 `;
             });
 
-        // Toggle password visibility
         togglePassword.addEventListener('click', () => {
             const type = passwordInput.type === 'password' ? 'text' : 'password';
             passwordInput.type = type;
@@ -275,20 +276,17 @@ class AuthManager {
             toggleConfirm.querySelector('i').className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
         });
 
-        // Password strength indicator
         passwordInput.addEventListener('input', () => {
             this.updatePasswordStrength(passwordInput.value);
             this.validatePasswordRequirements(passwordInput.value);
         });
 
-        // Handle form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const password = passwordInput.value;
             const confirmPassword = confirmPasswordInput.value;
 
-            // Validate password
             if (password.length < 8) {
                 this.showError(errorMessage, 'Password must be at least 8 characters long');
                 return;
@@ -309,7 +307,6 @@ class AuthManager {
 
             try {
                 await this.setupAccount(token, password);
-                // Redirect to login page with success message instead of dashboard
                 window.location.href = 'login.html?setup_success=true';
             } catch (error) {
                 this.showError(errorMessage, error.message);
@@ -319,22 +316,18 @@ class AuthManager {
         });
     }
 
-    // Update password strength indicator
     updatePasswordStrength(password) {
         const strengthFill = document.querySelector('.strength-fill');
         const strengthText = document.querySelector('.strength-text');
-
         if (!strengthFill || !strengthText) return;
 
         let strength = 0;
-
         if (password.length >= 8) strength++;
         if (/[a-z]/.test(password)) strength++;
         if (/[A-Z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^a-zA-Z0-9]/.test(password)) strength++;
 
-        // Remove all strength classes
         strengthFill.classList.remove('weak', 'fair', 'good', 'strong');
         strengthText.classList.remove('weak', 'fair', 'good', 'strong');
 
@@ -357,7 +350,6 @@ class AuthManager {
         }
     }
 
-    // Validate password requirements
     validatePasswordRequirements(password) {
         const requirements = {
             'req-length': password.length >= 8,
@@ -378,7 +370,6 @@ class AuthManager {
         });
     }
 
-    // Check if password is valid
     isPasswordValid(password) {
         return password.length >= 8 &&
             /[A-Z]/.test(password) &&
@@ -386,7 +377,6 @@ class AuthManager {
             /[0-9]/.test(password);
     }
 
-    // Show error message
     showError(element, message) {
         element.textContent = message;
         element.classList.add('show');
@@ -395,7 +385,6 @@ class AuthManager {
         }, 5000);
     }
 
-    // Check authentication and redirect if needed
     checkAuth() {
         if (!this.isAuthenticated()) {
             window.location.href = 'login.html';
@@ -404,7 +393,6 @@ class AuthManager {
         return true;
     }
 
-    // Make authenticated API request
     async fetchAPI(url, options = {}) {
         const headers = {
             ...this.getAuthHeader(),
@@ -417,12 +405,9 @@ class AuthManager {
             headers
         });
 
-        // Only auto-logout on 401 if we are on the main app (not login page)
         if (response.status === 401) {
             const isLoginPage = window.location.pathname.includes('login.html');
             if (!isLoginPage) {
-                // Clear auth silently — user must manually re-login
-                // Don't redirect immediately; let caller handle the error
                 console.warn('fetchAPI: 401 received for', url);
             }
             throw new Error('Unauthorized');
@@ -440,21 +425,19 @@ class AuthManager {
 
         overlay.classList.add('active');
 
-        // After the animation sequence (checkmark pop at ~1.35s, label at ~1.5s)
-        // wait a moment then redirect
+        // Allow user to watch the cycling wheel spin and verified checkmark appear
         setTimeout(() => {
             onComplete && onComplete();
-        }, 2000);
+        }, 1800);
     }
 
     // ====================================================================
-    // Initialize login page — supports both credential and OTP steps
+    // Initialize login page — credentials & OTP steps
     // ====================================================================
     async initLoginPage() {
         const urlParams = new URLSearchParams(window.location.search);
         const setupSuccess = urlParams.get('setup_success');
 
-        // Show success message if redirected from signup
         if (setupSuccess) {
             const errorMsg = document.getElementById('error-message');
             if (errorMsg) {
@@ -483,6 +466,7 @@ class AuthManager {
         // OTP panel elements
         const credentialsPanel = document.getElementById('credentials-panel');
         const otpPanel         = document.getElementById('otp-panel');
+        const otpBoxesContainer = document.getElementById('otp-boxes');
         const otpBoxes         = Array.from(document.querySelectorAll('.otp-box'));
         const otpError         = document.getElementById('otp-error-message');
         const verifyBtn        = document.getElementById('verify-otp-btn');
@@ -490,11 +474,16 @@ class AuthManager {
         const resendCountdown  = document.getElementById('resend-countdown');
         const otpPhoneDisplay  = document.getElementById('otp-phone-display');
         const otpBackBtn       = document.getElementById('otp-back-btn');
+        const phoneSection     = document.getElementById('otp-phone-input-section');
+        const whatsappPhoneInput = document.getElementById('whatsapp-phone-input');
+        const submitPhoneBtn   = document.getElementById('submit-phone-btn');
+        const otpStage         = document.getElementById('otp-stage');
+        const otpSubText       = document.getElementById('otp-sub-text');
 
         let activeTempToken = null;
         let resendTimer = null;
 
-        // ── Toggle Password ───────────────────────────────────────────
+        // Toggle Password
         if (togglePassword) {
             togglePassword.addEventListener('click', () => {
                 const type = passwordInput.type === 'password' ? 'text' : 'password';
@@ -503,12 +492,16 @@ class AuthManager {
             });
         }
 
-        // ── OTP box wiring ────────────────────────────────────────────
+        // OTP box wiring
         const _getOtpValue = () => otpBoxes.map(b => b.value).join('');
 
         const _checkOtpComplete = () => {
             const complete = otpBoxes.every(b => b.value.match(/^\d$/));
             verifyBtn.disabled = !complete;
+            if (complete) {
+                // Auto trigger verification when 6th digit entered
+                verifyBtn.click();
+            }
         };
 
         const _clearOtpErrors = () => {
@@ -519,7 +512,7 @@ class AuthManager {
         const _shakeBoxes = () => {
             otpBoxes.forEach(b => {
                 b.classList.remove('error');
-                void b.offsetWidth; // reflow to restart animation
+                void b.offsetWidth;
                 b.classList.add('error');
             });
         };
@@ -548,7 +541,6 @@ class AuthManager {
                 }
             });
 
-            // Handle paste on any box — distribute across all six
             box.addEventListener('paste', (e) => {
                 e.preventDefault();
                 const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
@@ -563,20 +555,70 @@ class AuthManager {
             });
         });
 
-        // ── Show OTP panel ────────────────────────────────────────────
-        const _showOtpPanel = (tempToken, phoneMasked) => {
+        // Show OTP panel
+        const _showOtpPanel = (tempToken, phoneMasked, phoneRequired = false) => {
             activeTempToken = tempToken;
-            if (otpPhoneDisplay) otpPhoneDisplay.textContent = phoneMasked;
             credentialsPanel.style.display = 'none';
             otpPanel.style.display = 'block';
             otpBoxes.forEach(b => { b.value = ''; b.classList.remove('filled', 'error'); });
-            verifyBtn.disabled = true;
+            if (otpBoxesContainer) otpBoxesContainer.classList.remove('cycling-wheel-active');
             _clearOtpErrors();
-            setTimeout(() => otpBoxes[0] && otpBoxes[0].focus(), 120);
-            _startResendCooldown();
+
+            if (phoneRequired) {
+                if (phoneSection) phoneSection.style.display = 'block';
+                if (otpStage) otpStage.style.display = 'none';
+                if (verifyBtn) verifyBtn.style.display = 'none';
+                if (otpSubText) otpSubText.innerHTML = 'Enter your WhatsApp number to receive your 6-digit sign-in code.';
+                setTimeout(() => whatsappPhoneInput && whatsappPhoneInput.focus(), 150);
+            } else {
+                if (phoneSection) phoneSection.style.display = 'none';
+                if (otpStage) otpStage.style.display = 'flex';
+                if (verifyBtn) {
+                    verifyBtn.style.display = 'inline-flex';
+                    verifyBtn.disabled = true;
+                }
+                if (otpSubText) otpSubText.innerHTML = `We sent a 6-digit code to your WhatsApp number.<br><strong id="otp-phone-display">${phoneMasked}</strong>`;
+                setTimeout(() => otpBoxes[0] && otpBoxes[0].focus(), 150);
+                _startResendCooldown();
+            }
         };
 
-        // ── Back to credentials ───────────────────────────────────────
+        // Submit phone number to receive OTP
+        const _handlePhoneSubmit = async () => {
+            if (!activeTempToken || !whatsappPhoneInput) return;
+            const phoneVal = whatsappPhoneInput.value.trim();
+            if (!phoneVal) {
+                if (otpError) this.showError(otpError, 'Please enter your WhatsApp phone number.');
+                return;
+            }
+
+            submitPhoneBtn.disabled = true;
+            submitPhoneBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+            _clearOtpErrors();
+
+            try {
+                const res = await this.sendOtp(activeTempToken, phoneVal);
+                _showOtpPanel(activeTempToken, res.phone_masked, false);
+            } catch (err) {
+                if (otpError) this.showError(otpError, err.message);
+                submitPhoneBtn.disabled = false;
+                submitPhoneBtn.innerHTML = '<span>Send Code</span> <i class="fas fa-paper-plane" style="font-size: 0.75rem;"></i>';
+            }
+        };
+
+        if (submitPhoneBtn) {
+            submitPhoneBtn.addEventListener('click', _handlePhoneSubmit);
+        }
+        if (whatsappPhoneInput) {
+            whatsappPhoneInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    _handlePhoneSubmit();
+                }
+            });
+        }
+
+        // Back to credentials
         if (otpBackBtn) {
             otpBackBtn.addEventListener('click', () => {
                 activeTempToken = null;
@@ -588,26 +630,27 @@ class AuthManager {
             });
         }
 
-        // ── Resend cooldown timer ─────────────────────────────────────
+        // Resend cooldown timer
         const _startResendCooldown = (seconds = 60) => {
+            if (!resendBtn) return;
             resendBtn.disabled = true;
-            resendCountdown.style.display = 'inline';
+            if (resendCountdown) resendCountdown.style.display = 'inline';
             let remaining = seconds;
-            resendCountdown.textContent = `(${remaining}s)`;
+            if (resendCountdown) resendCountdown.textContent = `(${remaining}s)`;
             clearInterval(resendTimer);
             resendTimer = setInterval(() => {
                 remaining--;
                 if (remaining <= 0) {
                     clearInterval(resendTimer);
                     resendBtn.disabled = false;
-                    resendCountdown.style.display = 'none';
+                    if (resendCountdown) resendCountdown.style.display = 'none';
                 } else {
-                    resendCountdown.textContent = `(${remaining}s)`;
+                    if (resendCountdown) resendCountdown.textContent = `(${remaining}s)`;
                 }
             }, 1000);
         };
 
-        // ── Resend OTP ────────────────────────────────────────────────
+        // Resend OTP
         if (resendBtn) {
             resendBtn.addEventListener('click', async () => {
                 if (!activeTempToken) return;
@@ -616,9 +659,8 @@ class AuthManager {
                     await this.resendOtp(activeTempToken);
                     _startResendCooldown();
                     _clearOtpErrors();
-                    // Brief visual confirmation
                     if (otpError) {
-                        otpError.textContent = '✓ New code sent to WhatsApp!';
+                        otpError.textContent = '✓ New code sent to your WhatsApp!';
                         otpError.style.color = '#10b981';
                         otpError.style.background = 'rgba(16,185,129,0.08)';
                         otpError.style.borderColor = 'rgba(16,185,129,0.2)';
@@ -631,7 +673,6 @@ class AuthManager {
                         }, 3000);
                     }
                 } catch (err) {
-                    // If cooldown error, extract remaining seconds
                     const match = err.message.match(/wait (\d+) second/);
                     const wait = match ? parseInt(match[1]) : 60;
                     _startResendCooldown(wait);
@@ -640,7 +681,7 @@ class AuthManager {
             });
         }
 
-        // ── Verify OTP ────────────────────────────────────────────────
+        // Verify OTP button
         if (verifyBtn) {
             verifyBtn.addEventListener('click', async () => {
                 if (!activeTempToken) return;
@@ -653,8 +694,13 @@ class AuthManager {
 
                 try {
                     await this.verifyOtp(activeTempToken, otp);
-                    // SUCCESS — trigger cycling wheel then redirect
-                    activeTempToken = null;
+                    
+                    // SUCCESS! Animate the glass boxes in cycling wheel!
+                    if (otpBoxesContainer) {
+                        otpBoxesContainer.classList.add('cycling-wheel-active');
+                    }
+
+                    // Trigger radial cycling wheel overlay and redirect
                     this._triggerCyclingWheel(() => {
                         window.location.href = 'index.html';
                     });
@@ -663,13 +709,12 @@ class AuthManager {
                     if (otpError) this.showError(otpError, err.message);
                     verifyBtn.disabled = false;
                     verifyBtn.innerHTML = '<span>Verify Code</span> <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i><span class="shimmer"></span>';
-                    // Re-check enable state based on box content
                     _checkOtpComplete();
                 }
             });
         }
 
-        // ── Credential form submit ────────────────────────────────────
+        // Credential form submit
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email    = emailInput.value;
@@ -684,10 +729,8 @@ class AuthManager {
                 const data = await this.login(email, password, null);
 
                 if (data.otp_required) {
-                    // Slide to OTP panel — keep button disabled (user is on OTP step now)
-                    _showOtpPanel(data.temp_token, data.phone_masked);
+                    _showOtpPanel(data.temp_token, data.phone_masked, data.phone_required);
                 } else {
-                    // Direct token (no phone registered or WhatsApp disabled)
                     window.location.href = 'index.html';
                 }
             } catch (error) {
@@ -698,14 +741,10 @@ class AuthManager {
         });
     }
 
-    // Apply Theme
-    // Apply corporate branding dynamically
     applyTheme(theme) {
         if (!theme) return;
 
-        console.log("Applying theme:", theme);
         const root = document.documentElement;
-
         const defaultLogo = '/static/inferth_mapping_mark.png';
         const hasCustomLogo = Boolean(theme.has_custom_logo && theme.logo && !theme.logo.includes('inferth_mapping'));
 
@@ -714,7 +753,6 @@ class AuthManager {
         let navBg = theme.navbar_bg;
         let navText = theme.navbar_text;
 
-        // Any company using the default logo MUST use the theme colours for Inferth Mapping
         if (!hasCustomLogo) {
             primary = '#18181b';
             secondary = '#ef4835';
@@ -733,14 +771,12 @@ class AuthManager {
         root.style.setProperty('--nav-bg', navBg);
         root.style.setProperty('--nav-text-color', navText);
 
-        // Update Brand Name Text
         const brandName = document.getElementById('nav-brand-name');
         if (brandName) {
             brandName.textContent = this.user.company_name || 'Inferth Mapping';
             brandName.style.color = hasCustomLogo ? primary : '#ff8c00';
         }
 
-        // Update Logo & Favicon
         const brandLogo = theme.logo || defaultLogo;
         const logos = document.querySelectorAll('.brand-logo, .auth-logo');
         logos.forEach(img => {
@@ -760,7 +796,6 @@ class AuthManager {
             document.head.appendChild(favicon);
         }
 
-        // Update User Identity Display
         if (this.user) {
             const userDisplay = document.getElementById('user-role-display');
             if (userDisplay) {
@@ -770,19 +805,16 @@ class AuthManager {
         }
     }
 
-    // Store authentication data
     setAuth(token, user) {
         this.token = token;
         this.user = user;
         localStorage.setItem('auth_token', token);
         localStorage.setItem('user', JSON.stringify(user));
 
-        // Apply theme immediately
         if (user.theme) {
             this.applyTheme(user.theme);
         }
     }
 }
 
-// Create global instance
 window.AuthManager = new AuthManager();

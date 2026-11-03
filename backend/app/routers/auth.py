@@ -26,7 +26,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # WhatsApp OTP Store
 # Process-local in-memory store (single uvicorn worker — fine for Railway).
 # Key: temp_token (opaque URL-safe string, 32 bytes).
-# Value: {hashed_otp, user_id, expires_at, attempts, last_sent_at, user_payload}
+# Value: {hashed_otp, user_id, expires_at, attempts, last_sent_at, has_sent, user_payload, token_payload}
 # ---------------------------------------------------------------------------
 _otp_store: dict[str, dict] = {}
 _OTP_TTL_SECONDS = 300        # 5 minutes validity
@@ -43,10 +43,10 @@ def _hash_otp(otp: str) -> str:
     return hashlib.sha256(otp.encode()).hexdigest()
 
 def _mask_phone(phone: str) -> str:
-    """Return e.g. '263*** ***456' for safe display."""
+    """Return e.g. '+263 ••• ••456' for display."""
     if not phone or len(phone) < 6:
         return "***"
-    return phone[:3] + "*** ***" + phone[-3:]
+    return f"+{phone[:3]} ••• ••{phone[-3:]}"
 
 DEFAULT_INFERTH_LOGO = "/static/inferth_mapping_logo.png"
 
@@ -103,11 +103,6 @@ def get_field(obj, field_name, default=None):
     return getattr(obj, field_name, default)
 
 def resolve_tenant_theme(tenant) -> dict:
-    """
-    Guarantees that any company using the default logo MUST use the theme colours
-    for Inferth Mapping (#ff8c00, #ef4835, #ffffff white navbar).
-    Only companies with an actual verified custom logo file on disk use custom colors.
-    """
     if not tenant:
         return dict(INFERTH_DEFAULT_THEME)
         
@@ -140,22 +135,22 @@ class LoginRequest(BaseModel):
     tenant_id: int | None = None
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    user: dict
-
-class OtpLoginResponse(BaseModel):
-    otp_required: bool
-    temp_token: str
-    phone_masked: str
-    message: str
+    access_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
+    user: Optional[dict] = None
+    otp_required: Optional[bool] = False
+    phone_required: Optional[bool] = False
+    temp_token: Optional[str] = None
+    phone_masked: Optional[str] = None
+    message: Optional[str] = None
 
 class VerifyOtpRequest(BaseModel):
     temp_token: str
     otp: str
 
-class ResendOtpRequest(BaseModel):
+class SendOtpRequest(BaseModel):
     temp_token: str
+    phone: Optional[str] = None
 
 class SetupAccountRequest(BaseModel):
     token: str
@@ -185,53 +180,37 @@ async def create_tenant(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Create a new tenant"""
-    # 1. Check if tenant exists
     res = await db.execute(select(Tenant).where(Tenant.name == name))
     if res.scalars().first():
         raise HTTPException(status_code=400, detail="Company already exists")
     
-    # 2. Save Logo (If provided)
     logo_url = None
     primary_color = "#2D5F6D"
     secondary_color = "#EF4835"
 
     if logo:
-        # Resolve frontend directory dynamically
         current_file = Path(__file__).resolve()
-        
-        # Potential paths
         candidates = [
-            # Local: auth.py -> routers -> app -> backend -> Root -> frontend
             current_file.parent.parent.parent.parent / "frontend",
-            # Docker: auth.py -> routers -> app -> /app -> frontend
             current_file.parent.parent.parent / "frontend",
-            Path("/app/frontend")
+            Path("/app/frontend"),
+            Path("frontend")
         ]
-        
         static_dir = None
         for path in candidates:
             if path.exists() and path.is_dir():
                 static_dir = path
                 break
-                
         if not static_dir:
-            # Fallback to local static if nothing found
             static_dir = Path("static")
-        
         static_dir.mkdir(exist_ok=True)
-        
         filename = f"{name.lower().replace(' ', '_')}_logo.png"
         file_path = static_dir / filename
-        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(logo.file, buffer)
-            
-        # 3. Extract Colors
         primary_color, secondary_color = extract_brand_colors(file_path)
         logo_url = f"/static/{filename}"
     
-    # 4. Create Tenant
     new_tenant = Tenant(
         name=name,
         logo_url=logo_url,
@@ -256,19 +235,14 @@ async def get_tenants(
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    """List all available companies (Public for login, Admin for ID view)"""
-    # 1. Immediate Fail-Fast if DB not ready
     if not getattr(request.app.state, "db_ready", False):
-        print("Tenants list requested but DB not ready. Returning empty list.")
         return []
 
     try:
-        # 2. Use direct SQL with a short timeout to prevent 502s if DB is busy/locked
         query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color FROM tenants ORDER BY id ASC")
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
-        # 3. Format with resolve_tenant_theme (strictly enforces Inferth colors for default logo)
         formatted = []
         for t in tenants:
             theme = resolve_tenant_theme(t)
@@ -298,7 +272,6 @@ async def update_tenant(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Update a tenant name, logo, and theme colors (admin only)"""
     from app.models import Device
 
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
@@ -346,7 +319,6 @@ async def update_tenant(
     if new_name and str(new_name).strip():
         old_name = tenant.name
         tenant.name = str(new_name).strip()
-        # Keep devices in sync if company name changed
         if old_name != tenant.name:
             await db.execute(
                 update(Device).where(Device.tenant_id == tenant.id).values(company=tenant.name)
@@ -378,7 +350,6 @@ async def update_tenant(
         if navbar_text_color:
             tenant.navbar_text_color = navbar_text_color
     else:
-        # Color-only update
         if primary_color:
             tenant.primary_color = str(primary_color).strip()
         if secondary_color:
@@ -409,7 +380,6 @@ async def delete_tenant(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Delete a tenant (admin only)"""
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalars().first()
     if not tenant:
@@ -417,16 +387,9 @@ async def delete_tenant(
     await db.delete(tenant)
     await db.commit()
 
-
-
-# In-memory login brute-force limiter: per (IP, email) pair, N failures lock
-# the pair for LOCKOUT minutes. Process-local (single uvicorn worker); a Redis
-# backend can replace it if multi-worker is ever enabled.
 _login_attempts: dict[str, list] = {}
 
 def _login_key(request: Request, email: str) -> str:
-    # Keyed on the account only: client IPs are spoofable through the proxy
-    # headers, while the credential under attack is the email+password pair.
     return email.strip().lower()
 
 def _check_login_rate(key: str) -> None:
@@ -455,7 +418,6 @@ def _record_login_failure(key: str) -> None:
             _login_attempts.pop(k, None)
 
 def _build_full_token_payload(user: User) -> dict:
-    """Build the full JWT payload used after successful login."""
     return {
         "sub": user.email,
         "user_id": user.id,
@@ -466,7 +428,6 @@ def _build_full_token_payload(user: User) -> dict:
     }
 
 def _build_user_response(user: User) -> dict:
-    """Build the user dict returned in the login response."""
     return {
         "id": user.id,
         "email": user.email,
@@ -492,15 +453,7 @@ async def login(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Login with email and password.
-
-    If the user has a WhatsApp phone number registered, returns an OTP challenge
-    instead of the access token directly.  The client should then call
-    POST /auth/verify-otp with the temp_token and the 6-digit code.
-
-    If no phone is registered, the full access token is returned immediately
-    (same behaviour as before).
-    """
+    """Login with email and password. Every user undergoes WhatsApp OTP verification."""
     if not getattr(request.app.state, "db_ready", False):
         raise HTTPException(status_code=503, detail="Database is initializing. Please try again in a few seconds.")
 
@@ -508,7 +461,6 @@ async def login(
     _check_login_rate(rate_key)
 
     try:
-        # Python 3.10: Use wait_for instead of timeout context manager
         result = await asyncio.wait_for(
             db.execute(select(User).options(joinedload(User.tenant)).where(func.lower(User.email) == data.email.strip().lower())),
             timeout=10
@@ -523,16 +475,13 @@ async def login(
             )
 
         if data.tenant_id and user.tenant_id != data.tenant_id:
-                _record_login_failure(rate_key)
-                raise HTTPException(
+            _record_login_failure(rate_key)
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials"
             )
 
         if not user.is_active:
-            # A deactivated account must never silently reactivate on login —
-            # an admin must re-enable it. (Invited users activate via their
-            # setup link, which sets is_active and clears setup_token.)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account disabled. Contact your administrator."
@@ -540,13 +489,10 @@ async def login(
 
         _login_attempts.pop(rate_key, None)
 
-        # Update last_login
         user.last_login = datetime.utcnow()
-
-        # Audit Log
         audit = AuditLog(
             user_id=user.id,
-            action="LOGIN",
+            action="LOGIN_ATTEMPT",
             details={"email": user.email},
             ip_address=request.client.host if request.client else None
         )
@@ -561,62 +507,135 @@ async def login(
         raise HTTPException(status_code=500, detail="An internal error occurred during login")
 
     # ------------------------------------------------------------------
-    # WhatsApp OTP challenge — only when the user has a phone registered
+    # WhatsApp OTP 2FA for EVERY sign-in
     # ------------------------------------------------------------------
+    _purge_expired_otps()
+    temp_token = secrets.token_urlsafe(32)
     phone = normalize_msisdn(user.phone)
-    if phone and settings.WHATSAPP_ENABLED:
-        # Purge stale entries to keep memory tidy
-        _purge_expired_otps()
 
-        # Generate a 6-digit OTP
+    if phone:
         otp = f"{random.SystemRandom().randint(0, 999999):06d}"
-        temp_token = secrets.token_urlsafe(32)
-
         _otp_store[temp_token] = {
             "hashed_otp": _hash_otp(otp),
             "user_id": user.id,
             "expires_at": datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS),
             "attempts": 0,
             "last_sent_at": datetime.utcnow(),
-            # Cache the full token payload and user response so verify-otp
-            # doesn't need another DB hit.
+            "has_sent": True,
             "token_payload": _build_full_token_payload(user),
             "user_payload": _build_user_response(user),
         }
 
         message = (
-            f"*Inferth Mapping Security Code*\n\n"
-            f"Your one-time login code is: *{otp}*\n\n"
-            f"This code expires in 5 minutes. Do not share it with anyone.\n"
-            f"If you did not request this, please contact support immediately."
+            f"🔐 *Inferth Mapping Security Code*\n\n"
+            f"Your one-time sign-in code is: *{otp}*\n\n"
+            f"⏱ This code expires in 5 minutes. Do not share it with anyone."
         )
+
         background_tasks.add_task(send_whatsapp, phone, message)
+        print(f"[WhatsApp OTP] Dispatched to {phone}: {otp}")
 
         return {
             "otp_required": True,
+            "phone_required": False,
             "temp_token": temp_token,
             "phone_masked": _mask_phone(phone),
-            "message": f"A 6-digit OTP has been sent to your WhatsApp number ending in {phone[-3:]}."
+            "message": f"A 6-digit code has been sent to your WhatsApp number ({_mask_phone(phone)})."
+        }
+    else:
+        # User has no phone on record yet — require WhatsApp phone registration
+        _otp_store[temp_token] = {
+            "hashed_otp": "",
+            "user_id": user.id,
+            "expires_at": datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS),
+            "attempts": 0,
+            "last_sent_at": datetime.utcnow() - timedelta(seconds=_OTP_RESEND_COOLDOWN + 10),
+            "has_sent": False,
+            "token_payload": _build_full_token_payload(user),
+            "user_payload": _build_user_response(user),
         }
 
-    # ------------------------------------------------------------------
-    # No phone / WhatsApp disabled — issue token immediately (legacy path)
-    # ------------------------------------------------------------------
-    token = create_access_token(_build_full_token_payload(user))
+        return {
+            "otp_required": True,
+            "phone_required": True,
+            "temp_token": temp_token,
+            "phone_masked": "",
+            "message": "Please enter your WhatsApp number to receive your login verification code."
+        }
+
+
+@router.post("/send-otp")
+async def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
+    """Send or re-send WhatsApp OTP. Supports linking/updating phone number."""
+    _purge_expired_otps()
+
+    record = _otp_store.get(data.temp_token)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session. Please log in again."
+        )
+
+    cooldown_remaining = (
+        record["last_sent_at"] + timedelta(seconds=_OTP_RESEND_COOLDOWN) - datetime.utcnow()
+    ).total_seconds()
+    if cooldown_remaining > 0 and record.get("has_sent"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {int(cooldown_remaining) + 1} seconds before requesting a new code."
+        )
+
+    from app.db import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == record["user_id"]))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if data.phone and str(data.phone).strip():
+            norm_phone = normalize_msisdn(data.phone)
+            if not norm_phone:
+                raise HTTPException(status_code=400, detail="Invalid WhatsApp phone number. Please use format like 0771234567 or +263771234567")
+            user.phone = norm_phone
+            await db.commit()
+            phone = norm_phone
+        else:
+            phone = normalize_msisdn(user.phone)
+
+    if not phone:
+        raise HTTPException(status_code=400, detail="Please enter your WhatsApp phone number.")
+
+    otp = f"{random.SystemRandom().randint(0, 999999):06d}"
+    record["hashed_otp"] = _hash_otp(otp)
+    record["expires_at"] = datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS)
+    record["attempts"] = 0
+    record["last_sent_at"] = datetime.utcnow()
+    record["has_sent"] = True
+
+    message = (
+        f"🔐 *Inferth Mapping Security Code*\n\n"
+        f"Your one-time login code is: *{otp}*\n\n"
+        f"⏱ This code expires in 5 minutes. Do not share it with anyone."
+    )
+
+    background_tasks.add_task(send_whatsapp, phone, message)
+    print(f"[WhatsApp OTP] Sent to {phone}: {otp}")
+
     return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": _build_user_response(user)
+        "status": "success",
+        "phone_masked": _mask_phone(phone),
+        "message": f"Verification code sent to WhatsApp ({_mask_phone(phone)})"
     }
+
+
+@router.post("/resend-otp")
+async def resend_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
+    return await send_otp(data, background_tasks)
 
 
 @router.post("/verify-otp")
 async def verify_otp(data: VerifyOtpRequest):
-    """Validate the WhatsApp OTP and exchange the temp_token for a real JWT.
-
-    Returns the same shape as /auth/login (access_token + user) so the
-    frontend can treat both paths identically after this point.
-    """
+    """Validate WhatsApp OTP and issue real JWT token."""
     _purge_expired_otps()
 
     record = _otp_store.get(data.temp_token)
@@ -641,14 +660,14 @@ async def verify_otp(data: VerifyOtpRequest):
             detail="Too many incorrect attempts. Please log in again."
         )
 
-    if _hash_otp(data.otp.strip()) != record["hashed_otp"]:
+    if not record.get("hashed_otp") or _hash_otp(data.otp.strip()) != record["hashed_otp"]:
         remaining = _OTP_MAX_ATTEMPTS - record["attempts"]
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Incorrect OTP. {max(remaining, 0)} attempt(s) remaining."
         )
 
-    # OTP correct — issue the real token
+    # Approved! Issue real token
     _otp_store.pop(data.temp_token, None)
     token = create_access_token(record["token_payload"])
     return {
@@ -658,66 +677,8 @@ async def verify_otp(data: VerifyOtpRequest):
     }
 
 
-@router.post("/resend-otp")
-async def resend_otp(data: ResendOtpRequest, background_tasks: BackgroundTasks):
-    """Re-send the WhatsApp OTP for an active session.
-
-    Enforces a 60-second cooldown between resend requests.
-    """
-    _purge_expired_otps()
-
-    record = _otp_store.get(data.temp_token)
-    if not record:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session. Please log in again."
-        )
-
-    cooldown_remaining = (
-        record["last_sent_at"] + timedelta(seconds=_OTP_RESEND_COOLDOWN) - datetime.utcnow()
-    ).total_seconds()
-    if cooldown_remaining > 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Please wait {int(cooldown_remaining) + 1} seconds before requesting a new code."
-        )
-
-    # Generate fresh OTP, reset expiry & attempts
-    otp = f"{random.SystemRandom().randint(0, 999999):06d}"
-    record["hashed_otp"] = _hash_otp(otp)
-    record["expires_at"] = datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS)
-    record["attempts"] = 0
-    record["last_sent_at"] = datetime.utcnow()
-
-    # We need the user's phone — it's embedded in the cached token payload user_id
-    # but we stored user_payload which has id. Derive phone from user_payload.
-    # The phone was already normalized when the OTP was first issued; we don't
-    # store it in the record (security), so we re-derive it from the user cache.
-    # For simplicity, re-read user from DB only on resend (low frequency).
-    # We store user_id in the record for exactly this purpose.
-    from app.db import AsyncSessionLocal
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(User).where(User.id == record["user_id"]))
-        user = result.scalars().first()
-
-    phone = normalize_msisdn(user.phone) if user else None
-    if not phone:
-        raise HTTPException(status_code=400, detail="No WhatsApp number on file for this account.")
-
-    message = (
-        f"*Inferth Mapping Security Code*\n\n"
-        f"Your new one-time login code is: *{otp}*\n\n"
-        f"This code expires in 5 minutes. Do not share it with anyone."
-    )
-    background_tasks.add_task(send_whatsapp, phone, message)
-
-    return {"message": "A new OTP has been sent to your WhatsApp number."}
-
-
 @router.post("/setup-account")
 async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(get_db)):
-    """Complete account setup by setting password"""
-    # Find user with this setup token
     result = await db.execute(select(User).where(User.setup_token == data.token))
     user = result.scalars().first()
     
@@ -744,17 +705,15 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
                 detail="Invalid or expired setup token"
             )
 
-    # Set password, activate account, invalidate any previously issued tokens
     user.hashed_password = hash_password(data.password)
     user.is_active = True
-    user.setup_token = None  # Invalidate token
+    user.setup_token = None
     user.setup_token_expires = None
     user.token_version = (user.token_version or 0) + 1
 
     await db.commit()
     await db.refresh(user)
 
-    # Generate login token
     token = create_access_token({
         "sub": user.email,
         "user_id": user.id,
@@ -775,11 +734,9 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
         }
     }
 
-# (Maintenance: Redundant endpoints removed, see users.py for User CRUD)
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
-    """Get current user info"""
     return {
         "id": current_user.id,
         "email": current_user.email,
@@ -797,9 +754,9 @@ async def get_me(current_user: User = Depends(get_current_user)):
         }
     }
 
+
 @router.get("/verify-token/{token}")
 async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
-    """Verify if a setup token is valid"""
     result = await db.execute(select(User).where(User.setup_token == token))
     user = result.scalars().first()
 
