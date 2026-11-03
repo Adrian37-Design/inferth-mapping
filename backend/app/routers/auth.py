@@ -14,10 +14,39 @@ from typing import Optional
 import asyncio
 import secrets
 import shutil
+import random
+import hashlib
 from pathlib import Path
 from app.utils.colors import extract_brand_colors
+from app.services.whatsapp import normalize_msisdn, send_whatsapp
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# ---------------------------------------------------------------------------
+# WhatsApp OTP Store
+# Process-local in-memory store (single uvicorn worker — fine for Railway).
+# Key: temp_token (opaque URL-safe string, 32 bytes).
+# Value: {hashed_otp, user_id, expires_at, attempts, last_sent_at, user_payload}
+# ---------------------------------------------------------------------------
+_otp_store: dict[str, dict] = {}
+_OTP_TTL_SECONDS = 300        # 5 minutes validity
+_OTP_MAX_ATTEMPTS = 5         # wrong guesses before invalidation
+_OTP_RESEND_COOLDOWN = 60     # seconds between resend requests
+
+def _purge_expired_otps() -> None:
+    now = datetime.utcnow()
+    expired = [k for k, v in _otp_store.items() if v["expires_at"] < now]
+    for k in expired:
+        _otp_store.pop(k, None)
+
+def _hash_otp(otp: str) -> str:
+    return hashlib.sha256(otp.encode()).hexdigest()
+
+def _mask_phone(phone: str) -> str:
+    """Return e.g. '263*** ***456' for safe display."""
+    if not phone or len(phone) < 6:
+        return "***"
+    return phone[:3] + "*** ***" + phone[-3:]
 
 DEFAULT_INFERTH_LOGO = "/static/inferth_mapping_logo.png"
 
@@ -114,6 +143,19 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     user: dict
+
+class OtpLoginResponse(BaseModel):
+    otp_required: bool
+    temp_token: str
+    phone_masked: str
+    message: str
+
+class VerifyOtpRequest(BaseModel):
+    temp_token: str
+    otp: str
+
+class ResendOtpRequest(BaseModel):
+    temp_token: str
 
 class SetupAccountRequest(BaseModel):
     token: str
@@ -412,9 +454,53 @@ def _record_login_failure(key: str) -> None:
         for k in [k for k, v in _login_attempts.items() if v[1] and v[1] < cutoff]:
             _login_attempts.pop(k, None)
 
-@router.post("/login", response_model=LoginResponse)
-async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    """Login with email and password"""
+def _build_full_token_payload(user: User) -> dict:
+    """Build the full JWT payload used after successful login."""
+    return {
+        "sub": user.email,
+        "user_id": user.id,
+        "tenant_id": user.tenant_id,
+        "role": user.role,
+        "is_admin": user.is_admin,
+        "tv": user.token_version or 0
+    }
+
+def _build_user_response(user: User) -> dict:
+    """Build the user dict returned in the login response."""
+    return {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "is_admin": user.is_admin,
+        "tenant_id": user.tenant_id,
+        "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
+        "last_login": user.last_login,
+        "theme": resolve_tenant_theme(user.tenant),
+        "subscription": {
+            "plan": user.tenant.plan if user.tenant else "Basic",
+            "status": user.tenant.subscription_status if user.tenant else "active",
+            "cycle": user.tenant.billing_cycle if user.tenant else "Monthly",
+            "next_billing": user.tenant.next_billing_date.isoformat() if user.tenant and user.tenant.next_billing_date else None,
+            "features": user.tenant.features if user.tenant else {"reports": False, "advanced_rules": False, "geofencing": True}
+        }
+    }
+
+@router.post("/login")
+async def login(
+    data: LoginRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Login with email and password.
+
+    If the user has a WhatsApp phone number registered, returns an OTP challenge
+    instead of the access token directly.  The client should then call
+    POST /auth/verify-otp with the temp_token and the 6-digit code.
+
+    If no phone is registered, the full access token is returned immediately
+    (same behaviour as before).
+    """
     if not getattr(request.app.state, "db_ready", False):
         raise HTTPException(status_code=503, detail="Database is initializing. Please try again in a few seconds.")
 
@@ -474,36 +560,159 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         print(f"Login error: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred during login")
 
-    token = create_access_token({
-        "sub": user.email,
-        "user_id": user.id,
-        "tenant_id": user.tenant_id,
-        "role": user.role,
-        "is_admin": user.is_admin,
-        "tv": user.token_version or 0
-    })
-    
+    # ------------------------------------------------------------------
+    # WhatsApp OTP challenge — only when the user has a phone registered
+    # ------------------------------------------------------------------
+    phone = normalize_msisdn(user.phone)
+    if phone and settings.WHATSAPP_ENABLED:
+        # Purge stale entries to keep memory tidy
+        _purge_expired_otps()
+
+        # Generate a 6-digit OTP
+        otp = f"{random.SystemRandom().randint(0, 999999):06d}"
+        temp_token = secrets.token_urlsafe(32)
+
+        _otp_store[temp_token] = {
+            "hashed_otp": _hash_otp(otp),
+            "user_id": user.id,
+            "expires_at": datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS),
+            "attempts": 0,
+            "last_sent_at": datetime.utcnow(),
+            # Cache the full token payload and user response so verify-otp
+            # doesn't need another DB hit.
+            "token_payload": _build_full_token_payload(user),
+            "user_payload": _build_user_response(user),
+        }
+
+        message = (
+            f"*Inferth Mapping Security Code*\n\n"
+            f"Your one-time login code is: *{otp}*\n\n"
+            f"This code expires in 5 minutes. Do not share it with anyone.\n"
+            f"If you did not request this, please contact support immediately."
+        )
+        background_tasks.add_task(send_whatsapp, phone, message)
+
+        return {
+            "otp_required": True,
+            "temp_token": temp_token,
+            "phone_masked": _mask_phone(phone),
+            "message": f"A 6-digit OTP has been sent to your WhatsApp number ending in {phone[-3:]}."
+        }
+
+    # ------------------------------------------------------------------
+    # No phone / WhatsApp disabled — issue token immediately (legacy path)
+    # ------------------------------------------------------------------
+    token = create_access_token(_build_full_token_payload(user))
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "role": user.role,
-            "is_admin": user.is_admin,
-            "tenant_id": user.tenant_id,
-            "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
-            "last_login": user.last_login,
-            "theme": resolve_tenant_theme(user.tenant),
-            "subscription": {
-                "plan": user.tenant.plan if user.tenant else "Basic",
-                "status": user.tenant.subscription_status if user.tenant else "active",
-                "cycle": user.tenant.billing_cycle if user.tenant else "Monthly",
-                "next_billing": user.tenant.next_billing_date.isoformat() if user.tenant and user.tenant.next_billing_date else None,
-                "features": user.tenant.features if user.tenant else {"reports": False, "advanced_rules": False, "geofencing": True}
-            }
-        }
+        "user": _build_user_response(user)
     }
+
+
+@router.post("/verify-otp")
+async def verify_otp(data: VerifyOtpRequest):
+    """Validate the WhatsApp OTP and exchange the temp_token for a real JWT.
+
+    Returns the same shape as /auth/login (access_token + user) so the
+    frontend can treat both paths identically after this point.
+    """
+    _purge_expired_otps()
+
+    record = _otp_store.get(data.temp_token)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session. Please log in again."
+        )
+
+    if datetime.utcnow() > record["expires_at"]:
+        _otp_store.pop(data.temp_token, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OTP has expired. Please log in again."
+        )
+
+    record["attempts"] += 1
+    if record["attempts"] > _OTP_MAX_ATTEMPTS:
+        _otp_store.pop(data.temp_token, None)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Please log in again."
+        )
+
+    if _hash_otp(data.otp.strip()) != record["hashed_otp"]:
+        remaining = _OTP_MAX_ATTEMPTS - record["attempts"]
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Incorrect OTP. {max(remaining, 0)} attempt(s) remaining."
+        )
+
+    # OTP correct — issue the real token
+    _otp_store.pop(data.temp_token, None)
+    token = create_access_token(record["token_payload"])
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": record["user_payload"]
+    }
+
+
+@router.post("/resend-otp")
+async def resend_otp(data: ResendOtpRequest, background_tasks: BackgroundTasks):
+    """Re-send the WhatsApp OTP for an active session.
+
+    Enforces a 60-second cooldown between resend requests.
+    """
+    _purge_expired_otps()
+
+    record = _otp_store.get(data.temp_token)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session. Please log in again."
+        )
+
+    cooldown_remaining = (
+        record["last_sent_at"] + timedelta(seconds=_OTP_RESEND_COOLDOWN) - datetime.utcnow()
+    ).total_seconds()
+    if cooldown_remaining > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {int(cooldown_remaining) + 1} seconds before requesting a new code."
+        )
+
+    # Generate fresh OTP, reset expiry & attempts
+    otp = f"{random.SystemRandom().randint(0, 999999):06d}"
+    record["hashed_otp"] = _hash_otp(otp)
+    record["expires_at"] = datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS)
+    record["attempts"] = 0
+    record["last_sent_at"] = datetime.utcnow()
+
+    # We need the user's phone — it's embedded in the cached token payload user_id
+    # but we stored user_payload which has id. Derive phone from user_payload.
+    # The phone was already normalized when the OTP was first issued; we don't
+    # store it in the record (security), so we re-derive it from the user cache.
+    # For simplicity, re-read user from DB only on resend (low frequency).
+    # We store user_id in the record for exactly this purpose.
+    from app.db import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == record["user_id"]))
+        user = result.scalars().first()
+
+    phone = normalize_msisdn(user.phone) if user else None
+    if not phone:
+        raise HTTPException(status_code=400, detail="No WhatsApp number on file for this account.")
+
+    message = (
+        f"*Inferth Mapping Security Code*\n\n"
+        f"Your new one-time login code is: *{otp}*\n\n"
+        f"This code expires in 5 minutes. Do not share it with anyone."
+    )
+    background_tasks.add_task(send_whatsapp, phone, message)
+
+    return {"message": "A new OTP has been sent to your WhatsApp number."}
+
 
 @router.post("/setup-account")
 async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(get_db)):
@@ -566,13 +775,6 @@ async def setup_account(data: SetupAccountRequest, db: AsyncSession = Depends(ge
         }
     }
 
-    return {
-        "id": new_user.id,
-        "email": new_user.email,
-        "is_admin": new_user.is_admin,
-        "is_active": new_user.is_active,
-        "setup_token": setup_token
-    }
 # (Maintenance: Redundant endpoints removed, see users.py for User CRUD)
 
 @router.get("/me")
@@ -619,5 +821,3 @@ async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
         "email": user.email,
         "valid": True
     }
-
-    return user
