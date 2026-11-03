@@ -112,6 +112,57 @@ class Position(Base):
     ignition = Column(Boolean, nullable=True)        # True = Ignition On, False = Off
     dtc_fault_codes = Column(JSON, nullable=True)    # Array of DTC codes e.g. ["P0300"]
 
+    # Honda Fit GP1 Hybrid â Extended CAN & OBD-II Telemetry
+    gear = Column(String, nullable=True)             # CVT selector: P / R / N / D
+    pedal_pct = Column(Integer, nullable=True)       # Accelerator pedal position 0-100 %
+    steering_deg = Column(Float, nullable=True)      # Steering wheel angle (deg, - = left)
+    obd_speed = Column(Integer, nullable=True)       # CAN vehicle speed (km/h)
+
+    # Wheel dynamics & safety
+    ws_fl = Column(Float, nullable=True)             # Wheel speed Front-Left (km/h)
+    ws_fr = Column(Float, nullable=True)             # Wheel speed Front-Right
+    ws_rl = Column(Float, nullable=True)             # Wheel speed Rear-Left
+    ws_rr = Column(Float, nullable=True)             # Wheel speed Rear-Right
+    traction_loss = Column(Boolean, nullable=True)   # VSA / ESP traction intervention
+    brake_pressed = Column(Boolean, nullable=True)   # Brake pedal switch
+    brake_bar = Column(Float, nullable=True)         # Master cylinder pressure (Bar)
+    abs_active = Column(Boolean, nullable=True)      # ABS pump active
+    lateral_g = Column(Float, nullable=True)         # Lateral acceleration (m/s2)
+    yaw_rate = Column(Float, nullable=True)          # Yaw rate (deg/s)
+    crash_flag = Column(Boolean, nullable=True)      # SRS airbag / crash detected
+
+    # IMA Hybrid system
+    hybrid_soc = Column(Integer, nullable=True)      # IMA battery state of charge (%)
+    motor_kw = Column(Float, nullable=True)          # Hybrid motor (+assist / -regen kW)
+    inverter_temp = Column(Float, nullable=True)     # Inverter IGBT temperature (C)
+    battery_temp = Column(Float, nullable=True)      # Hybrid pack temperature (C)
+    hybrid_auto_stop = Column(Boolean, nullable=True) # Eco idle-stop engaged
+
+    # Fluids & active OBD
+    cvt_fluid_temp = Column(Float, nullable=True)    # CVT fluid temperature (C)
+    engine_load = Column(Float, nullable=True)       # Engine load % (OBD PID 04)
+    map_kpa = Column(Integer, nullable=True)         # Manifold absolute pressure (kPa)
+    timing_advance = Column(Float, nullable=True)    # Ignition timing advance (deg BTDC)
+    intake_temp = Column(Float, nullable=True)       # Intake air temperature (C)
+    maf_gps = Column(Float, nullable=True)           # Mass air flow (g/s)
+    runtime_sec = Column(Integer, nullable=True)     # Engine runtime since start (s)
+    throttle_pct = Column(Float, nullable=True)      # Relative throttle position (%)
+    battery_12v = Column(Float, nullable=True)       # ECU / 12V rail voltage (V)
+    oil_life_pct = Column(Integer, nullable=True)    # Maintenance Minder oil life (%)
+
+    # Body, comfort & security
+    door_driver = Column(Boolean, nullable=True)     # Driver door ajar
+    door_passenger = Column(Boolean, nullable=True)  # Passenger door ajar
+    door_rear = Column(Boolean, nullable=True)       # Rear door ajar
+    trunk = Column(Boolean, nullable=True)           # Boot / trunk open
+    seatbelt_unbuckled = Column(Boolean, nullable=True)  # Driver seatbelt unlatched
+    handbrake = Column(Boolean, nullable=True)       # Handbrake engaged
+    check_engine_mil = Column(Boolean, nullable=True) # MIL / Check Engine light
+    tpms_warning = Column(Boolean, nullable=True)    # Low tyre pressure warning
+    ac_on = Column(Boolean, nullable=True)           # A/C compressor clutch engaged
+    headlights = Column(Boolean, nullable=True)      # Headlights on
+    low_fuel = Column(Boolean, nullable=True)        # Low fuel warning (<= 12 %)
+
     device = relationship("Device")
 
 

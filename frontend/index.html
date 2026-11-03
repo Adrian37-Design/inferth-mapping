@@ -251,6 +251,170 @@
                             </div>
                         </div>
 
+                        <!-- Section 2: Vehicle CAN & Hybrid Telemetry -->
+                        <div class="detail-section" id="detail-can-section" style="display:none;">
+                            <div class="detail-section-head">
+                                <h4 class="section-title"><i class="fas fa-microchip"></i> CAN & Hybrid Telemetry</h4>
+                                <button type="button" class="detail-section-toggle" aria-expanded="false" title="Expand"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="detail-section-body hidden">
+                                <!-- Powertrain & Driving -->
+                                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:8px 0 4px 2px; letter-spacing:0.5px;">
+                                    <i class="fas fa-tachometer-alt" style="margin-right:4px;"></i> Powertrain
+                                </div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-cog"></i>
+                                        <span class="status-label">Gear</span>
+                                        <span class="status-value" id="detail-can-gear">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                        <span class="status-label">CAN Speed</span>
+                                        <span class="status-value" id="detail-can-speed">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-shoe-prints"></i>
+                                        <span class="status-label">Pedal</span>
+                                        <span class="status-value" id="detail-can-pedal">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-compass"></i>
+                                        <span class="status-label">Steering</span>
+                                        <span class="status-value" id="detail-can-steering">--</span>
+                                    </div>
+                                </div>
+
+                                <!-- IMA Hybrid System -->
+                                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:12px 0 4px 2px; letter-spacing:0.5px;">
+                                    <i class="fas fa-bolt" style="margin-right:4px; color:#10b981;"></i> IMA Hybrid System
+                                </div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-battery-three-quarters" style="color:#10b981;"></i>
+                                        <span class="status-label">Hybrid SoC</span>
+                                        <span class="status-value" id="detail-can-soc">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-charging-station" style="color:#00d9ff;"></i>
+                                        <span class="status-label">Motor Output</span>
+                                        <span class="status-value" id="detail-can-motor">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-temperature-high" style="color:#f59e0b;"></i>
+                                        <span class="status-label">Inverter Temp</span>
+                                        <span class="status-value" id="detail-can-inv-temp">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-battery-half" style="color:#f59e0b;"></i>
+                                        <span class="status-label">Pack Temp</span>
+                                        <span class="status-value" id="detail-can-bat-temp">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-leaf" style="color:#10b981;"></i>
+                                        <span class="status-label">Eco Auto-Stop</span>
+                                        <span class="status-value" id="detail-can-auto-stop">--</span>
+                                    </div>
+                                </div>
+
+                                <!-- Safety & Dynamics -->
+                                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:12px 0 4px 2px; letter-spacing:0.5px;">
+                                    <i class="fas fa-shield-alt" style="margin-right:4px; color:#3b82f6;"></i> Safety & Dynamics
+                                </div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-compress-arrows-alt"></i>
+                                        <span class="status-label">Brake Pressure</span>
+                                        <span class="status-value" id="detail-can-brakebar">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-car-burst" style="color:#ef4444;"></i>
+                                        <span class="status-label">Crash Sensor</span>
+                                        <span class="status-value" id="detail-can-crash">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-shield-halved"></i>
+                                        <span class="status-label">ABS / VSA</span>
+                                        <span class="status-value" id="detail-can-abs">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-arrows-alt-h"></i>
+                                        <span class="status-label">Lateral G</span>
+                                        <span class="status-value" id="detail-can-latg">--</span>
+                                    </div>
+                                </div>
+
+                                <!-- Fluids & OBD Engine -->
+                                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:12px 0 4px 2px; letter-spacing:0.5px;">
+                                    <i class="fas fa-tint" style="margin-right:4px; color:#ec4899;"></i> Fluids & Engine
+                                </div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-oil-can" style="color:#ec4899;"></i>
+                                        <span class="status-label">CVT Fluid</span>
+                                        <span class="status-value" id="detail-can-cvt-temp">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-wrench" style="color:#10b981;"></i>
+                                        <span class="status-label">Oil Life</span>
+                                        <span class="status-value" id="detail-can-oillife">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-wind"></i>
+                                        <span class="status-label">Intake Temp</span>
+                                        <span class="status-value" id="detail-can-intake">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-gauge-high"></i>
+                                        <span class="status-label">Manifold MAP</span>
+                                        <span class="status-value" id="detail-can-map">--</span>
+                                    </div>
+                                </div>
+
+                                <!-- Body & Comfort -->
+                                <div style="font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:12px 0 4px 2px; letter-spacing:0.5px;">
+                                    <i class="fas fa-car" style="margin-right:4px;"></i> Body & Security
+                                </div>
+                                <div class="status-grid">
+                                    <div class="status-item">
+                                        <i class="fas fa-door-open"></i>
+                                        <span class="status-label">Doors</span>
+                                        <span class="status-value" id="detail-can-doors">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-user-slash"></i>
+                                        <span class="status-label">Seatbelt</span>
+                                        <span class="status-value" id="detail-can-seatbelt">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-circle-pause"></i>
+                                        <span class="status-label">Handbrake</span>
+                                        <span class="status-value" id="detail-can-handbrake">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-snowflake" style="color:#06b6d4;"></i>
+                                        <span class="status-label">A/C Climate</span>
+                                        <span class="status-value" id="detail-can-ac">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-lightbulb" style="color:#f59e0b;"></i>
+                                        <span class="status-label">Headlights</span>
+                                        <span class="status-value" id="detail-can-lights">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-triangle-exclamation" style="color:#ef4444;"></i>
+                                        <span class="status-label">Check Engine</span>
+                                        <span class="status-value" id="detail-can-mil">--</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <i class="fas fa-circle-exclamation"></i>
+                                        <span class="status-label">TPMS Tyre</span>
+                                        <span class="status-value" id="detail-can-tpms">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Section 3: Quick Actions -->
                         <div class="detail-section">
                             <h4 class="section-title">Quick Actions</h4>

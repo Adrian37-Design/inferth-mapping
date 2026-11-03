@@ -355,6 +355,17 @@ async def upsert_tracking_data(
                         latest_pos.battery_voltage = float(vbatt)
                     if ign is not None:
                         latest_pos.ignition = bool(ign)
+                    # Refresh extended CAN fields on duplicate pings too
+                    if rpm_val is not None:       latest_pos.rpm = rpm_val
+                    if engine_temp_v is not None: latest_pos.engine_temp = engine_temp_v
+                    if dtc_val is not None:       latest_pos.dtc_fault_codes = dtc_val
+                    if gear_v is not None:        latest_pos.gear = gear_v
+                    if hybrid_soc_v is not None:  latest_pos.hybrid_soc = hybrid_soc_v
+                    if motor_kw_v is not None:    latest_pos.motor_kw = motor_kw_v
+                    if brake_bar_v is not None:   latest_pos.brake_bar = brake_bar_v
+                    if eng_load_v is not None:    latest_pos.engine_load = eng_load_v
+                    if batt12_v is not None:      latest_pos.battery_12v = batt12_v
+                    if crash_v is not None:       latest_pos.crash_flag = crash_v
                     latest_pos.raw = row
                     try:
                         await publish_position({

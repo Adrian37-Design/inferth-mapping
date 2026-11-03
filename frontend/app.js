@@ -1605,7 +1605,9 @@ function buildReportTable(type, data) {
         headers = ['Start', 'End', 'Duration (min)', 'Lat', 'Lng'];
         rows = ((data.stops || [])).map(s => [
             formatDateTime(s.start_time), formatDateTime(s.end_time),
-            s.duration_minutes, s.lat?.toFixed(5) || '-', s.lng?.toFixed(5) || '-'
+            s.duration_minutes,
+            reportLocLink(s.lat, s.lng, s.start_time, s.end_time),
+            reportLocLink(s.lat, s.lng, s.start_time, s.end_time)
         ]);
     } else if (type === 'mileage') {
         headers = ['Period', 'Start', 'End', 'Distance (km)', 'Points'];
@@ -1616,7 +1618,9 @@ function buildReportTable(type, data) {
     } else if (type === 'speed') {
         headers = ['Time', 'Speed (km/h)', 'Lat', 'Lng'];
         rows = (data.speeding_instances || []).map(i => [
-            formatDateTime(i.time), i.speed_kmh, i.lat?.toFixed(5) || '-', i.lng?.toFixed(5) || '-'
+            formatDateTime(i.time), i.speed_kmh,
+            reportLocLink(i.lat, i.lng, i.time, i.time),
+            reportLocLink(i.lat, i.lng, i.time, i.time)
         ]);
     } else if (type === 'summary') {
         headers = ['Period', 'Distance (km)', 'Max km/h', 'Avg km/h', 'Moving (min)', 'Idle (min)', 'Points'];
@@ -2925,7 +2929,15 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
 
     if (rawData) {
         // Only update specific telemetry fields if they are present
-        const telemetryFields = ['rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage', 'vin', 'dtc'];
+        const telemetryFields = [
+            'rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage', 'vin', 'dtc',
+            // Honda Fit GP1 Hybrid Extended CAN & OBD-II Telemetry
+            'gear', 'pedal_pct', 'steering_deg', 'obd_speed',
+            'ws_fl', 'ws_fr', 'ws_rl', 'ws_rr', 'traction_loss', 'brake_pressed', 'brake_bar', 'abs_active', 'lateral_g', 'yaw_rate', 'crash_flag',
+            'hybrid_soc', 'motor_kw', 'inverter_temp', 'battery_temp', 'hybrid_auto_stop',
+            'cvt_fluid_temp', 'map_kpa', 'timing_advance', 'intake_temp', 'maf_gps', 'runtime_sec', 'throttle_pct', 'battery_12v', 'oil_life_pct',
+            'door_driver', 'door_passenger', 'door_rear', 'trunk', 'seatbelt_unbuckled', 'handbrake', 'check_engine_mil', 'tpms_warning', 'ac_on', 'headlights', 'low_fuel'
+        ];
         telemetryFields.forEach(field => {
             if (rawData[field] !== undefined) {
                 obdData[field] = rawData[field];
@@ -3751,6 +3763,129 @@ function updateAssetDetailUI(id) {
     const noTrackerFence = !hwState || hwState === 'INVALID_POLYGON' || hwState === 'NO_POLYGON';
     setDetail('detail-geofence', zoneNames.length ? zoneNames.join(', ') : (noTrackerFence ? 'Not configured' : hwState.replace(/_/g, ' ')));
 
+    // Honda CAN & Telemetry Section
+    const canSection = document.getElementById('detail-can-section');
+    const hasCanData = t.gear !== undefined || t.hybrid_soc !== undefined || t.motor_kw !== undefined ||
+                       t.brake_bar !== undefined || t.cvt_fluid_temp !== undefined || t.check_engine_mil !== undefined ||
+                       t.ws_fl !== undefined || t.door_driver !== undefined || t.tpms_warning !== undefined ||
+                       t.obd_speed !== undefined || t.pedal_pct !== undefined || t.oil_life_pct !== undefined;
+
+    if (canSection) {
+        canSection.style.display = hasCanData ? '' : 'none';
+        if (hasCanData) {
+            setDetail('detail-can-gear', t.gear || '--');
+            setDetail('detail-can-speed', t.obd_speed !== undefined ? `${t.obd_speed} km/h` : '--');
+            setDetail('detail-can-pedal', t.pedal_pct !== undefined ? `${t.pedal_pct}%` : '--');
+            setDetail('detail-can-steering', t.steering_deg !== undefined ? `${Number(t.steering_deg) > 0 ? '+' : ''}${Number(t.steering_deg).toFixed(1)}°` : '--');
+
+            setDetail('detail-can-soc', t.hybrid_soc !== undefined ? `${t.hybrid_soc}%` : '--');
+            const socEl = document.getElementById('detail-can-soc');
+            if (socEl && t.hybrid_soc !== undefined) {
+                socEl.style.color = t.hybrid_soc > 60 ? '#10b981' : (t.hybrid_soc > 30 ? '#f59e0b' : '#ef4444');
+            }
+
+            let motorText = '--';
+            if (t.motor_kw !== undefined && t.motor_kw !== null) {
+                const kw = Number(t.motor_kw);
+                if (kw > 0.1) motorText = `+${kw.toFixed(1)} kW Assist`;
+                else if (kw < -0.1) motorText = `${kw.toFixed(1)} kW Regen`;
+                else motorText = `0.0 kW Idle`;
+            }
+            setDetail('detail-can-motor', motorText);
+            const motorEl = document.getElementById('detail-can-motor');
+            if (motorEl && t.motor_kw !== undefined) {
+                motorEl.style.color = Number(t.motor_kw) > 0.1 ? '#10b981' : (Number(t.motor_kw) < -0.1 ? '#00d9ff' : '');
+            }
+
+            setDetail('detail-can-inv-temp', t.inverter_temp !== undefined ? `${Number(t.inverter_temp).toFixed(1)}°C` : '--');
+            setDetail('detail-can-bat-temp', t.battery_temp !== undefined ? `${Number(t.battery_temp).toFixed(1)}°C` : '--');
+            setDetail('detail-can-auto-stop', t.hybrid_auto_stop !== undefined ? (t.hybrid_auto_stop ? 'Engaged' : 'Ready') : '--');
+
+            setDetail('detail-can-brakebar', t.brake_bar !== undefined ? `${Number(t.brake_bar).toFixed(1)} bar` : (t.brake_pressed !== undefined ? (t.brake_pressed ? 'Pressed' : 'Released') : '--'));
+            
+            const crashEl = document.getElementById('detail-can-crash');
+            if (crashEl) {
+                crashEl.textContent = t.crash_flag ? 'IMPACT DETECTED' : 'Normal';
+                crashEl.style.color = t.crash_flag ? '#ef4444' : '#10b981';
+                crashEl.style.fontWeight = t.crash_flag ? '700' : '';
+            }
+
+            const absEl = document.getElementById('detail-can-abs');
+            if (absEl) {
+                if (t.abs_active) {
+                    absEl.textContent = 'ABS Active';
+                    absEl.style.color = '#ef4444';
+                } else if (t.traction_loss) {
+                    absEl.textContent = 'Traction Loss';
+                    absEl.style.color = '#f59e0b';
+                } else {
+                    absEl.textContent = 'Normal';
+                    absEl.style.color = '#10b981';
+                }
+            }
+
+            setDetail('detail-can-latg', t.lateral_g !== undefined ? `${Number(t.lateral_g) > 0 ? '+' : ''}${Number(t.lateral_g).toFixed(2)} g` : '--');
+            setDetail('detail-can-cvt-temp', t.cvt_fluid_temp !== undefined ? `${Number(t.cvt_fluid_temp).toFixed(1)}°C` : '--');
+            setDetail('detail-can-oillife', t.oil_life_pct !== undefined ? `${t.oil_life_pct}%` : '--');
+            setDetail('detail-can-intake', t.intake_temp !== undefined ? `${Number(t.intake_temp).toFixed(1)}°C` : '--');
+            setDetail('detail-can-map', t.map_kpa !== undefined ? `${t.map_kpa} kPa` : '--');
+
+            const doors = [];
+            if (t.door_driver) doors.push('Driver');
+            if (t.door_passenger) doors.push('Pass');
+            if (t.door_rear) doors.push('Rear');
+            if (t.trunk) doors.push('Trunk');
+            const doorsEl = document.getElementById('detail-can-doors');
+            if (doorsEl) {
+                if (doors.length > 0) {
+                    doorsEl.textContent = `${doors.join(', ')} Open`;
+                    doorsEl.style.color = '#ef4444';
+                } else if (t.door_driver !== undefined) {
+                    doorsEl.textContent = 'All Closed';
+                    doorsEl.style.color = '#10b981';
+                } else {
+                    doorsEl.textContent = '--';
+                    doorsEl.style.color = '';
+                }
+            }
+
+            const beltEl = document.getElementById('detail-can-seatbelt');
+            if (beltEl) {
+                if (t.seatbelt_unbuckled !== undefined) {
+                    beltEl.textContent = t.seatbelt_unbuckled ? 'Unbuckled' : 'Buckled';
+                    beltEl.style.color = t.seatbelt_unbuckled ? '#ef4444' : '#10b981';
+                } else {
+                    beltEl.textContent = '--';
+                }
+            }
+
+            setDetail('detail-can-handbrake', t.handbrake !== undefined ? (t.handbrake ? 'Engaged' : 'Released') : '--');
+            setDetail('detail-can-ac', t.ac_on !== undefined ? (t.ac_on ? 'A/C On' : 'Off') : '--');
+            setDetail('detail-can-lights', t.headlights !== undefined ? (t.headlights ? 'On' : 'Off') : '--');
+
+            const milEl = document.getElementById('detail-can-mil');
+            if (milEl) {
+                if (t.check_engine_mil !== undefined) {
+                    milEl.textContent = t.check_engine_mil ? 'CHECK ENGINE' : 'OK';
+                    milEl.style.color = t.check_engine_mil ? '#ef4444' : '#10b981';
+                    milEl.style.fontWeight = t.check_engine_mil ? '700' : '';
+                } else {
+                    milEl.textContent = '--';
+                }
+            }
+
+            const tpmsEl = document.getElementById('detail-can-tpms');
+            if (tpmsEl) {
+                if (t.tpms_warning !== undefined) {
+                    tpmsEl.textContent = t.tpms_warning ? 'LOW TYRE' : 'Normal';
+                    tpmsEl.style.color = t.tpms_warning ? '#ef4444' : '#10b981';
+                } else {
+                    tpmsEl.textContent = '--';
+                }
+            }
+        }
+    }
+
     // 5. Vehicle Overview: Total Mileage — prefer a hardware odometer field if the
     // tracker sends one, otherwise the all-time distance computed from stored
     // positions (fetched via fetchMileageStats -> /positions/analytics/device/{id}/daily)
@@ -3773,7 +3908,23 @@ function updateAssetDetailUI(id) {
     if (!detailContainer) return;
 
     const raw = (data && data.raw) ? data.raw : (obd || {});
-    const panelSig = JSON.stringify([id, Boolean(raw.main_power_cut), Boolean(raw.sos), obd.rpm, obd.battery, obd.coolant, obd.voltage, obd.engine_load]);
+    const panelSig = JSON.stringify([
+        id,
+        Boolean(raw.main_power_cut),
+        Boolean(raw.sos),
+        obd.rpm,
+        obd.battery,
+        obd.coolant,
+        obd.voltage,
+        obd.engine_load,
+        obd.gear,
+        obd.hybrid_soc,
+        obd.motor_kw,
+        obd.brake_bar,
+        obd.crash_flag,
+        obd.check_engine_mil,
+        obd.cvt_fluid_temp
+    ]);
     if (detailContainer._lastPanelSig === panelSig) return;
     detailContainer._lastPanelSig = panelSig;
 
@@ -3799,7 +3950,9 @@ function updateAssetDetailUI(id) {
     }
 
     // 3. Engine Diagnostics (OBD-II Gauges)
-    const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined || obd.voltage !== undefined || obd.engine_load !== undefined;
+    const hasObdData = obd.rpm !== undefined || obd.battery !== undefined || obd.coolant !== undefined ||
+                       obd.voltage !== undefined || obd.engine_load !== undefined || obd.hybrid_soc !== undefined ||
+                       obd.gear !== undefined || obd.motor_kw !== undefined;
 
     if (hasObdData) {
         const diagDiv = document.createElement('div');
@@ -3810,21 +3963,33 @@ function updateAssetDetailUI(id) {
         
         // Battery Logic: Prefer % if available, otherwise estimate from voltage (11.5V - 14.5V range)
         let displayBattery = obd.battery;
-        let battLabel = "Battery %";
+        let battLabel = "12V Battery";
         let battText = `${obd.battery}%`;
         let battPerc = obd.battery || 0;
 
         if (obd.battery === undefined && obd.voltage !== undefined) {
-            battLabel = "Battery voltage";
-            battText = `${obd.voltage.toFixed(1)}V`;
-            battPerc = Math.min(100, Math.max(0, ((obd.voltage - 11.5) / 3) * 100));
+            battLabel = "12V Voltage";
+            battText = `${Number(obd.voltage).toFixed(1)}V`;
+            battPerc = Math.min(100, Math.max(0, ((Number(obd.voltage) - 11.5) / 3) * 100));
         } else if (obd.battery !== undefined) {
            battPerc = obd.battery;
         }
 
+        const hasHybrid = obd.hybrid_soc !== undefined;
+        const hybridSocPerc = obd.hybrid_soc !== undefined ? Math.min(100, Math.max(0, obd.hybrid_soc)) : 0;
+        let motorBadge = '';
+        if (obd.motor_kw !== undefined && obd.motor_kw !== null) {
+            const mkw = Number(obd.motor_kw);
+            if (mkw > 0.1) motorBadge = `<span style="background:rgba(16,185,129,0.15); color:#10b981; padding:2px 8px; border-radius:10px; font-weight:600; font-size:0.8em; margin-left:8px;">+${mkw.toFixed(1)} kW Assist</span>`;
+            else if (mkw < -0.1) motorBadge = `<span style="background:rgba(0,217,255,0.15); color:#00d9ff; padding:2px 8px; border-radius:10px; font-weight:600; font-size:0.8em; margin-left:8px;">${mkw.toFixed(1)} kW Regen</span>`;
+        }
+
         diagDiv.innerHTML = `
-            <div class="diagnostic-title"><i class="fas fa-microchip"></i> Live Engine Diagnostics</div>
-            <div class="gauge-grid">
+            <div class="diagnostic-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <div><i class="fas fa-microchip"></i> Live Telemetry ${motorBadge}</div>
+                ${obd.gear ? `<span style="background:var(--primary); color:#fff; padding:2px 8px; border-radius:6px; font-size:0.85em; font-weight:700;">Gear ${obd.gear}</span>` : ''}
+            </div>
+            <div class="gauge-grid" style="${hasHybrid ? 'grid-template-columns: repeat(3, 1fr);' : ''}">
                 <div class="gauge-item">
                     <div class="gauge-label">Engine RPM</div>
                     <div class="gauge-visual-wrap">
@@ -3832,6 +3997,14 @@ function updateAssetDetailUI(id) {
                     </div>
                     <div class="gauge-value">${obd.rpm || 0}</div>
                 </div>
+                ${hasHybrid ? `
+                <div class="gauge-item">
+                    <div class="gauge-label">IMA Hybrid</div>
+                    <div class="gauge-visual-wrap">
+                        <div class="gauge-visual" style="--perc: ${hybridSocPerc}%; background: conic-gradient(#10b981 ${hybridSocPerc}%, rgba(24,24,27,0.08) ${hybridSocPerc}%);"></div>
+                    </div>
+                    <div class="gauge-value" style="color:#10b981;">${obd.hybrid_soc}%</div>
+                </div>` : ''}
                 <div class="gauge-item">
                     <div class="gauge-label">${battLabel}</div>
                     <div class="gauge-visual-wrap">
@@ -3842,9 +4015,11 @@ function updateAssetDetailUI(id) {
             </div>
             <div style="margin-top:15px; display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85em;">
                 <div style="color:var(--text-secondary)">Coolant: <span style="color:var(--text-primary); font-weight:600">${obd.coolant || '--'}°C</span></div>
-                <div style="color:var(--text-secondary)">Engine Load: <span style="color:var(--text-primary); font-weight:600">${obd.engine_load || '--'}%</span></div>
-                <div style="color:var(--text-secondary)">Throttle: <span style="color:var(--text-primary); font-weight:600">${obd.throttle || '--'}%</span></div>
-                <div style="color:var(--text-secondary)">Fuel Used: <span style="color:var(--text-primary); font-weight:600">${obd.fuel_consumption ? obd.fuel_consumption.toFixed(1)+'L' : '--'}</span></div>
+                <div style="color:var(--text-secondary)">CVT Fluid: <span style="color:var(--text-primary); font-weight:600">${obd.cvt_fluid_temp !== undefined ? Number(obd.cvt_fluid_temp).toFixed(1)+'°C' : '--'}</span></div>
+                <div style="color:var(--text-secondary)">Engine Load: <span style="color:var(--text-primary); font-weight:600">${obd.engine_load !== undefined ? obd.engine_load+'%' : '--'}</span></div>
+                <div style="color:var(--text-secondary)">Throttle: <span style="color:var(--text-primary); font-weight:600">${obd.throttle !== undefined ? obd.throttle+'%' : (obd.throttle_pct !== undefined ? obd.throttle_pct+'%' : '--')}</span></div>
+                ${obd.brake_bar !== undefined ? `<div style="color:var(--text-secondary)">Brake Pressure: <span style="color:var(--text-primary); font-weight:600">${Number(obd.brake_bar).toFixed(1)} bar</span></div>` : ''}
+                ${obd.oil_life_pct !== undefined ? `<div style="color:var(--text-secondary)">Oil Life: <span style="color:#10b981; font-weight:600">${obd.oil_life_pct}%</span></div>` : ''}
             </div>
         `;
         // Append to sidebar
@@ -6587,14 +6762,35 @@ function renderOBDVehicleCards() {
         const vin = obd.vin || null;
         const odometer = obd.mileage !== undefined ? parseFloat(obd.mileage).toFixed(0) : null;
 
+        // Honda Fit GP1 CAN telemetry fields
+        const gear = obd.gear || null;
+        const hybridSoc = obd.hybrid_soc !== undefined ? Math.round(obd.hybrid_soc) : null;
+        const motorKw = obd.motor_kw !== undefined ? Number(obd.motor_kw) : null;
+        const brakeBar = obd.brake_bar !== undefined ? Number(obd.brake_bar).toFixed(1) : null;
+        const cvtTemp = obd.cvt_fluid_temp !== undefined ? Math.round(obd.cvt_fluid_temp) : null;
+        const hasCan = gear !== null || hybridSoc !== null || motorKw !== null || brakeBar !== null;
+
         const fmtVal = (v, unit, color) => v !== null
             ? `<div class="obd-metric-value" style="color:${color}">${v}${unit}</div>`
             : `<div class="obd-metric-value" style="color:#4b5563">—</div>`;
 
+        let motorStr = null;
+        let motorColor = '#10b981';
+        if (motorKw !== null) {
+            if (motorKw > 0.1) { motorStr = `+${motorKw.toFixed(1)} kW`; motorColor = '#10b981'; }
+            else if (motorKw < -0.1) { motorStr = `${motorKw.toFixed(1)} kW`; motorColor = '#00d9ff'; }
+            else { motorStr = '0.0 kW'; motorColor = '#94a3b8'; }
+        }
+
         return `
         <div class="obd-vehicle-card">
-            <div class="obd-vehicle-card-header">
-                <strong><i class="fas fa-car" style="color:var(--primary-light);margin-right:6px;"></i>${v.name || 'Vehicle ' + v.id}</strong>
+            <div class="obd-vehicle-card-header" style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <strong><i class="fas fa-car" style="color:var(--primary-light);margin-right:6px;"></i>${v.name || 'Vehicle ' + v.id}</strong>
+                    ${gear ? `<span style="background:var(--primary); color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:8px;">${gear}</span>` : ''}
+                    ${obd.crash_flag ? `<span style="background:#ef4444; color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">CRASH</span>` : ''}
+                    ${obd.check_engine_mil ? `<span style="background:#f59e0b; color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">MIL</span>` : ''}
+                </div>
                 <span class="obd-live-dot" title="Live telemetry"></span>
             </div>
             <div class="obd-metrics-grid">
@@ -6602,25 +6798,40 @@ function renderOBDVehicleCards() {
                     ${fmtVal(rpm, ' RPM', rpm !== null && rpm > 3000 ? '#ef4444' : '#10b981')}
                     <div class="obd-metric-label"><i class="fas fa-tachometer-alt"></i> RPM</div>
                 </div>
+                ${hybridSoc !== null ? `
+                <div class="obd-metric">
+                    ${fmtVal(hybridSoc + '%', '', hybridSoc > 60 ? '#10b981' : (hybridSoc > 30 ? '#f59e0b' : '#ef4444'))}
+                    <div class="obd-metric-label"><i class="fas fa-bolt"></i> IMA SoC</div>
+                </div>` : `
                 <div class="obd-metric">
                     ${fmtVal(fuelLevel !== null ? fuelLevel + '%' : null, '', '#00d9ff')}
                     <div class="obd-metric-label"><i class="fas fa-gas-pump"></i> Fuel</div>
-                </div>
+                </div>`}
+                ${motorStr !== null ? `
+                <div class="obd-metric">
+                    ${fmtVal(motorStr, '', motorColor)}
+                    <div class="obd-metric-label"><i class="fas fa-charging-station"></i> Motor</div>
+                </div>` : `
                 <div class="obd-metric">
                     ${fmtVal(battery, 'V', battery !== null && parseFloat(battery) < 11.5 ? '#ef4444' : '#fbbf24')}
                     <div class="obd-metric-label"><i class="fas fa-car-battery"></i> Battery</div>
-                </div>
+                </div>`}
                 <div class="obd-metric">
                     ${fmtVal(coolant, '°C', coolant !== null && coolant > 100 ? '#ef4444' : '#f97316')}
                     <div class="obd-metric-label"><i class="fas fa-thermometer-half"></i> Coolant</div>
                 </div>
+                ${cvtTemp !== null ? `
+                <div class="obd-metric">
+                    ${fmtVal(cvtTemp, '°C', cvtTemp > 100 ? '#ef4444' : '#ec4899')}
+                    <div class="obd-metric-label"><i class="fas fa-oil-can"></i> CVT Fluid</div>
+                </div>` : `
                 <div class="obd-metric">
                     ${fmtVal(engineLoad, '%', '#e040fb')}
                     <div class="obd-metric-label"><i class="fas fa-cogs"></i> Eng. Load</div>
-                </div>
+                </div>`}
                 <div class="obd-metric">
-                    ${odometer !== null ? `<div class="obd-metric-value" style="color:#94a3b8">${odometer}</div>` : `<div class="obd-metric-value" style="color:#4b5563">—</div>`}
-                    <div class="obd-metric-label"><i class="fas fa-road"></i> km Odo</div>
+                    ${brakeBar !== null ? fmtVal(brakeBar, ' bar', '#38bdf8') : (odometer !== null ? `<div class="obd-metric-value" style="color:#94a3b8">${odometer}</div>` : `<div class="obd-metric-value" style="color:#4b5563">—</div>`)}
+                    <div class="obd-metric-label"><i class="${brakeBar !== null ? 'fas fa-compress-arrows-alt' : 'fas fa-road'}"></i> ${brakeBar !== null ? 'Brake' : 'km Odo'}</div>
                 </div>
             </div>
             ${vin ? `<div class="obd-vin-row"><i class="fas fa-fingerprint"></i><span>Chassis number: <strong style="color:var(--text-primary);font-family:monospace;">${vin}</strong></span></div>` : ''}

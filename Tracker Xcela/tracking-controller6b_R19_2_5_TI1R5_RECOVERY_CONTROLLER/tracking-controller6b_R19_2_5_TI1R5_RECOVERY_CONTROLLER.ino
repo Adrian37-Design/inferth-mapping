@@ -58,6 +58,8 @@
   
   #define TXD2                17 //GPS  
   #define RXD2                18 //GPS
+  #define CAN_TX_PIN          GPIO_NUM_41 // ESP32-S3 TWAI CAN TX (Honda Fit GP1 Hybrid)
+  #define CAN_RX_PIN          GPIO_NUM_42 // ESP32-S3 TWAI CAN RX (Honda Fit GP1 Hybrid)
  
   //8,9 pot divider
   //LDR sensor
@@ -105,6 +107,7 @@ void ePaper();
 #include "freertos/semphr.h"
 #include "TI1R3_Types.h"
 #include "Sim_Recovery.h"
+#include "CAN_OBD.h"
 
 // ---------- Configuration ----------
 #define WATCHDOG_TIMEOUT 360  
@@ -414,6 +417,9 @@ void applyStorageProfile() {
 
 // Speed thresholds
 float SPEED_LIMIT = 80;       // Speed limit in km/hr
+const float OVERSPEED_MIN_CONFIG_KMPH = 40;   // configured limits below this are treated as config errors
+const float OVERSPEED_MAX_CONFIG_KMPH = 200;  // configured limits above this are treated as config errors
+const uint8_t OVERSPEED_SUSTAINED_FIXES = 3;  // consecutive fixes over the limit required to flag
 float speedKmph;
 
 long zeroOne = 0, zeroTwo = 1001;
@@ -489,6 +495,7 @@ TrackingOutageState trackingOutage = {false, 0, 0, false, 0};
 PdpState pdpState = PDP_UNKNOWN;
 SemaphoreHandle_t offlineQueueMutex = nullptr;
 ViolationFlagState speedViolationState = NO_VIOLATION;
+float speedViolationKmph = 0;   // speed at the moment the overspeed violation tripped (sent with the report)
 ViolationFlagState temperViolationState = NO_VIOLATION;
 
 volatile bool tamperInterruptPending = false;
@@ -1763,6 +1770,15 @@ void setup() {
   pinMode(ACCIDENT_ALERT_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(ACCIDENT_ALERT_PIN), onAccidentHandler, RISING);
   
+  // Initialize TWAI CAN Bus (Honda Fit GP1 Hybrid 500kbps) & Active OBD-II
+  Serial.println("[CAN] Initializing TWAI CAN Bus (Pins 41 TX / 42 RX @ 500kbps)...");
+  if (initTWAI()) {
+    startCanTask();
+    Serial.println("[CAN] Honda Fit GP1 Hybrid Telemetry background engine RUNNING");
+  } else {
+    Serial.println("[CAN] WARNING: TWAI CAN initialization failed or transceiver offline");
+  }
+
   /// GPIO10 protected push/service/panic input
   // V4 production tests show LOW idle; trigger only on a RISING assertion.
   pinMode(PANIC_BUTTON_PIN, INPUT);
@@ -1791,11 +1807,13 @@ void setup() {
   loadConfigFromEEPROM();
   selectActiveAPN();
 
-  if(speedLimit.toFloat()>0){
-      
-  SPEED_LIMIT =  speedLimit.toFloat();
-  
-    }
+  float configuredSpeedLimit = speedLimit.toFloat();
+  if (configuredSpeedLimit >= OVERSPEED_MIN_CONFIG_KMPH && configuredSpeedLimit <= OVERSPEED_MAX_CONFIG_KMPH) {
+      SPEED_LIMIT = configuredSpeedLimit;
+  } else if (configuredSpeedLimit != 0) {
+      Serial.print("[CONFIG] Ignoring implausible speed limit from EEPROM: ");
+      Serial.println(speedLimit);
+  }
 
   //if(BOARD == '4'){
   // Keep vehicleID, number_plate and JWT identity as one authoritative value.
@@ -2511,7 +2529,7 @@ void checkIgnition(){
   float batteryVoltage = measuredVoltage * RESISTOR_RATIO;
 
   // Determine if the voltage is high or low
-  if (batteryVoltage >= ADC_THRESHOLD) {
+  if (batteryVoltage >= ADC_THRESHOLD || car.rpm > 350 || car.ignition) {
     Serial.println("HIGH");
     ignition = true;
   } else {
