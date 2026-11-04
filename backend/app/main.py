@@ -112,6 +112,9 @@ async def run_migrations_and_branding():
                     "ALTER TABLE positions ADD COLUMN IF NOT EXISTS odometer FLOAT DEFAULT NULL",
                     "ALTER TABLE positions ADD COLUMN IF NOT EXISTS ignition BOOLEAN DEFAULT NULL",
                     "ALTER TABLE positions ADD COLUMN IF NOT EXISTS dtc_fault_codes JSON DEFAULT NULL",
+                    # Universal CAN Auto-Detection & Telemetry
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS can_make VARCHAR DEFAULT NULL",
+                    "ALTER TABLE positions ADD COLUMN IF NOT EXISTS can_baud INTEGER DEFAULT NULL",
                     # Honda Fit GP1 Hybrid Extended CAN & OBD-II Telemetry
                     "ALTER TABLE positions ADD COLUMN IF NOT EXISTS gear VARCHAR DEFAULT NULL",
                     "ALTER TABLE positions ADD COLUMN IF NOT EXISTS pedal_pct INTEGER DEFAULT NULL",

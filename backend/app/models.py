@@ -112,6 +112,10 @@ class Position(Base):
     ignition = Column(Boolean, nullable=True)        # True = Ignition On, False = Off
     dtc_fault_codes = Column(JSON, nullable=True)    # Array of DTC codes e.g. ["P0300"]
 
+    # Universal CAN & OBD-II Auto-Identification
+    can_make = Column(String, nullable=True)         # Auto-detected make: HONDA, TOYOTA, NISSAN, VAG, FORD, GENERIC_OBD
+    can_baud = Column(Integer, nullable=True)        # Auto-detected baud: 500, 250, 125 kbps
+
     # Honda Fit GP1 Hybrid â Extended CAN & OBD-II Telemetry
     gear = Column(String, nullable=True)             # CVT selector: P / R / N / D
     pedal_pct = Column(Integer, nullable=True)       # Accelerator pedal position 0-100 %

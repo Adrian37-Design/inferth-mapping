@@ -344,6 +344,87 @@ async def upsert_tracking_data(
         altitude = row.get("altitude")
         course = row.get("course")
 
+        # Helpers for safe numeric and boolean casting
+        def _f(val):
+            try:
+                return float(val) if val is not None else None
+            except (ValueError, TypeError):
+                return None
+
+        def _i(val):
+            try:
+                return int(val) if val is not None else None
+            except (ValueError, TypeError):
+                return None
+
+        def _b(val):
+            if val is None:
+                return None
+            return bool(val)
+
+        # Universal CAN / OBD-II Telemetry
+        can_make_v = row.get("can_make")
+        if can_make_v and can_make_v != "DETECTING...":
+            meta["can_make"] = can_make_v
+            if not meta.get("model") or meta.get("model") == "--":
+                meta["model"] = f"{can_make_v} (Universal CAN)"
+            device.device_metadata = meta
+
+        can_baud_v = _i(row.get("can_baud"))
+        rpm_val = _i(row.get("rpm"))
+        engine_temp_v = _f(row.get("engine_temp") or row.get("coolant_temp"))
+        dtc_val = row.get("dtc")
+        if isinstance(dtc_val, str) and dtc_val not in ("NONE", ""):
+            dtc_val = [c.strip() for c in dtc_val.split(",") if c.strip()]
+        elif not isinstance(dtc_val, list):
+            dtc_val = None
+
+        gear_v = row.get("gear")
+        pedal_v = _i(row.get("pedal_pct"))
+        steering_v = _f(row.get("steering_deg"))
+        obd_speed_v = _i(row.get("obd_speed"))
+
+        ws_fl_v = _f(row.get("ws_fl"))
+        ws_fr_v = _f(row.get("ws_fr"))
+        ws_rl_v = _f(row.get("ws_rl"))
+        ws_rr_v = _f(row.get("ws_rr"))
+        traction_v = _b(row.get("traction_loss"))
+        brake_press_v = _b(row.get("brake_pressed"))
+        brake_bar_v = _f(row.get("brake_bar"))
+        abs_v = _b(row.get("abs_active"))
+        lat_g_v = _f(row.get("lateral_g"))
+        yaw_v = _f(row.get("yaw_rate"))
+        crash_v = _b(row.get("crash_flag"))
+
+        hybrid_soc_v = _i(row.get("hybrid_soc"))
+        motor_kw_v = _f(row.get("motor_kw"))
+        inv_temp_v = _f(row.get("inverter_temp"))
+        bat_temp_v = _f(row.get("battery_temp"))
+        auto_stop_v = _b(row.get("hybrid_auto_stop"))
+
+        cvt_temp_v = _f(row.get("cvt_fluid_temp"))
+        eng_load_v = _f(row.get("engine_load"))
+        map_kpa_v = _i(row.get("map_kpa"))
+        timing_v = _f(row.get("timing_advance"))
+        intake_v = _f(row.get("intake_temp"))
+        maf_v = _f(row.get("maf_gps"))
+        runtime_v = _i(row.get("runtime_sec"))
+        throttle_v = _f(row.get("throttle_pct"))
+        batt12_v = _f(row.get("battery_12v"))
+        oil_life_v = _i(row.get("oil_life_pct"))
+
+        door_d_v = _b(row.get("door_driver"))
+        door_p_v = _b(row.get("door_passenger"))
+        door_r_v = _b(row.get("door_rear"))
+        trunk_v = _b(row.get("trunk"))
+        seatbelt_v = _b(row.get("seatbelt_unbuckled"))
+        handbrake_v = _b(row.get("handbrake"))
+        mil_v = _b(row.get("check_engine_mil"))
+        tpms_v = _b(row.get("tpms_warning"))
+        ac_v = _b(row.get("ac_on"))
+        lights_v = _b(row.get("headlights"))
+        low_fuel_v = _b(row.get("low_fuel"))
+
         if prev_pos and prev_pos.latitude and prev_pos.longitude:
             if is_teleportation_jump(
                 prev_pos.latitude, prev_pos.longitude, prev_pos.timestamp,
@@ -413,6 +494,52 @@ async def upsert_tracking_data(
             fuel_level=float(fuel) if fuel is not None else None,
             battery_voltage=float(vbatt) if vbatt is not None else None,
             ignition=bool(ign) if ign is not None else None,
+            can_make=can_make_v,
+            can_baud=can_baud_v,
+            rpm=rpm_val,
+            engine_temp=engine_temp_v,
+            dtc_fault_codes=dtc_val,
+            gear=gear_v,
+            pedal_pct=pedal_v,
+            steering_deg=steering_v,
+            obd_speed=obd_speed_v,
+            ws_fl=ws_fl_v,
+            ws_fr=ws_fr_v,
+            ws_rl=ws_rl_v,
+            ws_rr=ws_rr_v,
+            traction_loss=traction_v,
+            brake_pressed=brake_press_v,
+            brake_bar=brake_bar_v,
+            abs_active=abs_v,
+            lateral_g=lat_g_v,
+            yaw_rate=yaw_v,
+            crash_flag=crash_v,
+            hybrid_soc=hybrid_soc_v,
+            motor_kw=motor_kw_v,
+            inverter_temp=inv_temp_v,
+            battery_temp=bat_temp_v,
+            hybrid_auto_stop=auto_stop_v,
+            cvt_fluid_temp=cvt_temp_v,
+            engine_load=eng_load_v,
+            map_kpa=map_kpa_v,
+            timing_advance=timing_v,
+            intake_temp=intake_v,
+            maf_gps=maf_v,
+            runtime_sec=runtime_v,
+            throttle_pct=throttle_v,
+            battery_12v=batt12_v,
+            oil_life_pct=oil_life_v,
+            door_driver=door_d_v,
+            door_passenger=door_p_v,
+            door_rear=door_r_v,
+            trunk=trunk_v,
+            seatbelt_unbuckled=seatbelt_v,
+            handbrake=handbrake_v,
+            check_engine_mil=mil_v,
+            tpms_warning=tpms_v,
+            ac_on=ac_v,
+            headlights=lights_v,
+            low_fuel=low_fuel_v,
             raw=row
         )
         db.add(pos)

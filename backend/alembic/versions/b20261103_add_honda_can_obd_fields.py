@@ -25,6 +25,8 @@ COLS = [
     ('odometer', sa.Float),
     ('ignition', sa.Boolean),
     ('dtc_fault_codes', sa.JSON),
+    ('can_make', sa.String),
+    ('can_baud', sa.Integer),
 
     # Honda Fit GP1 Hybrid - Extended CAN & OBD-II Telemetry
     ('gear', sa.String),

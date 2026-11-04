@@ -2931,7 +2931,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // Only update specific telemetry fields if they are present
         const telemetryFields = [
             'rpm', 'coolant', 'engine_load', 'fuel_consumption', 'battery', 'voltage', 'throttle', 'mileage', 'vin', 'dtc',
-            // Honda Fit GP1 Hybrid Extended CAN & OBD-II Telemetry
+            // Universal CAN & OBD-II Telemetry
+            'can_make', 'can_baud',
             'gear', 'pedal_pct', 'steering_deg', 'obd_speed',
             'ws_fl', 'ws_fr', 'ws_rl', 'ws_rr', 'traction_loss', 'brake_pressed', 'brake_bar', 'abs_active', 'lateral_g', 'yaw_rate', 'crash_flag',
             'hybrid_soc', 'motor_kw', 'inverter_temp', 'battery_temp', 'hybrid_auto_stop',
@@ -3782,8 +3783,10 @@ function updateAssetDetailUI(id) {
     if (canSection) {
         canSection.style.display = hasCanData ? '' : 'none';
         const canTitleEl = canSection.querySelector('.section-title');
-        if (canTitleEl && isXcelaTracker) {
-            canTitleEl.innerHTML = '<i class="fas fa-microchip"></i> CAN & Hybrid Telemetry <span style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem; padding:2px 8px; border-radius:4px; font-weight:600; margin-left:8px;">Xcela Tracker (YZ4321)</span>';
+        if (canTitleEl) {
+            const detectedMake = (t.can_make && t.can_make !== 'DETECTING...') ? t.can_make : (isXcelaTracker ? 'Honda Fit GP1' : 'Universal CAN');
+            const baudText = t.can_baud ? `${t.can_baud}k` : '500k';
+            canTitleEl.innerHTML = `<i class="fas fa-microchip"></i> CAN & Telemetry <span style="background:rgba(16,185,129,0.15); color:#10b981; font-size:0.75rem; padding:2px 8px; border-radius:4px; font-weight:600; margin-left:8px;">${detectedMake} · ${baudText}</span>`;
         }
         if (hasCanData) {
             setDetail('detail-can-gear', t.gear || '--');
@@ -6805,7 +6808,8 @@ function renderOBDVehicleCards() {
             <div class="obd-vehicle-card-header" style="display:flex; align-items:center; justify-content:space-between;">
                 <div>
                     <strong><i class="fas fa-car" style="color:var(--primary-light);margin-right:6px;"></i>${v.name || 'Vehicle ' + v.id}</strong>
-                    ${gear ? `<span style="background:var(--primary); color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:8px;">${gear}</span>` : ''}
+                    ${(obd.can_make && obd.can_make !== 'DETECTING...') ? `<span style="background:rgba(16,185,129,0.15); color:#10b981; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">${obd.can_make}</span>` : ''}
+                    ${gear ? `<span style="background:var(--primary); color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">${gear}</span>` : ''}
                     ${obd.crash_flag ? `<span style="background:#ef4444; color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">CRASH</span>` : ''}
                     ${obd.check_engine_mil ? `<span style="background:#f59e0b; color:#fff; padding:2px 7px; border-radius:5px; font-size:0.75em; font-weight:700; margin-left:6px;">MIL</span>` : ''}
                 </div>
