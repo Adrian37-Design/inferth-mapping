@@ -58,8 +58,8 @@
   
   #define TXD2                17 //GPS  
   #define RXD2                18 //GPS
-  #define CAN_TX_PIN          GPIO_NUM_41 // ESP32-S3 TWAI CAN TX (Honda Fit GP1 Hybrid)
-  #define CAN_RX_PIN          GPIO_NUM_42 // ESP32-S3 TWAI CAN RX (Honda Fit GP1 Hybrid)
+  #define CAN_TX_PIN          GPIO_NUM_41 // ESP32-S3 TWAI CAN TX (Universal Automotive CAN / OBD-II)
+  #define CAN_RX_PIN          GPIO_NUM_42 // ESP32-S3 TWAI CAN RX (Universal Automotive CAN / OBD-II)
  
   //8,9 pot divider
   //LDR sensor
@@ -1774,7 +1774,7 @@ void setup() {
   Serial.println("[CAN] Initializing TWAI CAN Bus (Pins 41 TX / 42 RX @ 500kbps)...");
   if (initTWAI()) {
     startCanTask();
-    Serial.println("[CAN] Honda Fit GP1 Hybrid Telemetry background engine RUNNING");
+    Serial.println("[CAN] Universal CAN & OBD-II multi-vehicle background engine RUNNING");
   } else {
     Serial.println("[CAN] WARNING: TWAI CAN initialization failed or transceiver offline");
   }
