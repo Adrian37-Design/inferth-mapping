@@ -64,14 +64,25 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
             headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
             payload = {"number": msisdn, "text": text}
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-        if 200 <= resp.status_code < 300:
-            logger.info("WhatsApp sent to %s via %s", msisdn, settings.WHATSAPP_PROVIDER)
-            return True
-        logger.error("WhatsApp send failed %s: %s", resp.status_code, resp.text[:300])
+        # Attempt send with retry (handles wake-up latency when gateway was idle)
+        import asyncio
+        for attempt in range(1, 3):
+            try:
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    resp = await client.post(url, json=payload, headers=headers)
+                if 200 <= resp.status_code < 300:
+                    logger.info("WhatsApp sent to %s via %s (attempt %d)", msisdn, settings.WHATSAPP_PROVIDER, attempt)
+                    return True
+                logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp.text[:200])
+            except Exception as req_err:
+                logger.warning("WhatsApp send attempt %d network exception: %s", attempt, req_err)
+            
+            if attempt < 2:
+                await asyncio.sleep(2.0)
+
+        logger.error("WhatsApp send failed for %s after retries", msisdn)
         return False
-    except Exception as e:  # network/config — never break the request
+    except Exception as e:  # config or unexpected
         logger.error("WhatsApp send exception to %s: %s", msisdn, e)
         return False
 

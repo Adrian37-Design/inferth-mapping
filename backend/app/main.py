@@ -252,10 +252,48 @@ async def run_migrations_and_branding():
     print("BACKGROUND INITIALIZATION FINISHED")
     print("="*50 + "\n")
 
+
+
+async def _whatsapp_keepalive_loop():
+    """Ping the WhatsApp gateway every 4 minutes to prevent Railway sleep.
+    Also self-ping /health so the main FastAPI service stays warm."""
+    import httpx
+    await asyncio.sleep(60)  # Let the app fully boot before first ping
+    while True:
+        # Ping WhatsApp gateway
+        try:
+            if settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL:
+                base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+                if "://" not in base:
+                    base = "https://" + base
+                if settings.WHATSAPP_PROVIDER == "waha":
+                    ping_url = f"{base}/api/health"
+                else:
+                    ping_url = f"{base}/instance/fetchInstances"
+                async with httpx.AsyncClient(timeout=10) as client:
+                    r = await client.get(
+                        ping_url,
+                        headers={"apikey": settings.WHATSAPP_API_KEY or ""},
+                    )
+                    print(f"[WA-keepalive] {ping_url} -> {r.status_code}")
+        except Exception as e:
+            print(f"[WA-keepalive] ping failed: {e}")
+
+        # Self-ping /health to prevent Railway idle spin-down
+        try:
+            self_base = settings.APP_BASE_URL.rstrip("/")
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.get(f"{self_base}/health")
+        except Exception as e:
+            print(f"[self-keepalive] ping failed: {e}")
+
+        await asyncio.sleep(240)  # Every 4 minutes
+
 @app.on_event("startup")
 async def startup_event():
     # 1. Start Heavy Logic in Background to avoid 502 Gateway Timeouts during boot
     asyncio.create_task(run_migrations_and_branding())
+    asyncio.create_task(_whatsapp_keepalive_loop())
 
     # 2. Start Immediate Services
     print("Starting background services...")

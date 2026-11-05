@@ -61,12 +61,29 @@ class AuthManager {
         return this.token ? { 'Authorization': `Bearer ${this.token}` } : {};
     }
 
+    // Internal: fetch with a timeout so mobile never hangs forever
+    async _fetchWithTimeout(url, options, timeoutMs = 20000) {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(tid);
+            return response;
+        } catch (err) {
+            clearTimeout(tid);
+            if (err.name === 'AbortError') {
+                throw new Error('Request timed out. Check your connection and try again.');
+            }
+            throw err;
+        }
+    }
+
     // Login — handles both direct token response and OTP challenge
     async login(email, password, tenantId = null) {
         const body = { email, password };
         if (tenantId) body.tenant_id = tenantId;
 
-        const response = await fetch(`${API_BASE}/auth/login`, {
+        const response = await this._fetchWithTimeout(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -94,7 +111,7 @@ class AuthManager {
         const body = { temp_token: tempToken };
         if (phone) body.phone = phone;
 
-        const response = await fetch(`${API_BASE}/auth/send-otp`, {
+        const response = await this._fetchWithTimeout(`${API_BASE}/auth/send-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -110,7 +127,7 @@ class AuthManager {
 
     // Verify WhatsApp OTP against a temp_token
     async verifyOtp(tempToken, otp) {
-        const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+        const response = await this._fetchWithTimeout(`${API_BASE}/auth/verify-otp`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ temp_token: tempToken, otp })
