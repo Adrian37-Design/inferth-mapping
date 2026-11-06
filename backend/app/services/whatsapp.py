@@ -66,12 +66,12 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
             headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
             payload = {"number": msisdn, "text": text}
 
-        # Attempt send with retry (handles wake-up latency when gateway was idle)
+        # Attempt send with auto-reconnect on "Connection Closed" socket drop
         import asyncio
         global last_send_log
-        for attempt in range(1, 3):
+        for attempt in range(1, 4):
             try:
-                async with httpx.AsyncClient(timeout=20.0) as client:
+                async with httpx.AsyncClient(timeout=25.0) as client:
                     resp = await client.post(url, json=payload, headers=headers)
                 if 200 <= resp.status_code < 300:
                     print(f"[WhatsApp SUCCESS] Message dispatched to {msisdn} via {settings.WHATSAPP_PROVIDER}")
@@ -83,15 +83,31 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                         "response": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
                     }
                     return True
-                print(f"[WhatsApp FAILED] Status: {resp.status_code}, Response: {resp.text[:300]}")
-                logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp.text[:200])
+                
+                resp_text = resp.text
+                print(f"[WhatsApp FAILED] Attempt {attempt} Status: {resp.status_code}, Response: {resp_text[:300]}")
+                logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp_text[:200])
                 last_send_log = {
                     "status": "failed",
                     "attempt": attempt,
                     "msisdn": msisdn[-6:],
                     "http_code": resp.status_code,
-                    "response": resp.text[:300]
+                    "response": resp_text[:300]
                 }
+
+                # If WhatsApp socket dropped ("Connection Closed"), trigger reconnect on Evolution API
+                if settings.WHATSAPP_PROVIDER == "evolution" and ("Connection Closed" in resp_text or resp.status_code in (500, 502, 503)):
+                    print(f"[WhatsApp RECONNECT] Socket connection was closed; triggering reconnect for instance {settings.WHATSAPP_SESSION}...")
+                    try:
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            # Evolution API reconnect instance endpoint
+                            await client.get(f"{base}/instance/connect/{settings.WHATSAPP_SESSION}", headers=headers)
+                    except Exception as rec_err:
+                        print(f"[WhatsApp RECONNECT ERROR] {rec_err}")
+                    await asyncio.sleep(3.0)
+                else:
+                    await asyncio.sleep(2.0)
+
             except Exception as req_err:
                 print(f"[WhatsApp EXCEPTION] Network error on attempt {attempt}: {req_err}")
                 logger.warning("WhatsApp send attempt %d network exception: %s", attempt, req_err)
@@ -101,8 +117,6 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                     "msisdn": msisdn[-6:],
                     "error": str(req_err)
                 }
-            
-            if attempt < 2:
                 await asyncio.sleep(2.0)
 
         logger.error("WhatsApp send failed for %s after retries", msisdn)
