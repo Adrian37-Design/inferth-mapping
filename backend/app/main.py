@@ -421,11 +421,16 @@ async def admin_health_check(current_user: User = Depends(require_super_admin)):
 
 @app.get("/version")
 async def version():
-    """Which commit this instance is running — used to verify deploys actually
-    landed (Railway injects RAILWAY_GIT_COMMIT_SHA; the standby deploy passes
-    GIT_COMMIT)."""
+    """Which commit this instance is running and safe WhatsApp diagnostics."""
+    wa_url = settings.WHATSAPP_API_URL or ""
+    wa_masked = f"{wa_url[:12]}...{wa_url[-8:]}" if len(wa_url) > 20 else wa_url
     return {
-        "commit": os.environ.get("GIT_COMMIT") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "unknown"
+        "commit": os.environ.get("GIT_COMMIT") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "unknown",
+        "whatsapp_enabled": bool(settings.WHATSAPP_ENABLED),
+        "whatsapp_provider": settings.WHATSAPP_PROVIDER,
+        "whatsapp_api_url_set": bool(settings.WHATSAPP_API_URL),
+        "whatsapp_api_url_preview": wa_masked,
+        "whatsapp_session": settings.WHATSAPP_SESSION,
     }
 
 @app.get("/admin/repair-production")
