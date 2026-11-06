@@ -490,6 +490,80 @@ async def admin_whatsapp_reconnect():
             results["connect_get_err"] = str(e)
     return results
 
+
+
+@app.get("/admin/whatsapp-reset")
+async def admin_whatsapp_reset():
+    """Force-delete and recreate the WhatsApp instance (bypasses broken Evolution API UI).
+    Call when session is unlinked/broken. Then hit /admin/whatsapp-qr for a fresh QR code."""
+    import httpx
+    if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
+        return {"error": "WhatsApp not enabled"}
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    session = settings.WHATSAPP_SESSION
+    result = {}
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Step 1: Logout first (best-effort)
+        try:
+            r = await client.delete(f"{base}/instance/logout/{session}", headers=headers)
+            result["logout"] = {"status": r.status_code, "body": r.text[:200]}
+        except Exception as e:
+            result["logout"] = {"error": str(e)}
+        # Step 2: Delete the instance
+        try:
+            r = await client.delete(f"{base}/instance/delete/{session}", headers=headers)
+            result["delete"] = {"status": r.status_code, "body": r.text[:300]}
+        except Exception as e:
+            result["delete"] = {"error": str(e)}
+        # Step 3: Recreate with QR enabled
+        try:
+            r = await client.post(f"{base}/instance/create", headers=headers, json={
+                "instanceName": session,
+                "qrcode": True,
+                "integration": "WHATSAPP-BAILEYS"
+            })
+            result["create"] = {"status": r.status_code, "body": r.text[:500]}
+        except Exception as e:
+            result["create"] = {"error": str(e)}
+    return result
+
+
+@app.get("/admin/whatsapp-qr")
+async def admin_whatsapp_qr():
+    """Get the QR code for the WhatsApp instance.
+    Call /admin/whatsapp-reset first if session is broken, then scan QR on the bot phone."""
+    import httpx
+    if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
+        return {"error": "WhatsApp not enabled"}
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    session = settings.WHATSAPP_SESSION
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
+            data = r.json() if r.status_code == 200 else {}
+            qr_base64 = None
+            if isinstance(data, dict):
+                qr_base64 = data.get("base64") or (data.get("qrcode") or {}).get("base64")
+            return {
+                "status": r.status_code,
+                "raw": data,
+                "qr_base64": qr_base64,
+                "instructions": (
+                    "If qr_base64 is present, copy it and open: "
+                    "https://onlinepngtools.com/convert-base64-to-png - paste the base64 to see the QR image. "
+                    "Then scan it on WhatsApp -> Settings -> Linked Devices -> Link a Device using the BOT phone."
+                )
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+
 @app.get("/admin/test-whatsapp-send")
 async def test_whatsapp_send(phone: str = "263713150172"):
     """Inspect Evolution API instance state, QR / logout, and payload variants."""
