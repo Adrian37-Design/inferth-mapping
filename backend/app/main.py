@@ -491,34 +491,34 @@ async def admin_whatsapp_reconnect():
     return results
 
 @app.get("/admin/test-whatsapp-send")
-async def test_whatsapp_send(phone: str = "26377150172"):
-    """Live test of Evolution API message sending payload variants."""
+async def test_whatsapp_send(phone: str = "263713150172"):
+    """Inspect Evolution API instance state, QR / logout, and payload variants."""
     import httpx
     base = settings.WHATSAPP_API_URL.strip().rstrip("/")
     if "://" not in base:
         base = "https://" + base
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-    url = f"{base}/message/sendText/{settings.WHATSAPP_SESSION}"
+    session = settings.WHATSAPP_SESSION
     
-    attempts = {}
+    report = {}
     async with httpx.AsyncClient(timeout=20.0) as client:
-        # Variant 1: standard evolution v2 number
+        # 1. Fetch instance detailed state
         try:
-            p1 = {"number": phone, "text": "Test OTP from Inferth Mapping (V1)"}
-            r1 = await client.post(url, json=p1, headers=headers)
-            attempts["variant_1_number"] = {"status": r1.status_code, "response": r1.text[:250]}
+            r = await client.get(f"{base}/instance/fetchInstances", headers=headers)
+            report["instances"] = r.json() if r.status_code == 200 else r.text[:200]
         except Exception as e:
-            attempts["variant_1_err"] = str(e)
+            report["instances_err"] = str(e)
 
-        # Variant 2: evolution v2 with options/textMessage
+        # 2. Try sending with @s.whatsapp.net / formatting
+        url = f"{base}/message/sendText/{session}"
         try:
-            p2 = {"number": phone, "options": {"delay": 1200, "presence": "composing"}, "textMessage": {"text": "Test OTP from Inferth Mapping (V2)"}}
-            r2 = await client.post(url, json=p2, headers=headers)
-            attempts["variant_2_textMessage"] = {"status": r2.status_code, "response": r2.text[:250]}
+            p = {"number": f"{phone}@s.whatsapp.net", "text": "Test OTP from Inferth Mapping"}
+            r = await client.post(url, json=p, headers=headers)
+            report["send_jid"] = {"status": r.status_code, "response": r.text[:250]}
         except Exception as e:
-            attempts["variant_2_err"] = str(e)
+            report["send_jid_err"] = str(e)
 
-    return attempts
+    return report
 
 @app.get("/admin/repair-production")
 async def repair_production_state(current_user: User = Depends(require_super_admin)):
