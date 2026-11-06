@@ -556,11 +556,22 @@ async def admin_whatsapp_reset():
             r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
             data = r.json() if r.status_code == 200 else {}
             result["connect"] = {"status": r.status_code, "body": r.text[:400]}
-            state = (data.get("instance") or {}).get("state", "") if isinstance(data, dict) else ""
-            if state == "open":
-                result["strategy"] = "STUCK: still open after 15s wait — try /admin/whatsapp-pairing-code instead"
+
+            if r.status_code == 404:
+                # Instance was deleted externally — create it fresh now
+                r2 = await client.post(f"{base}/instance/create", headers=headers, json={
+                    "instanceName": session,
+                    "qrcode": True,
+                    "integration": "WHATSAPP-BAILEYS"
+                })
+                result["auto_create"] = {"status": r2.status_code, "body": r2.text[:400]}
+                result["strategy"] = "CREATED: instance was missing, recreated fresh — call /admin/whatsapp-qr now"
             else:
-                result["strategy"] = "B: restarted+waited — call /admin/whatsapp-qr now"
+                state = (data.get("instance") or {}).get("state", "") if isinstance(data, dict) else ""
+                if state == "open":
+                    result["strategy"] = "STUCK: still open after 15s wait — try /admin/whatsapp-new-instance"
+                else:
+                    result["strategy"] = "B: restarted+waited — call /admin/whatsapp-qr now"
         except Exception as e:
             result["connect_err"] = str(e)
 
@@ -615,10 +626,12 @@ async def admin_whatsapp_pairing_code(phone: str = ""):
             return {"restart": restart_body, "pairing_error": str(e)}
 
 
-@app.get("/admin/whatsapp-qr")
-async def admin_whatsapp_qr():
-    """Get the QR code for the WhatsApp instance.
-    Call /admin/whatsapp-reset first if session is broken, then scan QR on the bot phone."""
+@app.get("/admin/whatsapp-new-instance")
+async def admin_whatsapp_new_instance(name: str = "inferth_new"):
+    """Create a BRAND NEW WhatsApp instance under a fresh name (default: inferth_new).
+    Use this when the old instance is stuck and cannot be deleted.
+    After creating, call /admin/whatsapp-qr?session=inferth_new to get the QR code.
+    After scanning, update WHATSAPP_SESSION env var in Railway to the new name and redeploy."""
     import httpx
     if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
         return {"error": "WhatsApp not enabled"}
@@ -626,22 +639,65 @@ async def admin_whatsapp_qr():
     if "://" not in base:
         base = "https://" + base
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-    session = settings.WHATSAPP_SESSION
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
-            r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
-            data = r.json() if r.status_code == 200 else {}
-            qr_base64 = None
-            if isinstance(data, dict):
-                qr_base64 = data.get("base64") or (data.get("qrcode") or {}).get("base64")
+            r = await client.post(f"{base}/instance/create", headers=headers, json={
+                "instanceName": name,
+                "qrcode": True,
+                "integration": "WHATSAPP-BAILEYS"
+            })
+            data = r.json() if r.status_code in (200, 201) else {}
             return {
                 "status": r.status_code,
-                "raw": data,
+                "body": r.text[:500],
+                "next_step": (
+                    f"If status=200/201, call: /admin/whatsapp-qr?session={name} "
+                    f"to get the QR code. Scan it on the bot phone. "
+                    f"Then set WHATSAPP_SESSION={name} in Railway env vars and redeploy."
+                )
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+
+@app.get("/admin/whatsapp-qr")
+async def admin_whatsapp_qr(session: str = ""):
+    """Get the QR code for any WhatsApp instance.
+    Pass ?session=inferth_new to get QR for a different instance (e.g. after /admin/whatsapp-new-instance).
+    Default: uses WHATSAPP_SESSION env var."""
+    import httpx
+    if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
+        return {"error": "WhatsApp not enabled"}
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    target_session = session.strip() or settings.WHATSAPP_SESSION
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            r = await client.get(f"{base}/instance/connect/{target_session}", headers=headers)
+            data = r.json() if r.status_code == 200 else {}
+            # Extract QR from various response shapes (v1 vs v2)
+            qr_base64 = None
+            if isinstance(data, dict):
+                qr_base64 = (
+                    data.get("base64")
+                    or (data.get("qrcode") or {}).get("base64")
+                    or (data.get("instance") or {}).get("qrcode")
+                )
+            state = (data.get("instance") or {}).get("state", "unknown") if isinstance(data, dict) else "unknown"
+            return {
+                "session": target_session,
+                "http_status": r.status_code,
+                "instance_state": state,
                 "qr_base64": qr_base64,
+                "raw": data,
                 "instructions": (
-                    "If qr_base64 is present, copy it and open: "
-                    "https://onlinepngtools.com/convert-base64-to-png - paste the base64 to see the QR image. "
-                    "Then scan it on WhatsApp -> Settings -> Linked Devices -> Link a Device using the BOT phone."
+                    "If qr_base64 is NOT null: copy it and go to "
+                    "https://onlinepngtools.com/convert-base64-to-png — paste the base64 to see the QR image. "
+                    "Scan it on the BOT phone: WhatsApp -> Settings -> Linked Devices -> Link a Device. "
+                    "If instance_state is 'open' and qr_base64 is null: "
+                    "try /admin/whatsapp-reset first to force a disconnect."
                 )
             }
         except Exception as e:
