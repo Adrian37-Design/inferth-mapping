@@ -431,15 +431,15 @@ async def version():
 
     gateway_status = None
     instance_state = None
+    test_send_result = None
     if settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL:
         base = settings.WHATSAPP_API_URL.strip().rstrip("/")
         if "://" not in base:
             base = "https://" + base
+        headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
         try:
-            headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
             async with httpx.AsyncClient(timeout=6.0) as client:
                 if settings.WHATSAPP_PROVIDER == "evolution":
-                    # Check instance connection state
                     inst_url = f"{base}/instance/connectionState/{settings.WHATSAPP_SESSION}"
                     r = await client.get(inst_url, headers=headers)
                     gateway_status = r.status_code
@@ -453,6 +453,7 @@ async def version():
         except Exception as e:
             instance_state = {"network_exception": str(e)}
 
+    from app.services.whatsapp import last_send_log
     return {
         "commit": os.environ.get("GIT_COMMIT") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "unknown",
         "whatsapp_enabled": bool(settings.WHATSAPP_ENABLED),
@@ -461,7 +462,8 @@ async def version():
         "whatsapp_api_url_preview": wa_masked,
         "whatsapp_session": settings.WHATSAPP_SESSION,
         "gateway_http_status": gateway_status,
-        "gateway_instance_state": instance_state
+        "gateway_instance_state": instance_state,
+        "last_whatsapp_dispatch": last_send_log
     }
 
 @app.get("/admin/repair-production")

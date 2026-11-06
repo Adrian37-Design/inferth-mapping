@@ -16,6 +16,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+last_send_log: dict = {"status": "none", "detail": "No send attempted yet"}
+
 
 def normalize_msisdn(raw: str | None) -> str | None:
     """Normalize a phone number to digits-only E.164-ish form.
@@ -66,6 +68,7 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
 
         # Attempt send with retry (handles wake-up latency when gateway was idle)
         import asyncio
+        global last_send_log
         for attempt in range(1, 3):
             try:
                 async with httpx.AsyncClient(timeout=20.0) as client:
@@ -73,12 +76,31 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                 if 200 <= resp.status_code < 300:
                     print(f"[WhatsApp SUCCESS] Message dispatched to {msisdn} via {settings.WHATSAPP_PROVIDER}")
                     logger.info("WhatsApp sent to %s via %s (attempt %d)", msisdn, settings.WHATSAPP_PROVIDER, attempt)
+                    last_send_log = {
+                        "status": "success",
+                        "msisdn": msisdn[-6:],
+                        "http_code": resp.status_code,
+                        "response": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
+                    }
                     return True
                 print(f"[WhatsApp FAILED] Status: {resp.status_code}, Response: {resp.text[:300]}")
                 logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp.text[:200])
+                last_send_log = {
+                    "status": "failed",
+                    "attempt": attempt,
+                    "msisdn": msisdn[-6:],
+                    "http_code": resp.status_code,
+                    "response": resp.text[:300]
+                }
             except Exception as req_err:
                 print(f"[WhatsApp EXCEPTION] Network error on attempt {attempt}: {req_err}")
                 logger.warning("WhatsApp send attempt %d network exception: %s", attempt, req_err)
+                last_send_log = {
+                    "status": "exception",
+                    "attempt": attempt,
+                    "msisdn": msisdn[-6:],
+                    "error": str(req_err)
+                }
             
             if attempt < 2:
                 await asyncio.sleep(2.0)
