@@ -422,8 +422,34 @@ async def admin_health_check(current_user: User = Depends(require_super_admin)):
 @app.get("/version")
 async def version():
     """Which commit this instance is running and safe WhatsApp diagnostics."""
+    import httpx
     wa_url = settings.WHATSAPP_API_URL or ""
     wa_masked = f"{wa_url[:12]}...{wa_url[-8:]}" if len(wa_url) > 20 else wa_url
+
+    gateway_status = None
+    instance_state = None
+    if settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL:
+        base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+        if "://" not in base:
+            base = "https://" + base
+        try:
+            headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                if settings.WHATSAPP_PROVIDER == "evolution":
+                    # Check instance connection state
+                    inst_url = f"{base}/instance/connectionState/{settings.WHATSAPP_SESSION}"
+                    r = await client.get(inst_url, headers=headers)
+                    gateway_status = r.status_code
+                    if r.status_code == 200:
+                        instance_state = r.json()
+                    else:
+                        instance_state = {"error_status": r.status_code, "body": r.text[:150]}
+                else:
+                    r = await client.get(f"{base}/api/health", headers={"X-Api-Key": settings.WHATSAPP_API_KEY or ""})
+                    gateway_status = r.status_code
+        except Exception as e:
+            instance_state = {"network_exception": str(e)}
+
     return {
         "commit": os.environ.get("GIT_COMMIT") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "unknown",
         "whatsapp_enabled": bool(settings.WHATSAPP_ENABLED),
@@ -431,6 +457,8 @@ async def version():
         "whatsapp_api_url_set": bool(settings.WHATSAPP_API_URL),
         "whatsapp_api_url_preview": wa_masked,
         "whatsapp_session": settings.WHATSAPP_SESSION,
+        "gateway_http_status": gateway_status,
+        "gateway_instance_state": instance_state
     }
 
 @app.get("/admin/repair-production")
