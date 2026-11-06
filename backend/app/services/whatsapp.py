@@ -71,10 +71,13 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                 async with httpx.AsyncClient(timeout=20.0) as client:
                     resp = await client.post(url, json=payload, headers=headers)
                 if 200 <= resp.status_code < 300:
+                    print(f"[WhatsApp SUCCESS] Message dispatched to {msisdn} via {settings.WHATSAPP_PROVIDER}")
                     logger.info("WhatsApp sent to %s via %s (attempt %d)", msisdn, settings.WHATSAPP_PROVIDER, attempt)
                     return True
+                print(f"[WhatsApp FAILED] Status: {resp.status_code}, Response: {resp.text[:300]}")
                 logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp.text[:200])
             except Exception as req_err:
+                print(f"[WhatsApp EXCEPTION] Network error on attempt {attempt}: {req_err}")
                 logger.warning("WhatsApp send attempt %d network exception: %s", attempt, req_err)
             
             if attempt < 2:
