@@ -255,34 +255,95 @@ async def run_migrations_and_branding():
 
 
 async def _whatsapp_keepalive_loop():
-    """Ping the WhatsApp gateway every 4 minutes to prevent Railway sleep.
-    Also self-ping /health so the main FastAPI service stays warm."""
-    import httpx
-    await asyncio.sleep(60)  # Let the app fully boot before first ping
-    while True:
-        # Ping WhatsApp gateway
-        try:
-            if settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL:
-                base = settings.WHATSAPP_API_URL.strip().rstrip("/")
-                if "://" not in base:
-                    base = "https://" + base
-                if settings.WHATSAPP_PROVIDER == "waha":
-                    ping_url = f"{base}/api/health"
-                    headers = {"X-Api-Key": settings.WHATSAPP_API_KEY or ""}
-                else:
-                    # Ping exact instance connection state to keep Baileys WhatsApp web socket alive
-                    ping_url = f"{base}/instance/connectionState/{settings.WHATSAPP_SESSION}"
-                    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-                async with httpx.AsyncClient(timeout=10) as client:
-                    r = await client.get(
-                        ping_url,
-                        headers=headers,
-                    )
-                    print(f"[WA-keepalive] {ping_url} -> {r.status_code}")
-        except Exception as e:
-            print(f"[WA-keepalive] ping failed: {e}")
+    """
+    Two-tier WhatsApp keepalive:
 
-        # Self-ping /health to prevent Railway idle spin-down
+    Tier 1 (every 2 min): lightweight ping to Evolution API connectionState
+      — keeps both the backend and Evolution API Railway services awake.
+
+    Tier 2 (every 25 min): actual WhatsApp message sent to the bot's own JID
+      — this is the REAL heartbeat. connectionState returns "open" even on a
+      dead socket. Only an actual send attempt reveals a broken connection.
+      If send fails, we trigger an instance reconnect automatically.
+
+    Also self-pings /health every 2 min to keep this FastAPI service warm.
+    """
+    import httpx
+
+    await asyncio.sleep(60)  # Let the app fully boot before first ping
+
+    ping_counter = 0  # counts 2-minute cycles; every 12.5 cycles (~25 min) = heartbeat send
+
+    while True:
+        ping_counter += 1
+
+        if not (settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL):
+            await asyncio.sleep(120)
+            continue
+
+        base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+        if "://" not in base:
+            base = "https://" + base
+        session = settings.WHATSAPP_SESSION
+        headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+
+        # --- Tier 1: lightweight connectionState ping (every cycle) ---
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                if settings.WHATSAPP_PROVIDER == "waha":
+                    r = await client.get(f"{base}/api/health",
+                                         headers={"X-Api-Key": settings.WHATSAPP_API_KEY or ""})
+                else:
+                    r = await client.get(f"{base}/instance/connectionState/{session}",
+                                         headers=headers)
+                print(f"[WA-ping] connectionState -> {r.status_code}")
+        except Exception as e:
+            print(f"[WA-ping] failed: {e}")
+
+        # --- Tier 2: real socket heartbeat via actual send (every ~25 min) ---
+        if ping_counter % 13 == 0 and settings.WHATSAPP_PROVIDER == "evolution":
+            try:
+                # Find the bot's own JID from the instance info and send to self.
+                # Sending to own JID creates/updates a self-chat — invisible to users.
+                async with httpx.AsyncClient(timeout=20) as client:
+                    # Get owner JID from instance info
+                    owner_jid = None
+                    try:
+                        ri = await client.get(f"{base}/instance/fetchInstances", headers=headers)
+                        if ri.status_code == 200:
+                            instances = ri.json()
+                            for inst in (instances if isinstance(instances, list) else []):
+                                if inst.get("name") == session or inst.get("instanceName") == session:
+                                    owner_jid = inst.get("ownerJid")
+                                    break
+                    except Exception:
+                        pass
+
+                    # Fallback: use known bot number if owner_jid not found
+                    if not owner_jid:
+                        owner_jid = "263783009275@s.whatsapp.net"
+
+                    # Send heartbeat message to self (bot's own number)
+                    r = await client.post(
+                        f"{base}/message/sendText/{session}",
+                        headers=headers,
+                        json={"number": owner_jid, "text": "keepalive"}
+                    )
+                    if r.status_code in (200, 201):
+                        print(f"[WA-heartbeat] socket confirmed alive (self-send ok)")
+                    else:
+                        body = r.text[:200]
+                        print(f"[WA-heartbeat] send failed {r.status_code}: {body} — triggering reconnect")
+                        # Auto-reconnect: restart the instance so Baileys re-establishes the socket
+                        try:
+                            rc = await client.post(f"{base}/instance/restart/{session}", headers=headers)
+                            print(f"[WA-heartbeat] reconnect triggered -> {rc.status_code}")
+                        except Exception as re_err:
+                            print(f"[WA-heartbeat] reconnect failed: {re_err}")
+            except Exception as e:
+                print(f"[WA-heartbeat] exception: {e}")
+
+        # --- Self-ping to keep FastAPI service warm ---
         try:
             self_base = settings.APP_BASE_URL.rstrip("/")
             async with httpx.AsyncClient(timeout=10) as client:
@@ -290,7 +351,7 @@ async def _whatsapp_keepalive_loop():
         except Exception as e:
             print(f"[self-keepalive] ping failed: {e}")
 
-        await asyncio.sleep(120)  # Every 2 minutes  # Every 4 minutes
+        await asyncio.sleep(120)  # 2-minute cycle
 
 @app.on_event("startup")
 async def startup_event():
