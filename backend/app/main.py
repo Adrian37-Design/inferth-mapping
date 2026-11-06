@@ -494,11 +494,11 @@ async def admin_whatsapp_reconnect():
 
 @app.get("/admin/whatsapp-reset")
 async def admin_whatsapp_reset():
-    """Smart reset for broken WhatsApp session.
-    Strategy A: logout -> delete -> recreate (clean path).
-    Strategy B: if delete fails (stuck instance), restart -> logout via POST -> delete again.
-    Strategy C: if still stuck, use the existing instance and force a new QR via connect.
-    After this, call /admin/whatsapp-qr to get the QR code and scan it."""
+    """Smart WhatsApp session reset.
+    Root cause: Evolution API caches 'open' state even after device is unlinked.
+    Fix: restart the instance, wait 12s for WhatsApp to REJECT the invalid credentials,
+    then call /instance/connect which will now return a QR (since state flips to 'close').
+    After this endpoint returns, immediately call /admin/whatsapp-qr."""
     import httpx, asyncio
     if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
         return {"error": "WhatsApp not enabled"}
@@ -509,63 +509,110 @@ async def admin_whatsapp_reset():
     session = settings.WHATSAPP_SESSION
     result = {}
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # --- Strategy A: clean path ---
-        # Step 1a: POST logout (Evolution API v2 uses POST not DELETE for logout)
-        for logout_method in ["post", "delete"]:
-            try:
-                method = getattr(client, logout_method)
-                r = await method(f"{base}/instance/logout/{session}", headers=headers)
-                result[f"logout_{logout_method}"] = {"status": r.status_code, "body": r.text[:200]}
-                if r.status_code in (200, 201):
-                    break
-            except Exception as e:
-                result[f"logout_{logout_method}_err"] = str(e)
+    async with httpx.AsyncClient(timeout=40.0) as client:
+        # Step 1: Try force-delete with ?force=true param (some Evolution API versions support this)
+        deleted = False
+        try:
+            r = await client.delete(f"{base}/instance/delete/{session}", headers=headers, params={"force": "true"})
+            result["delete_force"] = {"status": r.status_code, "body": r.text[:200]}
+            if r.status_code in (200, 201):
+                deleted = True
+        except Exception as e:
+            result["delete_force_err"] = str(e)
 
-        # Step 1b: Restart to put it in a clean disconnected state
+        if deleted:
+            await asyncio.sleep(2)
+            try:
+                r = await client.post(f"{base}/instance/create", headers=headers, json={
+                    "instanceName": session, "qrcode": True, "integration": "WHATSAPP-BAILEYS"
+                })
+                result["create"] = {"status": r.status_code, "body": r.text[:400]}
+                result["strategy"] = "A: deleted+recreated — call /admin/whatsapp-qr now"
+            except Exception as e:
+                result["create_err"] = str(e)
+            return result
+
+        # Step 2: Restart and wait for WhatsApp to REJECT the dead credentials
+        # (Evolution API sets state='open' immediately on restart, but WhatsApp
+        #  rejects unlinked credentials within ~10s, flipping state to 'close')
         try:
             r = await client.post(f"{base}/instance/restart/{session}", headers=headers)
             result["restart"] = {"status": r.status_code, "body": r.text[:200]}
         except Exception as e:
             result["restart_err"] = str(e)
 
-        # Brief pause after restart so Evolution API stabilises
-        await asyncio.sleep(3)
+        result["waiting"] = "Waiting 15s for WhatsApp to reject dead credentials..."
+        await asyncio.sleep(15)
 
-        # Step 2: Try DELETE /instance/delete
-        deleted = False
+        # Step 3: Check state — should now be 'close' after WhatsApp rejection
         try:
-            r = await client.delete(f"{base}/instance/delete/{session}", headers=headers)
-            result["delete"] = {"status": r.status_code, "body": r.text[:300]}
-            if r.status_code in (200, 201):
-                deleted = True
+            r = await client.get(f"{base}/instance/connectionState/{session}", headers=headers)
+            result["state_after_wait"] = {"status": r.status_code, "body": r.text[:200]}
         except Exception as e:
-            result["delete_err"] = str(e)
+            result["state_after_wait_err"] = str(e)
 
-        if deleted:
-            # Step 3: Recreate fresh
-            await asyncio.sleep(2)
-            try:
-                r = await client.post(f"{base}/instance/create", headers=headers, json={
-                    "instanceName": session,
-                    "qrcode": True,
-                    "integration": "WHATSAPP-BAILEYS"
-                })
-                result["create"] = {"status": r.status_code, "body": r.text[:500]}
-                result["strategy"] = "A: deleted and recreated — call /admin/whatsapp-qr next"
-            except Exception as e:
-                result["create_err"] = str(e)
-        else:
-            # --- Strategy C: instance is stuck, force new QR on existing instance ---
-            # Evolution API allows re-connecting an existing broken instance with a new QR
-            result["strategy"] = "C: delete failed — forcing new QR on existing instance — call /admin/whatsapp-qr next"
-            try:
-                r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
-                result["force_connect"] = {"status": r.status_code, "body": r.text[:400]}
-            except Exception as e:
-                result["force_connect_err"] = str(e)
+        # Step 4: Connect — if state flipped to close/refused, this returns QR
+        try:
+            r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
+            data = r.json() if r.status_code == 200 else {}
+            result["connect"] = {"status": r.status_code, "body": r.text[:400]}
+            state = (data.get("instance") or {}).get("state", "") if isinstance(data, dict) else ""
+            if state == "open":
+                result["strategy"] = "STUCK: still open after 15s wait — try /admin/whatsapp-pairing-code instead"
+            else:
+                result["strategy"] = "B: restarted+waited — call /admin/whatsapp-qr now"
+        except Exception as e:
+            result["connect_err"] = str(e)
 
     return result
+
+
+@app.get("/admin/whatsapp-pairing-code")
+async def admin_whatsapp_pairing_code(phone: str = ""):
+    """Alternative to QR code: request a pairing code for the bot phone number.
+    Pass ?phone= the BOT phone number (e.g. 263783009275).
+    User then enters the code on WhatsApp -> Settings -> Linked Devices -> Link a Device
+    -> 'Link with phone number instead'."""
+    import httpx, asyncio
+    if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
+        return {"error": "WhatsApp not enabled"}
+    if not phone:
+        return {"error": "Pass ?phone=263783009275 (the BOT phone number)"}
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    session = settings.WHATSAPP_SESSION
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Must restart first so instance is in 'connecting' (not 'open') state
+        try:
+            r = await client.post(f"{base}/instance/restart/{session}", headers=headers)
+            restart_body = r.text[:100]
+        except Exception as e:
+            restart_body = str(e)
+
+        await asyncio.sleep(8)  # Let restart settle into 'connecting' state
+
+        try:
+            # Evolution API v2 pairing code endpoint
+            r = await client.post(
+                f"{base}/instance/pairing-code/{session}",
+                headers=headers,
+                json={"number": phone}
+            )
+            return {
+                "restart": restart_body,
+                "pairing_status": r.status_code,
+                "pairing_response": r.json() if r.status_code in (200, 201) else r.text[:300],
+                "instructions": (
+                    "If you got a code above: on the BOT phone, go to "
+                    "WhatsApp -> Settings -> Linked Devices -> Link a Device "
+                    "-> 'Link with phone number instead' -> enter the code shown above."
+                )
+            }
+        except Exception as e:
+            return {"restart": restart_body, "pairing_error": str(e)}
 
 
 @app.get("/admin/whatsapp-qr")
