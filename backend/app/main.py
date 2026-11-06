@@ -268,12 +268,15 @@ async def _whatsapp_keepalive_loop():
                     base = "https://" + base
                 if settings.WHATSAPP_PROVIDER == "waha":
                     ping_url = f"{base}/api/health"
+                    headers = {"X-Api-Key": settings.WHATSAPP_API_KEY or ""}
                 else:
-                    ping_url = f"{base}/instance/fetchInstances"
+                    # Ping exact instance connection state to keep Baileys WhatsApp web socket alive
+                    ping_url = f"{base}/instance/connectionState/{settings.WHATSAPP_SESSION}"
+                    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
                 async with httpx.AsyncClient(timeout=10) as client:
                     r = await client.get(
                         ping_url,
-                        headers={"apikey": settings.WHATSAPP_API_KEY or ""},
+                        headers=headers,
                     )
                     print(f"[WA-keepalive] {ping_url} -> {r.status_code}")
         except Exception as e:
@@ -287,7 +290,7 @@ async def _whatsapp_keepalive_loop():
         except Exception as e:
             print(f"[self-keepalive] ping failed: {e}")
 
-        await asyncio.sleep(240)  # Every 4 minutes
+        await asyncio.sleep(120)  # Every 2 minutes  # Every 4 minutes
 
 @app.on_event("startup")
 async def startup_event():
@@ -549,7 +552,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Origin"],
+    allow_headers=["*"],
 )
 
 # Optional Host allowlist (deploy-time opt-in via ALLOWED_HOSTS).
