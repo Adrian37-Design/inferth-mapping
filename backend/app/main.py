@@ -494,9 +494,12 @@ async def admin_whatsapp_reconnect():
 
 @app.get("/admin/whatsapp-reset")
 async def admin_whatsapp_reset():
-    """Force-delete and recreate the WhatsApp instance (bypasses broken Evolution API UI).
-    Call when session is unlinked/broken. Then hit /admin/whatsapp-qr for a fresh QR code."""
-    import httpx
+    """Smart reset for broken WhatsApp session.
+    Strategy A: logout -> delete -> recreate (clean path).
+    Strategy B: if delete fails (stuck instance), restart -> logout via POST -> delete again.
+    Strategy C: if still stuck, use the existing instance and force a new QR via connect.
+    After this, call /admin/whatsapp-qr to get the QR code and scan it."""
+    import httpx, asyncio
     if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
         return {"error": "WhatsApp not enabled"}
     base = settings.WHATSAPP_API_URL.strip().rstrip("/")
@@ -505,29 +508,63 @@ async def admin_whatsapp_reset():
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
     session = settings.WHATSAPP_SESSION
     result = {}
+
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Step 1: Logout first (best-effort)
+        # --- Strategy A: clean path ---
+        # Step 1a: POST logout (Evolution API v2 uses POST not DELETE for logout)
+        for logout_method in ["post", "delete"]:
+            try:
+                method = getattr(client, logout_method)
+                r = await method(f"{base}/instance/logout/{session}", headers=headers)
+                result[f"logout_{logout_method}"] = {"status": r.status_code, "body": r.text[:200]}
+                if r.status_code in (200, 201):
+                    break
+            except Exception as e:
+                result[f"logout_{logout_method}_err"] = str(e)
+
+        # Step 1b: Restart to put it in a clean disconnected state
         try:
-            r = await client.delete(f"{base}/instance/logout/{session}", headers=headers)
-            result["logout"] = {"status": r.status_code, "body": r.text[:200]}
+            r = await client.post(f"{base}/instance/restart/{session}", headers=headers)
+            result["restart"] = {"status": r.status_code, "body": r.text[:200]}
         except Exception as e:
-            result["logout"] = {"error": str(e)}
-        # Step 2: Delete the instance
+            result["restart_err"] = str(e)
+
+        # Brief pause after restart so Evolution API stabilises
+        await asyncio.sleep(3)
+
+        # Step 2: Try DELETE /instance/delete
+        deleted = False
         try:
             r = await client.delete(f"{base}/instance/delete/{session}", headers=headers)
             result["delete"] = {"status": r.status_code, "body": r.text[:300]}
+            if r.status_code in (200, 201):
+                deleted = True
         except Exception as e:
-            result["delete"] = {"error": str(e)}
-        # Step 3: Recreate with QR enabled
-        try:
-            r = await client.post(f"{base}/instance/create", headers=headers, json={
-                "instanceName": session,
-                "qrcode": True,
-                "integration": "WHATSAPP-BAILEYS"
-            })
-            result["create"] = {"status": r.status_code, "body": r.text[:500]}
-        except Exception as e:
-            result["create"] = {"error": str(e)}
+            result["delete_err"] = str(e)
+
+        if deleted:
+            # Step 3: Recreate fresh
+            await asyncio.sleep(2)
+            try:
+                r = await client.post(f"{base}/instance/create", headers=headers, json={
+                    "instanceName": session,
+                    "qrcode": True,
+                    "integration": "WHATSAPP-BAILEYS"
+                })
+                result["create"] = {"status": r.status_code, "body": r.text[:500]}
+                result["strategy"] = "A: deleted and recreated — call /admin/whatsapp-qr next"
+            except Exception as e:
+                result["create_err"] = str(e)
+        else:
+            # --- Strategy C: instance is stuck, force new QR on existing instance ---
+            # Evolution API allows re-connecting an existing broken instance with a new QR
+            result["strategy"] = "C: delete failed — forcing new QR on existing instance — call /admin/whatsapp-qr next"
+            try:
+                r = await client.get(f"{base}/instance/connect/{session}", headers=headers)
+                result["force_connect"] = {"status": r.status_code, "body": r.text[:400]}
+            except Exception as e:
+                result["force_connect_err"] = str(e)
+
     return result
 
 
