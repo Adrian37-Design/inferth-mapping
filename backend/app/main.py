@@ -431,7 +431,7 @@ async def version():
 
     gateway_status = None
     instance_state = None
-    test_send_result = None
+    evolution_restart_test = None
     if settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL:
         base = settings.WHATSAPP_API_URL.strip().rstrip("/")
         if "://" not in base:
@@ -465,6 +465,37 @@ async def version():
         "gateway_instance_state": instance_state,
         "last_whatsapp_dispatch": last_send_log
     }
+
+@app.get("/admin/whatsapp-reconnect")
+async def admin_whatsapp_reconnect():
+    """Test and trigger instance reconnect/restart on Evolution API directly."""
+    import httpx
+    if not settings.WHATSAPP_ENABLED or not settings.WHATSAPP_API_URL:
+        return {"error": "WhatsApp not enabled"}
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    results = {}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        # Try restart
+        try:
+            r = await client.put(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
+            results["restart_put"] = {"status": r.status_code, "body": r.text[:150]}
+        except Exception as e:
+            results["restart_put_err"] = str(e)
+        try:
+            r = await client.post(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
+            results["restart_post"] = {"status": r.status_code, "body": r.text[:150]}
+        except Exception as e:
+            results["restart_post_err"] = str(e)
+        # Try connect
+        try:
+            r = await client.get(f"{base}/instance/connect/{settings.WHATSAPP_SESSION}", headers=headers)
+            results["connect_get"] = {"status": r.status_code, "body": r.text[:150]}
+        except Exception as e:
+            results["connect_get_err"] = str(e)
+    return results
 
 @app.get("/admin/repair-production")
 async def repair_production_state(current_user: User = Depends(require_super_admin)):
