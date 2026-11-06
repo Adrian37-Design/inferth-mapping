@@ -478,24 +478,47 @@ async def admin_whatsapp_reconnect():
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
     results = {}
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # Try restart
-        try:
-            r = await client.put(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
-            results["restart_put"] = {"status": r.status_code, "body": r.text[:150]}
-        except Exception as e:
-            results["restart_put_err"] = str(e)
         try:
             r = await client.post(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
             results["restart_post"] = {"status": r.status_code, "body": r.text[:150]}
         except Exception as e:
             results["restart_post_err"] = str(e)
-        # Try connect
         try:
             r = await client.get(f"{base}/instance/connect/{settings.WHATSAPP_SESSION}", headers=headers)
             results["connect_get"] = {"status": r.status_code, "body": r.text[:150]}
         except Exception as e:
             results["connect_get_err"] = str(e)
     return results
+
+@app.get("/admin/test-whatsapp-send")
+async def test_whatsapp_send(phone: str = "26377150172"):
+    """Live test of Evolution API message sending payload variants."""
+    import httpx
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    url = f"{base}/message/sendText/{settings.WHATSAPP_SESSION}"
+    
+    attempts = {}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        # Variant 1: standard evolution v2 number
+        try:
+            p1 = {"number": phone, "text": "Test OTP from Inferth Mapping (V1)"}
+            r1 = await client.post(url, json=p1, headers=headers)
+            attempts["variant_1_number"] = {"status": r1.status_code, "response": r1.text[:250]}
+        except Exception as e:
+            attempts["variant_1_err"] = str(e)
+
+        # Variant 2: evolution v2 with options/textMessage
+        try:
+            p2 = {"number": phone, "options": {"delay": 1200, "presence": "composing"}, "textMessage": {"text": "Test OTP from Inferth Mapping (V2)"}}
+            r2 = await client.post(url, json=p2, headers=headers)
+            attempts["variant_2_textMessage"] = {"status": r2.status_code, "response": r2.text[:250]}
+        except Exception as e:
+            attempts["variant_2_err"] = str(e)
+
+    return attempts
 
 @app.get("/admin/repair-production")
 async def repair_production_state(current_user: User = Depends(require_super_admin)):
