@@ -1388,17 +1388,22 @@ function updateReportMetricOptions() {
     const prev = sel.value;
     let opts = REPORT_METRIC_OPTIONS[type] || [];
 
-    // Stacked Bar requires mutually-compatible sub-metrics with the same unit (minutes + minutes).
-    // Show only valid stackable components so unrelated units (km vs km/h vs min) are never stacked.
     if (visual === 'stacked') {
         if (type === 'summary') {
             opts = [
+                ['all_metrics', '★ All Metrics Combined (All-in-One Stack)'],
                 ['moving_idle', 'Time: Moving vs Idle (min)'],
-                ['full_day_time', 'Full Day: Moving + Idle + Parked (min)']
+                ['full_day_time', 'Full Day: Moving + Idle + Parked (min)'],
+                ['distance_km', 'Distance (km)'],
+                ['speed_combo', 'Speed: Avg & Max (km/h)'],
+                ['points', 'Data Points Count']
             ];
         } else if (type === 'trips') {
             opts = [
-                ['moving_idle', 'Trip Time: Moving vs Idle (min)']
+                ['all_metrics', '★ All Trip Metrics (Distance + Duration + Harsh)'],
+                ['moving_idle', 'Trip Duration (min)'],
+                ['distance_km', 'Distance (km)'],
+                ['harsh_events_count', 'Harsh Events']
             ];
         }
     }
@@ -1485,35 +1490,74 @@ function renderReportChart(visual, type, data, container) {
     if (visual === 'stacked') {
         const summaries = data.summaries || [];
         let labels, datasets;
-        const metricChoice = document.getElementById('report-metric')?.value || 'moving_idle';
+        let yTitle = 'Value';
+        const metricChoice = document.getElementById('report-metric')?.value || 'all_metrics';
 
         if (type === 'summary' && summaries.length) {
             labels = summaries.map(s => s.period || '');
             const isDay = (document.getElementById('report-group')?.value || 'day') === 'day';
 
-            if (metricChoice === 'full_day_time' && isDay) {
-                // In Day grouping, a full calendar day is 1440 minutes.
-                // Parked time = 1440 - moving - idle
+            if (metricChoice === 'all_metrics') {
+                // ALL METRICS COMBINED ON STACKED BAR: Distance + Speed + Time + Points
+                yTitle = 'Metrics Stack';
+                datasets = [
+                    { label: 'Distance (km)', data: summaries.map(s => s.distance_km || 0), backgroundColor: 'rgba(249, 115, 22, 0.85)' },
+                    { label: 'Moving (min)', data: summaries.map(s => s.moving_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.85)' },
+                    { label: 'Idle (min)', data: summaries.map(s => s.idle_minutes || 0), backgroundColor: 'rgba(245, 158, 11, 0.85)' },
+                    { label: 'Avg Speed (km/h)', data: summaries.map(s => s.avg_speed_kmh || 0), backgroundColor: 'rgba(6, 182, 212, 0.85)' },
+                    { label: 'Max Speed (km/h)', data: summaries.map(s => s.max_speed_kmh || 0), backgroundColor: 'rgba(220, 38, 38, 0.85)' },
+                    { label: 'Points', data: summaries.map(s => s.points || 0), backgroundColor: 'rgba(100, 116, 139, 0.85)' }
+                ];
+            } else if (metricChoice === 'full_day_time' && isDay) {
+                yTitle = 'Duration (Minutes)';
                 const movingData = summaries.map(s => s.moving_minutes || 0);
                 const idleData   = summaries.map(s => s.idle_minutes || 0);
                 const parkedData = summaries.map(s => Math.max(0, 1440 - (s.moving_minutes || 0) - (s.idle_minutes || 0)));
-
                 datasets = [
                     { label: 'Moving (min)', data: movingData, backgroundColor: 'rgba(59, 130, 246, 0.85)' },
                     { label: 'Idle (min)', data: idleData, backgroundColor: 'rgba(249, 115, 22, 0.85)' },
                     { label: 'Parked (min)', data: parkedData, backgroundColor: 'rgba(148, 163, 184, 0.55)' }
                 ];
+            } else if (metricChoice === 'speed_combo') {
+                yTitle = 'Speed (km/h)';
+                datasets = [
+                    { label: 'Avg Speed (km/h)', data: summaries.map(s => s.avg_speed_kmh || 0), backgroundColor: 'rgba(6, 182, 212, 0.85)' },
+                    { label: 'Peak Speed (km/h)', data: summaries.map(s => Math.max(0, (s.max_speed_kmh || 0) - (s.avg_speed_kmh || 0))), backgroundColor: 'rgba(220, 38, 38, 0.85)' }
+                ];
+            } else if (metricChoice === 'distance_km') {
+                yTitle = 'Distance (km)';
+                datasets = [{ label: 'Distance (km)', data: summaries.map(s => s.distance_km || 0), backgroundColor: 'rgba(249, 115, 22, 0.85)' }];
+            } else if (metricChoice === 'points') {
+                yTitle = 'Data Points';
+                datasets = [{ label: 'GPS Points', data: summaries.map(s => s.points || 0), backgroundColor: 'rgba(100, 116, 139, 0.85)' }];
             } else {
+                yTitle = 'Duration (Minutes)';
                 datasets = [
                     { label: 'Moving (min)', data: summaries.map(s => s.moving_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.85)' },
                     { label: 'Idle (min)', data: summaries.map(s => s.idle_minutes || 0), backgroundColor: 'rgba(249, 115, 22, 0.85)' }
                 ];
+            }
+        } else if (type === 'trips' && (data.trips || []).length) {
+            const shortDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+            labels = (data.trips || []).map(t => shortDate(t.start_time));
+            if (metricChoice === 'all_metrics') {
+                yTitle = 'Trip Metrics Stack';
+                datasets = [
+                    { label: 'Distance (km)', data: (data.trips || []).map(t => t.distance_km || 0), backgroundColor: 'rgba(249, 115, 22, 0.85)' },
+                    { label: 'Duration (min)', data: (data.trips || []).map(t => t.duration_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.85)' },
+                    { label: 'Harsh Events', data: (data.trips || []).map(t => t.harsh_events_count || 0), backgroundColor: 'rgba(239, 68, 68, 0.85)' }
+                ];
+            } else {
+                const s = extractReportSeries(type, data);
+                labels = s.labels;
+                datasets = [{ label: s.metric, data: s.values, backgroundColor: reportMetricColor(type) }];
             }
         } else {
             const s = extractReportSeries(type, data);
             labels = s.labels;
             datasets = [{ label: s.metric, data: s.values, backgroundColor: reportMetricColor(type) }];
         }
+
         if (!labels.length) { container.innerHTML = '<p class="empty-state">No data for selected period.</p>'; return; }
         _reportChart = new Chart(canvas.getContext('2d'), {
             type: 'bar',
@@ -1524,10 +1568,10 @@ function renderReportChart(visual, type, data, container) {
                     legend: { display: datasets.length > 1, position: 'top' },
                     tooltip: {
                         callbacks: {
-                            footer: (items) => {
-                                const total = items.reduce((acc, it) => acc + (it.parsed.y || 0), 0);
-                                const hrs = (total / 60).toFixed(1);
-                                return `Total: ${total.toLocaleString()} min (${hrs} hrs)`;
+                            label: (context) => {
+                                const lbl = context.dataset.label || '';
+                                const val = context.parsed.y || 0;
+                                return ` ${lbl}: ${val.toLocaleString()}`;
                             }
                         }
                     }
@@ -1537,7 +1581,7 @@ function renderReportChart(visual, type, data, container) {
                     y: {
                         stacked: true,
                         beginAtZero: true,
-                        title: { display: true, text: 'Duration (Minutes)' }
+                        title: { display: true, text: yTitle }
                     }
                 }
             }
