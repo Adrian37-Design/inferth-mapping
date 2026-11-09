@@ -1704,12 +1704,11 @@ function buildReportTable(type, data) {
             t.duration_minutes, t.distance_km, t.harsh_events_count
         ]);
     } else if (type === 'stops' || type === 'idle') {
-        headers = ['Start', 'End', 'Duration (min)', 'Lat', 'Lng'];
+        headers = ['Start', 'End', 'Duration (min)', 'Location (Lat, Lng)'];
         rows = ((data.stops || [])).map(s => [
             formatDateTime(s.start_time), formatDateTime(s.end_time),
-            s.duration_minutes,
-            reportLocLink(s.lat, s.lng, s.start_time, s.end_time),
-            reportLocLink(s.lat, s.lng, s.start_time, s.end_time)
+            s.duration_minutes != null ? s.duration_minutes : '-',
+            reportLocLink(s.lat, s.lng)
         ]);
     } else if (type === 'mileage') {
         headers = ['Period', 'Start', 'End', 'Distance (km)', 'Points'];
@@ -1718,11 +1717,11 @@ function buildReportTable(type, data) {
             e.distance_km, e.points
         ]);
     } else if (type === 'speed') {
-        headers = ['Time', 'Speed (km/h)', 'Lat', 'Lng'];
+        headers = ['Time', 'Speed (km/h)', 'Location (Lat, Lng)'];
         rows = (data.speeding_instances || []).map(i => [
-            formatDateTime(i.time), i.speed_kmh,
-            reportLocLink(i.lat, i.lng, i.time, i.time),
-            reportLocLink(i.lat, i.lng, i.time, i.time)
+            formatDateTime(i.time),
+            i.speed_kmh != null ? i.speed_kmh : '-',
+            reportLocLink(i.lat, i.lng)
         ]);
     } else if (type === 'summary') {
         headers = ['Period', 'Distance (km)', 'Max km/h', 'Avg km/h', 'Moving (min)', 'Idle (min)', 'Points'];
@@ -1737,6 +1736,13 @@ function buildReportTable(type, data) {
     const th = headers.map(h => `<th>${h}</th>`).join('');
     const tr = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
     return `<table class="report-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
+}
+
+function reportLocLink(lat, lng) {
+    if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return '-';
+    const nLat = Number(lat).toFixed(5);
+    const nLng = Number(lng).toFixed(5);
+    return `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color:#ff8c00; font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="View on Google Maps">${nLat}, ${nLng} <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i></a>`;
 }
 
 function formatDateTime(iso) {
