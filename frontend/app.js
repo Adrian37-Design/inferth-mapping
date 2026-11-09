@@ -645,6 +645,10 @@ window.switchTab = function(targetId) {
 
         if (targetId === 'tab-billing') {
             loadBillingData();
+        }
+
+        if (targetId === 'tab-insights' && typeof window.loadInsights === 'function') {
+            window.loadInsights();
         }
 
         if (targetId === 'tab-history') {

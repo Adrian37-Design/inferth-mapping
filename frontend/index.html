@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
+    <link rel="stylesheet" href="/static/insights.css?v=2">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
 
@@ -810,21 +811,65 @@
                 <!-- Tab: Insights — CAN/OBD diagnostics, fleet analytics & savings -->
                 <div id="tab-insights" class="tab-content">
 
-                    <!-- Monetization Hook: Savings Widget -->
-                    <div class="savings-widget">
-                        <h4>Estimated Monthly Savings</h4>
-                        <div class="savings-amount" id="report-savings">$0</div>
-                        <p class="savings-subtext">Based on reduced idling &amp; optimized routes</p>
-                    </div>
-
-                    <!-- Intel Sub-tabs: CAN / OBD | Fleet Analytics -->
-                    <div class="intel-subtabs">
-                        <button class="intel-subtab active" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
+                    <!-- Intel Sub-tabs: Insights | CAN / OBD | Fleet Analytics -->
+                    <div class="intel-subtabs" style="margin-bottom: 14px;">
+                        <button class="intel-subtab active" id="intel-tab-insights" onclick="switchIntelSubTab('insights')">
+                            <i class="fas fa-lightbulb"></i> Insights
+                        </button>
+                        <button class="intel-subtab" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
                             <i class="fas fa-microchip"></i> CAN / OBD
                         </button>
                         <button class="intel-subtab" id="intel-tab-analytics" onclick="switchIntelSubTab('analytics')">
                             <i class="fas fa-chart-bar"></i> Fleet Analytics
                         </button>
+                    </div>
+
+                    <!-- ===== Renewed Insights View (Manager & Driver Views) ===== -->
+                    <div id="intel-section-insights" class="intel-section">
+                        <!-- Top Header with Role Indicator and Actions -->
+                        <div class="insights-header-bar">
+                            <div class="insights-header-left">
+                                <h4 class="insights-header-title">
+                                    <i class="fas fa-bolt" style="color: #f59e0b;"></i>
+                                    <span id="insights-view-heading">Fleet Manager Insights</span>
+                                </h4>
+                                <span class="insights-role-pill manager" id="insights-role-indicator">
+                                    <i class="fas fa-shield-halved"></i> Manager View
+                                </span>
+                            </div>
+                            <div class="insights-header-actions">
+                                <!-- Role Mode Switcher (Visible to Admin/Manager for previewing driver experience) -->
+                                <div id="insights-role-switcher" style="display: inline-flex; background: #f1f5f9; padding: 2px; border-radius: 8px;">
+                                    <button type="button" class="btn-sm" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')" style="border:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; background:#0f172a; color:#fff; cursor:pointer;">Manager</button>
+                                    <button type="button" class="btn-sm" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')" style="border:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:600; background:transparent; color:#64748b; cursor:pointer;">Driver</button>
+                                </div>
+                                <button type="button" class="btn-secondary btn-sm" id="btn-simulate-insight" onclick="openSimulateInsightModal()" title="Simulate Telematics Event (Fuel drop, Night trip)">
+                                    <i class="fas fa-flask"></i> Simulate Event
+                                </button>
+                                <button type="button" class="btn-secondary btn-sm" onclick="loadInsights(true)" title="Refresh Insights">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Top Bar Component -->
+                        <div class="insights-top-bar" id="insights-top-bar" style="margin-top: 14px;">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+
+                        <!-- Cards Section -->
+                        <div class="insights-cards-section" style="margin-top: 14px;">
+                            <div class="insights-section-title">
+                                <i class="fas fa-layer-group"></i>
+                                <span id="insights-cards-heading">Actionable Fleet Cards</span>
+                            </div>
+                            <div id="insights-cards-list" class="insights-cards-container">
+                                <div style="text-align:center; padding:30px; color:#64748b;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; margin-bottom:8px;"></i>
+                                    <p>Loading insights...</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- ===== Fleet Analytics ===== -->
@@ -885,7 +930,7 @@
                     </div>
 
                     <!-- ===== CAN / OBD Diagnostics ===== -->
-                    <div id="intel-section-obd" class="intel-section">
+                    <div id="intel-section-obd" class="intel-section hidden">
 
                         <!-- Compatibility Notice -->
                         <div class="obd-notice">
@@ -1583,6 +1628,7 @@
     <script src="/static/contact-status.js?v=1"></script>
     <script src="/static/app.js?v=152"></script>
     <script src="/static/geofence.js?v=10"></script>
+    <script src="/static/insights.js?v=2"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
@@ -1617,6 +1663,84 @@
                         <i class="fas fa-upload"></i> Submit POP
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights: Fuel Graph Modal -->
+    <div id="insight-fuel-graph-modal" class="insight-modal-backdrop hidden">
+        <div class="insight-modal-card">
+            <div class="insight-modal-header">
+                <h4><i class="fas fa-gas-pump" style="color:#ef4444;"></i> <span id="fuel-modal-title">Fuel Level Diagnostics</span></h4>
+                <button type="button" class="insight-modal-close" onclick="closeInsightModal('insight-fuel-graph-modal')">&times;</button>
+            </div>
+            <div class="insight-modal-body">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:#f8fafc; padding:12px; border-radius:8px;">
+                    <div>
+                        <strong id="fuel-modal-vehicle" style="font-size:0.95rem; color:#0f172a;">Vehicle Telemetry</strong>
+                        <div id="fuel-modal-driver" style="font-size:0.78rem; color:#64748b;">Assigned Driver</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <span id="fuel-modal-drop-badge" class="insight-metric-chip loss">-18.5 L drop</span>
+                        <div id="fuel-modal-loss-usd" style="font-size:0.8rem; font-weight:700; color:#b91c1c;">$30.53 impact</div>
+                    </div>
+                </div>
+                <div style="position:relative; width:100%; height:260px; margin-top:10px;">
+                    <canvas id="insight-fuel-chart"></canvas>
+                </div>
+                <p id="fuel-modal-subtext" style="font-size:0.78rem; color:#64748b; margin:0;">
+                    Points recorded by high-frequency CAN / capacitive fuel sensor. Red highlight indicates stationary fuel depletion with ignition off.
+                </p>
+            </div>
+            <div class="insight-modal-footer">
+                <button type="button" class="insight-btn insight-btn-secondary" onclick="closeInsightModal('insight-fuel-graph-modal')">Close</button>
+                <button type="button" class="insight-btn insight-btn-whatsapp" id="fuel-modal-msg-btn" onclick="messageDriverFromModal()"><i class="fab fa-whatsapp"></i> Message Driver</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights: Simulate Event Modal -->
+    <div id="insight-simulate-modal" class="insight-modal-backdrop hidden">
+        <div class="insight-modal-card" style="max-width: 480px;">
+            <div class="insight-modal-header">
+                <h4><i class="fas fa-flask" style="color:#f59e0b;"></i> Simulate Telematics Event</h4>
+                <button type="button" class="insight-modal-close" onclick="closeInsightModal('insight-simulate-modal')">&times;</button>
+            </div>
+            <div class="insight-modal-body">
+                <p style="font-size:0.82rem; color:#475569; margin:0;">
+                    Simulate real-world conditions to verify detection cards and workflow actions:
+                </p>
+                <label style="font-size:0.8rem; font-weight:600; color:#334155; display:block; margin-top:8px;">Event Scenario:</label>
+                <select id="sim-event-type" class="dd-select" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
+                    <option value="fuel_siphoning">CARD 1: Possible Fuel Siphoning (>15L drop while engine OFF &amp; stopped >10m)</option>
+                    <option value="night_trip">CARD 2: Unauthorized Night Trip (Leaves geofence 22:00-05:00)</option>
+                    <option value="car_attention">DRIVER CARD 1: Car Needs Attention (Engine temp >110C / Check Engine light)</option>
+                </select>
+
+                <div id="sim-siphon-options" style="margin-top:10px;">
+                    <label style="font-size:0.8rem; font-weight:600; color:#334155;">Simulated Liters Dropped:</label>
+                    <input type="number" id="sim-fuel-liters" value="18.5" step="0.5" min="15.1" max="80" style="width:100%; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-top:4px;">
+                </div>
+            </div>
+            <div class="insight-modal-footer">
+                <button type="button" class="insight-btn insight-btn-secondary" onclick="closeInsightModal('insight-simulate-modal')">Cancel</button>
+                <button type="button" class="insight-btn insight-btn-primary" onclick="submitSimulateInsight()"><i class="fas fa-play"></i> Trigger Event</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Insights: Action Prompt Modal -->
+    <div id="insight-action-modal" class="insight-modal-backdrop hidden">
+        <div class="insight-modal-card" style="max-width: 500px;">
+            <div class="insight-modal-header">
+                <h4 id="action-modal-title"><i class="fas fa-clipboard-check"></i> Card Action</h4>
+                <button type="button" class="insight-modal-close" onclick="closeInsightModal('insight-action-modal')">&times;</button>
+            </div>
+            <div class="insight-modal-body" id="action-modal-body">
+                <!-- Injected dynamically -->
+            </div>
+            <div class="insight-modal-footer" id="action-modal-footer">
+                <button type="button" class="insight-btn insight-btn-secondary" onclick="closeInsightModal('insight-action-modal')">Close</button>
             </div>
         </div>
     </div>

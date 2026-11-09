@@ -274,3 +274,70 @@ class MatchedRoute(Base):
     segments = Column(JSON, nullable=False)
     engine = Column(String, nullable=False, default="valhalla")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Insight(Base):
+    __tablename__ = "insights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True, index=True)
+    driver_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    driver_name = Column(String, nullable=True)
+    role_target = Column(String, default="manager", index=True)  # "manager" or "driver"
+    category = Column(String, index=True, nullable=False)
+    # Manager categories: fuel_siphoning, unauthorized_night_trip, driver_costing_fuel, service_due_soon, best_driver_week
+    # Driver categories: car_attention, harsh_braking_excess, excessive_idling, great_driving, service_reminder
+    severity = Column(String, default="orange")  # "red", "orange", "blue", "green"
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    metric_value = Column(String, nullable=True)
+    money_impact = Column(Float, nullable=True)  # in USD
+    status = Column(String, default="open", index=True)  # "open", "resolved", "action_taken"
+    extra_data = Column(JSON, default={})
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    tenant = relationship("Tenant")
+    device = relationship("Device")
+    driver = relationship("User", foreign_keys=[driver_id])
+    actions = relationship("InsightAction", back_populates="insight", cascade="all, delete-orphan")
+
+
+class InsightAction(Base):
+    __tablename__ = "insight_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    insight_id = Column(Integer, ForeignKey("insights.id", ondelete="CASCADE"), index=True, nullable=False)
+    action_type = Column(String, nullable=False)
+    performed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    details = Column(JSON, default={})
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    insight = relationship("Insight", back_populates="actions")
+    performed_by = relationship("User")
+
+
+class DriverScore(Base):
+    __tablename__ = "driver_scores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    driver_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    driver_name = Column(String, nullable=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=True, index=True)
+    date = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    score = Column(Integer, default=100)  # 0 to 100
+    harsh_braking_count = Column(Integer, default=0)
+    harsh_accel_count = Column(Integer, default=0)
+    idling_minutes = Column(Float, default=0.0)
+    speeding_count = Column(Integer, default=0)
+    night_trips_count = Column(Integer, default=0)
+    fuel_per_100km = Column(Float, nullable=True)
+    fuel_saved_liters = Column(Float, default=0.0)
+    extra_data = Column(JSON, default={})
+
+    tenant = relationship("Tenant")
+    driver = relationship("User", foreign_keys=[driver_id])
+    device = relationship("Device")
+

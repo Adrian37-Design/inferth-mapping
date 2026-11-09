@@ -745,6 +745,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "tenant_id": current_user.tenant_id,
         "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
         "theme": resolve_tenant_theme(current_user.tenant),
+        "accessible_assets": current_user.accessible_assets or ["*"],
         "subscription": {
             "plan": current_user.tenant.plan if current_user.tenant else "Basic",
             "status": current_user.tenant.subscription_status if current_user.tenant else "active",

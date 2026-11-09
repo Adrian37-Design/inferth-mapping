@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # server (1 request/second, not for high-traffic production use).
     MAP_MATCH_URL: str = "https://valhalla1.openstreetmap.de"
 
+    # Fuel price USD per liter (used for Insights calculations)
+    FUEL_PRICE_USD: float = 1.65
+
     SECONDARY_DESTINATION: str | None = None
 
     # Email Settings

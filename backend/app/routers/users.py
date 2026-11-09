@@ -15,7 +15,7 @@ from app.services.whatsapp import normalize_msisdn, send_invite_whatsapp
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-VALID_ROLES = {"admin", "manager", "viewer"}
+VALID_ROLES = {"admin", "manager", "viewer", "driver"}
 
 class UserCreate(BaseModel):
     email: EmailStr
