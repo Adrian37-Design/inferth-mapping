@@ -1705,11 +1705,16 @@ function buildReportTable(type, data) {
         ]);
     } else if (type === 'stops' || type === 'idle') {
         headers = ['Start', 'End', 'Duration (min)', 'Location (Lat, Lng)'];
-        rows = ((data.stops || [])).map(s => [
-            formatDateTime(s.start_time), formatDateTime(s.end_time),
-            s.duration_minutes != null ? s.duration_minutes : '-',
-            reportLocLink(s.lat, s.lng)
-        ]);
+        const vehLabel = document.getElementById('report-vehicle')?.selectedOptions[0]?.text || 'Vehicle';
+        rows = ((data.stops || [])).map(s => {
+            const dur = s.duration_minutes != null ? `${s.duration_minutes} min` : '';
+            const eventInfo = `${vehLabel} • ${type === 'idle' ? 'Idle' : 'Stop'}: ${dur}`;
+            return [
+                formatDateTime(s.start_time), formatDateTime(s.end_time),
+                s.duration_minutes != null ? s.duration_minutes : '-',
+                reportLocLink(s.lat, s.lng, eventInfo)
+            ];
+        });
     } else if (type === 'mileage') {
         headers = ['Period', 'Start', 'End', 'Distance (km)', 'Points'];
         rows = (data.entries || []).map(e => [
@@ -1718,11 +1723,16 @@ function buildReportTable(type, data) {
         ]);
     } else if (type === 'speed') {
         headers = ['Time', 'Speed (km/h)', 'Location (Lat, Lng)'];
-        rows = (data.speeding_instances || []).map(i => [
-            formatDateTime(i.time),
-            i.speed_kmh != null ? i.speed_kmh : '-',
-            reportLocLink(i.lat, i.lng)
-        ]);
+        const vehLabel = document.getElementById('report-vehicle')?.selectedOptions[0]?.text || 'Vehicle';
+        rows = (data.speeding_instances || []).map(i => {
+            const spd = i.speed_kmh != null ? `${i.speed_kmh} km/h` : '';
+            const eventInfo = `${vehLabel} • Speeding: ${spd}`;
+            return [
+                formatDateTime(i.time),
+                i.speed_kmh != null ? i.speed_kmh : '-',
+                reportLocLink(i.lat, i.lng, eventInfo)
+            ];
+        });
     } else if (type === 'summary') {
         headers = ['Period', 'Distance (km)', 'Max km/h', 'Avg km/h', 'Moving (min)', 'Idle (min)', 'Points'];
         rows = (data.summaries || []).map(s => [
@@ -1738,11 +1748,75 @@ function buildReportTable(type, data) {
     return `<table class="report-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
 }
 
-function reportLocLink(lat, lng) {
+window.viewReportLocationOnMap = function(lat, lng, eventInfo) {
+    if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return;
+    const nLat = parseFloat(lat);
+    const nLng = parseFloat(lng);
+
+    // Switch to the main live platform map tab
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('tab-fleet');
+    }
+
+    setTimeout(() => {
+        if (!map) return;
+        map.invalidateSize();
+        map.setView([nLat, nLng], 16, { animate: true });
+
+        // Clean up previous report pin if any
+        if (window._reportLocationMarker) {
+            try { map.removeLayer(window._reportLocationMarker); } catch (_) {}
+            window._reportLocationMarker = null;
+        }
+
+        const pulseIcon = L.divIcon({
+            className: 'report-loc-pin-wrap',
+            html: `
+                <div style="position:relative; width:42px; height:42px; display:flex; align-items:center; justify-content:center;">
+                    <div style="position:absolute; inset:0; border-radius:50%; background:rgba(255,140,0,0.35); animation:reportPinPulse 1.6s infinite ease-out;"></div>
+                    <div style="position:relative; width:26px; height:26px; border-radius:50%; background:#ff8c00; border:2.5px solid #ffffff; box-shadow:0 3px 12px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:12px;">
+                        <i class="fas fa-location-dot"></i>
+                    </div>
+                </div>
+                <style>
+                    @keyframes reportPinPulse {
+                        0% { transform:scale(0.5); opacity:0.9; }
+                        100% { transform:scale(1.8); opacity:0; }
+                    }
+                </style>
+            `,
+            iconSize: [42, 42],
+            iconAnchor: [21, 21]
+        });
+
+        const marker = L.marker([nLat, nLng], { icon: pulseIcon }).addTo(map);
+
+        const safeInfo = eventInfo ? escapeHTML(eventInfo) : 'Report Event Location';
+        const popupHtml = `
+            <div style="font-family:'Inter',sans-serif; min-width:180px; padding:3px 2px;">
+                <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:#ff8c00; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:5px;">
+                    <i class="fas fa-location-dot"></i> Report Location
+                </div>
+                <div style="font-size:0.875rem; font-weight:600; color:#1f2937; margin-bottom:6px;">
+                    ${safeInfo}
+                </div>
+                <div style="font-size:0.78rem; font-family:monospace; background:#f3f4f6; padding:3px 6px; border-radius:4px; color:#4b5563; display:inline-block;">
+                    ${nLat.toFixed(5)}, ${nLng.toFixed(5)}
+                </div>
+            </div>
+        `;
+
+        marker.bindPopup(popupHtml, { offset: [0, -12] }).openPopup();
+        window._reportLocationMarker = marker;
+    }, 280);
+};
+
+function reportLocLink(lat, lng, eventInfo = '') {
     if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) return '-';
     const nLat = Number(lat).toFixed(5);
     const nLng = Number(lng).toFixed(5);
-    return `<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener noreferrer" style="color:#ff8c00; font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="View on Google Maps">${nLat}, ${nLng} <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i></a>`;
+    const safeInfo = String(eventInfo || '').replace(/'/g, "\\'");
+    return `<button type="button" class="report-loc-btn" onclick="window.viewReportLocationOnMap(${lat}, ${lng}, '${safeInfo}')" style="background:none; border:none; padding:2px 6px; border-radius:4px; cursor:pointer; color:#ff8c00; font-weight:600; font-size:0.825rem; display:inline-flex; align-items:center; gap:5px; text-decoration:none; transition:background 0.15s;" onmouseover="this.style.background='rgba(255,140,0,0.1)'" onmouseout="this.style.background='none'" title="Show on Inferth platform map">${nLat}, ${nLng} <i class="fas fa-map-location-dot" style="font-size:0.8rem; color:#ff8c00;"></i></button>`;
 }
 
 function formatDateTime(iso) {
