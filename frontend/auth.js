@@ -534,12 +534,50 @@ class AuthManager {
             });
         };
 
+        const _extractOtpCode = (raw) => {
+            if (!raw) return '';
+            // Look for 6-digit sequence first (e.g. from WhatsApp message)
+            const match6 = String(raw).match(/\b\d{6}\b/);
+            if (match6) return match6[0];
+            // Otherwise extract all digits and take up to 6
+            const digits = String(raw).replace(/\D/g, '');
+            return digits.slice(0, 6);
+        };
+
+        const _fillOtpBoxes = (codeString) => {
+            const digits = _extractOtpCode(codeString);
+            if (!digits) return false;
+
+            // Fill all 6 boxes sequentially starting from index 0
+            for (let i = 0; i < otpBoxes.length; i++) {
+                otpBoxes[i].value = digits[i] || '';
+                otpBoxes[i].classList.toggle('filled', !!otpBoxes[i].value);
+            }
+            _clearOtpErrors();
+
+            const nextEmpty = otpBoxes.findIndex(b => !b.value);
+            const targetFocus = nextEmpty === -1 ? otpBoxes[otpBoxes.length - 1] : otpBoxes[nextEmpty];
+            if (targetFocus) targetFocus.focus();
+
+            _checkOtpComplete();
+            return true;
+        };
+
         otpBoxes.forEach((box, idx) => {
             box.addEventListener('input', (e) => {
-                const val = e.target.value.replace(/\D/g, '');
-                box.value = val ? val[val.length - 1] : '';
+                const rawVal = e.target.value || '';
+                const digits = rawVal.replace(/\D/g, '');
+
+                // When user pastes or uses mobile keyboard autofill, multiple digits arrive in the input event
+                if (digits.length > 1) {
+                    _fillOtpBoxes(digits);
+                    return;
+                }
+
+                box.value = digits ? digits[0] : '';
                 box.classList.toggle('filled', !!box.value);
                 _clearOtpErrors();
+
                 if (box.value && idx < otpBoxes.length - 1) {
                     otpBoxes[idx + 1].focus();
                 }
@@ -547,11 +585,17 @@ class AuthManager {
             });
 
             box.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && !box.value && idx > 0) {
-                    otpBoxes[idx - 1].value = '';
-                    otpBoxes[idx - 1].classList.remove('filled');
-                    otpBoxes[idx - 1].focus();
-                    _checkOtpComplete();
+                if (e.key === 'Backspace') {
+                    if (!box.value && idx > 0) {
+                        otpBoxes[idx - 1].value = '';
+                        otpBoxes[idx - 1].classList.remove('filled');
+                        otpBoxes[idx - 1].focus();
+                        _checkOtpComplete();
+                    } else {
+                        box.value = '';
+                        box.classList.remove('filled');
+                        _checkOtpComplete();
+                    }
                 }
                 if (e.key === 'Enter' && !verifyBtn.disabled) {
                     verifyBtn.click();
@@ -560,17 +604,20 @@ class AuthManager {
 
             box.addEventListener('paste', (e) => {
                 e.preventDefault();
-                const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-                if (!pasted) return;
-                for (let i = 0; i < otpBoxes.length; i++) {
-                    otpBoxes[i].value = pasted[i] || '';
-                    otpBoxes[i].classList.toggle('filled', !!otpBoxes[i].value);
-                }
-                const nextEmpty = otpBoxes.findIndex(b => !b.value);
-                (nextEmpty === -1 ? otpBoxes[otpBoxes.length - 1] : otpBoxes[nextEmpty]).focus();
-                _checkOtpComplete();
+                const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                _fillOtpBoxes(pasted);
             });
         });
+
+        // Allow pasting anywhere inside the OTP box container as well
+        if (otpBoxesContainer) {
+            otpBoxesContainer.addEventListener('paste', (e) => {
+                const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                if (_fillOtpBoxes(pasted)) {
+                    e.preventDefault();
+                }
+            });
+        }
 
         // Show OTP panel
         const _showOtpPanel = (tempToken, phoneMasked, phoneRequired = false) => {
