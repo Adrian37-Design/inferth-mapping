@@ -739,14 +739,15 @@ async def test_whatsapp_send(phone: str = "263713150172"):
         except Exception as e:
             report["instances_err"] = str(e)
 
-        # 2. Try sending with @s.whatsapp.net / formatting
+        # 2. Send plain digits number (clean E.164, no @s.whatsapp.net)
         url = f"{base}/message/sendText/{session}"
+        clean_phone = "".join(c for c in phone if c.isdigit())
         try:
-            p = {"number": f"{phone}@s.whatsapp.net", "text": "Test OTP from Inferth Mapping"}
+            p = {"number": clean_phone, "text": "Test OTP from Inferth Mapping"}
             r = await client.post(url, json=p, headers=headers)
-            report["send_jid"] = {"status": r.status_code, "response": r.text[:250]}
+            report["send_test"] = {"status": r.status_code, "response": r.text[:250]}
         except Exception as e:
-            report["send_jid_err"] = str(e)
+            report["send_test_err"] = str(e)
 
     return report
 

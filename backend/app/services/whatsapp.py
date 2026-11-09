@@ -97,14 +97,15 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
 
                 # If WhatsApp socket dropped ("Connection Closed"), trigger reconnect on Evolution API
                 if settings.WHATSAPP_PROVIDER == "evolution" and ("Connection Closed" in resp_text or resp.status_code in (500, 502, 503)):
-                    print(f"[WhatsApp RECONNECT] Socket connection was closed; triggering reconnect for instance {settings.WHATSAPP_SESSION}...")
+                    print(f"[WhatsApp RECONNECT] Socket connection was closed; triggering restart for instance {settings.WHATSAPP_SESSION}...")
                     try:
-                        async with httpx.AsyncClient(timeout=10.0) as client:
-                            # Evolution API reconnect instance endpoint
-                            await client.get(f"{base}/instance/connect/{settings.WHATSAPP_SESSION}", headers=headers)
+                        async with httpx.AsyncClient(timeout=15.0) as client:
+                            # Evolution API restart endpoint re-initializes the Baileys WebSocket
+                            await client.post(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
                     except Exception as rec_err:
                         print(f"[WhatsApp RECONNECT ERROR] {rec_err}")
-                    await asyncio.sleep(3.0)
+                    # Wait 6 seconds for Baileys WebSocket to finish handshaking with WhatsApp
+                    await asyncio.sleep(6.0)
                 else:
                     await asyncio.sleep(2.0)
 
