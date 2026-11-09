@@ -1380,13 +1380,35 @@ function updateReportMetricOptions() {
     const sel = document.getElementById('report-metric');
     const group = document.getElementById('report-metric-group');
     if (!sel || !group) return;
-    const prev = sel.value;
-    const opts = REPORT_METRIC_OPTIONS[type] || [];
-    sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
-    if (opts.some(o => o[0] === prev)) sel.value = prev;
-    // Metric only matters for visual renderings — hide it for plain tables.
     const visual = document.getElementById('report-visual')?.value || 'table';
+
+    // Metric only matters for visual renderings — hide it for plain tables.
     group.style.display = visual === 'table' ? 'none' : '';
+
+    const prev = sel.value;
+    let opts = REPORT_METRIC_OPTIONS[type] || [];
+
+    // Stacked Bar requires mutually-compatible sub-metrics with the same unit (minutes + minutes).
+    // Show only valid stackable components so unrelated units (km vs km/h vs min) are never stacked.
+    if (visual === 'stacked') {
+        if (type === 'summary') {
+            opts = [
+                ['moving_idle', 'Time: Moving vs Idle (min)'],
+                ['full_day_time', 'Full Day: Moving + Idle + Parked (min)']
+            ];
+        } else if (type === 'trips') {
+            opts = [
+                ['moving_idle', 'Trip Time: Moving vs Idle (min)']
+            ];
+        }
+    }
+
+    sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+    if (opts.some(o => o[0] === prev)) {
+        sel.value = prev;
+    } else if (opts.length) {
+        sel.value = opts[0][0];
+    }
 }
 
 function extractReportSeries(type, data) {
@@ -1463,12 +1485,30 @@ function renderReportChart(visual, type, data, container) {
     if (visual === 'stacked') {
         const summaries = data.summaries || [];
         let labels, datasets;
+        const metricChoice = document.getElementById('report-metric')?.value || 'moving_idle';
+
         if (type === 'summary' && summaries.length) {
             labels = summaries.map(s => s.period || '');
-            datasets = [
-                { label: 'Moving (min)', data: summaries.map(s => s.moving_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.8)' },
-                { label: 'Idle (min)', data: summaries.map(s => s.idle_minutes || 0), backgroundColor: 'rgba(249, 115, 22, 0.8)' }
-            ];
+            const isDay = (document.getElementById('report-group')?.value || 'day') === 'day';
+
+            if (metricChoice === 'full_day_time' && isDay) {
+                // In Day grouping, a full calendar day is 1440 minutes.
+                // Parked time = 1440 - moving - idle
+                const movingData = summaries.map(s => s.moving_minutes || 0);
+                const idleData   = summaries.map(s => s.idle_minutes || 0);
+                const parkedData = summaries.map(s => Math.max(0, 1440 - (s.moving_minutes || 0) - (s.idle_minutes || 0)));
+
+                datasets = [
+                    { label: 'Moving (min)', data: movingData, backgroundColor: 'rgba(59, 130, 246, 0.85)' },
+                    { label: 'Idle (min)', data: idleData, backgroundColor: 'rgba(249, 115, 22, 0.85)' },
+                    { label: 'Parked (min)', data: parkedData, backgroundColor: 'rgba(148, 163, 184, 0.55)' }
+                ];
+            } else {
+                datasets = [
+                    { label: 'Moving (min)', data: summaries.map(s => s.moving_minutes || 0), backgroundColor: 'rgba(59, 130, 246, 0.85)' },
+                    { label: 'Idle (min)', data: summaries.map(s => s.idle_minutes || 0), backgroundColor: 'rgba(249, 115, 22, 0.85)' }
+                ];
+            }
         } else {
             const s = extractReportSeries(type, data);
             labels = s.labels;
@@ -1480,8 +1520,26 @@ function renderReportChart(visual, type, data, container) {
             data: { labels, datasets },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: datasets.length > 1 } },
-                scales: { x: { stacked: true, ticks: { maxTicksLimit: 12, autoSkip: true } }, y: { stacked: true, beginAtZero: true } }
+                plugins: {
+                    legend: { display: datasets.length > 1, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            footer: (items) => {
+                                const total = items.reduce((acc, it) => acc + (it.parsed.y || 0), 0);
+                                const hrs = (total / 60).toFixed(1);
+                                return `Total: ${total.toLocaleString()} min (${hrs} hrs)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { stacked: true, ticks: { maxTicksLimit: 12, autoSkip: true } },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        title: { display: true, text: 'Duration (Minutes)' }
+                    }
+                }
             }
         });
         return;
