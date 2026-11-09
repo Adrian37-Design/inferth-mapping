@@ -731,11 +731,21 @@ class AuthManager {
             });
         }
 
-        // Credential form submit
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email    = emailInput.value;
-            const password = passwordInput.value;
+        // Credential form submit handler (robust on mobile & desktop)
+        const _doLogin = async () => {
+            const email    = (emailInput.value || '').trim();
+            const password = passwordInput.value || '';
+
+            if (!email) {
+                this.showError(errorMessage, 'Please enter your email address.');
+                emailInput.focus();
+                return;
+            }
+            if (!password) {
+                this.showError(errorMessage, 'Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
 
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
@@ -755,7 +765,41 @@ class AuthManager {
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = '<span>Sign in</span> <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i><span class="shimmer"></span>';
             }
+        };
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await _doLogin();
         });
+
+        if (loginBtn) {
+            loginBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                await _doLogin();
+            });
+        }
+
+        [emailInput, passwordInput].forEach(inp => {
+            if (!inp) return;
+            inp.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    await _doLogin();
+                }
+            });
+        });
+
+        // If URL already had ?email=...&password=... (from previous GET submit on mobile)
+        const qEmail = urlParams.get('email');
+        const qPass  = urlParams.get('password');
+        if (qEmail) emailInput.value = qEmail;
+        if (qPass)  passwordInput.value = qPass;
+        if (qEmail && qPass) {
+            try {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (_) {}
+            setTimeout(() => _doLogin(), 150);
+        }
     }
 
     applyTheme(theme) {

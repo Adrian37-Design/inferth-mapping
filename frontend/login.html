@@ -669,7 +669,7 @@
 
                     <div class="divider"><span>or</span></div>
 
-                    <form id="login-form">
+                    <form id="login-form" method="POST" action="javascript:void(0);" onsubmit="event.preventDefault(); return false;">
                         <div class="field">
                             <label for="email">Email <span class="req">*</span></label>
                             <input type="email" id="email" name="email" required placeholder="Enter your email address" autocomplete="email">
@@ -687,7 +687,7 @@
 
                         <div class="error-message" id="error-message"></div>
 
-                        <button type="submit" class="submit-btn" id="login-btn">
+                        <button type="button" class="submit-btn" id="login-btn">
                             <span>Sign in</span>
                             <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i>
                             <span class="shimmer"></span>
