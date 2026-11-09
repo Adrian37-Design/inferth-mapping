@@ -403,11 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (insightsTab) {
         insightsTab.addEventListener('click', () => {
             setTimeout(() => {
-                loadIntelAnalytics();
-                const obdBtn = document.getElementById('intel-tab-obd');
-                if (obdBtn && obdBtn.classList.contains('active')) {
-                    renderOBDVehicleCards();
-                    refreshDTCCodes();
+                if (typeof window.loadInsights === 'function') {
+                    window.loadInsights();
                 }
             }, 100);
         });
@@ -6915,26 +6912,8 @@ function renderRules() {
 // --- Intel Sub-tab Switching (Phase 7 / Phase 8) ---
 
 window.switchIntelSubTab = function(tab) {
-    const sectionAnalytics = document.getElementById('intel-section-analytics');
-    const sectionObd = document.getElementById('intel-section-obd');
-    const btnAnalytics = document.getElementById('intel-tab-analytics');
-    const btnObd = document.getElementById('intel-tab-obd');
-
-    if (tab === 'analytics') {
-        if (sectionAnalytics) sectionAnalytics.classList.remove('hidden');
-        if (sectionObd) sectionObd.classList.add('hidden');
-        if (btnAnalytics) btnAnalytics.classList.add('active');
-        if (btnObd) btnObd.classList.remove('active');
-        // Refresh analytics data
-        loadIntelAnalytics();
-    } else if (tab === 'obd') {
-        if (sectionObd) sectionObd.classList.remove('hidden');
-        if (sectionAnalytics) sectionAnalytics.classList.add('hidden');
-        if (btnObd) btnObd.classList.add('active');
-        if (btnAnalytics) btnAnalytics.classList.remove('active');
-        // Render OBD cards from live telemetry
-        renderOBDVehicleCards();
-        refreshDTCCodes();
+    if (typeof window.loadInsights === 'function') {
+        window.loadInsights();
     }
 };
 

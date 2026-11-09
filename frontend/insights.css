@@ -1,415 +1,507 @@
-/* Insights & Driver Performance Stylesheet */
+/* ==========================================================================
+   Inferth Mapping — Enterprise Fleet Insights
+   High-precision telematics exception analysis & driver performance styles
+   ========================================================================== */
 
-.insights-container {
-    padding: 16px;
+.insights-view-wrapper {
+    padding: 18px 22px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    background: var(--bg-surface, #f8fafc);
+    background: #f8fafc;
     min-height: 100%;
+    color: #0f172a;
+    font-family: inherit;
 }
 
-/* Role Banner / Switcher */
-.insights-header-bar {
+/* 1. Header Toolbar */
+.insights-top-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
-    padding: 12px 16px;
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.insights-header-left {
+.insights-title-group {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.insights-header-title {
+.insights-main-title {
     margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.insights-role-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 9999px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.insights-role-pill.manager {
-    background: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
-}
-
-.insights-role-pill.driver {
-    background: #dcfce7;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-}
-
-.insights-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Top Bar Stats */
-.insights-top-bar {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-    gap: 14px;
-}
-
-.insight-stat-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.insight-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.insight-stat-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 1.25rem;
-    flex-shrink: 0;
-}
-
-.insight-stat-icon.health {
-    background: #ecfdf5;
-    color: #10b981;
-}
-
-.insight-stat-icon.money {
-    background: #fef2f2;
-    color: #ef4444;
-}
-
-.insight-stat-icon.urgent {
-    background: #fff7ed;
-    color: #f97316;
-}
-
-.insight-stat-icon.score {
-    background: #eff6ff;
-    color: #3b82f6;
-}
-
-.insight-stat-icon.fuel {
-    background: #ecfeff;
-    color: #06b6d4;
-}
-
-.insight-stat-icon.rank {
-    background: #fdf4ff;
-    color: #a855f7;
-}
-
-.insight-stat-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.insight-stat-val {
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: #0f172a;
-    line-height: 1.2;
 }
 
-.insight-stat-val.red { color: #dc2626; }
-.insight-stat-val.green { color: #16a34a; }
-.insight-stat-val.blue { color: #2563eb; }
-
-.insight-stat-lbl {
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-top: 2px;
-}
-
-/* Insight Cards List */
-.insights-cards-section {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.insights-section-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-}
-
-/* Individual Card Styling */
-.insight-card {
-    background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.insight-card:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-}
-
-/* Severity Border Accents */
-.insight-card.severity-red {
-    border-left: 5px solid #ef4444;
-    background: linear-gradient(to right, rgba(254, 242, 242, 0.5), #ffffff 15%);
-}
-
-.insight-card.severity-orange {
-    border-left: 5px solid #f59e0b;
-    background: linear-gradient(to right, rgba(255, 251, 235, 0.5), #ffffff 15%);
-}
-
-.insight-card.severity-blue {
-    border-left: 5px solid #3b82f6;
-    background: linear-gradient(to right, rgba(239, 246, 255, 0.5), #ffffff 15%);
-}
-
-.insight-card.severity-green {
-    border-left: 5px solid #10b981;
-    background: linear-gradient(to right, rgba(236, 253, 245, 0.5), #ffffff 15%);
-}
-
-/* Card Header */
-.insight-card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.insight-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.insight-badge.red {
-    background: #fee2e2;
-    color: #b91c1c;
-    border: 1px solid #fca5a5;
-}
-
-.insight-badge.orange {
-    background: #fef3c7;
-    color: #b45309;
-    border: 1px solid #fde68a;
-}
-
-.insight-badge.blue {
-    background: #dbeafe;
-    color: #1d4ed8;
-    border: 1px solid #bfdbfe;
-}
-
-.insight-badge.green {
-    background: #d1fae5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-}
-
-.insight-card-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.insights-subtitle {
+    margin: 0;
     font-size: 0.78rem;
     color: #64748b;
+    font-weight: 400;
 }
 
-.insight-meta-item {
+.insights-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.insights-pill-toggle {
     display: inline-flex;
+    align-items: center;
+    background: #e2e8f0;
+    padding: 2px;
+    border-radius: 6px;
+    gap: 2px;
+}
+
+.insights-pill-toggle .toggle-pill {
+    border: none;
+    background: transparent;
+    color: #475569;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.insights-pill-toggle .toggle-pill.active {
+    background: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.insights-icon-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    color: #475569;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.insights-icon-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+/* 2. Metric KPI Cards (Top Bar) */
+.insights-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.insights-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.15s ease;
+}
+
+.insights-kpi-card:hover {
+    border-color: #cbd5e1;
+}
+
+.insights-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.insights-kpi-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.insights-kpi-value {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+
+.insights-kpi-value.danger { color: #dc2626; }
+.insights-kpi-value.warning { color: #d97706; }
+.insights-kpi-value.success { color: #16a34a; }
+.insights-kpi-value.primary { color: #2563eb; }
+
+.insights-kpi-subtext {
+    font-size: 0.74rem;
+    color: #64748b;
+    margin-top: 2px;
+    display: flex;
     align-items: center;
     gap: 4px;
 }
 
-/* Card Body */
-.insight-card-body {
+.insights-kpi-subtext.positive { color: #16a34a; font-weight: 500; }
+.insights-kpi-subtext.negative { color: #dc2626; font-weight: 500; }
+.insights-kpi-subtext.alert { color: #d97706; font-weight: 500; }
+
+/* 3. Feed Section */
+.insights-feed-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.insights-feed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 4px;
+}
+
+.feed-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.feed-section-heading {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #334155;
+}
+
+.feed-counter {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.insights-cards-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 4. Enterprise Card Component */
+.telematics-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    position: relative;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.telematics-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Severity Indicator Accents (Strict Left Border, no flashy background gradients) */
+.telematics-card.sev-red {
+    border-left: 3.5px solid #dc2626;
+}
+
+.telematics-card.sev-orange {
+    border-left: 3.5px solid #d97706;
+}
+
+.telematics-card.sev-blue {
+    border-left: 3.5px solid #2563eb;
+}
+
+.telematics-card.sev-green {
+    border-left: 3.5px solid #16a34a;
+}
+
+/* Card Header */
+.card-header-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.card-tags-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.corp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.corp-badge.red {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fee2e2;
+}
+
+.corp-badge.orange {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fef3c7;
+}
+
+.corp-badge.blue {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #dbeafe;
+}
+
+.corp-badge.green {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #dcfce7;
+}
+
+.corp-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.corp-badge.red .dot { background: #dc2626; }
+.corp-badge.orange .dot { background: #d97706; }
+.corp-badge.blue .dot { background: #2563eb; }
+.corp-badge.green .dot { background: #16a34a; }
+
+.card-vehicle-tag {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #334155;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.card-driver-tag {
+    font-size: 0.76rem;
+    color: #64748b;
+}
+
+.card-time-ago {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+/* Card Content */
+.card-content-block {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.insight-card-title-row {
+.card-headline-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 10px;
 }
 
-.insight-card-title {
+.card-headline {
     margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: 0.96rem;
+    font-weight: 600;
     color: #0f172a;
+    letter-spacing: -0.01em;
 }
 
-.insight-metric-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 6px;
+.card-financial-tag {
     font-size: 0.82rem;
     font-weight: 700;
+    color: #dc2626;
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
 }
 
-.insight-metric-chip.loss {
-    background: #fee2e2;
-    color: #b91c1c;
+.card-financial-tag.positive {
+    color: #16a34a;
+    background: #f0fdf4;
+    border-color: #dcfce7;
 }
 
-.insight-metric-chip.rate {
-    background: #fef3c7;
-    color: #b45309;
-}
-
-.insight-metric-chip.good {
-    background: #d1fae5;
-    color: #047857;
-}
-
-.insight-metric-chip.neutral {
-    background: #eff6ff;
-    color: #1d4ed8;
-}
-
-.insight-card-desc {
+.card-narrative {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     line-height: 1.45;
-    color: #334155;
+    color: #475569;
 }
 
-/* Card Actions Footer */
-.insight-card-actions {
+/* Telemetry Mini-Strip */
+.telemetry-strip {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 0.74rem;
+}
+
+.strip-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #64748b;
+}
+
+.strip-item strong {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* Card Actions */
+.card-actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 8px;
-    padding-top: 8px;
+    padding-top: 10px;
     border-top: 1px solid #f1f5f9;
 }
 
-.insight-btn {
+.corp-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 5px;
     cursor: pointer;
-    border: none;
-    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    transition: all 0.12s ease;
+    text-decoration: none;
+    line-height: 1;
 }
 
-.insight-btn-primary {
+.corp-btn-primary {
     background: #0f172a;
     color: #ffffff;
+    border-color: #0f172a;
 }
-.insight-btn-primary:hover { background: #1e293b; }
-
-.insight-btn-whatsapp {
-    background: #25d366;
-    color: #ffffff;
+.corp-btn-primary:hover {
+    background: #1e293b;
+    border-color: #1e293b;
 }
-.insight-btn-whatsapp:hover { background: #1ebe5d; }
 
-.insight-btn-danger {
-    background: #ef4444;
-    color: #ffffff;
-}
-.insight-btn-danger:hover { background: #dc2626; }
-
-.insight-btn-success {
-    background: #10b981;
-    color: #ffffff;
-}
-.insight-btn-success:hover { background: #059669; }
-
-.insight-btn-secondary {
-    background: #f1f5f9;
+.corp-btn-secondary {
+    background: #ffffff;
     color: #334155;
-    border: 1px solid #cbd5e1;
-}
-.insight-btn-secondary:hover { background: #e2e8f0; }
-
-.insight-btn-ghost {
-    background: transparent;
-    color: #64748b;
-    border: 1px solid transparent;
-}
-.insight-btn-ghost:hover {
-    background: #f8fafc;
-    color: #0f172a;
     border-color: #cbd5e1;
 }
+.corp-btn-secondary:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
 
-/* Modal Styling for Fuel Graph & Actions */
+.corp-btn-whatsapp {
+    background: #ffffff;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+.corp-btn-whatsapp:hover {
+    background: #f0fdf4;
+    border-color: #86efac;
+}
+
+.corp-btn-danger {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+}
+.corp-btn-danger:hover {
+    background: #b91c1c;
+}
+
+.corp-btn-ghost {
+    background: transparent;
+    color: #64748b;
+    border-color: transparent;
+}
+.corp-btn-ghost:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+/* Loading state */
+.insights-loading-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.insights-loading-state i {
+    font-size: 1.5rem;
+    color: #0f172a;
+}
+
+/* Modal Styling */
 .insight-modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.65);
-    backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(2px);
     z-index: 9999;
     display: flex;
     align-items: center;
@@ -419,33 +511,27 @@
 
 .insight-modal-card {
     background: #ffffff;
-    border-radius: 14px;
+    border-radius: 8px;
     width: 100%;
-    max-width: 650px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    animation: modalSlide 0.2s ease-out;
-}
-
-@keyframes modalSlide {
-    from { opacity: 0; transform: translateY(12px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .insight-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
+    padding: 14px 18px;
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
 }
 
 .insight-modal-header h4 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: #0f172a;
     display: flex;
@@ -456,53 +542,52 @@
 .insight-modal-close {
     background: transparent;
     border: none;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     color: #64748b;
     cursor: pointer;
     padding: 4px 8px;
-    border-radius: 6px;
+    border-radius: 4px;
 }
-.insight-modal-close:hover { background: #e2e8f0; color: #0f172a; }
+.insight-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
 
 .insight-modal-body {
-    padding: 20px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    max-height: 75vh;
+    gap: 12px;
+    max-height: 70vh;
     overflow-y: auto;
+    font-size: 0.85rem;
+    color: #334155;
 }
 
 .insight-modal-footer {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 20px;
+    gap: 8px;
+    padding: 12px 18px;
     border-top: 1px solid #e2e8f0;
     background: #f8fafc;
 }
 
-/* Toast feedback */
+/* Toast */
 .insight-toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    padding: 12px 18px;
+    padding: 10px 16px;
     background: #0f172a;
     color: #ffffff;
-    border-radius: 10px;
-    font-size: 0.85rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
     font-weight: 600;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 10000;
     display: flex;
     align-items: center;
     gap: 8px;
-    animation: toastFade 0.2s ease-out;
-}
-
-@keyframes toastFade {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
 }

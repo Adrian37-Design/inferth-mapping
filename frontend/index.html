@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
-    <link rel="stylesheet" href="/static/insights.css?v=2">
+    <link rel="stylesheet" href="/static/insights.css?v=3">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
 
@@ -810,164 +810,46 @@
 
                 <!-- Tab: Insights — CAN/OBD diagnostics, fleet analytics & savings -->
                 <div id="tab-insights" class="tab-content">
-
-                    <!-- Intel Sub-tabs: Insights | CAN / OBD | Fleet Analytics -->
-                    <div class="intel-subtabs" style="margin-bottom: 14px;">
-                        <button class="intel-subtab active" id="intel-tab-insights" onclick="switchIntelSubTab('insights')">
-                            <i class="fas fa-lightbulb"></i> Insights
-                        </button>
-                        <button class="intel-subtab" id="intel-tab-obd" onclick="switchIntelSubTab('obd')">
-                            <i class="fas fa-microchip"></i> CAN / OBD
-                        </button>
-                        <button class="intel-subtab" id="intel-tab-analytics" onclick="switchIntelSubTab('analytics')">
-                            <i class="fas fa-chart-bar"></i> Fleet Analytics
-                        </button>
-                    </div>
-
-                    <!-- ===== Renewed Insights View (Manager & Driver Views) ===== -->
-                    <div id="intel-section-insights" class="intel-section">
-                        <!-- Top Header with Role Indicator and Actions -->
-                        <div class="insights-header-bar">
-                            <div class="insights-header-left">
-                                <h4 class="insights-header-title">
-                                    <i class="fas fa-bolt" style="color: #f59e0b;"></i>
-                                    <span id="insights-view-heading">Fleet Manager Insights</span>
-                                </h4>
-                                <span class="insights-role-pill manager" id="insights-role-indicator">
-                                    <i class="fas fa-shield-halved"></i> Manager View
-                                </span>
+                    <div class="insights-view-wrapper">
+                        <!-- Professional Top Header -->
+                        <div class="insights-top-header">
+                            <div class="insights-title-group">
+                                <h3 class="insights-main-title">Insights</h3>
+                                <p class="insights-subtitle" id="insights-subtitle">Automated fleet telemetry exception analysis and operational cost optimization</p>
                             </div>
-                            <div class="insights-header-actions">
+                            <div class="insights-header-controls">
                                 <!-- Role Mode Switcher (Visible to Admin/Manager for previewing driver experience) -->
-                                <div id="insights-role-switcher" style="display: inline-flex; background: #f1f5f9; padding: 2px; border-radius: 8px;">
-                                    <button type="button" class="btn-sm" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')" style="border:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; background:#0f172a; color:#fff; cursor:pointer;">Manager</button>
-                                    <button type="button" class="btn-sm" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')" style="border:none; padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:600; background:transparent; color:#64748b; cursor:pointer;">Driver</button>
+                                <div id="insights-role-switcher" class="insights-pill-toggle">
+                                    <button type="button" class="toggle-pill active" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')">Manager View</button>
+                                    <button type="button" class="toggle-pill" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')">Driver View</button>
                                 </div>
                                 <button type="button" class="btn-secondary btn-sm" id="btn-simulate-insight" onclick="openSimulateInsightModal()" title="Simulate Telematics Event (Fuel drop, Night trip)">
                                     <i class="fas fa-flask"></i> Simulate Event
                                 </button>
-                                <button type="button" class="btn-secondary btn-sm" onclick="loadInsights(true)" title="Refresh Insights">
+                                <button type="button" class="insights-icon-btn" onclick="loadInsights(true)" title="Refresh Insights">
                                     <i class="fas fa-sync-alt"></i>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Top Bar Component -->
-                        <div class="insights-top-bar" id="insights-top-bar" style="margin-top: 14px;">
+                        <!-- Metric KPI Summary (Top Bar) -->
+                        <div class="insights-kpi-grid" id="insights-top-bar">
                             <!-- Populated dynamically via JS -->
                         </div>
 
-                        <!-- Cards Section -->
-                        <div class="insights-cards-section" style="margin-top: 14px;">
-                            <div class="insights-section-title">
-                                <i class="fas fa-layer-group"></i>
-                                <span id="insights-cards-heading">Actionable Fleet Cards</span>
-                            </div>
-                            <div id="insights-cards-list" class="insights-cards-container">
-                                <div style="text-align:center; padding:30px; color:#64748b;">
-                                    <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; margin-bottom:8px;"></i>
-                                    <p>Loading insights...</p>
+                        <!-- Card Feed Header & Feed -->
+                        <div class="insights-feed-wrapper">
+                            <div class="insights-feed-header">
+                                <div class="feed-header-left">
+                                    <h4 class="feed-section-heading" id="insights-cards-heading">Active Items</h4>
+                                    <span class="feed-counter" id="insights-counter-badge">Priority Feed</span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- ===== Fleet Analytics ===== -->
-                    <div id="intel-section-analytics" class="intel-section hidden">
-                        <div class="reports-grid">
-
-                            <!-- Fleet Health -->
-                            <div class="report-card">
-                                <div class="report-card-header">
-                                    <h5><i class="fas fa-heartbeat"></i> Fleet Health</h5>
-                                    <span class="badge-live">LIVE</span>
+                            <div id="insights-cards-list" class="insights-cards-feed">
+                                <div class="insights-loading-state">
+                                    <i class="fas fa-circle-notch fa-spin"></i>
+                                    <span>Analyzing telemetry streams...</span>
                                 </div>
-                                <div class="report-summary" id="report-health-summary">Loading fleet health...</div>
-                                <div id="chart-fleet-health" class="chart-placeholder analytics-mini-grid"></div>
-                            </div>
-
-                            <!-- Driver Performance -->
-                            <div class="report-card">
-                                <div class="report-card-header">
-                                    <h5><i class="fas fa-user-shield"></i> Driver Performance</h5>
-                                </div>
-                                <div class="report-summary" id="report-behavior-summary">Loading driver data...</div>
-                                <div class="chart-placeholder" id="chart-behavior"></div>
-                            </div>
-
-                            <!-- Fuel Efficiency -->
-                            <div class="report-card">
-                                <div class="report-card-header">
-                                    <h5><i class="fas fa-gas-pump"></i> Fuel Efficiency</h5>
-                                </div>
-                                <div class="report-summary" id="report-fuel-summary">Loading fuel data...</div>
-                                <div class="chart-placeholder" id="chart-fuel"></div>
-                            </div>
-
-                            <!-- Vehicle Utilization -->
-                            <div class="report-card">
-                                <div class="report-card-header">
-                                    <h5><i class="fas fa-clock"></i> Vehicle Utilization</h5>
-                                </div>
-                                <div class="report-summary" id="report-usage-summary">Loading utilization...</div>
-                                <div class="chart-holder">
-                                    <canvas id="chart-usage-canvas"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- Maintenance Status (full width) -->
-                            <div class="report-card" style="grid-column: 1 / -1;">
-                                <div class="report-card-header">
-                                    <h5><i class="fas fa-clipboard-check"></i> Maintenance Status</h5>
-                                </div>
-                                <div class="report-summary" id="report-compliance-summary">Loading maintenance...</div>
-                                <div class="compliance-list" id="report-compliance-list">
-                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Insurance</div>
-                                    <div class="compliance-item ok"><i class="fas fa-check"></i> Service</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ===== CAN / OBD Diagnostics ===== -->
-                    <div id="intel-section-obd" class="intel-section hidden">
-
-                        <!-- Compatibility Notice -->
-                        <div class="obd-notice">
-                            <i class="fas fa-info-circle"></i>
-                            Requires a CAN/OBD-compatible tracker such as
-                            <strong>Teltonika FMC003</strong> or <strong>FMB140</strong>.
-                            Data shown is real-time from live telemetry.
-                        </div>
-
-                        <!-- Fleet OBD Summary bar charts -->
-                        <div class="report-card" style="margin-bottom: 12px;">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-tachometer-alt"></i> Live Engine Diagnostics</h5>
-                                <span class="badge-live">LIVE</span>
-                            </div>
-                            <div class="report-summary" id="report-obd-summary" style="margin-bottom: 10px;">
-                                Awaiting real-time telemetry...
-                            </div>
-                            <div class="chart-placeholder" id="chart-obd" style="min-height: 140px;"></div>
-                        </div>
-
-                        <!-- Per-vehicle OBD cards -->
-                        <h5 style="color:var(--text-secondary); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; margin: 10px 0 8px;">
-                            <i class="fas fa-car"></i> Per-Vehicle Diagnostics
-                        </h5>
-                        <div id="obd-vehicle-cards" class="obd-vehicle-grid">
-                            <p class="empty-state">No OBD telemetry received yet.</p>
-                        </div>
-
-                        <!-- DTC Fault Codes -->
-                        <div class="report-card" style="margin-top: 12px;">
-                            <div class="report-card-header">
-                                <h5><i class="fas fa-exclamation-triangle"></i> DTC Fault Codes</h5>
-                                <button class="btn-text btn-sm" onclick="refreshDTCCodes()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
-                            </div>
-                            <div id="dtc-codes-list" class="dtc-list">
-                                <p class="empty-state">No active fault codes detected.</p>
                             </div>
                         </div>
                     </div>
@@ -1626,9 +1508,9 @@
     <script src="/static/auth.js?v=63"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=152"></script>
+    <script src="/static/app.js?v=153"></script>
     <script src="/static/geofence.js?v=10"></script>
-    <script src="/static/insights.js?v=2"></script>
+    <script src="/static/insights.js?v=3"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

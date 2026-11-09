@@ -1,21 +1,19 @@
 /**
- * Inferth Mapping - Insights Feature (Phase 7 Renewal)
- * Role-Based Insights for Fleet Manager & Driver
+ * Inferth Mapping — Enterprise Fleet Insights
+ * High-precision telematics exception analysis & driver performance logic
  */
 
 let currentInsightsRoleMode = 'manager';
 let currentFuelChart = null;
 let activeInsightData = null;
 
-// Initialize Insights when auth is ready
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Determine initial role
     if (window.AuthManager && window.AuthManager.isAuthenticated()) {
         const isMgr = window.AuthManager.isManager();
         currentInsightsRoleMode = isMgr ? 'manager' : 'driver';
     }
 
-    // Attach to tab switch
     const insightsTabRail = document.querySelector('[data-tab="tab-insights"]');
     if (insightsTabRail) {
         insightsTabRail.addEventListener('click', () => {
@@ -36,61 +34,25 @@ window.switchInsightsRoleMode = function(mode) {
 
     if (btnMgr && btnDrv) {
         if (mode === 'manager') {
-            btnMgr.style.background = '#0f172a';
-            btnMgr.style.color = '#ffffff';
-            btnDrv.style.background = 'transparent';
-            btnDrv.style.color = '#64748b';
+            btnMgr.classList.add('active');
+            btnDrv.classList.remove('active');
         } else {
-            btnDrv.style.background = '#0f172a';
-            btnDrv.style.color = '#ffffff';
-            btnMgr.style.background = 'transparent';
-            btnMgr.style.color = '#64748b';
+            btnDrv.classList.add('active');
+            btnMgr.classList.remove('active');
         }
     }
 
     window.loadInsights(true);
 };
 
-// Subtab switcher inside Insights tab
-window.switchIntelSubTab = function(tab) {
-    const sectionInsights = document.getElementById('intel-section-insights');
-    const sectionAnalytics = document.getElementById('intel-section-analytics');
-    const sectionObd = document.getElementById('intel-section-obd');
-    const btnInsights = document.getElementById('intel-tab-insights');
-    const btnAnalytics = document.getElementById('intel-tab-analytics');
-    const btnObd = document.getElementById('intel-tab-obd');
-
-    if (sectionInsights) sectionInsights.classList.add('hidden');
-    if (sectionAnalytics) sectionAnalytics.classList.add('hidden');
-    if (sectionObd) sectionObd.classList.add('hidden');
-
-    if (btnInsights) btnInsights.classList.remove('active');
-    if (btnAnalytics) btnAnalytics.classList.remove('active');
-    if (btnObd) btnObd.classList.remove('active');
-
-    if (tab === 'insights') {
-        if (sectionInsights) sectionInsights.classList.remove('hidden');
-        if (btnInsights) btnInsights.classList.add('active');
-        window.loadInsights();
-    } else if (tab === 'analytics') {
-        if (sectionAnalytics) sectionAnalytics.classList.remove('hidden');
-        if (btnAnalytics) btnAnalytics.classList.add('active');
-        if (typeof window.loadIntelAnalytics === 'function') window.loadIntelAnalytics();
-    } else if (tab === 'obd') {
-        if (sectionObd) sectionObd.classList.remove('hidden');
-        if (btnObd) btnObd.classList.add('active');
-        if (typeof window.renderOBDVehicleCards === 'function') window.renderOBDVehicleCards();
-        if (typeof window.refreshDTCCodes === 'function') window.refreshDTCCodes();
-    }
-};
-
-// Main Loader for Insights
+// Main Loader
 window.loadInsights = async function(force = false) {
     const container = document.getElementById('insights-cards-list');
     const topBar = document.getElementById('insights-top-bar');
-    const roleIndicator = document.getElementById('insights-role-indicator');
     const roleSwitcher = document.getElementById('insights-role-switcher');
-    const viewHeading = document.getElementById('insights-view-heading');
+    const subtitle = document.getElementById('insights-subtitle');
+    const heading = document.getElementById('insights-cards-heading');
+    const counterBadge = document.getElementById('insights-counter-badge');
     const simBtn = document.getElementById('btn-simulate-insight');
 
     if (!container || !topBar) return;
@@ -98,7 +60,7 @@ window.loadInsights = async function(force = false) {
     // Check user actual permissions
     const isRealManager = window.AuthManager && window.AuthManager.isManager();
     if (!isRealManager) {
-        currentInsightsRoleMode = 'driver'; // Drivers can never switch to manager mode
+        currentInsightsRoleMode = 'driver'; // Drivers strictly locked to driver mode
         if (roleSwitcher) roleSwitcher.style.display = 'none';
         if (simBtn) simBtn.style.display = 'none';
     } else {
@@ -106,19 +68,15 @@ window.loadInsights = async function(force = false) {
         if (simBtn) simBtn.style.display = 'inline-block';
     }
 
-    // Update UI headers based on active mode
+    // Update subtitles
     if (currentInsightsRoleMode === 'manager') {
-        if (viewHeading) viewHeading.textContent = 'Fleet Manager Insights';
-        if (roleIndicator) {
-            roleIndicator.className = 'insights-role-pill manager';
-            roleIndicator.innerHTML = '<i class="fas fa-shield-halved"></i> Manager View';
-        }
+        if (subtitle) subtitle.textContent = 'Automated fleet telemetry exception analysis and operational cost optimization';
+        if (heading) heading.textContent = 'Active Telematics Exceptions';
+        if (counterBadge) counterBadge.textContent = 'Priority Feed';
     } else {
-        if (viewHeading) viewHeading.textContent = 'Driver Insights & Scorecard';
-        if (roleIndicator) {
-            roleIndicator.className = 'insights-role-pill driver';
-            roleIndicator.innerHTML = '<i class="fas fa-user-shield"></i> Driver View';
-        }
+        if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
+        if (heading) heading.textContent = 'Driver Performance & Alerts';
+        if (counterBadge) counterBadge.textContent = 'My Vehicle';
     }
 
     try {
@@ -130,172 +88,276 @@ window.loadInsights = async function(force = false) {
         const data = await response.json();
         activeInsightData = data;
 
-        // Render Top Bar
+        // Render Top Bar KPI Cards
         renderInsightsTopBar(data.top_bar, currentInsightsRoleMode);
 
-        // Render Cards
+        // Render Feed Cards
         renderInsightCards(data.cards, currentInsightsRoleMode);
 
     } catch (err) {
         console.error('Insights load error:', err);
         container.innerHTML = `
-            <div style="text-align:center; padding:30px; color:#ef4444; background:#fef2f2; border-radius:10px;">
-                <i class="fas fa-exclamation-triangle" style="font-size:1.5rem; margin-bottom:8px;"></i>
-                <p>Failed to load insights. Please try refreshing.</p>
-                <button type="button" class="insight-btn insight-btn-secondary" onclick="window.loadInsights(true)">Retry</button>
+            <div style="text-align:center; padding:32px 20px; color:#64748b; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px;">
+                <i class="fas fa-circle-exclamation" style="font-size:1.6rem; color:#dc2626; margin-bottom:8px;"></i>
+                <p style="margin:0 0 10px; font-weight:600; color:#0f172a;">Unable to retrieve fleet insights</p>
+                <button type="button" class="corp-btn corp-btn-secondary" onclick="window.loadInsights(true)">Retry</button>
             </div>
         `;
     }
 };
 
-// Render Top Bar Component
+// Render Top Bar KPI Cards
 function renderInsightsTopBar(topBarData, roleMode) {
     const el = document.getElementById('insights-top-bar');
     if (!el || !topBarData) return;
 
     if (roleMode === 'manager') {
-        // Manager Top Bar: Fleet Health % | Money Lost This Week $ | Urgent Actions Count
-        const health = topBarData.fleet_health_pct || 94;
+        const health = topBarData.fleet_health_pct || 94.2;
         const money = topBarData.money_lost_this_week_usd || 0;
         const urgent = topBarData.urgent_actions_count || 0;
 
         el.innerHTML = `
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon health"><i class="fas fa-heartbeat"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val ${health >= 80 ? 'green' : (health >= 60 ? '' : 'red')}">${health}%</span>
-                    <span class="insight-stat-lbl">Fleet Health</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">Fleet Health Score</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value ${health >= 80 ? 'success' : (health >= 60 ? 'warning' : 'danger')}">${health}%</span>
                 </div>
+                <span class="insights-kpi-subtext ${health >= 80 ? 'positive' : 'alert'}">
+                    <i class="fas ${health >= 80 ? 'fa-check' : 'fa-triangle-exclamation'}"></i> Operational fleet integrity
+                </span>
             </div>
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon money"><i class="fas fa-dollar-sign"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val red">$${money.toFixed(2)}</span>
-                    <span class="insight-stat-lbl">Money Lost This Week</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">Est. Financial Loss (7 Days)</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value ${money > 0 ? 'danger' : 'success'}">-$${money.toFixed(2)}</span>
                 </div>
+                <span class="insights-kpi-subtext ${money > 0 ? 'negative' : 'positive'}">
+                    <i class="fas fa-gas-pump"></i> Fuel variance & excessive idling
+                </span>
             </div>
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon urgent"><i class="fas fa-triangle-exclamation"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val ${urgent > 0 ? 'red' : 'green'}">${urgent} Action${urgent === 1 ? '' : 's'}</span>
-                    <span class="insight-stat-lbl">Urgent Attention</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">Urgent Exceptions</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value ${urgent > 0 ? 'warning' : 'success'}">${urgent} Active</span>
                 </div>
+                <span class="insights-kpi-subtext ${urgent > 0 ? 'alert' : 'positive'}">
+                    <i class="fas fa-clock"></i> Requires supervisor review & action
+                </span>
             </div>
         `;
     } else {
-        // Driver Top Bar: My Score /100 | My Fuel L/100km | My Rank X / Y
         const score = topBarData.my_score !== undefined ? topBarData.my_score : 98;
         const fuel = topBarData.my_fuel_l100km || 8.6;
         const rank = topBarData.my_rank || 'Rank 3 / 12';
 
         el.innerHTML = `
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon score"><i class="fas fa-trophy"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val blue">${score}/100</span>
-                    <span class="insight-stat-lbl">My Driving Score</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">My Driving Safety Score</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value success">${score} <small style="font-size:0.95rem; font-weight:500; color:#64748b;">/ 100</small></span>
                 </div>
+                <span class="insights-kpi-subtext positive">
+                    <i class="fas fa-shield"></i> Clean safety rating
+                </span>
             </div>
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon fuel"><i class="fas fa-gas-pump"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val">${fuel} <small style="font-size:0.75rem;">L/100km</small></span>
-                    <span class="insight-stat-lbl">My Fuel Efficiency</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">My Fuel Economy</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value">${fuel} <small style="font-size:0.85rem; font-weight:500; color:#64748b;">L/100km</small></span>
                 </div>
+                <span class="insights-kpi-subtext positive">
+                    <i class="fas fa-arrow-up"></i> Within efficient consumption range
+                </span>
             </div>
-            <div class="insight-stat-card">
-                <div class="insight-stat-icon rank"><i class="fas fa-medal"></i></div>
-                <div class="insight-stat-content">
-                    <span class="insight-stat-val">${rank}</span>
-                    <span class="insight-stat-lbl">Fleet Standing</span>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">Fleet Standing</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value primary">${rank}</span>
                 </div>
+                <span class="insights-kpi-subtext">
+                    <i class="fas fa-award"></i> Top quartile performance
+                </span>
             </div>
         `;
     }
 }
 
-// Render Cards Component
+// Render Cards Feed
 function renderInsightCards(cards, roleMode) {
     const container = document.getElementById('insights-cards-list');
     if (!container) return;
 
     if (!cards || cards.length === 0) {
         container.innerHTML = `
-            <div style="text-align:center; padding:30px; background:#ffffff; border-radius:12px; border:1px solid #e2e8f0; color:#64748b;">
-                <i class="fas fa-check-circle" style="font-size:2rem; color:#10b981; margin-bottom:10px;"></i>
-                <h5 style="margin:0 0 4px; color:#0f172a; font-size:1rem;">All Systems Optimal</h5>
-                <p style="margin:0; font-size:0.85rem;">No priority alerts or anomalies detected for this view.</p>
+            <div style="text-align:center; padding:36px 20px; background:#ffffff; border-radius:8px; border:1px solid #e2e8f0; color:#64748b;">
+                <i class="fas fa-circle-check" style="font-size:1.8rem; color:#16a34a; margin-bottom:10px;"></i>
+                <h5 style="margin:0 0 4px; color:#0f172a; font-size:0.95rem; font-weight:600;">All Systems Normal</h5>
+                <p style="margin:0; font-size:0.8rem;">No active exceptions or risk flags logged for this account.</p>
             </div>
         `;
         return;
     }
 
-    container.innerHTML = cards.map(c => renderSingleCard(c, roleMode)).join('');
+    container.innerHTML = cards.map(c => renderSingleEnterpriseCard(c, roleMode)).join('');
 }
 
-// Single Card HTML Template
-function renderSingleCard(card, roleMode) {
+// Render Single Professional Card
+function renderSingleEnterpriseCard(card, roleMode) {
     const sev = card.severity || 'orange';
     const cat = card.category || 'general';
     const cardId = card.id;
-    const title = escapeHTML(card.title || 'Insight Alert');
+    const title = escapeHTML(card.title || 'Telemetry Notice');
     const desc = escapeHTML(card.description || '');
-    const vehicle = escapeHTML(card.vehicle_name || 'Vehicle');
+    const vehicle = escapeHTML(card.vehicle_name || 'Fleet Vehicle');
     const driver = card.driver_name ? escapeHTML(card.driver_name) : null;
-    const metricVal = card.metric_value ? escapeHTML(card.metric_value) : null;
     const moneyImpact = card.money_impact !== null && card.money_impact !== undefined ? Number(card.money_impact).toFixed(2) : null;
-    const rawData = JSON.stringify(card).replace(/"/g, '&quot;');
+    const extra = card.extra_data || {};
 
-    // Badge styling
-    let badgeText = 'Notice';
-    let badgeClass = 'blue';
+    // Severity Badge
+    let badgeText = 'Attention';
+    let badgeClass = 'orange';
     if (sev === 'red') { badgeText = 'Urgent'; badgeClass = 'red'; }
-    else if (sev === 'orange') { badgeText = 'Warning'; badgeClass = 'orange'; }
-    else if (sev === 'green') { badgeText = 'Excellence'; badgeClass = 'green'; }
-    else if (sev === 'blue') { badgeText = 'Info'; badgeClass = 'blue'; }
+    else if (sev === 'blue') { badgeText = 'Scheduled'; badgeClass = 'blue'; }
+    else if (sev === 'green') { badgeText = 'Commendation'; badgeClass = 'green'; }
 
-    // Money / metric chip
-    let chipHtml = '';
+    // Format Financial Tag if manager
+    let financialTagHtml = '';
     if (roleMode === 'manager' && moneyImpact && Number(moneyImpact) > 0) {
-        chipHtml = `<span class="insight-metric-chip loss"><i class="fas fa-arrow-down"></i> -$${moneyImpact}</span>`;
-    } else if (metricVal) {
-        const chipType = sev === 'green' ? 'good' : (sev === 'red' ? 'loss' : 'rate');
-        chipHtml = `<span class="insight-metric-chip ${chipType}">${metricVal}</span>`;
+        financialTagHtml = `<span class="card-financial-tag">-$${moneyImpact} USD</span>`;
     }
 
-    // Actions depending on card type and role
-    const actionsHtml = buildCardActionsHtml(card, roleMode);
+    // Telemetry Mini-Strip (Key Parameters)
+    const telemetryStripHtml = buildTelemetryStrip(cat, card, extra, roleMode);
+
+    // Actions Bar
+    const actionsHtml = buildEnterpriseActions(card, roleMode);
 
     return `
-        <div class="insight-card severity-${sev}" id="card-${cardId}">
-            <div class="insight-card-top">
-                <span class="insight-badge ${badgeClass}">
-                    <i class="fas ${sev === 'red' ? 'fa-triangle-exclamation' : (sev === 'green' ? 'fa-check' : 'fa-circle-info')}"></i>
-                    ${badgeText}
-                </span>
-                <div class="insight-card-meta">
-                    <span class="insight-meta-item"><i class="fas fa-car"></i> ${vehicle}</span>
-                    ${driver && roleMode === 'manager' ? `<span class="insight-meta-item"><i class="fas fa-user"></i> ${driver}</span>` : ''}
+        <div class="telematics-card sev-${sev}" id="card-${cardId}">
+            <div class="card-header-line">
+                <div class="card-tags-left">
+                    <span class="corp-badge ${badgeClass}"><span class="dot"></span> ${badgeText}</span>
+                    <span class="card-vehicle-tag"><i class="fas fa-truck-pickup"></i> ${vehicle}</span>
+                    ${driver && roleMode === 'manager' ? `<span class="card-driver-tag">• Driver: ${driver}</span>` : ''}
                 </div>
+                <span class="card-time-ago">${formatEventTime(card.created_at)}</span>
             </div>
 
-            <div class="insight-card-body">
-                <div class="insight-card-title-row">
-                    <h5 class="insight-card-title">${title}</h5>
-                    ${chipHtml}
+            <div class="card-content-block">
+                <div class="card-headline-row">
+                    <h5 class="card-headline">${title}</h5>
+                    ${financialTagHtml}
                 </div>
-                <p class="insight-card-desc">${desc}</p>
+                <p class="card-narrative">${desc}</p>
+                ${telemetryStripHtml}
             </div>
 
-            <div class="insight-card-actions">
+            <div class="card-actions-bar">
                 ${actionsHtml}
             </div>
         </div>
     `;
 }
 
-// Generate Action Buttons for Cards
-function buildCardActionsHtml(card, roleMode) {
+// Build Telemetry Metric Chips
+function buildTelemetryStrip(cat, card, extra, roleMode) {
+    if (cat === 'fuel_siphoning') {
+        const drop = extra.fuel_dropped || 18.5;
+        const loss = card.money_impact ? `$${Number(card.money_impact).toFixed(2)}` : '$30.53';
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Quantity:</span> <strong>-${Number(drop).toFixed(1)} L</strong></div>
+                <div class="strip-item"><span>Est. Loss:</span> <strong>${loss}</strong></div>
+                <div class="strip-item"><span>Condition:</span> <strong>Ignition OFF (Speed 0 km/h)</strong></div>
+                <div class="strip-item"><span>Location:</span> <strong>Depot Zone</strong></div>
+            </div>
+        `;
+    } else if (cat === 'unauthorized_night_trip') {
+        const dist = extra.distance_km || 38.4;
+        const fuel = extra.fuel_used_l || 5.2;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Distance:</span> <strong>${dist} km</strong></div>
+                <div class="strip-item"><span>Fuel Used:</span> <strong>${fuel} L</strong></div>
+                <div class="strip-item"><span>Timeframe:</span> <strong>23:30 - 01:15</strong></div>
+                <div class="strip-item"><span>Geofence:</span> <strong>Depot Exit (Unscheduled)</strong></div>
+            </div>
+        `;
+    } else if (cat === 'driver_costing_fuel') {
+        const driverRate = extra.driver_l100km || 11.8;
+        const fleetAvg = extra.fleet_avg_l100km || 9.5;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Driver Rate:</span> <strong>${driverRate} L/100km</strong></div>
+                <div class="strip-item"><span>Fleet Average:</span> <strong>${fleetAvg} L/100km</strong></div>
+                <div class="strip-item"><span>Variance:</span> <strong>+24%</strong></div>
+                <div class="strip-item"><span>Route:</span> <strong>Harare - Bulawayo</strong></div>
+            </div>
+        `;
+    } else if (cat === 'service_due_soon') {
+        const km = extra.km_since_service || 9650;
+        const days = extra.days_left || 4;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Odometer:</span> <strong>${km.toLocaleString()} km</strong></div>
+                <div class="strip-item"><span>Service Interval:</span> <strong>10,000 km</strong></div>
+                <div class="strip-item"><span>Estimated Remaining:</span> <strong>${days} Days</strong></div>
+            </div>
+        `;
+    } else if (cat === 'best_driver_week') {
+        const score = extra.score || 98;
+        const saved = extra.fuel_saved_liters || 26.4;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Safety Score:</span> <strong>${score} / 100</strong></div>
+                <div class="strip-item"><span>Fuel Conserved:</span> <strong>${saved} L</strong></div>
+                <div class="strip-item"><span>Harsh Events:</span> <strong>0</strong></div>
+            </div>
+        `;
+    } else if (cat === 'car_attention') {
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Telemetry:</span> <strong>Engine Temp High (>110°C)</strong></div>
+                <div class="strip-item"><span>Safety Protocol:</span> <strong>Stop Safely</strong></div>
+            </div>
+        `;
+    } else if (cat === 'harsh_braking_excess') {
+        const count = extra.count || 12;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Events (24h):</span> <strong>${count} Hard Stops</strong></div>
+                <div class="strip-item"><span>Primary Road:</span> <strong>Samora Machel Ave</strong></div>
+            </div>
+        `;
+    } else if (cat === 'excessive_idling') {
+        const idleMins = extra.total_idle_mins || 68;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Total Idle (24h):</span> <strong>${idleMins} mins</strong></div>
+                <div class="strip-item"><span>Longest Stop:</span> <strong>Harare Depot</strong></div>
+            </div>
+        `;
+    } else if (cat === 'great_driving') {
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Compliance:</span> <strong>Zero Speeding</strong></div>
+                <div class="strip-item"><span>Fuel Economy:</span> <strong>8.6 L/100km</strong></div>
+            </div>
+        `;
+    } else if (cat === 'service_reminder') {
+        const kmLeft = extra.km_left || 420;
+        return `
+            <div class="telemetry-strip">
+                <div class="strip-item"><span>Remaining Distance:</span> <strong>${kmLeft} km</strong></div>
+                <div class="strip-item"><span>Recommended:</span> <strong>Routine Workshop Service</strong></div>
+            </div>
+        `;
+    }
+    return '';
+}
+
+// Build Action Buttons
+function buildEnterpriseActions(card, roleMode) {
     const id = card.id;
     const cat = card.category;
     const extra = card.extra_data || {};
@@ -309,137 +371,152 @@ function buildCardActionsHtml(card, roleMode) {
         switch (cat) {
             case 'fuel_siphoning':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="openFuelGraphModal('${devId}', '${escapeHTML(vehicle)}', '${escapeHTML(driver)}', ${fuelDrop}, ${loss})">
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openFuelGraphModal('${devId}', '${escapeHTML(vehicle)}', '${escapeHTML(driver)}', ${fuelDrop}, ${loss})">
                         <i class="fas fa-chart-line"></i> View Fuel Graph
                     </button>
-                    <button type="button" class="insight-btn insight-btn-whatsapp" onclick="messageDriverPrompt('${escapeHTML(driver)}', 'Regarding sudden fuel drop recorded on ${escapeHTML(vehicle)}')">
+                    <button type="button" class="corp-btn corp-btn-whatsapp" onclick="messageDriverPrompt('${escapeHTML(driver)}', 'Regarding unexpected fuel drop on ${escapeHTML(vehicle)}')">
                         <i class="fab fa-whatsapp"></i> Message Driver
                     </button>
-                    <button type="button" class="insight-btn insight-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
             case 'unauthorized_night_trip':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="viewTripReplayLink('${devId}')">
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="viewTripReplayLink('${devId}')">
                         <i class="fas fa-route"></i> View Trip Replay
                     </button>
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="callDriverPrompt('${escapeHTML(driver)}')">
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="callDriverPrompt('${escapeHTML(driver)}')">
                         <i class="fas fa-phone"></i> Call Driver
                     </button>
-                    <button type="button" class="insight-btn insight-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
             case 'driver_costing_fuel':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="openCoachDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}')">
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openCoachDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}')">
                         <i class="fas fa-chalkboard-user"></i> Coach Driver
                     </button>
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="checkVehicleDiagnostics('${devId}')">
-                        <i class="fas fa-wrench"></i> Check Vehicle
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="checkVehicleDiagnostics('${devId}')">
+                        <i class="fas fa-car-side"></i> Vehicle Profile
                     </button>
-                    <button type="button" class="insight-btn insight-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
             case 'service_due_soon':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="openScheduleServiceModal('${escapeHTML(vehicle)}', ${devId})">
-                        <i class="fas fa-calendar-plus"></i> Schedule Service
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openScheduleServiceModal('${escapeHTML(vehicle)}', ${devId})">
+                        <i class="fas fa-calendar-check"></i> Schedule Service
                     </button>
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="assignMechanicModal('${escapeHTML(vehicle)}')">
-                        <i class="fas fa-screwdriver-wrench"></i> Assign Mechanic
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="assignMechanicModal('${escapeHTML(vehicle)}')">
+                        <i class="fas fa-wrench"></i> Assign Mechanic
                     </button>
-                    <button type="button" class="insight-btn insight-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
             case 'best_driver_week':
                 return `
-                    <button type="button" class="insight-btn insight-btn-success" onclick="sendBonusPraise('${escapeHTML(driver)}')">
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="sendBonusPraise('${escapeHTML(driver)}')">
                         <i class="fas fa-award"></i> Send Bonus / Praise
                     </button>
-                    <button type="button" class="insight-btn insight-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
             default:
                 return `
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Acknowledge
                     </button>
                 `;
         }
     } else {
-        // Driver Role Actions
+        // Driver Actions
         switch (cat) {
             case 'car_attention':
                 return `
-                    <button type="button" class="insight-btn insight-btn-danger" onclick="openStopSafelyChecklist()">
+                    <button type="button" class="corp-btn corp-btn-danger" onclick="openStopSafelyChecklist()">
                         <i class="fas fa-hand"></i> Stop Safely
                     </button>
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="callFleetManagerPrompt()">
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="callFleetManagerPrompt()">
                         <i class="fas fa-phone"></i> Call Manager
                     </button>
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="findNearestMechanic()">
-                        <i class="fas fa-map-pin"></i> Find Nearest Mechanic
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="findNearestMechanic()">
+                        <i class="fas fa-wrench"></i> Nearest Mechanic
                     </button>
                 `;
             case 'harsh_braking_excess':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="showHarshBrakeMap()">
-                        <i class="fas fa-location-dot"></i> See Where
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="showHarshBrakeMap()">
+                        <i class="fas fa-location-dot"></i> View Location
                     </button>
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="showGapTipModal()">
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="showGapTipModal()">
                         <i class="fas fa-shield"></i> Tip: Keep 3-sec gap
                     </button>
                 `;
             case 'excessive_idling':
                 return `
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="showIdleTipModal()">
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="showIdleTipModal()">
                         <i class="fas fa-power-off"></i> Tip: Switch off if >2 mins
                     </button>
                 `;
             case 'great_driving':
                 return `
-                    <button type="button" class="insight-btn insight-btn-success" onclick="shareDrivingScore()">
-                        <i class="fas fa-share-nodes"></i> Share Score
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="shareDrivingScore()">
+                        <i class="fas fa-share-nodes"></i> Share Scorecard
                     </button>
                 `;
             case 'service_reminder':
                 return `
-                    <button type="button" class="insight-btn insight-btn-primary" onclick="requestServiceDayPrompt('${escapeHTML(vehicle)}')">
-                        <i class="fas fa-envelope-open-text"></i> Request Service Day
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="requestServiceDayPrompt('${escapeHTML(vehicle)}')">
+                        <i class="fas fa-calendar-plus"></i> Request Service Day
                     </button>
                 `;
             default:
                 return `
-                    <button type="button" class="insight-btn insight-btn-secondary" onclick="showInsightToast('Acknowledged')">
-                        <i class="fas fa-check"></i> OK
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="showInsightToast('Acknowledged')">
+                        <i class="fas fa-check"></i> Acknowledge
                     </button>
                 `;
         }
     }
 }
 
+// Format relative timestamp
+function formatEventTime(iso) {
+    if (!iso) return 'Recent';
+    try {
+        const d = new Date(iso);
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 60) return `${diffMins || 1} min ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours} hr ago`;
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return 'Recent';
+    }
+}
+
 // -------------------------------------------------------------------------
-// Interactive Card Action Handlers
+// Action Modal & Graph Handlers
 // -------------------------------------------------------------------------
 
-// CARD 1: View Fuel Graph
 window.openFuelGraphModal = async function(deviceId, vehicleName, driverName, fuelDrop, moneyImpact) {
     const modal = document.getElementById('insight-fuel-graph-modal');
     if (!modal) return;
 
     document.getElementById('fuel-modal-vehicle').textContent = vehicleName || 'Vehicle Telemetry';
     document.getElementById('fuel-modal-driver').textContent = driverName ? `Driver: ${driverName}` : 'Telematics Ingestion';
-    document.getElementById('fuel-modal-drop-badge').textContent = `-${fuelDrop.toFixed(1)} L drop`;
-    document.getElementById('fuel-modal-loss-usd').textContent = `$${moneyImpact.toFixed(2)} impact`;
+    document.getElementById('fuel-modal-drop-badge').textContent = `-${Number(fuelDrop).toFixed(1)} L drop`;
+    document.getElementById('fuel-modal-loss-usd').textContent = `-$${Number(moneyImpact).toFixed(2)} USD impact`;
 
     modal.classList.remove('hidden');
 
-    // Fetch fuel time series
     try {
         const resp = await window.AuthManager.fetchAPI(`/insights/fuel-graph/${deviceId}`);
         const data = await resp.json();
@@ -471,13 +548,13 @@ function renderFuelChart(points) {
             datasets: [{
                 label: 'Fuel Level (L)',
                 data: fuelLevels,
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                borderWidth: 2.5,
+                borderColor: '#dc2626',
+                backgroundColor: 'rgba(220, 38, 38, 0.08)',
+                borderWidth: 2,
                 fill: true,
-                tension: 0.3,
+                tension: 0.25,
                 pointRadius: 2,
-                pointHoverRadius: 6
+                pointHoverRadius: 5
             }]
         },
         options: {
@@ -487,7 +564,7 @@ function renderFuelChart(points) {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => `Fuel: ${ctx.parsed.y.toFixed(1)} Liters`
+                        label: (ctx) => `Fuel Level: ${ctx.parsed.y.toFixed(1)} Liters`
                     }
                 }
             },
@@ -514,10 +591,10 @@ window.resolveInsightCard = async function(insightId) {
         
         const cardEl = document.getElementById(`card-${insightId}`);
         if (cardEl) {
-            cardEl.style.transition = 'all 0.3s ease';
+            cardEl.style.transition = 'all 0.2s ease';
             cardEl.style.opacity = '0';
-            cardEl.style.transform = 'scale(0.95)';
-            setTimeout(() => cardEl.remove(), 300);
+            cardEl.style.transform = 'scale(0.98)';
+            setTimeout(() => cardEl.remove(), 200);
         }
     } catch (err) {
         console.error(err);
@@ -525,9 +602,8 @@ window.resolveInsightCard = async function(insightId) {
     }
 };
 
-// Messaging & Actions
 window.messageDriverPrompt = function(driverName, context) {
-    const defaultMsg = `Hello ${driverName}, this is Fleet Management regarding Inferth telematics: ${context}. Please advise.`;
+    const defaultMsg = `Inferth Fleet Alert: Regarding unexpected fuel drop on vehicle. Please contact operations dispatch.`;
     const encoded = encodeURIComponent(defaultMsg);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
 };
@@ -536,11 +612,11 @@ window.callDriverPrompt = function(driverName) {
     showActionModal(
         'Call Driver',
         `
-        <div style="text-align:center; padding:10px;">
-            <i class="fas fa-phone-volume" style="font-size:2.5rem; color:#2563eb; margin-bottom:12px;"></i>
-            <h5>Direct Contact: ${escapeHTML(driverName)}</h5>
-            <p style="color:#64748b; font-size:0.85rem;">Phone dispatch connected through Inferth VoIP or SIM dialer.</p>
-            <a href="tel:+263771000000" class="insight-btn insight-btn-primary" style="display:inline-flex; font-size:1rem; padding:10px 20px; text-decoration:none;">
+        <div style="text-align:center; padding:12px;">
+            <i class="fas fa-phone-volume" style="font-size:2rem; color:#0f172a; margin-bottom:12px;"></i>
+            <h5 style="margin:0 0 6px; font-weight:600;">Contact: ${escapeHTML(driverName)}</h5>
+            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Direct voice communication via cellular or VoIP dispatch.</p>
+            <a href="tel:+263771000000" class="corp-btn corp-btn-primary" style="font-size:0.85rem; padding:8px 18px; text-decoration:none;">
                 <i class="fas fa-phone"></i> Dial +263 77 100 0000
             </a>
         </div>
@@ -548,9 +624,8 @@ window.callDriverPrompt = function(driverName) {
     );
 };
 
-// View Trip Replay Link
 window.viewTripReplayLink = function(deviceId) {
-    showInsightToast('Switching to Trip Replay in History...');
+    showInsightToast('Redirecting to Trip History...');
     if (typeof window.switchTab === 'function') {
         window.switchTab('tab-history');
         const devSelect = document.getElementById('history-vehicle-select');
@@ -561,65 +636,53 @@ window.viewTripReplayLink = function(deviceId) {
     }
 };
 
-// Driver Coaching Modal
 window.openCoachDriverModal = function(driverName, vehicle) {
     showActionModal(
-        `Coach Driver: ${escapeHTML(driverName)}`,
+        `Eco-Driving Guidance: ${escapeHTML(driverName)}`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <p style="font-size:0.85rem; color:#334155; margin:0;">
-                Vehicle <strong>${escapeHTML(vehicle)}</strong> is showing excessive fuel burn (+24% above fleet). Send targeted eco-driving guidance:
+            <p style="font-size:0.82rem; color:#334155; margin:0;">
+                Vehicle <strong>${escapeHTML(vehicle)}</strong> is consuming +24% more fuel than the fleet corridor baseline.
             </p>
-            <div style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0; font-size:0.82rem;">
-                <strong>Recommended Tips:</strong>
-                <ul style="margin:6px 0 0 16px; padding:0; color:#475569;">
-                    <li>Keep cruising speed between 80 - 90 km/h on open highway.</li>
-                    <li>Anticipate traffic stops to reduce harsh brake/accel cycles.</li>
-                    <li>Avoid prolonged AC cooling while vehicle is stationary.</li>
+            <div style="background:#f8fafc; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0; font-size:0.8rem;">
+                <strong style="color:#0f172a;">Targeted Feedback:</strong>
+                <ul style="margin:6px 0 0 16px; padding:0; color:#475569; line-height:1.5;">
+                    <li>Maintain steady cruising speed between 80 - 90 km/h.</li>
+                    <li>Avoid rapid acceleration out of toll plazas and intersections.</li>
+                    <li>Limit prolonged air conditioning idling while waiting for loading.</li>
                 </ul>
             </div>
-            <textarea id="coach-notes" style="width:100%; height:70px; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.82rem;" placeholder="Add personal note to driver..."></textarea>
-            <button type="button" class="insight-btn insight-btn-primary" onclick="sendCoachingNotes('${escapeHTML(driverName)}')">
-                <i class="fas fa-paper-plane"></i> Send Coaching Module via WhatsApp
+            <textarea id="coach-notes" style="width:100%; height:60px; padding:8px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.8rem;" placeholder="Optional dispatch note..."></textarea>
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Guidance sent to driver via WhatsApp dispatch');">
+                <i class="fab fa-whatsapp"></i> Send Module to Driver
             </button>
         </div>
         `
     );
 };
 
-window.sendCoachingNotes = function(driverName) {
-    closeInsightModal('insight-action-modal');
-    showInsightToast(`Coaching module dispatched to ${driverName}`);
-};
-
-// Service Scheduling Modal
 window.openScheduleServiceModal = function(vehicle, deviceId) {
     showActionModal(
-        `Schedule Service: ${escapeHTML(vehicle)}`,
+        `Schedule Maintenance: ${escapeHTML(vehicle)}`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <p style="font-size:0.85rem; color:#334155; margin:0;">
-                Prevent mechanical breakdown by reserving workshop slot before 10,000 km threshold.
+            <p style="font-size:0.82rem; color:#334155; margin:0;">
+                Vehicle is nearing the 10,000 km preventative maintenance threshold.
             </p>
-            <label style="font-size:0.8rem; font-weight:600; color:#334155;">Service Date:</label>
-            <input type="date" id="service-date-input" style="padding:8px; border-radius:6px; border:1px solid #cbd5e1;" value="${new Date().toISOString().split('T')[0]}">
-            <label style="font-size:0.8rem; font-weight:600; color:#334155;">Service Center / Workshop:</label>
-            <select style="padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
-                <option>Harare Central Workshop (Depot)</option>
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Service Date:</label>
+            <input type="date" id="service-date-input" style="padding:6px 10px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.82rem;" value="${new Date().toISOString().split('T')[0]}">
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Authorized Service Workshop:</label>
+            <select style="padding:6px 10px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.82rem;">
+                <option>Central Depot Workshop (Harare)</option>
                 <option>Croco Motors Service Center</option>
-                <option>Automotive Diagnostics Lab</option>
+                <option>Bulawayo Fleet Service Bay</option>
             </select>
-            <button type="button" class="insight-btn insight-btn-primary" onclick="confirmServiceBooking('${escapeHTML(vehicle)}')">
-                <i class="fas fa-calendar-check"></i> Confirm Service Appointment
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Service appointment confirmed');">
+                <i class="fas fa-calendar-check"></i> Book Service Slot
             </button>
         </div>
         `
     );
-};
-
-window.confirmServiceBooking = function(vehicle) {
-    closeInsightModal('insight-action-modal');
-    showInsightToast(`Service appointment booked for ${vehicle}`);
 };
 
 window.assignMechanicModal = function(vehicle) {
@@ -627,14 +690,14 @@ window.assignMechanicModal = function(vehicle) {
         `Assign Mechanic: ${escapeHTML(vehicle)}`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <label style="font-size:0.8rem; font-weight:600; color:#334155;">Select Mechanic:</label>
-            <select style="padding:8px; border-radius:6px; border:1px solid #cbd5e1;">
-                <option>Tinashe Moyo - Senior Fleet Technician</option>
-                <option>Blessing Sibanda - Hybrid / CAN Specialist</option>
-                <option>Kudzai Mutasa - Mechanical Inspector</option>
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Workshop Technician:</label>
+            <select style="padding:6px 10px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.82rem;">
+                <option>Tinashe Moyo — Senior Technician</option>
+                <option>Blessing Sibanda — CAN/Diagnostics Specialist</option>
+                <option>Kudzai Mutasa — Maintenance Inspector</option>
             </select>
-            <button type="button" class="insight-btn insight-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Mechanic assigned');">
-                <i class="fas fa-user-check"></i> Assign to Job Order
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Work order dispatched to mechanic');">
+                <i class="fas fa-wrench"></i> Create Work Order
             </button>
         </div>
         `
@@ -643,47 +706,48 @@ window.assignMechanicModal = function(vehicle) {
 
 window.sendBonusPraise = function(driverName) {
     showActionModal(
-        `Commend Driver: ${escapeHTML(driverName)}`,
+        `Performance Recognition: ${escapeHTML(driverName)}`,
         `
-        <div style="text-align:center; padding:10px;">
-            <i class="fas fa-award" style="font-size:3rem; color:#f59e0b; margin-bottom:12px;"></i>
-            <h5>Top Fleet Performer</h5>
-            <p style="color:#64748b; font-size:0.85rem;">Recognizing ${escapeHTML(driverName)} reinforces safe driving across the fleet.</p>
-            <div style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
-                <button type="button" class="insight-btn insight-btn-success" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Praise message and \$25 safety bonus recorded!');">
-                    <i class="fas fa-gift"></i> Award \$25 Safety Bonus
-                </button>
-            </div>
+        <div style="text-align:center; padding:12px;">
+            <i class="fas fa-award" style="font-size:2.4rem; color:#d97706; margin-bottom:10px;"></i>
+            <h5 style="margin:0 0 6px; font-weight:600;">Top Fleet Driver of the Week</h5>
+            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Zero harsh maneuvers, zero speeding violations, and lowest idling across 450 km.</p>
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Recognition certificate & bonus recorded');">
+                <i class="fas fa-award"></i> Record \$25 Safety Incentive
+            </button>
         </div>
         `
     );
 };
 
 window.checkVehicleDiagnostics = function(deviceId) {
-    window.switchIntelSubTab('obd');
+    showInsightToast('Navigating to Vehicle detail...');
+    if (typeof window.switchTab === 'function') {
+        window.switchTab('tab-fleet');
+    }
 };
 
 // -------------------------------------------------------------------------
-// Driver Role Specific Action Handlers
+// Driver Role Specific Handlers
 // -------------------------------------------------------------------------
 
 window.openStopSafelyChecklist = function() {
     showActionModal(
-        'Emergency Stopping Checklist',
+        'Emergency Stopping Protocol',
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <div style="background:#fee2e2; color:#b91c1c; padding:12px; border-radius:8px; font-weight:600; font-size:0.85rem;">
-                <i class="fas fa-circle-exclamation"></i> Action Required: Stop Safely
+            <div style="background:#fef2f2; border:1px solid #fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-weight:600; font-size:0.8rem;">
+                Engine temperature warning active. Pull over safely.
             </div>
-            <ol style="margin:0 0 0 20px; padding:0; font-size:0.85rem; line-height:1.6; color:#334155;">
-                <li>Indicate left and guide the vehicle off the main road onto the shoulder.</li>
-                <li>Turn on hazard warning lights immediately.</li>
-                <li>Shift to Park (or Neutral) and engage handbrake.</li>
-                <li>Switch off the ignition to prevent engine overheating.</li>
-                <li>Do NOT open the radiator cap while the engine is hot.</li>
+            <ol style="margin:0 0 0 18px; padding:0; font-size:0.82rem; line-height:1.6; color:#334155;">
+                <li>Indicate left and pull off the roadway onto a firm shoulder.</li>
+                <li>Activate hazard hazard warning lights immediately.</li>
+                <li>Shift into Park / Neutral and engage parking brake.</li>
+                <li>Turn off engine ignition to prevent head gasket damage.</li>
+                <li>Do NOT remove radiator or coolant cap while hot.</li>
             </ol>
-            <button type="button" class="insight-btn insight-btn-primary" onclick="callFleetManagerPrompt()">
-                <i class="fas fa-phone"></i> Notify Manager Now
+            <button type="button" class="corp-btn corp-btn-primary" onclick="callFleetManagerPrompt()">
+                <i class="fas fa-phone"></i> Notify Fleet Manager
             </button>
         </div>
         `
@@ -692,13 +756,13 @@ window.openStopSafelyChecklist = function() {
 
 window.callFleetManagerPrompt = function() {
     showActionModal(
-        'Call Fleet Manager',
+        'Fleet Operations Dispatch',
         `
-        <div style="text-align:center; padding:10px;">
-            <i class="fas fa-headset" style="font-size:2.5rem; color:#0f172a; margin-bottom:12px;"></i>
-            <h5>Fleet Operations Dispatch</h5>
-            <p style="color:#64748b; font-size:0.85rem;">Connect directly to your supervisor.</p>
-            <a href="tel:+263771000000" class="insight-btn insight-btn-primary" style="display:inline-flex; font-size:1rem; padding:10px 20px; text-decoration:none;">
+        <div style="text-align:center; padding:12px;">
+            <i class="fas fa-headset" style="font-size:2rem; color:#0f172a; margin-bottom:12px;"></i>
+            <h5 style="margin:0 0 6px; font-weight:600;">Fleet Supervisor Dispatch</h5>
+            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Call your operations supervisor for guidance or towing.</p>
+            <a href="tel:+263771000000" class="corp-btn corp-btn-primary" style="font-size:0.85rem; padding:8px 18px; text-decoration:none;">
                 <i class="fas fa-phone"></i> Call +263 77 100 0000
             </a>
         </div>
@@ -707,11 +771,11 @@ window.callFleetManagerPrompt = function() {
 };
 
 window.findNearestMechanic = function() {
-    window.open('https://www.google.com/maps/search/auto+repair+mechanic+near+me', '_blank');
+    window.open('https://www.google.com/maps/search/auto+repair+near+me', '_blank');
 };
 
 window.showHarshBrakeMap = function() {
-    showInsightToast('Directing to Map event location...');
+    showInsightToast('Viewing event route on Map...');
     if (typeof window.switchTab === 'function') {
         window.switchTab('tab-fleet');
     }
@@ -719,14 +783,11 @@ window.showHarshBrakeMap = function() {
 
 window.showGapTipModal = function() {
     showActionModal(
-        'Safe Driving: 3-Second Rule',
+        'Driving Tip: 3-Second Rule',
         `
-        <div style="font-size:0.85rem; line-height:1.5; color:#334155;">
-            <p><strong>How the 3-second rule works:</strong></p>
-            <p>1. Pick a fixed point ahead (a tree, signpost, or lamp post).</p>
-            <p>2. When the car in front passes it, count: <em>"One thousand and one, one thousand and two, one thousand and three."</em></p>
-            <p>3. If you reach the mark before finishing, you are following too closely!</p>
-            <p style="color:#10b981; font-weight:600;"><i class="fas fa-check"></i> Keeps your brake pads cool and saves up to 15% fuel.</p>
+        <div style="font-size:0.82rem; line-height:1.55; color:#334155;">
+            <p>Maintaining a minimum 3-second buffer behind leading traffic prevents sudden brake spikes, extends brake pad life, and reduces fuel waste.</p>
+            <p><strong>Rule:</strong> When the vehicle in front passes a road marker, count <em>"one-one-thousand, two-one-thousand, three-one-thousand"</em> before reaching it.</p>
         </div>
         `
     );
@@ -734,35 +795,35 @@ window.showGapTipModal = function() {
 
 window.showIdleTipModal = function() {
     showActionModal(
-        'Smart Idling Habit',
+        'Idling Guidelines',
         `
-        <div style="font-size:0.85rem; line-height:1.5; color:#334155;">
-            <p>Did you know idling for more than 10 seconds uses more fuel and produces more emissions than restarting your engine?</p>
-            <p><strong>Rule of Thumb:</strong> If waiting for passengers or offloading for more than 2 minutes, turn off the key.</p>
+        <div style="font-size:0.82rem; line-height:1.55; color:#334155;">
+            <p>Modern fuel-injected engines use less fuel restarting than idling for over 10 seconds.</p>
+            <p><strong>Standard Practice:</strong> Switch off the ignition whenever waiting for cargo loading or gate clearance for longer than 2 minutes.</p>
         </div>
         `
     );
 };
 
 window.shareDrivingScore = function() {
-    const text = "🏆 Inferth Fleet Scorecard: 98/100! Zero speeding violations and optimal fuel economy today. Drive safe!";
+    const text = "Inferth Driving Safety Score: 98/100 (Optimal fuel economy, zero speeding).";
     navigator.clipboard.writeText(text).then(() => {
-        showInsightToast('Score summary copied to clipboard! Ready to share.');
+        showInsightToast('Score summary copied to clipboard');
     }).catch(() => {
-        showInsightToast('Achievement unlocked: 98/100!');
+        showInsightToast('Driving Safety Score: 98/100');
     });
 };
 
 window.requestServiceDayPrompt = function(vehicle) {
     showActionModal(
-        'Request Service Day',
+        'Request Maintenance Day',
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <p style="font-size:0.85rem; color:#334155; margin:0;">
-                Notify management to schedule maintenance day for <strong>${escapeHTML(vehicle)}</strong>:
+            <p style="font-size:0.82rem; color:#334155; margin:0;">
+                Notify fleet management that <strong>${escapeHTML(vehicle)}</strong> is due for routine service.
             </p>
-            <textarea id="req-service-msg" style="width:100%; height:60px; padding:8px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.82rem;">Vehicle service is due within 400 km. Requesting workshop slot this Friday.</textarea>
-            <button type="button" class="insight-btn insight-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Service request submitted to Fleet Manager');">
+            <textarea style="width:100%; height:50px; padding:8px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.8rem;">Vehicle is within 400 km of routine service. Requesting maintenance day.</textarea>
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Service request submitted');">
                 <i class="fas fa-paper-plane"></i> Submit Request
             </button>
         </div>
@@ -798,19 +859,19 @@ window.submitSimulateInsight = async function() {
         const data = await resp.json();
 
         closeInsightModal('insight-simulate-modal');
-        showInsightToast(`Simulation triggered: ${eventType}`);
+        showInsightToast(`Simulated event triggered`);
 
-        // Reload cards immediately
+        // Reload feed
         window.loadInsights(true);
 
     } catch (err) {
         console.error('Simulation error:', err);
-        showInsightToast('Error running simulation');
+        showInsightToast('Simulation request failed');
     }
 };
 
 // -------------------------------------------------------------------------
-// Modal Helpers & Toast
+// Helpers
 // -------------------------------------------------------------------------
 
 window.closeInsightModal = function(modalId) {
@@ -836,13 +897,13 @@ function showInsightToast(msg) {
 
     const toast = document.createElement('div');
     toast.className = 'insight-toast';
-    toast.innerHTML = `<i class="fas fa-circle-check" style="color:#10b981;"></i> <span>${escapeHTML(msg)}</span>`;
+    toast.innerHTML = `<i class="fas fa-circle-check" style="color:#16a34a;"></i> <span>${escapeHTML(msg)}</span>`;
     document.body.appendChild(toast);
 
     setTimeout(() => {
         toast.style.opacity = '0';
-        toast.style.transform = 'translateY(8px)';
-        toast.style.transition = 'all 0.2s ease';
-        setTimeout(() => toast.remove(), 250);
-    }, 3000);
+        toast.style.transform = 'translateY(6px)';
+        toast.style.transition = 'all 0.15s ease';
+        setTimeout(() => toast.remove(), 200);
+    }, 2800);
 }
