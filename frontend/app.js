@@ -8232,7 +8232,7 @@ function setupPaymentListeners() {
 }
 
 // ============================================================
-// BILLING — Pricing Period Toggle & Plan/Hardware Payments
+// BILLING — Pricing Period Toggle & Plan Payments
 // (Founder Skill v1 — Vanilla JS, no React, no npm)
 // ============================================================
 
@@ -8293,24 +8293,6 @@ window.triggerPlanPayment = async function(planName) {
         }
     } catch (err) {
         openModal('payment-modal');
-    }
-};
-
-window.triggerOnceOffPayment = async function(kitType) {
-    const kits = { basic: { label: 'Basic Kit', price: 89 }, full: { label: 'Full Kit', price: 120 } };
-    const kit = kits[kitType] || kits.basic;
-    if (!confirm(`Proceed to pay $${kit.price} USD for the ${kit.label} (once-off hardware & installation) via Paynow?`)) return;
-    try {
-        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=Hardware_${kit.label.replace(' ', '_')}&amount=${kit.price}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to initiate hardware payment');
-        const result = await response.json();
-        if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-        } else {
-            alert(`Payment session initiated. Check your EcoCash prompt for $${kit.price} USD. Our technician will contact you within 48 hours of payment confirmation.`);
-        }
-    } catch (err) {
-        alert(`Hardware payment initiated. Our team will send you an EcoCash payment prompt to +263 for $${kit.price} USD.`);
     }
 };
 

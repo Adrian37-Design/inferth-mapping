@@ -6064,116 +6064,6 @@ select.dd-select:disabled {
 }
 .bplan-card.popular .bplan-btn.btn-primary:hover { background: #e2e8f0; }
 
-/* ---- Once-Off Hardware & Installation Card ---- */
-.billing-onceoff-card {
-    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0c4a6e 100%);
-    color: #e2e8f0;
-    border-radius: 14px;
-    padding: 24px;
-    margin-top: 4px;
-}
-.onceoff-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-.onceoff-badge {
-    display: inline-block;
-    background: rgba(255,255,255,0.12);
-    color: #7dd3fc;
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    padding: 4px 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(125,211,252,0.3);
-    margin-bottom: 6px;
-}
-.onceoff-tagline {
-    font-size: 0.82rem;
-    color: #94a3b8;
-    font-weight: 500;
-    margin-top: 4px;
-}
-
-.onceoff-kits {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    margin-bottom: 18px;
-}
-@media (max-width: 600px) { .onceoff-kits { grid-template-columns: 1fr; } }
-
-.onceoff-kit {
-    position: relative;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px;
-    padding: 18px 16px 16px;
-}
-.onceoff-kit.full-kit {
-    background: rgba(37,99,235,0.18);
-    border-color: rgba(56,189,248,0.35);
-}
-
-.kit-badge-top {
-    position: absolute;
-    top: -11px;
-    left: 16px;
-    background: linear-gradient(90deg, #2563eb, #0ea5e9);
-    color: #fff;
-    font-size: 0.68rem;
-    font-weight: 800;
-    padding: 2px 10px;
-    border-radius: 999px;
-}
-.kit-name { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
-.kit-price {
-    font-size: 1.7rem;
-    font-weight: 900;
-    color: #fff;
-    margin-bottom: 4px;
-    line-height: 1.1;
-}
-.kit-price span { font-size: 0.75rem; color: #94a3b8; font-weight: 500; }
-.kit-desc { font-size: 0.75rem; color: #94a3b8; margin-bottom: 12px; line-height: 1.4; }
-
-.kit-unlocks {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-.kit-unlocks li { font-size: 0.75rem; color: #cbd5e1; display: flex; align-items: center; gap: 7px; }
-.kit-unlocks li i { color: #38bdf8; font-size: 0.65rem; }
-
-.onceoff-btn {
-    background: rgba(255,255,255,0.1) !important;
-    color: #fff !important;
-    border-color: rgba(255,255,255,0.25) !important;
-}
-.onceoff-btn:hover { background: rgba(255,255,255,0.18) !important; }
-.onceoff-kit.full-kit .bplan-btn.btn-primary {
-    background: #2563eb !important;
-    color: #fff !important;
-    border-color: #2563eb !important;
-}
-.onceoff-kit.full-kit .bplan-btn.btn-primary:hover { background: #1d4ed8 !important; }
-
-.onceoff-footnote {
-    font-size: 0.72rem;
-    color: #64748b;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding-top: 12px;
-    line-height: 1.5;
-}
-.onceoff-footnote i { color: #38bdf8; margin-right: 4px; }
-
 /* Price fade animation on period switch */
 .bplan-amount.fading { opacity: 0; }
 
@@ -6456,3 +6346,97 @@ select.dd-select:disabled {
     line-height: 1.6;
     margin: 0;
 }
+
+/* ============================================================
+   ONCE-OFF VIEW - Lifetime Pass full terms block
+   ============================================================ */
+
+.ot-terms {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+}
+.ot-terms-head { margin-bottom: 16px; }
+.ot-terms-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 6px;
+}
+.ot-terms-title i { color: #2563eb; margin-right: 6px; }
+.ot-terms-sub {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.ot-terms-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+@media (max-width: 700px) { .ot-terms-grid { grid-template-columns: 1fr; } }
+
+.ot-terms-col {
+    border: 1px solid;
+    border-radius: 10px;
+    padding: 16px 16px 14px;
+}
+.ot-terms-col.covered     { background: #f0fdf4; border-color: #bbf7d0; }
+.ot-terms-col.not-covered { background: #f8fafc; border-color: #e2e8f0; }
+.ot-terms-col h5 {
+    font-size: 0.82rem;
+    font-weight: 800;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.ot-terms-col.covered h5     { color: #15803d; }
+.ot-terms-col.not-covered h5 { color: #475569; }
+.ot-terms-col ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ot-terms-col li {
+    position: relative;
+    padding-left: 12px;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: #334155;
+}
+.ot-terms-col li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 7px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #94a3b8;
+}
+.ot-terms-col.covered li::before { background: #16a34a; }
+.ot-terms-col li strong { color: #0f172a; font-weight: 700; }
+
+.ot-terms-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: #1e3a8a;
+    line-height: 1.6;
+}
+.ot-terms-note i { margin-top: 2px; flex-shrink: 0; color: #2563eb; }
+.ot-terms-note strong { font-weight: 800; color: #1e40af; }
