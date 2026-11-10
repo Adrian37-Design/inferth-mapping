@@ -295,17 +295,20 @@ async def _whatsapp_keepalive_loop():
                                 await client.get(f"{base}/instance/connect/{target_sess}", headers=headers)
                         except Exception:
                             pass
-                    # Proactive Health Check & Heartbeat: test socket before any user requests a code
+                    # Enforce complete Evolution API v2 settings schema (prevents schema validation error logs)
                     try:
-                        await client.post(f"{base}/settings/set/{target_sess}", headers=headers, json={"alwaysOnline": True, "rejectCall": False})
-                        # Probe WebSocket transmission without sending any user messages
-                        r_probe = await client.post(f"{base}/chat/sendPresence/{target_sess}", headers=headers, json={"presence": "available"})
-                        if "Connection Closed" in r_probe.text or r_probe.status_code in (500, 502, 503):
-                            print(f"[WA-ping PROACTIVE] Zombie socket detected on '{target_sess}'! Auto-rebooting container before user requests OTP...")
-                            from app.services.whatsapp import trigger_evolution_redeploy
-                            await trigger_evolution_redeploy()
-                    except Exception as probe_err:
-                        print(f"[WA-ping PROACTIVE] Heartbeat probe error: {probe_err}")
+                        valid_settings = {
+                            "rejectCall": False,
+                            "msgCall": "",
+                            "groupsIgnore": True,
+                            "alwaysOnline": True,
+                            "readMessages": False,
+                            "readStatus": False,
+                            "syncFullHistory": False
+                        }
+                        await client.post(f"{base}/settings/set/{target_sess}", headers=headers, json=valid_settings)
+                    except Exception:
+                        pass
                 print(f"[WA-ping] connectionState ({target_sess}) -> {r.status_code}")
         except Exception as e:
             print(f"[WA-ping] failed: {e}")
