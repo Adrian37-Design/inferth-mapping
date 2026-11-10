@@ -566,6 +566,78 @@ function syncWorkspaceLayout() {
     setTimeout(() => { if (map) map.invalidateSize(); }, 250);
 }
 
+
+// ── Help & FAQ tab: search, section jumps and deep links from other views ──
+function applyFaqFilter(term) {
+    const q = (term || '').trim().toLowerCase();
+    const empty = document.getElementById('faq-empty');
+    let shown = 0;
+
+    document.querySelectorAll('#faq-sections .faq-section').forEach(section => {
+        let visible = 0;
+        section.querySelectorAll('.faq-item').forEach(item => {
+            const match = !q || item.textContent.toLowerCase().includes(q);
+            item.classList.toggle('hidden', !match);
+            if (match) {
+                visible++;
+                item.open = !!q;
+            }
+        });
+        section.classList.toggle('hidden', visible === 0);
+        shown += visible;
+    });
+
+    if (empty) empty.classList.toggle('hidden', shown > 0);
+}
+
+window.openFaqTopic = function(topic) {
+    if (typeof window.switchTab !== 'function') return;
+    window.switchTab('tab-faq');
+
+    const input = document.getElementById('faq-search-input');
+    if (input && input.value) {
+        input.value = '';
+        const clearBtn = document.getElementById('faq-search-clear');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        applyFaqFilter('');
+    }
+
+    const item = document.querySelector(`.faq-item[data-faq-id="${topic}"]`);
+    if (!item) return;
+    document.querySelectorAll('.faq-item.is-target').forEach(el => el.classList.remove('is-target'));
+    item.open = true;
+    item.classList.add('is-target');
+    setTimeout(() => item.scrollIntoView({ block: 'center', behavior: 'smooth' }), 140);
+    setTimeout(() => item.classList.remove('is-target'), 2400);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('faq-search-input');
+    if (!input) return;
+    const clearBtn = document.getElementById('faq-search-clear');
+
+    input.addEventListener('input', () => {
+        applyFaqFilter(input.value);
+        if (clearBtn) clearBtn.classList.toggle('hidden', !input.value);
+    });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            input.value = '';
+            applyFaqFilter('');
+            clearBtn.classList.add('hidden');
+            input.focus();
+        });
+    }
+
+    document.querySelectorAll('[data-faq-jump]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = document.getElementById(btn.dataset.faqJump);
+            if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        });
+    });
+});
+
 window.switchTab = function(targetId) {
     const railItems = document.querySelectorAll('.rail-item');
     const targetRail = document.querySelector(`.rail-item[data-tab="${targetId}"]`);
@@ -2883,6 +2955,7 @@ const SPOTLIGHT_PAGE_INFO = {
     'tab-alerts': 'Rules engine and alert feed',
     'tab-reports': 'Generate and export reports',
     'tab-insights': 'CAN/OBD diagnostics and fleet analytics',
+    'tab-faq': 'Answers on trackers, alerts, billing and data',
     'tab-users': 'Team members and access',
     'tab-billing': 'Plan, usage and payments',
     'tab-companies': 'Tenant administration',
@@ -8121,7 +8194,7 @@ window.switchBillingPlanMode = function(mode) {
 
 // Once-Off Tracking Payment handler
 window.triggerOnceOffTracking = async function(tier, priceUsd) {
-    const labels = { starter: 'Starter Pass (2-Year Tracking)', professional: 'Pro Pass (Lifetime Tracking)' };
+    const labels = { starter: 'Starter Pass (Lifetime Tracking)' };
     const label = labels[tier] || tier;
     if (!confirm(`Pay $${priceUsd} USD once-off for ${label} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
     try {

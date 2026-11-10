@@ -92,13 +92,13 @@ window.loadInsights = async function(force = false) {
 
     // Update subtitles & headers
     if (currentInsightsRoleMode === 'manager') {
-        if (subtitle) subtitle.textContent = 'Automated fleet telemetry exception analysis and operational cost optimization';
-        if (heading) heading.textContent = 'Active Telematics Exceptions';
-        if (counterBadge) counterBadge.textContent = 'Priority Feed';
+        if (subtitle) subtitle.textContent = 'Exceptions raised from vehicle telemetry, with the next action for each';
+        if (heading) heading.textContent = 'Open exceptions';
+        if (counterBadge) counterBadge.textContent = 'By severity';
     } else {
-        if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
-        if (heading) heading.textContent = 'Driver Performance & Alerts';
-        if (counterBadge) counterBadge.textContent = 'My Vehicle';
+        if (subtitle) subtitle.textContent = 'Driving events and scorecard for your assigned vehicle';
+        if (heading) heading.textContent = 'My driving events';
+        if (counterBadge) counterBadge.textContent = 'This vehicle';
     }
 
     try {
@@ -121,7 +121,7 @@ window.loadInsights = async function(force = false) {
         container.innerHTML = `
             <div style="text-align:center; padding:32px 20px; color:#64748b; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px;">
                 <i class="fas fa-circle-exclamation" style="font-size:1.6rem; color:#dc2626; margin-bottom:8px;"></i>
-                <p style="margin:0 0 10px; font-weight:600; color:#0f172a;">Unable to retrieve fleet insights</p>
+                <p style="margin:0 0 10px; font-weight:600; color:#0f172a;">Insights could not be loaded</p>
                 <button type="button" class="corp-btn corp-btn-secondary" onclick="window.loadInsights(true)">Retry</button>
             </div>
         `;
@@ -129,94 +129,88 @@ window.loadInsights = async function(force = false) {
 };
 
 // Render Top Bar KPI Cards
+function fmtNum(value, digits = 1) {
+    if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) return '\u2014';
+    const n = Number(value);
+    return digits === 0 ? String(Math.round(n)) : n.toFixed(digits);
+}
+
 function renderInsightsTopBar(topBarData, roleMode) {
     const el = document.getElementById('insights-top-bar');
     if (!el || !topBarData) return;
+    const dash = '\u2014';
 
     if (roleMode === 'manager') {
-        const health = topBarData.fleet_health_pct || 94.2;
-        const money = topBarData.money_lost_this_week_usd || 0;
-        const urgent = topBarData.urgent_actions_count || 0;
-        const fuelBench = topBarData.fuel_benchmark || {
-            unit_price: 2.04,
-            fuel_type: 'diesel',
-            country_name: 'Zimbabwe',
-            country_code: 'ZW'
-        };
+        const healthRaw = topBarData.fleet_health_pct;
+        const health = healthRaw === null || healthRaw === undefined ? null : Number(healthRaw);
+        const healthClass = health === null ? '' : (health >= 80 ? 'success' : (health >= 60 ? 'warning' : 'danger'));
+        const money = Number(topBarData.money_lost_this_week_usd || 0);
+        const urgent = Number(topBarData.urgent_actions_count || 0);
+        const fuel = topBarData.fuel_benchmark || {};
+        const diesel = fmtNum(fuel.diesel_price, 2);
+        const petrol = fmtNum(fuel.petrol_price, 2);
+        const country = escapeHTML(fuel.country_name || 'Zimbabwe');
 
         el.innerHTML = `
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">Fleet Health Score</span>
+                <span class="insights-kpi-label">Fleet health</span>
                 <div class="insights-kpi-value-row">
-                    <span class="insights-kpi-value ${health >= 80 ? 'success' : (health >= 60 ? 'warning' : 'danger')}">${health}%</span>
+                    <span class="insights-kpi-value ${healthClass}">${health === null ? dash : health.toFixed(1) + '%'}</span>
                 </div>
-                <span class="insights-kpi-subtext ${health >= 80 ? 'positive' : 'alert'}">
-                    <i class="fas ${health >= 80 ? 'fa-check' : 'fa-triangle-exclamation'}"></i> Operational fleet integrity
-                </span>
+                <span class="insights-kpi-subtext">Share of monitored vehicles reporting normally</span>
             </div>
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">Est. Financial Loss (7 Days)</span>
+                <span class="insights-kpi-label">Estimated fuel loss, 7 days</span>
                 <div class="insights-kpi-value-row">
                     <span class="insights-kpi-value ${money > 0 ? 'danger' : 'success'}">-$${money.toFixed(2)}</span>
                 </div>
-                <span class="insights-kpi-subtext ${money > 0 ? 'negative' : 'positive'}">
-                    <i class="fas fa-gas-pump"></i> Fuel variance & excessive idling
-                </span>
+                <span class="insights-kpi-subtext">Fuel variance and idling in the last 7 days</span>
             </div>
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">Urgent Exceptions</span>
+                <span class="insights-kpi-label">Urgent exceptions</span>
                 <div class="insights-kpi-value-row">
-                    <span class="insights-kpi-value ${urgent > 0 ? 'warning' : 'success'}">${urgent} Active</span>
+                    <span class="insights-kpi-value ${urgent > 0 ? 'warning' : 'success'}">${urgent}</span>
                 </div>
-                <span class="insights-kpi-subtext ${urgent > 0 ? 'alert' : 'positive'}">
-                    <i class="fas fa-clock"></i> Requires supervisor review & action
-                </span>
+                <span class="insights-kpi-subtext">Waiting on supervisor review</span>
             </div>
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">Active Fuel Benchmark</span>
+                <span class="insights-kpi-label">Reference fuel price</span>
                 <div class="insights-kpi-value-row" style="flex-direction:column; align-items:flex-start; gap:2px;">
-                    <div style="font-size:1.12rem; font-weight:700; color:#0f172a;">
-                        <span style="color:#0f172a;">Diesel: $${Number(fuelBench.diesel_price || 2.04).toFixed(2)}</span>
-                        <span style="color:#64748b; font-size:0.85rem; font-weight:500; margin-left:8px;">Petrol: $${Number(fuelBench.petrol_price || 2.05).toFixed(2)}</span>
+                    <div style="font-size:1.05rem; font-weight:700; color:#0f172a;">
+                        Diesel $${diesel}<span style="color:#64748b; font-size:0.8rem; font-weight:500; margin-left:8px;">Petrol $${petrol}</span>
                     </div>
                 </div>
-                <span class="insights-kpi-subtext" style="color:#2563eb;">
-                    <i class="fas fa-location-dot"></i> ${escapeHTML(fuelBench.country_name || 'Zimbabwe')} · GPS Detected
+                <span class="insights-kpi-subtext">
+                    <i class="fas fa-location-dot"></i> ${country} &middot; USD per litre
                 </span>
             </div>
         `;
     } else {
-        const score = topBarData.my_score !== undefined ? topBarData.my_score : 98;
-        const fuel = topBarData.my_fuel_l100km || 8.6;
-        const rank = topBarData.my_rank || 'Rank 3 / 12';
+        const score = fmtNum(topBarData.my_score, 0);
+        const fuel = fmtNum(topBarData.my_fuel_l100km, 1);
+        const rank = escapeHTML(topBarData.my_rank || dash);
 
         el.innerHTML = `
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">My Driving Safety Score</span>
+                <span class="insights-kpi-label">Driver score</span>
                 <div class="insights-kpi-value-row">
                     <span class="insights-kpi-value success">${score} <small style="font-size:0.95rem; font-weight:500; color:#64748b;">/ 100</small></span>
                 </div>
-                <span class="insights-kpi-subtext positive">
-                    <i class="fas fa-shield"></i> Clean safety rating
-                </span>
+                <span class="insights-kpi-subtext">Harsh events, speeding and idling against distance driven</span>
             </div>
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">My Fuel Economy</span>
+                <span class="insights-kpi-label">Fuel economy</span>
                 <div class="insights-kpi-value-row">
                     <span class="insights-kpi-value">${fuel} <small style="font-size:0.85rem; font-weight:500; color:#64748b;">L/100km</small></span>
                 </div>
-                <span class="insights-kpi-subtext positive">
-                    <i class="fas fa-arrow-up"></i> Within efficient consumption range
-                </span>
+                <span class="insights-kpi-subtext">Average across recorded trips</span>
             </div>
             <div class="insights-kpi-card">
-                <span class="insights-kpi-label">Fleet Standing</span>
+                <span class="insights-kpi-label">Fleet standing</span>
                 <div class="insights-kpi-value-row">
                     <span class="insights-kpi-value primary">${rank}</span>
                 </div>
-                <span class="insights-kpi-subtext">
-                    <i class="fas fa-award"></i> Top quartile performance
-                </span>
+                <span class="insights-kpi-subtext">Position within your company</span>
             </div>
         `;
     }
@@ -231,8 +225,8 @@ function renderInsightCards(cards, roleMode) {
         container.innerHTML = `
             <div style="text-align:center; padding:36px 20px; background:#ffffff; border-radius:8px; border:1px solid #e2e8f0; color:#64748b;">
                 <i class="fas fa-circle-check" style="font-size:1.8rem; color:#16a34a; margin-bottom:10px;"></i>
-                <h5 style="margin:0 0 4px; color:#0f172a; font-size:0.95rem; font-weight:600;">All Systems Normal</h5>
-                <p style="margin:0; font-size:0.8rem;">No active exceptions or risk flags logged for this account.</p>
+                <h5 style="margin:0 0 4px; color:#0f172a; font-size:0.95rem; font-weight:600;">No open exceptions</h5>
+                <p style="margin:0; font-size:0.8rem;">No telemetry exceptions were recorded for this account in the current window.</p>
             </div>
         `;
         return;
@@ -300,111 +294,66 @@ function renderSingleEnterpriseCard(card, roleMode) {
 }
 
 // Build Telemetry Metric Chips
+function stripItem(label, value) {
+    if (value === null || value === undefined || value === '' || value === '\u2014') return '';
+    return `<div class="strip-item"><span>${label}:</span> <strong>${value}</strong></div>`;
+}
+
+// Build Telemetry Metric Chips from recorded values only
 function buildTelemetryStrip(cat, card, extra, roleMode) {
+    const items = [];
+    const add = (label, value) => { const html = stripItem(label, value); if (html) items.push(html); };
+    const litres = v => (v === null || v === undefined ? null : `${fmtNum(v, 1)} L`);
+    const km = v => (v === null || v === undefined ? null : `${fmtNum(v, 1)} km`);
+    const region = extra.country_name
+        ? `${escapeHTML(extra.country_name)}${extra.fuel_price ? ` @ $${fmtNum(extra.fuel_price, 2)}/L` : ''}`
+        : null;
+
     if (cat === 'fuel_siphoning') {
-        const drop = extra.fuel_dropped || 18.5;
-        const loss = card.money_impact ? `$${Number(card.money_impact).toFixed(2)}` : '$30.53';
-        const pricingText = extra.country_name 
-            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 2.04).toFixed(2)}/L)`
-            : 'Auto-Detected GPS Rate';
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Quantity:</span> <strong>-${Number(drop).toFixed(1)} L</strong></div>
-                <div class="strip-item"><span>Est. Loss:</span> <strong>${loss}</strong></div>
-                <div class="strip-item"><span>Pricing Basis:</span> <strong>${pricingText}</strong></div>
-                <div class="strip-item"><span>Condition:</span> <strong>Ignition OFF (Speed 0 km/h)</strong></div>
-            </div>
-        `;
+        add('Fuel lost', litres(extra.fuel_dropped));
+        add('Estimated cost', card.money_impact !== null && card.money_impact !== undefined ? `$${fmtNum(card.money_impact, 2)}` : null);
+        add('Condition', extra.ignition_off === false ? 'Ignition on' : 'Ignition off, stationary');
+        add('Pricing basis', region);
     } else if (cat === 'unauthorized_night_trip') {
-        const dist = extra.distance_km || 38.4;
-        const fuel = extra.fuel_used_l || 5.2;
-        const pricingText = extra.country_name 
-            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()})`
-            : null;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Distance:</span> <strong>${dist} km</strong></div>
-                <div class="strip-item"><span>Fuel Used:</span> <strong>${fuel} L</strong></div>
-                ${pricingText ? `<div class="strip-item"><span>Region:</span> <strong>${pricingText}</strong></div>` : ''}
-                <div class="strip-item"><span>Timeframe:</span> <strong>23:30 - 01:15</strong></div>
-                <div class="strip-item"><span>Geofence:</span> <strong>Depot Exit (Unscheduled)</strong></div>
-            </div>
-        `;
+        add('Distance', km(extra.distance_km));
+        add('Fuel used', litres(extra.fuel_used_l));
+        add('Geofence', extra.geofence_name ? escapeHTML(extra.geofence_name) : null);
+        add('Region', region);
     } else if (cat === 'driver_costing_fuel') {
-        const driverRate = extra.driver_l100km || 11.8;
-        const fleetAvg = extra.fleet_avg_l100km || 9.5;
-        const pricingText = extra.country_name 
-            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 2.04).toFixed(2)}/L)`
-            : null;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Driver Rate:</span> <strong>${driverRate} L/100km</strong></div>
-                <div class="strip-item"><span>Fleet Average:</span> <strong>${fleetAvg} L/100km</strong></div>
-                ${pricingText ? `<div class="strip-item"><span>Benchmark:</span> <strong>${pricingText}</strong></div>` : ''}
-                <div class="strip-item"><span>Variance:</span> <strong>+24%</strong></div>
-                <div class="strip-item"><span>Route:</span> <strong>Harare - Bulawayo</strong></div>
-            </div>
-        `;
+        const driverRate = extra.driver_l100km;
+        const fleetAvg = extra.fleet_avg_l100km;
+        add('Driver', driverRate !== null && driverRate !== undefined ? `${fmtNum(driverRate, 1)} L/100km` : null);
+        add('Fleet average', fleetAvg !== null && fleetAvg !== undefined ? `${fmtNum(fleetAvg, 1)} L/100km` : null);
+        if (driverRate !== null && driverRate !== undefined && fleetAvg) {
+            const variance = ((Number(driverRate) - Number(fleetAvg)) / Number(fleetAvg)) * 100;
+            add('Variance', `${variance > 0 ? '+' : ''}${fmtNum(variance, 0)}%`);
+        }
+        add('Benchmark', region);
     } else if (cat === 'service_due_soon') {
-        const km = extra.km_since_service || 9650;
-        const days = extra.days_left || 4;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Odometer:</span> <strong>${km.toLocaleString()} km</strong></div>
-                <div class="strip-item"><span>Service Interval:</span> <strong>10,000 km</strong></div>
-                <div class="strip-item"><span>Estimated Remaining:</span> <strong>${days} Days</strong></div>
-            </div>
-        `;
+        add('Since last service', km(extra.km_since_service));
+        add('Interval', extra.service_interval_km ? km(extra.service_interval_km) : null);
+        add('Est. remaining', extra.days_left !== null && extra.days_left !== undefined ? `${fmtNum(extra.days_left, 0)} days` : null);
     } else if (cat === 'best_driver_week') {
-        const score = extra.score || 98;
-        const saved = extra.fuel_saved_liters || 26.4;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Safety Score:</span> <strong>${score} / 100</strong></div>
-                <div class="strip-item"><span>Fuel Conserved:</span> <strong>${saved} L</strong></div>
-                <div class="strip-item"><span>Harsh Events:</span> <strong>0</strong></div>
-            </div>
-        `;
+        add('Driver score', extra.score !== null && extra.score !== undefined ? `${fmtNum(extra.score, 0)} / 100` : null);
+        add('Fuel saved', litres(extra.fuel_saved_liters));
+        add('Harsh events', extra.harsh_events !== null && extra.harsh_events !== undefined ? fmtNum(extra.harsh_events, 0) : null);
     } else if (cat === 'car_attention') {
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Telemetry:</span> <strong>Engine Temp High (>110°C)</strong></div>
-                <div class="strip-item"><span>Safety Protocol:</span> <strong>Stop Safely</strong></div>
-            </div>
-        `;
+        add('Engine temperature', extra.engine_temp_c !== null && extra.engine_temp_c !== undefined ? `${fmtNum(extra.engine_temp_c, 0)} \u00b0C` : null);
+        add('Action', 'Stop safely');
     } else if (cat === 'harsh_braking_excess') {
-        const count = extra.count || 12;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Events (24h):</span> <strong>${count} Hard Stops</strong></div>
-                <div class="strip-item"><span>Primary Road:</span> <strong>Samora Machel Ave</strong></div>
-            </div>
-        `;
+        add('Events, 24h', extra.count !== null && extra.count !== undefined ? fmtNum(extra.count, 0) : null);
+        add('Road', extra.road_name ? escapeHTML(extra.road_name) : null);
     } else if (cat === 'excessive_idling') {
-        const idleMins = extra.total_idle_mins || 68;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Total Idle (24h):</span> <strong>${idleMins} mins</strong></div>
-                <div class="strip-item"><span>Longest Stop:</span> <strong>Harare Depot</strong></div>
-            </div>
-        `;
+        add('Total idle, 24h', extra.total_idle_mins !== null && extra.total_idle_mins !== undefined ? `${fmtNum(extra.total_idle_mins, 0)} min` : null);
+        add('Longest stop', extra.longest_stop_location ? escapeHTML(extra.longest_stop_location) : null);
     } else if (cat === 'great_driving') {
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Compliance:</span> <strong>Zero Speeding</strong></div>
-                <div class="strip-item"><span>Fuel Economy:</span> <strong>8.6 L/100km</strong></div>
-            </div>
-        `;
+        add('Speeding events', extra.speeding_events !== null && extra.speeding_events !== undefined ? fmtNum(extra.speeding_events, 0) : null);
+        add('Fuel economy', extra.fuel_l100km !== null && extra.fuel_l100km !== undefined ? `${fmtNum(extra.fuel_l100km, 1)} L/100km` : null);
     } else if (cat === 'service_reminder') {
-        const kmLeft = extra.km_left || 420;
-        return `
-            <div class="telemetry-strip">
-                <div class="strip-item"><span>Remaining Distance:</span> <strong>${kmLeft} km</strong></div>
-                <div class="strip-item"><span>Recommended:</span> <strong>Routine Workshop Service</strong></div>
-            </div>
-        `;
+        add('Remaining distance', km(extra.km_left));
     }
-    return '';
+
+    return items.length ? `<div class="telemetry-strip">${items.join('')}</div>` : '';
 }
 
 // Build Action Buttons
@@ -416,65 +365,65 @@ function buildEnterpriseActions(card, roleMode) {
     const vehicle = card.vehicle_name || 'Vehicle';
     const driver = card.driver_name || 'Driver';
     const loss = card.money_impact || 0;
-    const fuelDrop = extra.fuel_dropped || 18.5;
+    const fuelDrop = extra.fuel_dropped;
 
     if (roleMode === 'manager') {
         switch (cat) {
             case 'fuel_siphoning':
                 return `
-                    <button type="button" class="corp-btn corp-btn-primary" onclick="openFuelGraphModal('${devId}', '${escapeHTML(vehicle)}', '${escapeHTML(driver)}', ${fuelDrop}, ${loss})">
-                        <i class="fas fa-chart-line"></i> View Fuel Graph
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openFuelGraphModal('${devId}', '${escapeHTML(vehicle)}', '${escapeHTML(driver)}', ${fuelDrop === null || fuelDrop === undefined ? 'null' : Number(fuelDrop)}, ${Number(loss)})">
+                        <i class="fas fa-chart-line"></i> View fuel graph
                     </button>
                     <button type="button" class="corp-btn" style="background:#dc2626; color:#ffffff;" onclick="openInsightClosureModal('${id}', 'CONFIRMED_THEFT')">
-                        <i class="fas fa-shield-virus"></i> Confirm Theft
+                        <i class="fas fa-shield-virus"></i> Confirm theft
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="openInsightClosureModal('${id}', 'RESOLVED')">
-                        <i class="fas fa-check"></i> Mark Resolved
+                        <i class="fas fa-check"></i> Mark resolved
                     </button>
                 `;
             case 'unauthorized_night_trip':
                 return `
                     <button type="button" class="corp-btn corp-btn-primary" onclick="viewTripReplayLink('${devId}')">
-                        <i class="fas fa-route"></i> View Trip Replay
+                        <i class="fas fa-route"></i> View trip replay
                     </button>
-                    <button type="button" class="corp-btn corp-btn-secondary" onclick="callDriverPrompt('${escapeHTML(driver)}')">
-                        <i class="fas fa-phone"></i> Call Driver
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="openMessageDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}')">
+                        <i class="fab fa-whatsapp"></i> Message driver
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
-                        <i class="fas fa-check"></i> Mark Resolved
+                        <i class="fas fa-check"></i> Mark resolved
                     </button>
                 `;
             case 'driver_costing_fuel':
                 return `
-                    <button type="button" class="corp-btn corp-btn-primary" onclick="openCoachDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}')">
-                        <i class="fas fa-chalkboard-user"></i> Coach Driver
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openCoachDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}', ${Number(extra.driver_l100km) || 'null'}, ${Number(extra.fleet_avg_l100km) || 'null'})">
+                        <i class="fas fa-chalkboard-user"></i> Coach driver
                     </button>
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="checkVehicleDiagnostics('${devId}')">
-                        <i class="fas fa-car-side"></i> Vehicle Profile
+                        <i class="fas fa-car-side"></i> Vehicle profile
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
-                        <i class="fas fa-check"></i> Mark Resolved
+                        <i class="fas fa-check"></i> Mark resolved
                     </button>
                 `;
             case 'service_due_soon':
                 return `
                     <button type="button" class="corp-btn corp-btn-primary" onclick="openScheduleServiceModal('${escapeHTML(vehicle)}', ${devId})">
-                        <i class="fas fa-calendar-check"></i> Schedule Service
+                        <i class="fas fa-calendar-check"></i> Schedule service
                     </button>
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="assignMechanicModal('${escapeHTML(vehicle)}')">
-                        <i class="fas fa-wrench"></i> Assign Mechanic
+                        <i class="fas fa-wrench"></i> Assign mechanic
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
-                        <i class="fas fa-check"></i> Mark Resolved
+                        <i class="fas fa-check"></i> Mark resolved
                     </button>
                 `;
             case 'best_driver_week':
                 return `
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="sendBonusPraise('${escapeHTML(driver)}')">
-                        <i class="fas fa-award"></i> Send Bonus / Praise
+                        <i class="fas fa-award"></i> Record recognition
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
-                        <i class="fas fa-check"></i> Mark Resolved
+                        <i class="fas fa-check"></i> Mark resolved
                     </button>
                 `;
             default:
@@ -485,45 +434,44 @@ function buildEnterpriseActions(card, roleMode) {
                 `;
         }
     } else {
-        // Driver Actions
         switch (cat) {
             case 'car_attention':
                 return `
-                    <button type="button" class="corp-btn corp-btn-danger" onclick="openStopSafelyChecklist()">
-                        <i class="fas fa-hand"></i> Stop Safely
+                    <button type="button" class="corp-btn corp-btn-danger" onclick="openFaqTopic('engine-temperature')">
+                        <i class="fas fa-hand"></i> Stop safely
                     </button>
-                    <button type="button" class="corp-btn corp-btn-primary" onclick="callFleetManagerPrompt()">
-                        <i class="fas fa-phone"></i> Call Manager
+                    <button type="button" class="corp-btn corp-btn-primary" onclick="openMessageDriverModal('Fleet manager', '${escapeHTML(vehicle)}')">
+                        <i class="fas fa-paper-plane"></i> Notify manager
                     </button>
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="findNearestMechanic()">
-                        <i class="fas fa-wrench"></i> Nearest Mechanic
+                        <i class="fas fa-wrench"></i> Nearest mechanic
                     </button>
                 `;
             case 'harsh_braking_excess':
                 return `
                     <button type="button" class="corp-btn corp-btn-primary" onclick="showHarshBrakeMap()">
-                        <i class="fas fa-location-dot"></i> View Location
+                        <i class="fas fa-location-dot"></i> View location
                     </button>
-                    <button type="button" class="corp-btn corp-btn-secondary" onclick="showGapTipModal()">
-                        <i class="fas fa-shield"></i> Tip: Keep 3-sec gap
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="openFaqTopic('following-distance')">
+                        <i class="fas fa-circle-question"></i> Following distance
                     </button>
                 `;
             case 'excessive_idling':
                 return `
-                    <button type="button" class="corp-btn corp-btn-secondary" onclick="showIdleTipModal()">
-                        <i class="fas fa-power-off"></i> Tip: Switch off if >2 mins
+                    <button type="button" class="corp-btn corp-btn-secondary" onclick="openFaqTopic('idling')">
+                        <i class="fas fa-circle-question"></i> Idling guidance
                     </button>
                 `;
             case 'great_driving':
                 return `
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="shareDrivingScore()">
-                        <i class="fas fa-share-nodes"></i> Share Scorecard
+                        <i class="fas fa-share-nodes"></i> Share scorecard
                     </button>
                 `;
             case 'service_reminder':
                 return `
                     <button type="button" class="corp-btn corp-btn-primary" onclick="requestServiceDayPrompt('${escapeHTML(vehicle)}')">
-                        <i class="fas fa-calendar-plus"></i> Request Service Day
+                        <i class="fas fa-calendar-plus"></i> Request service day
                     </button>
                 `;
             default:
@@ -561,10 +509,17 @@ window.openFuelGraphModal = async function(deviceId, vehicleName, driverName, fu
     const modal = document.getElementById('insight-fuel-graph-modal');
     if (!modal) return;
 
-    document.getElementById('fuel-modal-vehicle').textContent = vehicleName || 'Vehicle Telemetry';
-    document.getElementById('fuel-modal-driver').textContent = driverName ? `Driver: ${driverName}` : 'Telematics Ingestion';
-    document.getElementById('fuel-modal-drop-badge').textContent = `-${Number(fuelDrop).toFixed(1)} L drop`;
-    document.getElementById('fuel-modal-loss-usd').textContent = `-$${Number(moneyImpact).toFixed(2)} USD impact`;
+    lastFuelModalVehicle = vehicleName || 'Vehicle';
+    lastFuelModalDriver = driverName || '';
+
+    document.getElementById('fuel-modal-vehicle').textContent = vehicleName || 'Vehicle';
+    document.getElementById('fuel-modal-driver').textContent = driverName ? `Driver: ${driverName}` : 'No driver assigned';
+    document.getElementById('fuel-modal-drop-badge').textContent = fuelDrop === null || fuelDrop === undefined || Number.isNaN(Number(fuelDrop))
+        ? '\u2014'
+        : `-${Number(fuelDrop).toFixed(1)} L drop`;
+    document.getElementById('fuel-modal-loss-usd').textContent = moneyImpact === null || moneyImpact === undefined || Number.isNaN(Number(moneyImpact))
+        ? '\u2014'
+        : `-$${Number(moneyImpact).toFixed(2)} USD impact`;
 
     modal.classList.remove('hidden');
 
@@ -575,6 +530,13 @@ window.openFuelGraphModal = async function(deviceId, vehicleName, driverName, fu
     } catch (e) {
         console.error('Fuel graph error:', e);
     }
+};
+
+let lastFuelModalVehicle = '';
+let lastFuelModalDriver = '';
+
+window.messageDriverFromModal = function() {
+    window.openMessageDriverModal(lastFuelModalDriver || 'Driver', lastFuelModalVehicle || 'Vehicle');
 };
 
 function renderFuelChart(points) {
@@ -711,26 +673,45 @@ window.resolveInsightCard = function(insightId) {
     window.openInsightClosureModal(insightId, 'RESOLVED');
 };
 
-window.messageDriverPrompt = function(driverName, context) {
-    const defaultMsg = `Inferth Fleet Alert: Regarding unexpected fuel drop on vehicle. Please contact operations dispatch.`;
-    const encoded = encodeURIComponent(defaultMsg);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
-};
+window.openMessageDriverModal = function(recipient, vehicle) {
+    const who = recipient && recipient !== 'Driver' ? recipient : 'the driver';
+    const about = vehicle ? ` about ${vehicle}` : '';
+    const draft = `Inferth fleet notice: please contact operations regarding the recorded event on ${about ? about.replace(' about ', '') : 'your vehicle'}.`;
 
-window.callDriverPrompt = function(driverName) {
     showActionModal(
-        'Call Driver',
+        'Send a message',
         `
-        <div style="text-align:center; padding:12px;">
-            <i class="fas fa-phone-volume" style="font-size:2rem; color:#0f172a; margin-bottom:12px;"></i>
-            <h5 style="margin:0 0 6px; font-weight:600;">Contact: ${escapeHTML(driverName)}</h5>
-            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Direct voice communication via cellular or VoIP dispatch.</p>
-            <a href="tel:+263771000000" class="corp-btn corp-btn-primary" style="font-size:0.85rem; padding:8px 18px; text-decoration:none;">
-                <i class="fas fa-phone"></i> Dial +263 77 100 0000
-            </a>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size:0.82rem; color:#334155; margin:0;">
+                Message for <strong>${escapeHTML(who)}</strong>. No phone numbers are stored in the platform, so copy the text and send it through your usual WhatsApp or SMS channel.
+            </p>
+            <textarea id="driver-message-text" style="width:100%; height:80px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit; color:#0f172a;">${escapeHTML(draft)}</textarea>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" class="corp-btn corp-btn-secondary" onclick="copyDriverMessage()"><i class="fas fa-copy"></i> Copy text</button>
+                <button type="button" class="corp-btn corp-btn-whatsapp" onclick="shareDriverMessage()"><i class="fab fa-whatsapp"></i> Open WhatsApp</button>
+            </div>
         </div>
         `
     );
+};
+
+function driverMessageText() {
+    const el = document.getElementById('driver-message-text');
+    return el ? el.value.trim() : '';
+}
+
+window.copyDriverMessage = function() {
+    const text = driverMessageText();
+    if (!text) return;
+    navigator.clipboard.writeText(text)
+        .then(() => showInsightToast('Message copied'))
+        .catch(() => showInsightToast('Select the text and copy it manually'));
+};
+
+window.shareDriverMessage = function() {
+    const text = driverMessageText();
+    if (!text) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 };
 
 window.viewTripReplayLink = function(deviceId) {
@@ -745,29 +726,35 @@ window.viewTripReplayLink = function(deviceId) {
     }
 };
 
-window.openCoachDriverModal = function(driverName, vehicle) {
+window.openCoachDriverModal = function(driverName, vehicle, driverRate, fleetAvg) {
+    const rateLine = driverRate !== null && driverRate !== undefined
+        ? `<p style="font-size:0.82rem; color:#334155; margin:0;">Recorded average for this vehicle: <strong>${Number(driverRate).toFixed(1)} L/100km</strong>${fleetAvg ? ` against a fleet average of <strong>${Number(fleetAvg).toFixed(1)} L/100km</strong>.` : '.'}</p>`
+        : '';
+
     showActionModal(
-        `Eco-Driving Guidance: ${escapeHTML(driverName)}`,
+        `Coaching note`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
             <p style="font-size:0.82rem; color:#334155; margin:0;">
-                Vehicle <strong>${escapeHTML(vehicle)}</strong> is consuming +24% more fuel than the fleet corridor baseline.
+                Driver <strong>${escapeHTML(driverName)}</strong>, vehicle <strong>${escapeHTML(vehicle)}</strong>.
             </p>
-            <div style="background:#f8fafc; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0; font-size:0.8rem;">
-                <strong style="color:#0f172a;">Targeted Feedback:</strong>
-                <ul style="margin:6px 0 0 16px; padding:0; color:#475569; line-height:1.5;">
-                    <li>Maintain steady cruising speed between 80 - 90 km/h.</li>
-                    <li>Avoid rapid acceleration out of toll plazas and intersections.</li>
-                    <li>Limit prolonged air conditioning idling while waiting for loading.</li>
-                </ul>
+            ${rateLine}
+            <textarea id="coach-notes" style="width:100%; height:80px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit; color:#0f172a;" placeholder="Points to raise with the driver">Fuel consumption on this vehicle is above the fleet average. Review cruising speed, acceleration out of junctions, and idling during loading.</textarea>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button type="button" class="corp-btn corp-btn-secondary" onclick="copyCoachNote()"><i class="fas fa-copy"></i> Copy note</button>
+                <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Coaching note saved to the driver record');"><i class="fas fa-check"></i> Save to record</button>
             </div>
-            <textarea id="coach-notes" style="width:100%; height:60px; padding:8px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.8rem;" placeholder="Optional dispatch note..."></textarea>
-            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Guidance sent to driver via WhatsApp dispatch');">
-                <i class="fab fa-whatsapp"></i> Send Module to Driver
-            </button>
         </div>
         `
     );
+};
+
+window.copyCoachNote = function() {
+    const el = document.getElementById('coach-notes');
+    if (!el) return;
+    navigator.clipboard.writeText(el.value.trim())
+        .then(() => showInsightToast('Note copied'))
+        .catch(() => showInsightToast('Select the text and copy it manually'));
 };
 
 window.openScheduleServiceModal = function(vehicle, deviceId) {
@@ -796,17 +783,16 @@ window.openScheduleServiceModal = function(vehicle, deviceId) {
 
 window.assignMechanicModal = function(vehicle) {
     showActionModal(
-        `Assign Mechanic: ${escapeHTML(vehicle)}`,
+        `Assign mechanic`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
-            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Workshop Technician:</label>
-            <select style="padding:6px 10px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.82rem;">
-                <option>Tinashe Moyo — Senior Technician</option>
-                <option>Blessing Sibanda — CAN/Diagnostics Specialist</option>
-                <option>Kudzai Mutasa — Maintenance Inspector</option>
-            </select>
-            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Work order dispatched to mechanic');">
-                <i class="fas fa-wrench"></i> Create Work Order
+            <p style="font-size:0.82rem; color:#334155; margin:0;">Vehicle <strong>${escapeHTML(vehicle)}</strong></p>
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Technician or workshop</label>
+            <input type="text" id="mechanic-name-input" placeholder="Name of the technician or workshop" style="padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.82rem;">
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Work order notes</label>
+            <textarea id="mechanic-notes-input" style="width:100%; height:60px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit;" placeholder="What must be checked or repaired"></textarea>
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Work order recorded');">
+                <i class="fas fa-wrench"></i> Create work order
             </button>
         </div>
         `
@@ -815,14 +801,16 @@ window.assignMechanicModal = function(vehicle) {
 
 window.sendBonusPraise = function(driverName) {
     showActionModal(
-        `Performance Recognition: ${escapeHTML(driverName)}`,
+        `Record recognition`,
         `
-        <div style="text-align:center; padding:12px;">
-            <i class="fas fa-award" style="font-size:2.4rem; color:#d97706; margin-bottom:10px;"></i>
-            <h5 style="margin:0 0 6px; font-weight:600;">Top Fleet Driver of the Week</h5>
-            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Zero harsh maneuvers, zero speeding violations, and lowest idling across 450 km.</p>
-            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Recognition certificate & bonus recorded');">
-                <i class="fas fa-award"></i> Record \$25 Safety Incentive
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <p style="font-size:0.82rem; color:#334155; margin:0;">
+                <strong>${escapeHTML(driverName)}</strong> recorded no harsh events and no speeding for the period covered by this card.
+            </p>
+            <label style="font-size:0.78rem; font-weight:600; color:#334155;">Note for the driver record</label>
+            <textarea id="praise-notes" style="width:100%; height:70px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit;" placeholder="What is being recognised and by whom"></textarea>
+            <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Recognition recorded');">
+                <i class="fas fa-award"></i> Save recognition
             </button>
         </div>
         `
@@ -840,106 +828,49 @@ window.checkVehicleDiagnostics = function(deviceId) {
 // Driver Role Specific Handlers
 // -------------------------------------------------------------------------
 
-window.openStopSafelyChecklist = function() {
-    showActionModal(
-        'Emergency Stopping Protocol',
-        `
-        <div style="display:flex; flex-direction:column; gap:12px;">
-            <div style="background:#fef2f2; border:1px solid #fee2e2; color:#991b1b; padding:10px 12px; border-radius:6px; font-weight:600; font-size:0.8rem;">
-                Engine temperature warning active. Pull over safely.
-            </div>
-            <ol style="margin:0 0 0 18px; padding:0; font-size:0.82rem; line-height:1.6; color:#334155;">
-                <li>Indicate left and pull off the roadway onto a firm shoulder.</li>
-                <li>Activate hazard hazard warning lights immediately.</li>
-                <li>Shift into Park / Neutral and engage parking brake.</li>
-                <li>Turn off engine ignition to prevent head gasket damage.</li>
-                <li>Do NOT remove radiator or coolant cap while hot.</li>
-            </ol>
-            <button type="button" class="corp-btn corp-btn-primary" onclick="callFleetManagerPrompt()">
-                <i class="fas fa-phone"></i> Notify Fleet Manager
-            </button>
-        </div>
-        `
-    );
-};
-
-window.callFleetManagerPrompt = function() {
-    showActionModal(
-        'Fleet Operations Dispatch',
-        `
-        <div style="text-align:center; padding:12px;">
-            <i class="fas fa-headset" style="font-size:2rem; color:#0f172a; margin-bottom:12px;"></i>
-            <h5 style="margin:0 0 6px; font-weight:600;">Fleet Supervisor Dispatch</h5>
-            <p style="color:#64748b; font-size:0.8rem; margin:0 0 16px;">Call your operations supervisor for guidance or towing.</p>
-            <a href="tel:+263771000000" class="corp-btn corp-btn-primary" style="font-size:0.85rem; padding:8px 18px; text-decoration:none;">
-                <i class="fas fa-phone"></i> Call +263 77 100 0000
-            </a>
-        </div>
-        `
-    );
-};
-
 window.findNearestMechanic = function() {
     window.open('https://www.google.com/maps/search/auto+repair+near+me', '_blank');
 };
 
 window.showHarshBrakeMap = function() {
-    showInsightToast('Viewing event route on Map...');
+    showInsightToast('Opening the vehicle on the live map');
     if (typeof window.switchTab === 'function') {
         window.switchTab('tab-fleet');
     }
 };
 
-window.showGapTipModal = function() {
-    showActionModal(
-        'Driving Tip: 3-Second Rule',
-        `
-        <div style="font-size:0.82rem; line-height:1.55; color:#334155;">
-            <p>Maintaining a minimum 3-second buffer behind leading traffic prevents sudden brake spikes, extends brake pad life, and reduces fuel waste.</p>
-            <p><strong>Rule:</strong> When the vehicle in front passes a road marker, count <em>"one-one-thousand, two-one-thousand, three-one-thousand"</em> before reaching it.</p>
-        </div>
-        `
-    );
-};
-
-window.showIdleTipModal = function() {
-    showActionModal(
-        'Idling Guidelines',
-        `
-        <div style="font-size:0.82rem; line-height:1.55; color:#334155;">
-            <p>Modern fuel-injected engines use less fuel restarting than idling for over 10 seconds.</p>
-            <p><strong>Standard Practice:</strong> Switch off the ignition whenever waiting for cargo loading or gate clearance for longer than 2 minutes.</p>
-        </div>
-        `
-    );
-};
-
 window.shareDrivingScore = function() {
-    const text = "Inferth Driving Safety Score: 98/100 (Optimal fuel economy, zero speeding).";
+    const top = (activeInsightData && activeInsightData.top_bar) || {};
+    const score = top.my_score !== undefined && top.my_score !== null ? Number(top.my_score) : null;
+    const text = score === null
+        ? 'Inferth driver scorecard'
+        : `Inferth driver score: ${Math.round(score)}/100`;
     navigator.clipboard.writeText(text).then(() => {
-        showInsightToast('Score summary copied to clipboard');
+        showInsightToast('Scorecard copied to clipboard');
     }).catch(() => {
-        showInsightToast('Driving Safety Score: 98/100');
+        showInsightToast(score === null ? 'Scorecard not available yet' : `Driver score ${Math.round(score)}/100`);
     });
 };
 
 window.requestServiceDayPrompt = function(vehicle) {
     showActionModal(
-        'Request Maintenance Day',
+        `Request maintenance day`,
         `
         <div style="display:flex; flex-direction:column; gap:12px;">
             <p style="font-size:0.82rem; color:#334155; margin:0;">
                 Notify fleet management that <strong>${escapeHTML(vehicle)}</strong> is due for routine service.
             </p>
-            <textarea style="width:100%; height:50px; padding:8px; border-radius:5px; border:1px solid #cbd5e1; font-size:0.8rem;">Vehicle is within 400 km of routine service. Requesting maintenance day.</textarea>
+            <textarea style="width:100%; height:60px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit;">Vehicle is due for routine service. Requesting a maintenance day.</textarea>
             <button type="button" class="corp-btn corp-btn-primary" onclick="closeInsightModal('insight-action-modal'); showInsightToast('Service request submitted');">
-                <i class="fas fa-paper-plane"></i> Submit Request
+                <i class="fas fa-paper-plane"></i> Submit request
             </button>
         </div>
         `
     );
 };
 
+// -------------------------------------------------------------------------
+// Helpers
 // -------------------------------------------------------------------------
 // Helpers
 // -------------------------------------------------------------------------

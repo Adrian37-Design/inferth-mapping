@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=155">
+    <link rel="stylesheet" href="/static/app.css?v=156">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -82,6 +82,11 @@
                 <button type="button" class="rail-item" data-tab="tab-insights" title="Insights" aria-controls="tab-insights" id="rail-insights-btn">
                     <i class="fas fa-microchip"></i>
                     <span class="rail-label">Insights</span>
+                </button>
+                <!-- FAQ Tab: platform help and answers -->
+                <button type="button" class="rail-item" data-tab="tab-faq" title="Help & FAQ" aria-controls="tab-faq" id="rail-faq-btn">
+                    <i class="fas fa-circle-question"></i>
+                    <span class="rail-label">FAQ</span>
                 </button>
                 <button type="button" class="rail-item hidden" data-tab="tab-users" title="Team management" id="rail-users-btn" aria-controls="tab-users">
                     <i class="fas fa-users-cog"></i>
@@ -814,13 +819,13 @@
                         <!-- Professional Top Header -->
                         <div class="insights-top-header">
                             <div class="insights-title-group">
-                                <p class="insights-subtitle" id="insights-subtitle">Automated fleet telemetry exception analysis and operational cost optimization</p>
+                                <p class="insights-subtitle" id="insights-subtitle">Exceptions raised from vehicle telemetry, with the next action for each</p>
                             </div>
                             <div class="insights-header-controls">
                                 <!-- Role Mode Switcher (Visible to Platform Admin only to view both Manager and Driver tabs) -->
                                 <div id="insights-role-switcher" class="insights-pill-toggle hidden">
-                                    <button type="button" class="toggle-pill active" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')">Manager View</button>
-                                    <button type="button" class="toggle-pill" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')">Driver View</button>
+                                    <button type="button" class="toggle-pill active" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')">Manager</button>
+                                    <button type="button" class="toggle-pill" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')">Driver</button>
                                 </div>
                                 <button type="button" class="insights-icon-btn" onclick="loadInsights(true)" title="Refresh Insights">
                                     <i class="fas fa-sync-alt"></i>
@@ -837,17 +842,421 @@
                         <div class="insights-feed-wrapper">
                             <div class="insights-feed-header">
                                 <div class="feed-header-left">
-                                    <h4 class="feed-section-heading" id="insights-cards-heading">Active Items</h4>
-                                    <span class="feed-counter" id="insights-counter-badge">Priority Feed</span>
+                                    <h4 class="feed-section-heading" id="insights-cards-heading">Open exceptions</h4>
+                                    <span class="feed-counter" id="insights-counter-badge">By severity</span>
                                 </div>
                             </div>
                             <div id="insights-cards-list" class="insights-cards-feed">
                                 <div class="insights-loading-state">
                                     <i class="fas fa-circle-notch fa-spin"></i>
-                                    <span>Analyzing telemetry streams...</span>
+                                    <span>Loading fleet exceptions...</span>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Help & FAQ — answers for the whole platform -->
+                <div id="tab-faq" class="tab-content">
+                    <div class="faq-view">
+                        <div class="faq-head">
+                            <h4 class="faq-title"><i class="fas fa-circle-question"></i> Help &amp; FAQ</h4>
+                            <p class="faq-sub">How the platform, trackers, alerts and billing work. Written for fleet owners, managers and drivers.</p>
+                            <div class="faq-search">
+                                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                                <input type="search" id="faq-search-input" placeholder="Search help topics" autocomplete="off" aria-label="Search help topics">
+                                <button type="button" class="faq-search-clear hidden" id="faq-search-clear" aria-label="Clear search"><i class="fas fa-xmark"></i></button>
+                            </div>
+                            <nav class="faq-jump" aria-label="FAQ sections">
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-start">Getting started</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-hardware">Trackers</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-map">Live map</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-history">History</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-geofence">Geofences</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-drivers">Drivers</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-billing">Billing</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-data">Data</button>
+                                <button type="button" class="faq-chip" data-faq-jump="faq-section-support">Support</button>
+                            </nav>
+                        </div>
+
+                        <p class="faq-empty hidden" id="faq-empty">No topic matches that search. Try a shorter word.</p>
+
+                        <div class="faq-sections" id="faq-sections">
+
+                            <section class="faq-section" id="faq-section-start">
+                                <h5 class="faq-section-title"><i class="fas fa-rocket"></i> Getting started</h5>
+
+                                <details class="faq-item" data-faq-id="what-is-inferth">
+                                    <summary>What is Inferth Mapping?</summary>
+                                    <div class="faq-answer"><p>A web-based fleet tracking platform for Zimbabwe and the region: live vehicle map, route history, geofences, alert rules and remote engine cut-off where the relay has been fitted.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="get-account">
+                                    <summary>How do I get an account?</summary>
+                                    <div class="faq-answer"><p>Fleet owners request access through the website. A manager then adds the rest of the team from the Team tab, and each person signs in with their own email and password.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="add-vehicle">
+                                    <summary>How do I add a vehicle?</summary>
+                                    <div class="faq-answer"><p>Open <strong>Vehicles</strong> and choose <strong>Add vehicle</strong>. Enter the tracker IMEI, then a name, plate and fuel type so reports stay readable. The vehicle appears on the map as soon as the tracker sends its first GPS packet.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="find-imei">
+                                    <summary>Where do I find the tracker IMEI?</summary>
+                                    <div class="faq-answer"><p>It is the 15-digit number printed on the tracker label, and most devices will also reply with it by SMS when you send the word <strong>IMEI</strong> from the tracker&rsquo;s SIM card.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="activation-time">
+                                    <summary>How long before a newly fitted tracker shows up?</summary>
+                                    <div class="faq-answer"><p>Usually one to five minutes once the unit has power, a GPS fix and a data session. A cold first fix can take up to ten minutes outdoors; basements and metal warehouses may never get a fix.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="roles">
+                                    <summary>What can managers and drivers see?</summary>
+                                    <div class="faq-answer"><p><strong>Managers</strong> see every vehicle in the company, team access, alerts, reports and billing. <strong>Drivers</strong> see their assigned vehicle, its events and their own scorecard. Items outside a role are hidden rather than disabled.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="install-app">
+                                    <summary>Do I need to install an app?</summary>
+                                    <div class="faq-answer"><p>No. The platform runs in the browser on a phone, tablet or desktop. On a phone you can use the browser&rsquo;s <em>Add to Home Screen</em> option to get an app-like icon.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="login-help">
+                                    <summary>I cannot sign in</summary>
+                                    <div class="faq-answer"><p>Use the password reset link on the sign-in page. If the account is disabled, or the team has changed, ask your fleet manager to reinstate or re-invite the user from the Team tab.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-hardware">
+                                <h5 class="faq-section-title"><i class="fas fa-satellite-dish"></i> Trackers &amp; installation</h5>
+
+                                <details class="faq-item" data-faq-id="supported-trackers">
+                                    <summary>Which trackers are supported?</summary>
+                                    <div class="faq-answer"><p>Hardwired GT06, Sinotrack, Teltonika and H02-family units, in 2G and 4G versions. If you are buying new hardware, confirm the model with us before fitting an unlisted device.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="own-tracker">
+                                    <summary>Can I use a tracker I already own?</summary>
+                                    <div class="faq-answer"><p>Usually yes, provided it reports on one of the supported protocols. Send us the model and IMEI and we will confirm; the device may need the server address and port set to ours.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="hardware-cost">
+                                    <summary>Is the tracker included in the plan?</summary>
+                                    <div class="faq-answer"><p>No. Monthly plans, the once-off pass and the prepaid wallet all cover platform access only. The tracker unit, wiring and installation are quoted separately.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="sim-airtime">
+                                    <summary>Does the tracker need its own SIM and airtime?</summary>
+                                    <div class="faq-answer"><p>Yes. The tracker sends position data over the mobile network, so it needs a data-enabled SIM. Airtime is roughly $1&ndash;$3 per month, paid directly to Econet or NetOne and never through us.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="installation">
+                                    <summary>What does installation involve?</summary>
+                                    <div class="faq-answer"><p>An auto-electrician hardwires the unit to the vehicle&rsquo;s 12V or 24V supply and connects the ignition sense wire so trips start and stop correctly. If remote engine cut-off is wanted, a relay is fitted at the same time.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="relay-cutoff">
+                                    <summary>How does remote engine cut-off work?</summary>
+                                    <div class="faq-answer"><p>The command switches the fitted relay, which interrupts the starter or fuel circuit. It only works once the relay has been installed. Use it on a stationary vehicle for a theft response or recovery, never on a moving vehicle, and note that every command is recorded with the user and time.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="replace-tracker">
+                                    <summary>My tracker failed or was replaced. Do I pay again?</summary>
+                                    <div class="faq-answer"><p>No. The pass or plan is re-linked to the new unit&rsquo;s IMEI at no charge. You pay for the replacement hardware, not for access a second time.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="move-tracker">
+                                    <summary>Can a tracker be moved to another vehicle?</summary>
+                                    <div class="faq-answer"><p>Yes. Reassign it to the other vehicle and update the plate and fuel type. The existing history stays with the vehicle record it was recorded under.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="outside-zimbabwe">
+                                    <summary>Does tracking work outside Zimbabwe?</summary>
+                                    <div class="faq-answer"><p>The platform itself works anywhere. Whether the tracker keeps reporting depends on the SIM roaming agreement with the network operator, so cross-border routes need a roaming-enabled SIM.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-map">
+                                <h5 class="faq-section-title"><i class="fas fa-map-location-dot"></i> Live map &amp; vehicles</h5>
+
+                                <details class="faq-item" data-faq-id="update-rate">
+                                    <summary>How often does the map update?</summary>
+                                    <div class="faq-answer"><p>As often as the tracker reports, which is commonly every 10 to 30 seconds while moving. Parked vehicles with the ignition off usually report less often to save data.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="offline-meaning">
+                                    <summary>What does the Offline status mean?</summary>
+                                    <div class="faq-answer"><p>No packet has arrived within the expected window. The usual causes are lost power, a weak mobile signal, or a SIM with no airtime. The last known position is kept on the map and labelled with the time it was recorded.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="speed-accuracy">
+                                    <summary>Why does the reported speed differ from the dashboard?</summary>
+                                    <div class="faq-answer"><p>The platform uses GPS speed, which can differ slightly from wheel speed and lags by a second or two. Impossible readings are filtered: speeds above 200 km/h and position jumps that would need more than 250 km/h are rejected rather than stored.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="null-island">
+                                    <summary>Why did a trip start at 0,0 on the map?</summary>
+                                    <div class="faq-answer"><p>That is an invalid GPS fix reported by the unit before it locked satellites. Those points are rejected by the platform, so the vehicle stays at its last valid position instead.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="fuel-level">
+                                    <summary>Why is fuel level empty for some vehicles?</summary>
+                                    <div class="faq-answer"><p>Fuel level needs a fuel sensor or a CAN/OBD feed from the vehicle. Without that hardware the platform records position, speed and ignition only, and leaves fuel fields blank.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="fuel-type-setting">
+                                    <summary>How do I set the fuel type used in cost figures?</summary>
+                                    <div class="faq-answer"><p>Open the vehicle, edit it and choose diesel or petrol. Cost estimates use that fuel and the regional reference price for the vehicle&rsquo;s last known location.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-history">
+                                <h5 class="faq-section-title"><i class="fas fa-route"></i> Route history &amp; reports</h5>
+
+                                <details class="faq-item" data-faq-id="history-retention">
+                                    <summary>How long is history kept?</summary>
+                                    <div class="faq-answer"><p>30 days on the Starter plan, with longer retention on higher plans. Export anything you need to keep beyond that window.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="trip-replay">
+                                    <summary>How do I replay a trip?</summary>
+                                    <div class="faq-answer"><p>Open <strong>History</strong>, choose the vehicle and the date range, then use the play, pause and speed controls under the map to step through the route.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="export">
+                                    <summary>Can I export history?</summary>
+                                    <div class="faq-answer"><p>Yes. Reports export the selected vehicle and date range as CSV, Excel or PDF. CSV is the best choice if you want to work with the data further.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="trip-gaps">
+                                    <summary>Why does a trip start late or split in two?</summary>
+                                    <div class="faq-answer"><p>Trips follow the ignition signal, so they begin when ignition is switched on and end when it goes off. A break in mobile coverage can split one journey into two records.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="mileage-vs-odometer">
+                                    <summary>Why is platform mileage different from the odometer?</summary>
+                                    <div class="faq-answer"><p>Platform mileage is the sum of GPS distance between recorded points, which ignores tyre-size and odometer error. Odometer readings appear only where the vehicle supplies them over CAN/OBD.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="report-types">
+                                    <summary>Which reports are available?</summary>
+                                    <div class="faq-answer"><p>Usage and distance summaries, trip detail, alert history and fuel figures where a sensor is fitted. Choose a vehicle, a report type and a date range, then run it.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-geofence">
+                                <h5 class="faq-section-title"><i class="fas fa-draw-polygon"></i> Geofences &amp; alerts</h5>
+
+                                <details class="faq-item" data-faq-id="how-many-zones">
+                                    <summary>How many geofences can I create?</summary>
+                                    <div class="faq-answer"><p>Five on the Starter plan and more on higher plans. Zones are drawn per vehicle, not shared across the whole fleet.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="draw-zone">
+                                    <summary>How do I draw a geofence?</summary>
+                                    <div class="faq-answer"><p>Open <strong>Geofences</strong>, pick the vehicle, then draw a polygon or rectangle on the map. Give the zone a name and colour, choose whether entry, exit or both should raise an alert, and save.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="alert-channels">
+                                    <summary>Where do alerts arrive?</summary>
+                                    <div class="faq-answer"><p>In the alert feed inside the platform, and by email, SMS or WhatsApp when a channel and contact are set on the rule. Messaging channels are subject to fair use.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="no-alert">
+                                    <summary>An alert did not arrive</summary>
+                                    <div class="faq-answer"><p>Check three things: the rule is enabled, the notify channel and contact are filled in, and the event actually occurred in the alert history. If it is in the history but not on your phone, the contact details are the usual cause.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="power-cut-alert">
+                                    <summary>What is a power-cut alert?</summary>
+                                    <div class="faq-answer"><p>The tracker&rsquo;s internal battery takes over when main power is cut, and it reports the loss. That usually means the unit was unplugged or the vehicle battery was disconnected, so it is worth treating as tampering until proven otherwise.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="multiple-recipients">
+                                    <summary>Can several people receive alerts?</summary>
+                                    <div class="faq-answer"><p>Each rule carries its own contact. To notify more than one person, set the rule to the in-app feed so every manager sees it, and use the messaging channel for the person who must act.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="geofence-drift">
+                                    <summary>A parked vehicle keeps tripping a geofence</summary>
+                                    <div class="faq-answer"><p>GPS drift at a boundary can move a stationary vehicle by a few metres. Redraw the zone with a wider margin around the depot or yard, or set the rule to exit only.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-drivers">
+                                <h5 class="faq-section-title"><i class="fas fa-user-shield"></i> Drivers &amp; insights</h5>
+
+                                <details class="faq-item" data-faq-id="insights-purpose">
+                                    <summary>What does the Insights tab show?</summary>
+                                    <div class="faq-answer"><p>Events that need a decision: unusual fuel loss, unscheduled night movement, excessive idling, harsh braking, service due, and driver scorecards. Each card carries the evidence recorded for the event and the action that normally follows.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="driver-score">
+                                    <summary>How is the driver score calculated?</summary>
+                                    <div class="faq-answer"><p>From recorded harsh braking and acceleration, speeding and idling, weighted against the distance the vehicle covered. A score is only meaningful once there is enough recorded driving to compare.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="fuel-siphoning">
+                                    <summary>How does fuel siphoning detection work?</summary>
+                                    <div class="faq-answer"><p>The platform compares fuel level drops against the distance travelled. A sustained drop while the ignition is off and the vehicle is stationary is flagged as possible siphoning. It needs a working fuel sensor or CAN feed, and a false alarm is possible when fuel sloshes on a slope, so confirm before acting.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="idling">
+                                    <summary>What counts as excessive idling?</summary>
+                                    <div class="faq-answer"><p>More than about two minutes stationary with the engine running. Modern fuel-injected engines use less fuel restarting than idling for ten seconds or more, so switching off during loading or gate queues saves fuel and reduces engine hours.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="following-distance">
+                                    <summary>What is the three-second following rule?</summary>
+                                    <div class="faq-answer"><p>Keep at least three seconds of road between you and the vehicle ahead. When it passes a marker, count <em>one-one-thousand, two-one-thousand, three-one-thousand</em> before you reach the same marker. It prevents the sudden brake spikes that show up as harsh-braking events.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="engine-temperature">
+                                    <summary>What should a driver do on an engine temperature warning?</summary>
+                                    <div class="faq-answer"><p>Indicate left and pull off onto firm ground, switch on the hazards, select park or neutral and apply the handbrake, then switch the engine off to protect the head gasket. Do not open the radiator or coolant cap while the engine is hot. Notify the fleet manager before attempting to continue.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="eco-driving">
+                                    <summary>What driving habits reduce fuel use?</summary>
+                                    <div class="faq-answer"><p>Hold a steady cruising speed rather than accelerating hard out of toll gates and junctions, avoid prolonged idling with the air conditioning running, keep tyres correctly inflated, and use engine braking rather than late braking where the road allows.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="service-due">
+                                    <summary>How are service reminders produced?</summary>
+                                    <div class="faq-answer"><p>From distance covered since the last recorded service, measured against the service interval set for the vehicle. A reminder appears in Insights when the vehicle is close to the threshold.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="insights-evidence">
+                                    <summary>Can Insights be used in a disciplinary case?</summary>
+                                    <div class="faq-answer"><p>It is evidence, not a verdict. Each card links to the underlying position and fuel records, and a manager records the investigation outcome against the event. Verify the telemetry before taking action on a driver.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-billing">
+                                <h5 class="faq-section-title"><i class="fas fa-credit-card"></i> Plans &amp; billing</h5>
+
+                                <details class="faq-item" data-faq-id="plans-overview">
+                                    <summary>Which plans are available?</summary>
+                                    <div class="faq-answer"><p><strong>Monthly:</strong> Starter at $12 and Professional at $17 per vehicle per month, with roughly 30% saved on yearly billing, and Enterprise priced per fleet. <strong>Once-off:</strong> a Starter Pass at $89 per vehicle for lifetime access. <strong>Prepaid:</strong> a wallet charged at $0.50 per active vehicle per day.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="lifetime-pass">
+                                    <summary>What exactly does the once-off lifetime pass include?</summary>
+                                    <div class="faq-answer">
+                                        <p><strong>One payment of $89 per vehicle, made once.</strong> No renewal date, no debit order and no top-up prompt. It covers:</p>
+                                        <p>&bull; Platform access for that vehicle with no end date: live map, trip history, geofences, alerts and the Starter feature set, for as long as the platform operates.<br>
+                                        &bull; Every future update, report and fix, delivered automatically at no extra cost.<br>
+                                        &bull; Hosting, database storage and backups.<br>
+                                        &bull; WhatsApp and SMS alert delivery within fair use.<br>
+                                        &bull; Transfer with the vehicle, because the pass is keyed to the tracker IMEI.</p>
+                                        <p><strong>Paid separately:</strong> the tracker unit, installation and wiring, the tracker&rsquo;s SIM airtime (about $1&ndash;$3 per month, paid to Econet or NetOne), replacement hardware after theft or damage, and any custom integration, on-site training or consulting.</p>
+                                        <p><strong>How lifetime is measured:</strong> the operating life of the platform for one vehicle, not the life of the truck and not a fixed number of years. The pass does not tick down while a vehicle is parked, offline or in the workshop, and it never comes up for renewal.</p>
+                                    </div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="pass-refund">
+                                    <summary>Is the once-off payment refundable?</summary>
+                                    <div class="faq-answer"><p>The pass activates when payment is confirmed, so once the vehicle has gone live the payment is final. If you are unsure which option fits your fleet, ask before paying and we will size it with you rather than sell the wrong one.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="platform-shutdown">
+                                    <summary>What if the platform ever shuts down?</summary>
+                                    <div class="faq-answer"><p>Lifetime is bounded by the platform&rsquo;s operating life, which is why it is sold once rather than as a short promotion. If the platform were ever wound down, active pass holders would receive advance notice and a full export of their tracking history.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="sell-vehicle-with-pass">
+                                    <summary>Can I sell a vehicle with the pass on it?</summary>
+                                    <div class="faq-answer"><p>Yes, and it is a genuine resale point. The pass follows the tracker rather than the owner, so the buyer keeps the remaining access. Send us their details and account access is moved across.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="mix-plans">
+                                    <summary>Can different vehicles use different plans?</summary>
+                                    <div class="faq-answer"><p>Yes. Plans and passes are bought per vehicle, so a fleet can mix monthly, once-off and prepaid vehicles on the same account.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="payment-methods">
+                                    <summary>How do I pay?</summary>
+                                    <div class="faq-answer"><p>Through Paynow, which handles EcoCash, OneMoney and Zimswitch. Amounts are quoted in USD and settlement is confirmed by Paynow before access is activated.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="receipt">
+                                    <summary>Do I get a receipt or invoice?</summary>
+                                    <div class="faq-answer"><p>Yes. A WhatsApp confirmation and a receipt follow each successful payment, and the Billing tab keeps the record against your account for reconciliation.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="prepaid-how-charged">
+                                    <summary>How is the prepaid wallet charged?</summary>
+                                    <div class="faq-answer"><p>At $0.50 per active vehicle per calendar day. Vehicles toggled inactive are not charged, which suits trucks that stand for maintenance or await parts for long periods.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="prepaid-empty">
+                                    <summary>What happens when the prepaid balance runs out?</summary>
+                                    <div class="faq-answer"><p>The affected vehicles stop reporting until the wallet is topped up. Stored history is retained, so nothing is lost while the balance is at zero.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="upgrade-plan">
+                                    <summary>Can I upgrade or change plans?</summary>
+                                    <div class="faq-answer"><p>Yes. Move a vehicle between monthly, once-off and prepaid at any time from the Billing tab. For Enterprise changes or fleet-wide moves, contact sales so the billing is adjusted once rather than vehicle by vehicle.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-data">
+                                <h5 class="faq-section-title"><i class="fas fa-lock"></i> Data &amp; security</h5>
+
+                                <details class="faq-item" data-faq-id="data-ownership">
+                                    <summary>Who owns the tracking data?</summary>
+                                    <div class="faq-answer"><p>Your company does. We store and process it to run the service, and you can export it at any time from Reports.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="who-sees-data">
+                                    <summary>Who can see my fleet?</summary>
+                                    <div class="faq-answer"><p>Only users in your company, plus the platform administrator account that operates the service. Every request is scoped to your company, so one fleet cannot read another&rsquo;s vehicles, drivers or history.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="immobiliser-audit">
+                                    <summary>Are engine cut-off commands recorded?</summary>
+                                    <div class="faq-answer"><p>Yes. The command, the user who sent it and the time are written to the audit log, so a shutdown can always be traced.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="delete-data">
+                                    <summary>Can data be deleted?</summary>
+                                    <div class="faq-answer"><p>History ages out on the retention window of your plan. If you need an account or vehicle record removed, contact us with the details so the deletion is done deliberately and confirmed back to you.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="password-security">
+                                    <summary>How should we protect access?</summary>
+                                    <div class="faq-answer"><p>Give each person their own login rather than sharing one, remove users who leave, and keep the manager role to the people who genuinely need billing and vehicle control.</p></div>
+                                </details>
+                            </section>
+
+                            <section class="faq-section" id="faq-section-support">
+                                <h5 class="faq-section-title"><i class="fas fa-headset"></i> Troubleshooting &amp; support</h5>
+
+                                <details class="faq-item" data-faq-id="vehicle-not-updating">
+                                    <summary>A vehicle has stopped updating</summary>
+                                    <div class="faq-answer"><p>Check the vehicle has power, that the tracker is still connected, and that the SIM has airtime and signal. A unit that went offline immediately after a workshop visit or a battery change is usually a disconnected wire rather than a platform fault.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="map-not-loading">
+                                    <summary>The map is blank or slow</summary>
+                                    <div class="faq-answer"><p>Reload the page first. If the outline of the map is missing entirely, the map tiles are not loading and the device is likely on a restricted connection. Switching network or browser usually resolves it.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="alerts-too-noisy">
+                                    <summary>We get too many alerts</summary>
+                                    <div class="faq-answer"><p>Raise the thresholds, set a geofence to exit only, or narrow the zone. Alert volume that nobody reads is worse than no alerts, so tune the rules to the events that actually need action.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="contact-support">
+                                    <summary>How do I reach support?</summary>
+                                    <div class="faq-answer"><p>Email <a href="mailto:sales@inferth.com">sales@inferth.com</a> with the vehicle name or IMEI and the time of the issue, or message the WhatsApp number given at signup. Including the vehicle and a timestamp means the event can be found immediately.</p></div>
+                                </details>
+                            </section>
+
+                        </div>
+
+                        <p class="faq-foot">Still stuck? Email <a href="mailto:sales@inferth.com">sales@inferth.com</a> or message the WhatsApp number on your account.</p>
                     </div>
                 </div>
 
@@ -1096,219 +1505,36 @@
                         <!-- 2b. Once-Off Tracking Payment View -->
                         <div id="billing-onceoff-view" class="hidden">
 
-                            <!-- WHAT IS ONCE-OFF? explainer banner -->
-                            <div class="ot-explainer">
-                                <div class="ot-explainer-icon"><i class="fas fa-bolt"></i></div>
-                                <div class="ot-explainer-body">
-                                    <h3 class="ot-explainer-title">What is a Once-Off Tracking Payment?</h3>
-                                    <p class="ot-explainer-text">
-                                        Instead of paying every month, you pay <strong>one amount now</strong> and your vehicle stays tracked for the period you choose &mdash; with <strong>zero monthly charges</strong>.
-                                        No debit orders. No renewal reminders. No surprises on your phone.
-                                    </p>
-                                    <div class="ot-explainer-cards">
-                                        <div class="ot-explain-card">
-                                            <i class="fas fa-calendar-check"></i>
-                                            <strong>Starter Pass &mdash; 2 Years</strong>
-                                            <span>Pay $89 today. Your vehicle tracks for the next 24 months. After 2 years, top up again or switch to monthly.</span>
-                                        </div>
-                                        <div class="ot-explain-card highlight">
-                                            <i class="fas fa-infinity"></i>
-                                            <strong>Pro Pass &mdash; Lifetime</strong>
-                                            <span>Pay $149 once. Your vehicle tracks <em>forever</em> &mdash; for as long as Inferth Mapping operates. No renewals. No expiry. We honour this commitment.</span>
-                                        </div>
-                                        <div class="ot-explain-card">
-                                            <i class="fas fa-truck"></i>
-                                            <strong>Fleet Bundle &mdash; 5+ Vehicles</strong>
-                                            <span>Tracking 5 or more trucks? We negotiate a bulk once-off rate per vehicle. Contact us for a custom quote.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <!-- SINGLE ONCE-OFF OPTION — Starter Pass, lifetime -->
+                            <div class="ot-plans-grid single">
 
-                            <!-- LIFETIME PASS — FULL EXPLANATION -->
-                            <div class="ot-terms">
-                                <div class="ot-terms-head">
-                                    <h4 class="ot-terms-title"><i class="fas fa-infinity"></i> The Lifetime Pass, explained in full</h4>
-                                    <p class="ot-terms-sub">
-                                        One payment per vehicle, made once. No renewal date, no debit order, no top-up prompt.
-                                        Below is exactly what that money buys &mdash; and what it does not.
-                                    </p>
-                                </div>
-                            
-                                <div class="ot-terms-grid">
-                                    <div class="ot-terms-col covered">
-                                        <h5><i class="fas fa-check-circle"></i> Covered by your once-off payment</h5>
-                                        <ul>
-                                            <li><strong>Platform access for that vehicle, with no end date</strong> &mdash; live map, trip history, geofences, alerts and the full Pro feature set, for as long as Inferth Mapping is running.</li>
-                                            <li><strong>Every future update</strong> &mdash; new features, reports and fixes land on your account automatically, at no extra cost.</li>
-                                            <li><strong>Hosting, database storage and backups</strong> &mdash; the servers behind the map are our cost, not a line on your bill.</li>
-                                            <li><strong>WhatsApp and SMS alert delivery</strong> for geofence, power-cut and theft alerts, within fair-use limits.</li>
-                                            <li><strong>Transfer with the vehicle</strong> &mdash; the pass lives on the tracker&rsquo;s IMEI, so a buyer inherits it.</li>
-                                        </ul>
-                                    </div>
-                            
-                                    <div class="ot-terms-col not-covered">
-                                        <h5><i class="fas fa-circle-minus"></i> Paid separately &mdash; not in the pass</h5>
-                                        <ul>
-                                            <li><strong>The tracker unit</strong> &mdash; use your own or we quote and fit one for you. Hardware is never bundled into the pass price.</li>
-                                            <li><strong>Installation and wiring</strong> &mdash; an auto-electrician fee quoted per vehicle. Remote engine cut-off only works once the relay is physically fitted.</li>
-                                            <li><strong>SIM airtime and data</strong> &mdash; roughly $1&ndash;$3/month paid straight to Econet or NetOne. It is the tracker&rsquo;s phone bill, not our subscription.</li>
-                                            <li><strong>Replacement trackers</strong> &mdash; a new unit after theft, damage or write-off is a hardware purchase.</li>
-                                            <li><strong>Custom integrations, on-site training or consulting</strong> &mdash; quoted separately for Fleet and Enterprise work.</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            
-                                <div class="ot-terms-note">
-                                    <i class="fas fa-circle-info"></i>
-                                    <span><strong>How &ldquo;lifetime&rdquo; is measured:</strong> it means the operating life of the Inferth Mapping platform for one vehicle &mdash; not the life of the truck, and not a fixed number of years.
-                                    The pass does not tick down while a vehicle is parked, offline or in the workshop. It simply never comes up for renewal again.</span>
-                                </div>
-                            </div>
-                            
-                            <!-- LIFETIME FAQ strip -->
-                            <div class="ot-faq-strip">
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>If I pay $149 once, what exactly do I never pay again?</strong>
-                                        <p>The monthly per-vehicle platform fee. A Pro Pass vehicle is never billed a subscription, a renewal, an annual licence or a reactivation fee. Monthly plans run $12&ndash;$17 per vehicle, so the pass has paid for itself in under 13 months &mdash; everything after that is free.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>Is there a catch, a cap or a hidden expiry?</strong>
-                                        <p>No. The pass unlocks the full Professional feature set on that one vehicle permanently. The only recurring money in the whole setup is the tracker&rsquo;s own SIM data, paid to your network operator, and the platform never touches it.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>What if the platform itself ever shuts down?</strong>
-                                        <p>Lifetime is bounded by the platform&rsquo;s operating life, which is why we sell it once rather than as a short-term promo. We are building for the long haul and we honour every active pass. If the platform were ever wound down, you would get advance notice and a full export of your tracking history.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>What happens when the 2-year Starter Pass runs out?</strong>
-                                        <p>Nothing is auto-charged. At month 24 that vehicle simply stops reporting until you choose: buy another pass at the price then in force, or move that single vehicle onto Monthly or the Prepaid Wallet. Your history stays on the account either way.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>My tracker failed or was replaced &mdash; is the pass gone?</strong>
-                                        <p>No. The pass belongs to the vehicle, keyed to its tracker&rsquo;s IMEI. Fit a replacement unit and we re-link the pass to the new IMEI at no extra charge &mdash; you pay for the hardware itself, never for the subscription twice.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>Can I sell the vehicle with the pass on it?</strong>
-                                        <p>Yes, and it is a genuine resale point. The pass follows the tracker, not the owner, so the new owner keeps whatever tracking is left &mdash; forever, on a Pro Pass. Send us their details and we move account access across.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>Must the whole fleet go once-off?</strong>
-                                        <p>No. Passes are bought per vehicle, so you can mix freely &mdash; a few trucks on Pro Pass lifetime, the rest on Monthly or Prepaid. Fleet owners buying 5 or more get a negotiated per-vehicle rate.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>How do I pay, and how soon does tracking start?</strong>
-                                        <p>Paynow checkout with EcoCash, OneMoney or Zimswitch, priced in USD. You get a WhatsApp confirmation and a receipt the moment it clears, and the vehicle is live on the platform within 2 hours of confirmation.</p>
-                                    </div>
-                                </div>
-                                <div class="ot-faq-item">
-                                    <i class="fas fa-question-circle"></i>
-                                    <div>
-                                        <strong>Can I get my money back if I change my mind?</strong>
-                                        <p>A pass activates the moment payment is confirmed, so once a vehicle has gone live the payment is final. If you are unsure which pass fits your fleet, talk to us before paying &mdash; we will size it with you rather than sell you the wrong one.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- PLAN CARDS -->
-                            <div class="ot-plans-grid">
-
-                                <!-- STARTER PASS -->
                                 <div class="ot-plan-card">
                                     <div class="ot-plan-top">
                                         <div class="ot-plan-icon"><i class="fas fa-seedling"></i></div>
                                         <h4 class="ot-plan-name">Starter Pass</h4>
-                                        <p class="ot-plan-desc">1&ndash;5 vehicles &middot; 2 years of tracking</p>
+                                        <p class="ot-plan-desc">One payment &middot; lifetime tracking for this vehicle</p>
                                     </div>
                                     <div class="ot-price-row">
                                         <span class="ot-currency">$</span>
                                         <span class="ot-amount">89</span>
                                         <span class="ot-unit">/vehicle, once</span>
                                     </div>
-                                    <div class="ot-saving"><i class="fas fa-piggy-bank"></i> Saves $199 vs paying $12/mo for 2 years</div>
+                                    <div class="ot-saving"><i class="fas fa-infinity"></i> No renewal, no expiry, no monthly fee</div>
                                     <ul class="ot-features">
                                         <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
                                         <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
                                         <li><i class="fas fa-check"></i> WhatsApp OTP auth &amp; alerts</li>
                                         <li><i class="fas fa-check"></i> 30-day history &amp; reports</li>
-                                        <li><i class="fas fa-check"></i> <strong>24 months</strong> &mdash; then renew or switch</li>
-                                    </ul>
-                                    <button class="ot-btn btn-outline" onclick="triggerOnceOffTracking('starter', 89)">
-                                        <i class="fas fa-mobile-alt"></i> Pay $89 via EcoCash
-                                    </button>
-                                </div>
-
-                                <!-- PRO PASS (popular) -->
-                                <div class="ot-plan-card popular">
-                                    <div class="ot-popular-badge"><i class="fas fa-infinity"></i> Lifetime &mdash; Never Pay Again</div>
-                                    <div class="ot-plan-top">
-                                        <div class="ot-plan-icon"><i class="fas fa-bolt"></i></div>
-                                        <h4 class="ot-plan-name">Pro Pass</h4>
-                                        <p class="ot-plan-desc">Up to 50 vehicles &middot; Lifetime tracking, forever</p>
-                                    </div>
-                                    <div class="ot-price-row">
-                                        <span class="ot-currency">$</span>
-                                        <span class="ot-amount">149</span>
-                                        <span class="ot-unit">/vehicle, once</span>
-                                    </div>
-                                    <div class="ot-saving"><i class="fas fa-infinity"></i> No expiry &mdash; tracks for life of platform</div>
-                                    <ul class="ot-features">
-                                        <li><i class="fas fa-check"></i> Everything in Starter Pass</li>
-                                        <li><i class="fas fa-check"></i> Remote engine immobilizer</li>
-                                        <li><i class="fas fa-check"></i> Fuel siphoning detection</li>
-                                        <li><i class="fas fa-check"></i> Driver insights &amp; scorecards</li>
-                                        <li><i class="fas fa-check"></i> Audit log &amp; compliance exports</li>
+                                        <li><i class="fas fa-check"></i> Access to every platform update</li>
                                         <li><i class="fas fa-check"></i> <strong>Lifetime access</strong> &mdash; never renew</li>
                                     </ul>
-                                    <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('professional', 149)">
-                                        <i class="fas fa-mobile-alt"></i> Pay $149 via EcoCash
+                                    <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('starter', 89)">
+                                        <i class="fas fa-mobile-alt"></i> Pay $89 via EcoCash
                                     </button>
-                                </div>
-
-                                <!-- FLEET BUNDLE -->
-                                <div class="ot-plan-card fleet">
-                                    <div class="ot-plan-top">
-                                        <div class="ot-plan-icon"><i class="fas fa-truck"></i></div>
-                                        <h4 class="ot-plan-name">Fleet Bundle</h4>
-                                        <p class="ot-plan-desc">5+ vehicles &middot; Negotiated bulk rate</p>
-                                    </div>
-                                    <div class="ot-price-row">
-                                        <span class="ot-custom-label">Custom Rate</span>
-                                    </div>
-                                    <div class="ot-saving"><i class="fas fa-tags"></i> Volume discounts from 5 vehicles up</div>
-                                    <ul class="ot-features">
-                                        <li><i class="fas fa-check"></i> All Pro Pass features</li>
-                                        <li><i class="fas fa-check"></i> Bulk discount negotiated per vehicle</li>
-                                        <li><i class="fas fa-check"></i> Dedicated account manager</li>
-                                        <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
-                                        <li><i class="fas fa-check"></i> Group invoicing &amp; receipts (ZWG/USD)</li>
-                                    </ul>
-                                    <button class="ot-btn btn-outline" onclick="window.open('mailto:sales@inferth.com?subject=Fleet%20Bundle%20Once-Off%20Pricing','_blank')">
-                                        <i class="fas fa-envelope"></i> Contact Sales
-                                    </button>
+                                    <p class="ot-plan-fineprint">
+                                        Covers platform access for one vehicle only. Tracker hardware, installation and the
+                                        tracker&rsquo;s own SIM airtime are quoted separately.
+                                    </p>
                                 </div>
 
                             </div><!-- /ot-plans-grid -->
@@ -1316,9 +1542,10 @@
                             <!-- BOTTOM NOTE -->
                             <div class="ot-footnote">
                                 <i class="fas fa-shield-alt"></i>
-                                <strong>Secure payment:</strong> All once-off payments processed via Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch.
-                                You will receive a WhatsApp confirmation and a receipt immediately after payment.
-                                Your vehicle is activated on the platform within <strong>2 hours</strong> of payment confirmation.
+                                <strong>Secure payment:</strong> Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch.
+                                A WhatsApp confirmation and receipt follow immediately, and the vehicle is activated within
+                                <strong>2 hours</strong> of confirmation.
+                                <a href="#" class="ot-footnote-link" onclick="window.openFaqTopic('lifetime-pass'); return false;">Full lifetime terms in FAQ &rarr;</a>
                             </div>
 
                         </div><!-- /billing-onceoff-view -->
@@ -1840,9 +2067,9 @@
     <script src="/static/auth.js?v=65"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=155"></script>
+    <script src="/static/app.js?v=156"></script>
     <script src="/static/geofence.js?v=10"></script>
-    <script src="/static/insights.js?v=4"></script>
+    <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">
@@ -1895,15 +2122,15 @@
                         <div id="fuel-modal-driver" style="font-size:0.78rem; color:#64748b;">Assigned Driver</div>
                     </div>
                     <div style="text-align:right;">
-                        <span id="fuel-modal-drop-badge" class="insight-metric-chip loss">-18.5 L drop</span>
-                        <div id="fuel-modal-loss-usd" style="font-size:0.8rem; font-weight:700; color:#b91c1c;">$30.53 impact</div>
+                        <span id="fuel-modal-drop-badge" class="insight-metric-chip loss">&mdash;</span>
+                        <div id="fuel-modal-loss-usd" style="font-size:0.8rem; font-weight:700; color:#b91c1c;">&mdash;</div>
                     </div>
                 </div>
                 <div style="position:relative; width:100%; height:260px; margin-top:10px;">
                     <canvas id="insight-fuel-chart"></canvas>
                 </div>
                 <p id="fuel-modal-subtext" style="font-size:0.78rem; color:#64748b; margin:0;">
-                    Points recorded by high-frequency CAN / capacitive fuel sensor. Red highlight indicates stationary fuel depletion with ignition off.
+                    Fuel level points recorded by the vehicle. A sustained drop while the ignition is off and the vehicle is stationary is what raises a siphoning flag.
                 </p>
             </div>
             <div class="insight-modal-footer">
@@ -1932,30 +2159,30 @@
     <div id="insight-closure-modal" class="insight-modal-backdrop hidden">
         <div class="insight-modal-card" style="max-width: 500px;">
             <div class="insight-modal-header">
-                <h4><i class="fas fa-clipboard-check" style="color:#0f172a;"></i> Incident Outcome Verification (P2)</h4>
+                <h4><i class="fas fa-clipboard-check" style="color:#0f172a;"></i> Record investigation outcome</h4>
                 <button type="button" class="insight-modal-close" onclick="closeInsightModal('insight-closure-modal')">&times;</button>
             </div>
             <div class="insight-modal-body">
                 <p id="closure-modal-subtext" style="font-size:0.82rem; color:#475569; margin:0 0 12px;">
-                    Log ground-truth outcome for fleet telematics anomaly. Restricted to Managers only.
+                    Record what the investigation found. Managers only; the entry is written to the audit log.
                 </p>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label style="font-size:0.8rem; font-weight:600; color:#334155; display:block; margin-bottom:4px;">Investigation Outcome *</label>
                     <select id="closure-outcome-type" style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem; background:#ffffff;">
-                        <option value="CONFIRMED_THEFT">🚨 Confirmed Fuel Theft / Siphoning</option>
-                        <option value="LEGITIMATE_CONSUMPTION">✓ Legitimate Decanting / Authorized Drain</option>
-                        <option value="FALSE_ALARM">⚠️ Sensor Slosh / Calibration False Alarm</option>
-                        <option value="RESOLVED">📋 Operational Reprimand / Case Handled</option>
+                        <option value="CONFIRMED_THEFT">Confirmed fuel theft / siphoning</option>
+                        <option value="LEGITIMATE_CONSUMPTION">Legitimate decanting / authorised drain</option>
+                        <option value="FALSE_ALARM">Sensor slosh / calibration false alarm</option>
+                        <option value="RESOLVED">Operational reprimand / case handled</option>
                     </select>
                 </div>
                 <div class="form-group" style="margin-bottom:12px;">
                     <label style="font-size:0.8rem; font-weight:600; color:#334155; display:block; margin-bottom:4px;">Manager Name (Signature) *</label>
-                    <input type="text" id="closure-manager-name" placeholder="e.g. Adrian Kwaramba (Fleet Operations)" style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;" required>
+                    <input type="text" id="closure-manager-name" placeholder="Your full name" style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;" required>
                     <small style="color:#64748b; font-size:0.75rem;">Manager's full name is permanently recorded in the audit log.</small>
                 </div>
                 <div class="form-group" style="margin-bottom:8px;">
                     <label style="font-size:0.8rem; font-weight:600; color:#334155; display:block; margin-bottom:4px;">Investigation Notes</label>
-                    <textarea id="closure-notes" placeholder="Enter findings (e.g. Driver confessed to draining 20L into container at truck stop; vehicle inspected)..." style="width:100%; height:65px; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.82rem; resize:vertical;"></textarea>
+                    <textarea id="closure-notes" placeholder="What was found, who was involved, and what was done" style="width:100%; height:65px; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.82rem; resize:vertical;"></textarea>
                 </div>
             </div>
             <div class="insight-modal-footer">
