@@ -1089,61 +1089,73 @@
 
                             </div><!-- /billing-plans-grid -->
 
-                            <!-- === HARDWARE INSTALLATION CARD (separate from tracking payment) === -->
-                            <div class="billing-onceoff-card">
-                                <div class="onceoff-header">
-                                    <div>
-                                        <span class="onceoff-badge"><i class="fas fa-tools"></i> HARDWARE &amp; INSTALLATION</span>
-                                        <div class="onceoff-tagline">Need a tracker fitted? Own your hardware &mdash; no hardware rental fee ever</div>
-                                    </div>
-                                </div>
-                                <div class="onceoff-kits">
-                                    <div class="onceoff-kit">
-                                        <div class="kit-name">Basic Kit</div>
-                                        <div class="kit-price">$89 <span>USD once-off</span></div>
-                                        <div class="kit-desc">GT06/Sinotrack tracker + SIM tray + wiring harness + fitting</div>
-                                        <ul class="kit-unlocks">
-                                            <li><i class="fas fa-lock-open"></i> Real-time GPS &amp; history</li>
-                                            <li><i class="fas fa-lock-open"></i> WhatsApp OTP alerts</li>
-                                            <li><i class="fas fa-lock-open"></i> Geofencing</li>
-                                        </ul>
-                                        <button class="bplan-btn btn-outline onceoff-btn" onclick="triggerOnceOffPayment('basic')">
-                                            <i class="fas fa-mobile-alt"></i> Pay via EcoCash
-                                        </button>
-                                    </div>
-                                    <div class="onceoff-kit full-kit">
-                                        <div class="kit-badge-top"><i class="fas fa-award"></i> Recommended</div>
-                                        <div class="kit-name">Full Kit</div>
-                                        <div class="kit-price">$120 <span>USD once-off</span></div>
-                                        <div class="kit-desc">Tracker + capacitive fuel probe + immobilizer relay + certified auto-electrician install</div>
-                                        <ul class="kit-unlocks">
-                                            <li><i class="fas fa-lock-open"></i> Remote engine immobilizer</li>
-                                            <li><i class="fas fa-lock-open"></i> Fuel siphoning detection</li>
-                                            <li><i class="fas fa-lock-open"></i> OBD-II / CAN-Bus telemetry</li>
-                                            <li><i class="fas fa-lock-open"></i> All Basic Kit features</li>
-                                        </ul>
-                                        <button class="bplan-btn btn-primary onceoff-btn" onclick="triggerOnceOffPayment('full')">
-                                            <i class="fas fa-mobile-alt"></i> Pay via EcoCash
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="onceoff-footnote">
-                                    <i class="fas fa-shield-alt"></i> Payments processed securely via Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch. Installation by certified Inferth technician within 48 hrs of payment.
-                                </div>
-                            </div>
-
-                        </div>
+                            
 
                         <!-- 2b. Once-Off Tracking Payment View -->
                         <div id="billing-onceoff-view" class="hidden">
-                            <div class="onceoff-tracking-intro">
-                                <div class="ot-intro-icon"><i class="fas fa-bolt"></i></div>
-                                <div>
-                                    <h3 class="ot-intro-title">Pay Once. Track Forever.</h3>
-                                    <p class="ot-intro-sub">No monthly bills. Lock in your tracking coverage with a single payment &mdash; ideal for fleet owners who prefer to own rather than subscribe.</p>
+
+                            <!-- WHAT IS ONCE-OFF? explainer banner -->
+                            <div class="ot-explainer">
+                                <div class="ot-explainer-icon"><i class="fas fa-bolt"></i></div>
+                                <div class="ot-explainer-body">
+                                    <h3 class="ot-explainer-title">What is a Once-Off Tracking Payment?</h3>
+                                    <p class="ot-explainer-text">
+                                        Instead of paying every month, you pay <strong>one amount now</strong> and your vehicle stays tracked for the period you choose &mdash; with <strong>zero monthly charges</strong>.
+                                        No debit orders. No renewal reminders. No surprises on your phone.
+                                    </p>
+                                    <div class="ot-explainer-cards">
+                                        <div class="ot-explain-card">
+                                            <i class="fas fa-calendar-check"></i>
+                                            <strong>Starter Pass &mdash; 2 Years</strong>
+                                            <span>Pay $89 today. Your vehicle tracks for the next 24 months. After 2 years, top up again or switch to monthly.</span>
+                                        </div>
+                                        <div class="ot-explain-card highlight">
+                                            <i class="fas fa-infinity"></i>
+                                            <strong>Pro Pass &mdash; Lifetime</strong>
+                                            <span>Pay $149 once. Your vehicle tracks <em>forever</em> &mdash; for as long as Inferth Mapping operates. No renewals. No expiry. We honour this commitment.</span>
+                                        </div>
+                                        <div class="ot-explain-card">
+                                            <i class="fas fa-truck"></i>
+                                            <strong>Fleet Bundle &mdash; 5+ Vehicles</strong>
+                                            <span>Tracking 5 or more trucks? We negotiate a bulk once-off rate per vehicle. Contact us for a custom quote.</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
+                            <!-- LIFETIME FAQ strip -->
+                            <div class="ot-faq-strip">
+                                <div class="ot-faq-item">
+                                    <i class="fas fa-question-circle"></i>
+                                    <div>
+                                        <strong>What does &ldquo;lifetime&rdquo; actually mean?</strong>
+                                        <p>It means your Pro Pass vehicle never pays a monthly fee again. As long as the Inferth Mapping platform is running, your tracker reports live. We&rsquo;re not going anywhere &mdash; we&rsquo;re building for the long haul.</p>
+                                    </div>
+                                </div>
+                                <div class="ot-faq-item">
+                                    <i class="fas fa-question-circle"></i>
+                                    <div>
+                                        <strong>What if I sell my vehicle?</strong>
+                                        <p>The Once-Off Pass is linked to the vehicle&rsquo;s IMEI (tracker), not the owner. The new owner inherits the remaining tracking period. This can be a selling point for the vehicle.</p>
+                                    </div>
+                                </div>
+                                <div class="ot-faq-item">
+                                    <i class="fas fa-question-circle"></i>
+                                    <div>
+                                        <strong>What about SIM data charges?</strong>
+                                        <p>The tracker uses a SIM card for cellular data. That SIM airtime/data is a separate cost (paid directly to Econet or NetOne &mdash; typically $1&ndash;$3/month). Inferth Mapping does not charge for this. Your once-off payment covers the platform subscription only.</p>
+                                    </div>
+                                </div>
+                                <div class="ot-faq-item">
+                                    <i class="fas fa-question-circle"></i>
+                                    <div>
+                                        <strong>Can I add more vehicles later?</strong>
+                                        <p>Yes. Each vehicle is purchased separately at the same once-off rate. You can mix &mdash; some vehicles on Once-Off, others on Monthly or Prepaid Wallet.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PLAN CARDS -->
                             <div class="ot-plans-grid">
 
                                 <!-- STARTER PASS -->
@@ -1151,47 +1163,47 @@
                                     <div class="ot-plan-top">
                                         <div class="ot-plan-icon"><i class="fas fa-seedling"></i></div>
                                         <h4 class="ot-plan-name">Starter Pass</h4>
-                                        <p class="ot-plan-desc">1&ndash;5 vehicles &middot; 2-year tracking access</p>
+                                        <p class="ot-plan-desc">1&ndash;5 vehicles &middot; 2 years of tracking</p>
                                     </div>
                                     <div class="ot-price-row">
                                         <span class="ot-currency">$</span>
                                         <span class="ot-amount">89</span>
-                                        <span class="ot-unit">/vehicle</span>
+                                        <span class="ot-unit">/vehicle, once</span>
                                     </div>
-                                    <div class="ot-saving">Saves $199 vs 2 yrs at $12/mo</div>
+                                    <div class="ot-saving"><i class="fas fa-piggy-bank"></i> Saves $199 vs paying $12/mo for 2 years</div>
                                     <ul class="ot-features">
                                         <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
                                         <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
                                         <li><i class="fas fa-check"></i> WhatsApp OTP auth &amp; alerts</li>
                                         <li><i class="fas fa-check"></i> 30-day history &amp; reports</li>
-                                        <li><i class="fas fa-check"></i> 2 years access, no recurring fee</li>
+                                        <li><i class="fas fa-check"></i> <strong>24 months</strong> &mdash; then renew or switch</li>
                                     </ul>
                                     <button class="ot-btn btn-outline" onclick="triggerOnceOffTracking('starter', 89)">
                                         <i class="fas fa-mobile-alt"></i> Pay $89 via EcoCash
                                     </button>
                                 </div>
 
-                                <!-- PROFESSIONAL PASS (popular) -->
+                                <!-- PRO PASS (popular) -->
                                 <div class="ot-plan-card popular">
-                                    <div class="ot-popular-badge"><i class="fas fa-star"></i> Best Value</div>
+                                    <div class="ot-popular-badge"><i class="fas fa-infinity"></i> Lifetime &mdash; Never Pay Again</div>
                                     <div class="ot-plan-top">
                                         <div class="ot-plan-icon"><i class="fas fa-bolt"></i></div>
                                         <h4 class="ot-plan-name">Pro Pass</h4>
-                                        <p class="ot-plan-desc">Up to 50 vehicles &middot; Lifetime tracking access</p>
+                                        <p class="ot-plan-desc">Up to 50 vehicles &middot; Lifetime tracking, forever</p>
                                     </div>
                                     <div class="ot-price-row">
                                         <span class="ot-currency">$</span>
                                         <span class="ot-amount">149</span>
-                                        <span class="ot-unit">/vehicle</span>
+                                        <span class="ot-unit">/vehicle, once</span>
                                     </div>
-                                    <div class="ot-saving">Lifetime &mdash; never pay again</div>
+                                    <div class="ot-saving"><i class="fas fa-infinity"></i> No expiry &mdash; tracks for life of platform</div>
                                     <ul class="ot-features">
                                         <li><i class="fas fa-check"></i> Everything in Starter Pass</li>
                                         <li><i class="fas fa-check"></i> Remote engine immobilizer</li>
                                         <li><i class="fas fa-check"></i> Fuel siphoning detection</li>
                                         <li><i class="fas fa-check"></i> Driver insights &amp; scorecards</li>
                                         <li><i class="fas fa-check"></i> Audit log &amp; compliance exports</li>
-                                        <li><i class="fas fa-check"></i> Lifetime access, no renewals ever</li>
+                                        <li><i class="fas fa-check"></i> <strong>Lifetime access</strong> &mdash; never renew</li>
                                     </ul>
                                     <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('professional', 149)">
                                         <i class="fas fa-mobile-alt"></i> Pay $149 via EcoCash
@@ -1208,13 +1220,13 @@
                                     <div class="ot-price-row">
                                         <span class="ot-custom-label">Custom Rate</span>
                                     </div>
-                                    <div class="ot-saving">Volume discounts from 5 vehicles up</div>
+                                    <div class="ot-saving"><i class="fas fa-tags"></i> Volume discounts from 5 vehicles up</div>
                                     <ul class="ot-features">
                                         <li><i class="fas fa-check"></i> All Pro Pass features</li>
-                                        <li><i class="fas fa-check"></i> Bulk discount negotiated</li>
+                                        <li><i class="fas fa-check"></i> Bulk discount negotiated per vehicle</li>
                                         <li><i class="fas fa-check"></i> Dedicated account manager</li>
                                         <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
-                                        <li><i class="fas fa-check"></i> Group invoicing &amp; receipts</li>
+                                        <li><i class="fas fa-check"></i> Group invoicing &amp; receipts (ZWG/USD)</li>
                                     </ul>
                                     <button class="ot-btn btn-outline" onclick="window.open('mailto:sales@inferth.com?subject=Fleet%20Bundle%20Once-Off%20Pricing','_blank')">
                                         <i class="fas fa-envelope"></i> Contact Sales
@@ -1223,10 +1235,14 @@
 
                             </div><!-- /ot-plans-grid -->
 
+                            <!-- BOTTOM NOTE -->
                             <div class="ot-footnote">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>How it works:</strong> Pay once per vehicle &mdash; your tracker stays active for the selected period with zero monthly charges. Pro Pass clients receive lifetime access as long as the platform operates. All payments via Paynow · EcoCash · OneMoney · Zimswitch.
+                                <i class="fas fa-shield-alt"></i>
+                                <strong>Secure payment:</strong> All once-off payments processed via Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch.
+                                You will receive a WhatsApp confirmation and a receipt immediately after payment.
+                                Your vehicle is activated on the platform within <strong>2 hours</strong> of payment confirmation.
                             </div>
+
                         </div><!-- /billing-onceoff-view -->
 
                         <!-- 2. Prepaid EcoCash Fleet Wallet View -->

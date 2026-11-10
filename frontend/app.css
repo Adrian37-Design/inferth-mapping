@@ -6335,3 +6335,124 @@ select.dd-select:disabled {
     line-height: 1.6;
 }
 .ot-footnote i { color: #2563eb; margin-right: 6px; }
+
+/* ============================================================
+   ONCE-OFF VIEW — Explainer banner + FAQ strip
+   ============================================================ */
+
+/* Top explainer banner */
+.ot-explainer {
+    display: flex;
+    gap: 18px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    color: #e2e8f0;
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+}
+.ot-explainer-icon {
+    font-size: 1.8rem;
+    color: #38bdf8;
+    background: rgba(56,189,248,0.15);
+    border-radius: 12px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ot-explainer-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 8px;
+}
+.ot-explainer-text {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin: 0 0 16px;
+}
+.ot-explainer-text strong { color: #e2e8f0; }
+
+/* 3 mini explainer cards inside the banner */
+.ot-explainer-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+@media (max-width: 700px) { .ot-explainer-cards { grid-template-columns: 1fr; } }
+
+.ot-explain-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.ot-explain-card.highlight {
+    background: rgba(37,99,235,0.2);
+    border-color: rgba(56,189,248,0.35);
+}
+.ot-explain-card i {
+    font-size: 1rem;
+    color: #38bdf8;
+    margin-bottom: 2px;
+}
+.ot-explain-card.highlight i { color: #7dd3fc; }
+.ot-explain-card strong {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #fff;
+    display: block;
+}
+.ot-explain-card span {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+.ot-explain-card em { color: #7dd3fc; font-style: normal; font-weight: 700; }
+
+/* FAQ Strip */
+.ot-faq-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+.ot-faq-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fff;
+}
+.ot-faq-item:last-child { border-bottom: none; }
+.ot-faq-item:nth-child(odd) { background: #f8fafc; }
+.ot-faq-item > i {
+    color: #2563eb;
+    font-size: 1rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.ot-faq-item strong {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+.ot-faq-item p {
+    font-size: 0.75rem;
+    color: #475569;
+    line-height: 1.6;
+    margin: 0;
+}
