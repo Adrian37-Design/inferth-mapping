@@ -26,30 +26,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Role Preview Switcher for Platform Admins (allows toggling between Manager and Driver views)
+window.switchInsightsRoleMode = function(mode) {
+    const isAdmin = window.AuthManager && window.AuthManager.isAdmin();
+    if (!isAdmin) return; // Only Admin can toggle views
+
+    currentInsightsRoleMode = mode;
+    const btnMgr = document.getElementById('btn-mode-manager');
+    const btnDrv = document.getElementById('btn-mode-driver');
+
+    if (btnMgr && btnDrv) {
+        if (mode === 'manager') {
+            btnMgr.classList.add('active');
+            btnDrv.classList.remove('active');
+        } else {
+            btnDrv.classList.add('active');
+            btnMgr.classList.remove('active');
+        }
+    }
+
+    window.loadInsights(true);
+};
+
 // Main Loader
 window.loadInsights = async function(force = false) {
     const container = document.getElementById('insights-cards-list');
     const topBar = document.getElementById('insights-top-bar');
+    const roleSwitcher = document.getElementById('insights-role-switcher');
     const subtitle = document.getElementById('insights-subtitle');
     const heading = document.getElementById('insights-cards-heading');
     const counterBadge = document.getElementById('insights-counter-badge');
 
     if (!container || !topBar) return;
 
-    // Strict Role Separation: Managers see Manager View, Drivers see Driver View
-    const isRealManager = window.AuthManager && window.AuthManager.isManager();
-    currentInsightsRoleMode = isRealManager ? 'manager' : 'driver';
+    // Role Visibility & Enforcements:
+    // 1. Admin: Can see both Manager and Driver views (switcher is visible)
+    // 2. Manager: Sees Manager view only (switcher is hidden)
+    // 3. Driver: Sees Driver view only (switcher is hidden)
+    const isAdmin = window.AuthManager && window.AuthManager.isAdmin();
+    const isManager = window.AuthManager && window.AuthManager.isManager();
+
+    if (isAdmin) {
+        if (roleSwitcher) roleSwitcher.classList.remove('hidden');
+        if (!currentInsightsRoleMode) currentInsightsRoleMode = 'manager';
+    } else if (isManager) {
+        if (roleSwitcher) roleSwitcher.classList.add('hidden');
+        currentInsightsRoleMode = 'manager';
+    } else {
+        if (roleSwitcher) roleSwitcher.classList.add('hidden');
+        currentInsightsRoleMode = 'driver';
+    }
+
+    // Sync pill button states if switcher is rendered
+    const btnMgr = document.getElementById('btn-mode-manager');
+    const btnDrv = document.getElementById('btn-mode-driver');
+    if (btnMgr && btnDrv) {
+        if (currentInsightsRoleMode === 'manager') {
+            btnMgr.classList.add('active');
+            btnDrv.classList.remove('active');
+        } else {
+            btnDrv.classList.add('active');
+            btnMgr.classList.remove('active');
+        }
+    }
 
     // Update subtitles & headers
     if (currentInsightsRoleMode === 'manager') {
         if (subtitle) subtitle.textContent = 'Automated fleet telemetry exception analysis and operational cost optimization';
         if (heading) heading.textContent = 'Active Telematics Exceptions';
         if (counterBadge) counterBadge.textContent = 'Priority Feed';
-    } else {
-        if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
-        if (heading) heading.textContent = 'Driver Performance & Alerts';
-        if (counterBadge) counterBadge.textContent = 'My Vehicle';
-    }
     } else {
         if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
         if (heading) heading.textContent = 'Driver Performance & Alerts';
@@ -242,7 +287,7 @@ function buildTelemetryStrip(cat, card, extra, roleMode) {
         const drop = extra.fuel_dropped || 18.5;
         const loss = card.money_impact ? `$${Number(card.money_impact).toFixed(2)}` : '$30.53';
         const pricingText = extra.country_name 
-            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 1.68).toFixed(2)}/L)`
+            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 2.04).toFixed(2)}/L)`
             : 'Auto-Detected GPS Rate';
         return `
             <div class="telemetry-strip">
@@ -271,7 +316,7 @@ function buildTelemetryStrip(cat, card, extra, roleMode) {
         const driverRate = extra.driver_l100km || 11.8;
         const fleetAvg = extra.fleet_avg_l100km || 9.5;
         const pricingText = extra.country_name 
-            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 1.68).toFixed(2)}/L)`
+            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 2.04).toFixed(2)}/L)`
             : null;
         return `
             <div class="telemetry-strip">

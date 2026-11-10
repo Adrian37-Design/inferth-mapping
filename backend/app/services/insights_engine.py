@@ -81,12 +81,12 @@ async def get_driver_devices(db: AsyncSession, user: User) -> List[Device]:
 # -------------------------------------------------------------------------
 
 COUNTRY_FUEL_DATA: Dict[str, Dict[str, Any]] = {
-    "ZW": {"name": "Zimbabwe", "currency": "USD", "petrol": 1.62, "diesel": 1.68},
-    "ZA": {"name": "South Africa", "currency": "USD", "petrol": 1.35, "diesel": 1.30},
-    "ZM": {"name": "Zambia", "currency": "USD", "petrol": 1.25, "diesel": 1.15},
-    "BW": {"name": "Botswana", "currency": "USD", "petrol": 1.15, "diesel": 1.18},
-    "MZ": {"name": "Mozambique", "currency": "USD", "petrol": 1.35, "diesel": 1.36},
-    "NA": {"name": "Namibia", "currency": "USD", "petrol": 1.22, "diesel": 1.25},
+    "ZW": {"name": "Zimbabwe", "currency": "USD", "petrol": 2.05, "diesel": 2.04},      # ZERA official maximum ceiling
+    "ZA": {"name": "South Africa", "currency": "USD", "petrol": 1.66, "diesel": 1.76},  # CEF / DMPR inland benchmark (R30.24 & R32.09)
+    "ZM": {"name": "Zambia", "currency": "USD", "petrol": 1.25, "diesel": 1.30},        # ERB national uniform pump benchmark (K33.06 & K34.45)
+    "BW": {"name": "Botswana", "currency": "USD", "petrol": 1.45, "diesel": 1.75},      # BERA regulated retail benchmark (P19.75 & P23.76)
+    "MZ": {"name": "Mozambique", "currency": "USD", "petrol": 1.47, "diesel": 1.82},    # ARENE regulated benchmark (93.69 MZN & 116.25 MZN)
+    "NA": {"name": "Namibia", "currency": "USD", "petrol": 1.28, "diesel": 1.31},       # MME national benchmark
 }
 
 def detect_country_from_coords(lat: Optional[float], lng: Optional[float]) -> str:
@@ -153,7 +153,7 @@ def get_fuel_price_info(dev: Optional[Any], lat: Optional[float] = None, lng: Op
 
 
 async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User) -> Dict[str, Any]:
-    fuel_price = getattr(settings, "FUEL_PRICE_USD", 1.65)
+    fuel_price = getattr(settings, "FUEL_PRICE_USD", 2.04)
     devices = await get_tenant_devices(db, tenant_id, user)
     device_map = {d.id: d for d in devices}
     device_ids = list(device_map.keys())

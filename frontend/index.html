@@ -818,6 +818,11 @@
                                 <p class="insights-subtitle" id="insights-subtitle">Automated fleet telemetry exception analysis and operational cost optimization</p>
                             </div>
                             <div class="insights-header-controls">
+                                <!-- Role Mode Switcher (Visible to Platform Admin only to view both Manager and Driver tabs) -->
+                                <div id="insights-role-switcher" class="insights-pill-toggle hidden">
+                                    <button type="button" class="toggle-pill active" id="btn-mode-manager" onclick="switchInsightsRoleMode('manager')">Manager View</button>
+                                    <button type="button" class="toggle-pill" id="btn-mode-driver" onclick="switchInsightsRoleMode('driver')">Driver View</button>
+                                </div>
                                 <button type="button" class="insights-icon-btn" onclick="loadInsights(true)" title="Refresh Insights">
                                     <i class="fas fa-sync-alt"></i>
                                 </button>
