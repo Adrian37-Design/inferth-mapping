@@ -33,17 +33,31 @@ async def trigger_evolution_redeploy() -> dict:
         svc_id = settings.RAILWAY_EVOLUTION_SERVICE_ID
         gql_url = "https://backboard.railway.app/graphql/v2"
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        payload = {
-            "query": """mutation serviceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
-                serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
-            }""",
-            "variables": {"environmentId": env_id, "serviceId": svc_id}
-        }
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
+                # 1. Discover exact environment UUID if not set in os.environ
+                resolved_env = os.environ.get("RAILWAY_ENVIRONMENT_ID")
+                if not resolved_env or resolved_env == "production":
+                    q_proj = {"query": "query { project { id environments { edges { node { id name } } } } }"}
+                    r_p = await client.post(gql_url, headers=headers, json=q_proj)
+                    data_p = r_p.json()
+                    edges = (((data_p.get("data") or {}).get("project") or {}).get("environments") or {}).get("edges") or []
+                    for e in edges:
+                        node = e.get("node") or {}
+                        if node.get("name") in ("production", "prod") or not resolved_env:
+                            resolved_env = node.get("id")
+                            if node.get("name") in ("production", "prod"):
+                                break
+
+                payload = {
+                    "query": """mutation serviceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
+                        serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
+                    }""",
+                    "variables": {"environmentId": resolved_env or env_id, "serviceId": svc_id}
+                }
                 r = await client.post(gql_url, headers=headers, json=payload)
                 print(f"[WhatsApp AUTO-HEAL] Triggered Evolution restart via Railway GraphQL! Status: {r.status_code}, Body: {r.text[:200]}")
-                return {"status": "success", "method": "railway_api", "http_code": r.status_code, "response": r.json() if r.status_code == 200 else r.text[:200]}
+                return {"status": "success", "method": "railway_api", "http_code": r.status_code, "response": r.json() if r.status_code == 200 else r.text[:200], "resolved_env": resolved_env}
         except Exception as e:
             print(f"[WhatsApp AUTO-HEAL] Railway GraphQL error: {e}")
             return {"status": "error", "method": "railway_api", "error": str(e)}
