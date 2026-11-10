@@ -11,6 +11,30 @@ last_send_log: dict = {}
 # Dynamic instance routing cache
 _active_session_name: str | None = None
 _last_session_check: float = 0.0
+_last_redeploy_trigger: float = 0.0
+
+
+async def trigger_evolution_redeploy() -> dict:
+    """Trigger a Railway container restart/redeploy for the Evolution API service via webhook."""
+    global _last_redeploy_trigger
+    import time
+    webhook_url = (settings.EVOLUTION_REDEPLOY_WEBHOOK_URL or "").strip()
+    if not webhook_url:
+        return {"status": "skipped", "message": "EVOLUTION_REDEPLOY_WEBHOOK_URL not configured in Railway"}
+    
+    now = time.time()
+    if (now - _last_redeploy_trigger) < 120.0:
+        return {"status": "debounced", "message": f"Redeploy already triggered {int(now - _last_redeploy_trigger)}s ago"}
+    
+    _last_redeploy_trigger = now
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(webhook_url)
+            print(f"[WhatsApp AUTO-HEAL] Triggered Evolution API container redeploy via Railway Webhook! Status: {r.status_code}")
+            return {"status": "success", "http_code": r.status_code, "response": r.text[:200]}
+    except Exception as e:
+        print(f"[WhatsApp AUTO-HEAL] Failed to trigger Evolution API redeploy: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 def normalize_msisdn(raw: str | None) -> str | None:
@@ -147,7 +171,8 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                     # If Connection Closed, clear session cache so it looks for another active instance
                     if "Connection Closed" in resp_text or resp.status_code in (500, 502, 503):
                         _active_session_name = None
-                        print(f"[WhatsApp RECONNECT] Baileys socket closed on '{session}'; attempting reconnect...")
+                        print(f"[WhatsApp RECONNECT] Baileys socket closed on '{session}'; triggering auto-heal...")
+                        await trigger_evolution_redeploy()
                         try:
                             await client.get(f"{base}/instance/connect/{session}", headers=headers)
                         except Exception:

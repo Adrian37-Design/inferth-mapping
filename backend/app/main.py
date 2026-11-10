@@ -757,6 +757,7 @@ async def admin_whatsapp_view(session: str = "inferth2"):
             <a href="/admin/whatsapp-view?session={target_session}" class="btn">🔄 Refresh QR</a>
             <a href="/auth/latest-otp" target="_blank" class="btn btn-outline">🔑 View Latest OTP Codes</a>
             <a href="/admin/test-whatsapp-send?phone=263713150172" target="_blank" class="btn btn-outline">✉️ Test Send to Admin</a>
+            <a href="/admin/whatsapp-redeploy-service" class="btn" style="background: #dc2626;" onclick="return confirm('Reboot the Evolution API container on Railway? (Takes ~15s)')">🚀 Reboot Evolution Service</a>
         </div>
 
         <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: left;">
@@ -771,6 +772,43 @@ async def admin_whatsapp_view(session: str = "inferth2"):
     </div>
 </body>
 </html>"""
+
+
+@app.get("/admin/whatsapp-redeploy-service")
+async def admin_whatsapp_redeploy_service():
+    """Trigger a Railway container restart for Evolution API service."""
+    from app.services.whatsapp import trigger_evolution_redeploy
+    result = await trigger_evolution_redeploy()
+    return {
+        "action": "redeploy_evolution_service",
+        "result": result,
+        "instructions": "If status is success, Railway is rebooting Evolution API now. Wait ~15 seconds, then refresh /admin/whatsapp-view."
+    }
+
+
+@app.get("/admin/whatsapp-delete-instance")
+async def admin_whatsapp_delete_instance(name: str = "inferth2"):
+    """Delete an instance from Evolution API (e.g. inferth2 after inferth is verified working)."""
+    import httpx
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            # Try logout first, then delete
+            try:
+                await client.post(f"{base}/instance/logout/{name}", headers=headers)
+            except Exception:
+                pass
+            r = await client.delete(f"{base}/instance/delete/{name}", headers=headers)
+            return {
+                "deleted_instance": name,
+                "status": r.status_code,
+                "response": r.json() if r.status_code in (200, 201) else r.text[:300]
+            }
+        except Exception as e:
+            return {"deleted_instance": name, "error": str(e)}
 
 
 @app.get("/admin/whatsapp-new-instance")

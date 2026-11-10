@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     WHATSAPP_API_URL: str | None = None
     WHATSAPP_API_KEY: str | None = None
     WHATSAPP_SESSION: str = "inferth"  # Evolution "instance" / WAHA "session" name
+    EVOLUTION_REDEPLOY_WEBHOOK_URL: str | None = None
     SMS_SENDER: str = "Inferth" # Sender ID (Alphanumeric or Number)
     
     # Twilio Specific
