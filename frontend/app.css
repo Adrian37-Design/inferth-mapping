@@ -5831,3 +5831,348 @@ select.dd-select:disabled {
 .history-switch input:checked + .history-switch-track { background: var(--primary); }
 .history-switch input:checked + .history-switch-track::after { transform: translateX(16px); }
 .history-switch input:focus-visible + .history-switch-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+
+/* ============================================================
+   BILLING — 3-TIER PRICING SECTION  (Founder Skill v1)
+   ============================================================ */
+
+/* Current Plan Status Bar */
+.billing-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+}
+.bsb-left { display: flex; align-items: center; gap: 10px; }
+.bsb-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.bsb-status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #16a34a;
+    background: #dcfce7;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+.bsb-meta { font-size: 0.78rem; color: #64748b; }
+.bsb-meta strong { color: #0f172a; }
+
+/* Slim usage bar under status bar */
+.usage-card-slim {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+
+/* ---- Period Toggle ---- */
+.billing-period-toggle-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.billing-period-toggle {
+    display: inline-flex;
+    background: #e2e8f0;
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+}
+.period-btn {
+    padding: 7px 20px;
+    border: none;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    background: transparent;
+    color: #64748b;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.period-btn.active {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.save-badge {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    vertical-align: middle;
+}
+
+/* ---- Plan Cards Grid ---- */
+.billing-plans-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+@media (max-width: 860px) {
+    .billing-plans-grid { grid-template-columns: 1fr; }
+}
+
+.bplan-card {
+    position: relative;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 24px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.bplan-card:hover { box-shadow: 0 4px 18px rgba(15,23,42,0.08); }
+
+/* Popular card — dark */
+.bplan-card.popular {
+    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
+    border-color: #0f172a;
+    color: #e2e8f0;
+    transform: scale(1.03);
+    box-shadow: 0 8px 28px rgba(15,23,42,0.22);
+}
+.bplan-card.popular .bplan-name,
+.bplan-card.popular .bplan-currency,
+.bplan-card.popular .bplan-amount,
+.bplan-card.popular .bplan-period { color: #fff; }
+.bplan-card.popular .bplan-desc { color: #94a3b8; }
+.bplan-card.popular .bplan-features li { color: #cbd5e1; }
+.bplan-card.popular .bplan-features li i { color: #38bdf8; }
+.bplan-card.popular .bplan-yearly-note { color: #7dd3fc; }
+
+.bplan-popular-badge {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+}
+
+.bplan-top { margin-bottom: 14px; }
+.bplan-icon {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    color: #2563eb;
+}
+.bplan-card.popular .bplan-icon { color: #38bdf8; }
+.bplan-name { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
+.bplan-desc { font-size: 0.78rem; color: #64748b; margin: 0; line-height: 1.4; }
+
+.bplan-price-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    margin-bottom: 6px;
+}
+.bplan-currency { font-size: 1.2rem; font-weight: 700; color: #0f172a; padding-bottom: 4px; }
+.bplan-amount {
+    font-size: 2.6rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1;
+    transition: opacity 0.2s ease;
+}
+.bplan-period { font-size: 0.75rem; color: #64748b; padding-bottom: 6px; }
+.bplan-custom-label {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    padding: 4px 0;
+}
+
+.bplan-yearly-note {
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.bplan-features {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
+}
+.bplan-features li {
+    font-size: 0.8rem;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.bplan-features li i {
+    color: #16a34a;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.bplan-btn {
+    width: 100%;
+    padding: 10px 0;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 2px solid;
+    transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.1s;
+    text-decoration: none;
+}
+.bplan-btn:active { transform: scale(0.98); }
+.bplan-btn.btn-primary {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+.bplan-btn.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.bplan-btn.btn-outline {
+    background: transparent;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+.bplan-btn.btn-outline:hover { background: #f1f5f9; }
+.bplan-card.popular .bplan-btn.btn-primary {
+    background: #fff;
+    color: #0f172a;
+    border-color: #fff;
+}
+.bplan-card.popular .bplan-btn.btn-primary:hover { background: #e2e8f0; }
+
+/* ---- Once-Off Hardware & Installation Card ---- */
+.billing-onceoff-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #0c4a6e 100%);
+    color: #e2e8f0;
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 4px;
+}
+.onceoff-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.onceoff-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    color: #7dd3fc;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(125,211,252,0.3);
+    margin-bottom: 6px;
+}
+.onceoff-tagline {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+.onceoff-kits {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+@media (max-width: 600px) { .onceoff-kits { grid-template-columns: 1fr; } }
+
+.onceoff-kit {
+    position: relative;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 18px 16px 16px;
+}
+.onceoff-kit.full-kit {
+    background: rgba(37,99,235,0.18);
+    border-color: rgba(56,189,248,0.35);
+}
+
+.kit-badge-top {
+    position: absolute;
+    top: -11px;
+    left: 16px;
+    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 999px;
+}
+.kit-name { font-size: 1rem; font-weight: 800; color: #fff; margin-bottom: 4px; }
+.kit-price {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: 4px;
+    line-height: 1.1;
+}
+.kit-price span { font-size: 0.75rem; color: #94a3b8; font-weight: 500; }
+.kit-desc { font-size: 0.75rem; color: #94a3b8; margin-bottom: 12px; line-height: 1.4; }
+
+.kit-unlocks {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.kit-unlocks li { font-size: 0.75rem; color: #cbd5e1; display: flex; align-items: center; gap: 7px; }
+.kit-unlocks li i { color: #38bdf8; font-size: 0.65rem; }
+
+.onceoff-btn {
+    background: rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+.onceoff-btn:hover { background: rgba(255,255,255,0.18) !important; }
+.onceoff-kit.full-kit .bplan-btn.btn-primary {
+    background: #2563eb !important;
+    color: #fff !important;
+    border-color: #2563eb !important;
+}
+.onceoff-kit.full-kit .bplan-btn.btn-primary:hover { background: #1d4ed8 !important; }
+
+.onceoff-footnote {
+    font-size: 0.72rem;
+    color: #64748b;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 12px;
+    line-height: 1.5;
+}
+.onceoff-footnote i { color: #38bdf8; margin-right: 4px; }
+
+/* Price fade animation on period switch */
+.bplan-amount.fading { opacity: 0; }

@@ -966,74 +966,169 @@
 
                         <!-- 1. Monthly Subscription View -->
                         <div id="billing-monthly-view">
-                            <!-- Plan Overview Card -->
-                            <div class="billing-card plan-card">
-                                <div class="plan-info">
-                                    <div class="plan-main">
-                                        <span class="plan-badge" id="billing-plan-name">Basic Plan</span>
-                                        <h2 class="subscription-status" id="billing-status">Active</h2>
-                                    </div>
-                                    <div class="plan-pricing">
-                                        <span class="price">$12</span>
-                                        <span class="period">/vehicle/mo</span>
-                                    </div>
+
+                            <!-- Current Plan Status Bar (populated by updateBillingUI) -->
+                            <div class="billing-status-bar" id="billing-current-plan-bar">
+                                <div class="bsb-left">
+                                    <span class="plan-badge" id="billing-plan-name">Basic Plan</span>
+                                    <span class="bsb-status" id="billing-status">Active</span>
                                 </div>
-                                <div class="billing-meta">
-                                    <div class="meta-row">
-                                        <span class="label">Billing Cycle</span>
-                                        <span class="value" id="billing-cycle">Monthly</span>
-                                    </div>
-                                    <div class="meta-row">
-                                        <span class="label">Next Payment</span>
-                                        <span class="value" id="billing-next-date">---</span>
-                                    </div>
+                                <div class="bsb-right">
+                                    <span class="bsb-meta">Cycle: <strong id="billing-cycle">Monthly</strong></span>
+                                    <span class="bsb-meta">Next: <strong id="billing-next-date">---</strong></span>
+                                    <div class="plan-pricing" style="display:none;"></div>
                                 </div>
                             </div>
 
-                            <!-- Usage Section -->
-                            <div class="billing-section">
-                                <h4 class="section-title">Usage & Limits</h4>
-                                <div class="usage-card">
-                                    <div class="usage-header">
-                                        <span>Active Assets</span>
-                                        <span id="billing-usage-text">0 / 5</span>
-                                    </div>
-                                    <div class="usage-bar-container">
-                                        <div class="usage-bar" id="billing-usage-bar" style="width: 0%"></div>
-                                    </div>
-                                    <p class="usage-helper" id="billing-usage-helper">Managed vehicles within your plan limits.</p>
+                            <!-- Usage Bar -->
+                            <div class="usage-card-slim">
+                                <div class="usage-header">
+                                    <span>Active Assets</span>
+                                    <span id="billing-usage-text">0 / 5</span>
+                                </div>
+                                <div class="usage-bar-container">
+                                    <div class="usage-bar" id="billing-usage-bar" style="width:0%"></div>
+                                </div>
+                                <p class="usage-helper" id="billing-usage-helper">Managed vehicles within your plan limits.</p>
+                            </div>
+
+                            <!-- Monthly / Yearly Period Toggle -->
+                            <div class="billing-period-toggle-wrap">
+                                <div class="billing-period-toggle">
+                                    <button type="button" id="btn-period-monthly" class="period-btn active" onclick="setBillingPeriod('monthly')">Monthly</button>
+                                    <button type="button" id="btn-period-yearly" class="period-btn" onclick="setBillingPeriod('yearly')">
+                                        Yearly &nbsp;<span class="save-badge">Save 30%</span>
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- Feature Access List -->
-                            <div class="billing-section">
-                                <h4 class="section-title">Included in Your Plan</h4>
-                                <div class="feature-access-list" id="billing-features-list">
-                                    <div class="feature-item locked">
-                                        <i class="fas fa-lock"></i>
-                                        <span>Intelligence Reports</span>
-                                        <span class="badge-premium">PRO</span>
+                            <!-- 3-Tier Plan Cards Grid -->
+                            <div class="billing-plans-grid">
+
+                                <!-- STARTER -->
+                                <div class="bplan-card starter">
+                                    <div class="bplan-top">
+                                        <div class="bplan-icon"><i class="fas fa-seedling"></i></div>
+                                        <h3 class="bplan-name">Starter</h3>
+                                        <p class="bplan-desc">Perfect for small operators running 1&ndash;5 trucks in the field.</p>
                                     </div>
-                                    <div class="feature-item">
-                                        <i class="fas fa-check-circle"></i>
-                                        <span>Real-time Tracking</span>
+                                    <div class="bplan-price-row">
+                                        <span class="bplan-currency">$</span>
+                                        <span class="bplan-amount" id="price-starter">12</span>
+                                        <span class="bplan-period">/vehicle/mo</span>
                                     </div>
-                                    <div class="feature-item">
-                                        <i class="fas fa-check-circle"></i>
-                                        <span>Geofencing</span>
+                                    <div class="bplan-yearly-note hidden" id="yearly-note-starter">Billed as $101/vehicle/yr &mdash; save $43</div>
+                                    <ul class="bplan-features">
+                                        <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
+                                        <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
+                                        <li><i class="fas fa-check"></i> WhatsApp OTP auth</li>
+                                        <li><i class="fas fa-check"></i> Basic alerts &amp; 30-day history</li>
+                                        <li><i class="fas fa-check"></i> Up to 5 vehicles</li>
+                                    </ul>
+                                    <button class="bplan-btn btn-outline" id="pay-now-btn" onclick="triggerPlanPayment('Starter')">
+                                        <i class="fas fa-credit-card"></i> Get Started
+                                    </button>
+                                    <button class="bplan-btn btn-outline hidden" id="upgrade-tier-btn" style="margin-top:8px;" onclick="alert('Contact sales@inferth.com to upgrade your plan.')">
+                                        <i class="fas fa-arrow-circle-up"></i> Upgrade Plan
+                                    </button>
+                                    <div class="feature-access-list hidden" id="billing-features-list"></div>
+                                </div>
+
+                                <!-- PROFESSIONAL (popular) -->
+                                <div class="bplan-card professional popular">
+                                    <div class="bplan-popular-badge"><i class="fas fa-star"></i> Most Popular</div>
+                                    <div class="bplan-top">
+                                        <div class="bplan-icon"><i class="fas fa-bolt"></i></div>
+                                        <h3 class="bplan-name">Professional</h3>
+                                        <p class="bplan-desc">For growing fleets that need advanced telematics &amp; compliance tools.</p>
                                     </div>
+                                    <div class="bplan-price-row">
+                                        <span class="bplan-currency">$</span>
+                                        <span class="bplan-amount" id="price-professional">17</span>
+                                        <span class="bplan-period">/vehicle/mo</span>
+                                    </div>
+                                    <div class="bplan-yearly-note hidden" id="yearly-note-professional">Billed as $143/vehicle/yr &mdash; save $61</div>
+                                    <ul class="bplan-features">
+                                        <li><i class="fas fa-check"></i> Everything in Starter</li>
+                                        <li><i class="fas fa-check"></i> Remote engine immobilizer</li>
+                                        <li><i class="fas fa-check"></i> Fuel siphoning detection</li>
+                                        <li><i class="fas fa-check"></i> Driver insights &amp; scorecards</li>
+                                        <li><i class="fas fa-check"></i> Audit log &amp; compliance exports</li>
+                                        <li><i class="fas fa-check"></i> Up to 50 vehicles</li>
+                                    </ul>
+                                    <button class="bplan-btn btn-primary" onclick="triggerPlanPayment('Professional')">
+                                        <i class="fas fa-credit-card"></i> Get Started
+                                    </button>
+                                </div>
+
+                                <!-- ENTERPRISE -->
+                                <div class="bplan-card enterprise">
+                                    <div class="bplan-top">
+                                        <div class="bplan-icon"><i class="fas fa-building"></i></div>
+                                        <h3 class="bplan-name">Enterprise</h3>
+                                        <p class="bplan-desc">Unlimited scale, multi-company management &amp; API access for large fleets.</p>
+                                    </div>
+                                    <div class="bplan-price-row">
+                                        <span class="bplan-custom-label">Custom Pricing</span>
+                                    </div>
+                                    <ul class="bplan-features">
+                                        <li><i class="fas fa-check"></i> Everything in Professional</li>
+                                        <li><i class="fas fa-check"></i> Multi-company (tenant) management</li>
+                                        <li><i class="fas fa-check"></i> REST API access</li>
+                                        <li><i class="fas fa-check"></i> Priority WhatsApp OTP dispatch</li>
+                                        <li><i class="fas fa-check"></i> Unlimited vehicles</li>
+                                        <li><i class="fas fa-check"></i> Dedicated support SLA</li>
+                                    </ul>
+                                    <button class="bplan-btn btn-outline" onclick="window.open('mailto:sales@inferth.com?subject=Enterprise%20Pricing%20Inquiry','_blank')">
+                                        <i class="fas fa-envelope"></i> Contact Sales
+                                    </button>
+                                </div>
+
+                            </div><!-- /billing-plans-grid -->
+
+                            <!-- === ONCE-OFF HARDWARE & INSTALLATION CARD === -->
+                            <div class="billing-onceoff-card">
+                                <div class="onceoff-header">
+                                    <div>
+                                        <span class="onceoff-badge"><i class="fas fa-tools"></i> ONE-OFF INSTALLATION</span>
+                                        <div class="onceoff-tagline">Own your hardware from day one &mdash; no recurring hardware fee ever</div>
+                                    </div>
+                                </div>
+                                <div class="onceoff-kits">
+                                    <div class="onceoff-kit">
+                                        <div class="kit-name">Basic Kit</div>
+                                        <div class="kit-price">$89 <span>USD once-off</span></div>
+                                        <div class="kit-desc">GT06/Sinotrack tracker + SIM tray + wiring harness + fitting</div>
+                                        <ul class="kit-unlocks">
+                                            <li><i class="fas fa-lock-open"></i> Real-time GPS &amp; history</li>
+                                            <li><i class="fas fa-lock-open"></i> WhatsApp OTP alerts</li>
+                                            <li><i class="fas fa-lock-open"></i> Geofencing</li>
+                                        </ul>
+                                        <button class="bplan-btn btn-outline onceoff-btn" onclick="triggerOnceOffPayment('basic')">
+                                            <i class="fas fa-mobile-alt"></i> Pay via EcoCash
+                                        </button>
+                                    </div>
+                                    <div class="onceoff-kit full-kit">
+                                        <div class="kit-badge-top"><i class="fas fa-award"></i> Recommended</div>
+                                        <div class="kit-name">Full Kit</div>
+                                        <div class="kit-price">$120 <span>USD once-off</span></div>
+                                        <div class="kit-desc">Tracker + capacitive fuel probe + immobilizer relay + certified auto-electrician install</div>
+                                        <ul class="kit-unlocks">
+                                            <li><i class="fas fa-lock-open"></i> Remote engine immobilizer</li>
+                                            <li><i class="fas fa-lock-open"></i> Fuel siphoning detection</li>
+                                            <li><i class="fas fa-lock-open"></i> OBD-II / CAN-Bus telemetry</li>
+                                            <li><i class="fas fa-lock-open"></i> All Basic Kit features</li>
+                                        </ul>
+                                        <button class="bplan-btn btn-primary onceoff-btn" onclick="triggerOnceOffPayment('full')">
+                                            <i class="fas fa-mobile-alt"></i> Pay via EcoCash
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="onceoff-footnote">
+                                    <i class="fas fa-shield-alt"></i> Payments processed securely via Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch. Installation by certified Inferth technician within 48 hrs of payment.
                                 </div>
                             </div>
 
-                            <div class="billing-footer">
-                                <button class="btn-primary" id="pay-now-btn">
-                                    <i class="fas fa-credit-card"></i> Pay Monthly Subscription
-                                </button>
-                                <button class="btn-outline hidden" id="upgrade-tier-btn"
-                                    onclick="alert('Contact sales@inferth.com to upgrade your plan.')">
-                                    <i class="fas fa-arrow-circle-up"></i> Upgrade to Enterprise
-                                </button>
-                            </div>
                         </div>
 
                         <!-- 2. Prepaid EcoCash Fleet Wallet View -->

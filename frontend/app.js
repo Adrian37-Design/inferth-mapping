@@ -8213,6 +8213,89 @@ function setupPaymentListeners() {
     }
 }
 
+// ============================================================
+// BILLING — Pricing Period Toggle & Plan/Hardware Payments
+// (Founder Skill v1 — Vanilla JS, no React, no npm)
+// ============================================================
+
+const BILLING_PLANS = {
+    starter:      { monthly: 12,   yearly: 8,    yearlyTotal: 101, yearlyLabel: '$101/vehicle/yr — save $43' },
+    professional: { monthly: 17,   yearly: 12,   yearlyTotal: 143, yearlyLabel: '$143/vehicle/yr — save $61' },
+    enterprise:   { monthly: null, yearly: null }
+};
+
+let _billingPeriod = 'monthly';
+
+window.setBillingPeriod = function(period) {
+    _billingPeriod = period;
+    const isYearly = period === 'yearly';
+
+    // Toggle active button styles
+    const btnM = document.getElementById('btn-period-monthly');
+    const btnY = document.getElementById('btn-period-yearly');
+    if (btnM) btnM.classList.toggle('active', !isYearly);
+    if (btnY) btnY.classList.toggle('active', isYearly);
+
+    // Update prices with fade animation
+    const plans = ['starter', 'professional'];
+    plans.forEach(key => {
+        const amountEl  = document.getElementById(`price-${key}`);
+        const noteEl    = document.getElementById(`yearly-note-${key}`);
+        const plan      = BILLING_PLANS[key];
+        if (!amountEl) return;
+
+        // Fade out
+        amountEl.classList.add('fading');
+        setTimeout(() => {
+            amountEl.textContent = isYearly ? plan.yearly : plan.monthly;
+            amountEl.classList.remove('fading');
+        }, 150);
+
+        if (noteEl) {
+            if (isYearly) {
+                noteEl.textContent = plan.yearlyLabel;
+                noteEl.classList.remove('hidden');
+            } else {
+                noteEl.classList.add('hidden');
+            }
+        }
+    });
+};
+
+window.triggerPlanPayment = async function(planName) {
+    if (!confirm(`Proceed to subscribe to the ${planName} plan via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=${planName}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to initiate Paynow');
+        const result = await response.json();
+        if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            openModal('payment-modal');
+        }
+    } catch (err) {
+        openModal('payment-modal');
+    }
+};
+
+window.triggerOnceOffPayment = async function(kitType) {
+    const kits = { basic: { label: 'Basic Kit', price: 89 }, full: { label: 'Full Kit', price: 120 } };
+    const kit = kits[kitType] || kits.basic;
+    if (!confirm(`Proceed to pay $${kit.price} USD for the ${kit.label} (once-off hardware & installation) via Paynow?`)) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=Hardware_${kit.label.replace(' ', '_')}&amount=${kit.price}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to initiate hardware payment');
+        const result = await response.json();
+        if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            alert(`Payment session initiated. Check your EcoCash prompt for $${kit.price} USD. Our technician will contact you within 48 hours of payment confirmation.`);
+        }
+    } catch (err) {
+        alert(`Hardware payment initiated. Our team will send you an EcoCash payment prompt to +263 for $${kit.price} USD.`);
+    }
+};
+
 const Dropdown = (() => {
     let active = null;
     const isOpen = select => active !== null && active.select === select;
