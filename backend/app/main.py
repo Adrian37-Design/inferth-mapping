@@ -2,7 +2,7 @@ import uvicorn
 from sqlalchemy import select
 from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights
 from app.services.mqtt_client import start_mqtt
@@ -398,7 +398,7 @@ if frontend_path:
 else:
     print(f"Warning: Frontend not found. Checked: {possible_paths}")
 
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 
 @app.get("/")
 async def root():
@@ -509,7 +509,7 @@ async def admin_whatsapp_reconnect():
 
 
 @app.get("/admin/whatsapp-reset")
-async def admin_whatsapp_reset():
+async def admin_whatsapp_reset(session: str = ""):
     """Smart WhatsApp session reset.
     Root cause: Evolution API caches 'open' state even after device is unlinked.
     Fix: restart the instance, wait 12s for WhatsApp to REJECT the invalid credentials,
@@ -522,7 +522,7 @@ async def admin_whatsapp_reset():
     if "://" not in base:
         base = "https://" + base
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-    session = settings.WHATSAPP_SESSION
+    session = session.strip() or settings.WHATSAPP_SESSION
     result = {}
 
     async with httpx.AsyncClient(timeout=40.0) as client:
@@ -595,7 +595,7 @@ async def admin_whatsapp_reset():
 
 
 @app.get("/admin/whatsapp-pairing-code")
-async def admin_whatsapp_pairing_code(phone: str = ""):
+async def admin_whatsapp_pairing_code(phone: str = "", session: str = ""):
     """Alternative to QR code: request a pairing code for the bot phone number.
     Pass ?phone= the BOT phone number (e.g. 263783009275).
     User then enters the code on WhatsApp -> Settings -> Linked Devices -> Link a Device
@@ -609,7 +609,7 @@ async def admin_whatsapp_pairing_code(phone: str = ""):
     if "://" not in base:
         base = "https://" + base
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-    session = settings.WHATSAPP_SESSION
+    session = session.strip() or settings.WHATSAPP_SESSION
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Must restart first so instance is in 'connecting' (not 'open') state
@@ -640,6 +640,130 @@ async def admin_whatsapp_pairing_code(phone: str = ""):
             }
         except Exception as e:
             return {"restart": restart_body, "pairing_error": str(e)}
+
+
+@app.get("/admin/whatsapp-view", response_class=HTMLResponse)
+async def admin_whatsapp_view(session: str = "inferth2"):
+    """Visual page to scan the WhatsApp QR code, view connection state, or request a pairing code."""
+    import httpx
+    target_session = session.strip() or "inferth2"
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+
+    qr_img = ""
+    instance_state = "unknown"
+    error_msg = ""
+    instances_list = []
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            try:
+                r_inst = await client.get(f"{base}/instance/fetchInstances", headers=headers)
+                if r_inst.status_code == 200:
+                    data_inst = r_inst.json()
+                    if isinstance(data_inst, list):
+                        instances_list = [i.get("name") for i in data_inst if i.get("name")]
+            except Exception:
+                pass
+
+            r = await client.get(f"{base}/instance/connect/{target_session}", headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, dict):
+                    instance_state = (data.get("instance") or {}).get("state") or data.get("state") or "unknown"
+                    qr_raw = (
+                        data.get("base64")
+                        or (data.get("qrcode") or {}).get("base64")
+                        or (data.get("instance") or {}).get("qrcode")
+                    )
+                    if qr_raw:
+                        qr_img = qr_raw if qr_raw.startswith("data:image") else f"data:image/png;base64,{qr_raw}"
+            else:
+                error_msg = f"HTTP {r.status_code}: {r.text[:200]}"
+    except Exception as e:
+        error_msg = str(e)
+
+    instances_html = "".join([
+        f'<a href="/admin/whatsapp-view?session={name}" style="padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; background: {("#ff8c00; color: #fff") if name == target_session else "#f1f5f9; color: #334155"}">{name}</a> '
+        for name in (instances_list or ["inferth", "inferth2"])
+    ])
+
+    qr_section = ""
+    if qr_img:
+        qr_section = f"""
+        <div style="background: #ffffff; padding: 24px; border-radius: 16px; border: 1px solid #e2e8f0; display: inline-block; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); margin: 20px 0;">
+            <img src="{qr_img}" alt="WhatsApp QR Code" style="width: 280px; height: 280px; display: block; border-radius: 8px; margin: 0 auto;" />
+            <div style="margin-top: 16px; font-size: 14px; font-weight: 600; color: #1e293b;">
+                Scan with WhatsApp
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                Open WhatsApp &rarr; Settings &rarr; Linked Devices &rarr; Link a Device
+            </div>
+        </div>
+        """
+    elif instance_state == "open":
+        qr_section = """
+        <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 24px; color: #15803d; max-width: 480px; margin: 20px auto;">
+            <div style="font-size: 24px; margin-bottom: 8px;">✅ Connected &amp; Active</div>
+            <div style="font-size: 14px;">This WhatsApp instance is currently linked and ready to send OTP messages.</div>
+        </div>
+        """
+    else:
+        qr_section = f"""
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 24px; color: #b45309; max-width: 480px; margin: 20px auto;">
+            <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Status: {instance_state}</div>
+            <div style="font-size: 13px;">QR Code not ready yet or loading. Click Refresh below.</div>
+            {f'<div style="font-size:12px; color:#ef4444; margin-top:8px;">{error_msg}</div>' if error_msg else ''}
+        </div>
+        """
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth WhatsApp Gateway Linker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {{{{ font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 32px 16px; text-align: center; }}}}
+        .card {{{{ background: #1e293b; max-width: 580px; margin: 0 auto; border-radius: 20px; padding: 32px 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); }}}}
+        .btn {{{{ display: inline-block; background: #ff8c00; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; margin: 6px; cursor: pointer; border: none; }}}}
+        .btn-outline {{{{ background: transparent; border: 1px solid #475569; color: #cbd5e1; }}}}
+        .btn:hover {{{{ opacity: 0.9; }}}}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 style="font-size: 22px; font-weight: 700; margin-bottom: 6px;">WhatsApp Bot Gateway</h1>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 0;">Instance: <strong style="color: #f1f5f9;">{target_session}</strong> (Status: <strong style="color: {'#22c55e' if instance_state == 'open' else '#f59e0b'}">{instance_state}</strong>)</p>
+        
+        <div style="margin: 16px 0;">
+            <span style="font-size: 12px; color: #94a3b8; margin-right: 8px;">Select Instance:</span>
+            {instances_html}
+        </div>
+
+        {qr_section}
+
+        <div style="margin-top: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+            <a href="/admin/whatsapp-view?session={target_session}" class="btn">🔄 Refresh QR</a>
+            <a href="/auth/latest-otp" target="_blank" class="btn btn-outline">🔑 View Latest OTP Codes</a>
+            <a href="/admin/test-whatsapp-send?phone=263713150172" target="_blank" class="btn btn-outline">✉️ Test Send to Admin</a>
+        </div>
+
+        <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: left;">
+            <div style="font-size: 13px; font-weight: 600; color: #cbd5e1; margin-bottom: 8px;">Option B: Link with 8-Digit Pairing Code</div>
+            <form action="/admin/whatsapp-pairing-code" method="get" target="_blank" style="display: flex; gap: 8px;">
+                <input type="hidden" name="session" value="{target_session}" />
+                <input type="text" name="phone" value="263783009275" placeholder="Bot Phone (e.g. 263783009275)" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 13px;" />
+                <button type="submit" class="btn" style="margin: 0;">Get Pairing Code</button>
+            </form>
+            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">WhatsApp &rarr; Linked Devices &rarr; Link with phone number instead.</div>
+        </div>
+    </div>
+</body>
+</html>"""
 
 
 @app.get("/admin/whatsapp-new-instance")
@@ -721,14 +845,14 @@ async def admin_whatsapp_qr(session: str = ""):
 
 
 @app.get("/admin/test-whatsapp-send")
-async def test_whatsapp_send(phone: str = "263713150172"):
+async def test_whatsapp_send(phone: str = "263713150172", session: str = ""):
     """Inspect Evolution API instance state, QR / logout, and payload variants."""
     import httpx
     base = settings.WHATSAPP_API_URL.strip().rstrip("/")
     if "://" not in base:
         base = "https://" + base
     headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-    session = settings.WHATSAPP_SESSION
+    session = session.strip() or settings.WHATSAPP_SESSION
     
     report = {}
     async with httpx.AsyncClient(timeout=20.0) as client:
@@ -870,6 +994,10 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(self)"
     response.headers["Content-Security-Policy"] = _CSP
+    if request.url.path.endswith(".html") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     forwarded = request.headers.get("x-forwarded-proto", request.url.scheme)
     if forwarded.split(",")[0].strip() == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"

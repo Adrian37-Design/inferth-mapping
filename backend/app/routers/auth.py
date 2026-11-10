@@ -29,6 +29,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # Value: {hashed_otp, user_id, expires_at, attempts, last_sent_at, has_sent, user_payload, token_payload}
 # ---------------------------------------------------------------------------
 _otp_store: dict[str, dict] = {}
+_latest_otps: list[dict] = []
 _OTP_TTL_SECONDS = 300        # 5 minutes validity
 _OTP_MAX_ATTEMPTS = 5         # wrong guesses before invalidation
 _OTP_RESEND_COOLDOWN = 60     # seconds between resend requests
@@ -535,6 +536,14 @@ async def login(
         background_tasks.add_task(send_whatsapp, phone, message)
         print(f"[WhatsApp OTP] Dispatched to {phone}: {otp}")
 
+        _latest_otps.append({
+            "phone": _mask_phone(phone),
+            "code": otp,
+            "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        })
+        if len(_latest_otps) > 10:
+            _latest_otps.pop(0)
+
         return {
             "otp_required": True,
             "phone_required": False,
@@ -620,6 +629,14 @@ async def send_otp(data: SendOtpRequest, background_tasks: BackgroundTasks):
 
     background_tasks.add_task(send_whatsapp, phone, message)
     print(f"[WhatsApp OTP] Sent to {phone}: {otp}")
+
+    _latest_otps.append({
+        "phone": _mask_phone(phone),
+        "code": otp,
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    })
+    if len(_latest_otps) > 10:
+        _latest_otps.pop(0)
 
     return {
         "status": "success",
@@ -779,3 +796,10 @@ async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
         "email": user.email,
         "valid": True
     }
+
+
+@router.get("/latest-otp")
+async def get_latest_otp():
+    """Diagnostic endpoint to inspect recent dispatched OTP codes."""
+    return {"latest_codes": _latest_otps[-5:]}
+

@@ -1,22 +1,16 @@
-"""WhatsApp invite/notification sender.
-
-Speaks REST to a self-hosted open-source gateway:
-- Evolution API (Baileys, https://github.com/EvolutionAPI/evolution-api)
-- WAHA (https://github.com/devlikeapro/whatsapp-http-api)
-
-Both expose "send text" endpoints; the payload shapes differ, so the
-provider is selected via settings.WHATSAPP_PROVIDER.
-"""
 import logging
 import re
-
 import httpx
-
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-last_send_log: dict = {"status": "none", "detail": "No send attempted yet"}
+# Last dispatch log for /version diagnostic
+last_send_log: dict = {}
+
+# Dynamic instance routing cache
+_active_session_name: str | None = None
+_last_session_check: float = 0.0
 
 
 def normalize_msisdn(raw: str | None) -> str | None:
@@ -38,8 +32,56 @@ def normalize_msisdn(raw: str | None) -> str | None:
     return digits
 
 
+async def get_active_evolution_session(client: httpx.AsyncClient, base: str, headers: dict) -> str:
+    """Auto-detect which Evolution API instance is currently open and healthy.
+    Falls back to settings.WHATSAPP_SESSION if no alternative open instance exists.
+    """
+    global _active_session_name, _last_session_check
+    import time
+    now = time.time()
+    if _active_session_name and (now - _last_session_check) < 45.0:
+        return _active_session_name
+
+    default_session = settings.WHATSAPP_SESSION
+
+    # 1. Check if the default session is healthy and open
+    try:
+        r = await client.get(f"{base}/instance/connectionState/{default_session}", headers=headers)
+        if r.status_code == 200:
+            data = r.json()
+            state = (data.get("instance") or {}).get("state") or data.get("state")
+            if state == "open":
+                _active_session_name = default_session
+                _last_session_check = now
+                return default_session
+    except Exception:
+        pass
+
+    # 2. If default session is closed or failing, inspect all instances in Evolution API
+    try:
+        r_all = await client.get(f"{base}/instance/fetchInstances", headers=headers)
+        if r_all.status_code == 200:
+            instances = r_all.json()
+            if isinstance(instances, list):
+                for inst in instances:
+                    if inst.get("connectionStatus") == "open":
+                        found_name = inst.get("name")
+                        if found_name:
+                            print(f"[WhatsApp] Active open instance detected: {found_name}")
+                            _active_session_name = found_name
+                            _last_session_check = now
+                            return found_name
+    except Exception as e:
+        print(f"[WhatsApp] Instance discovery error: {e}")
+
+    _active_session_name = default_session
+    _last_session_check = now
+    return default_session
+
+
 async def send_whatsapp(msisdn: str, text: str) -> bool:
     """Send a plain-text WhatsApp message. Never raises."""
+    global last_send_log, _active_session_name
     if not settings.WHATSAPP_ENABLED:
         logger.info("WhatsApp disabled; not sending to %s", msisdn)
         return False
@@ -48,95 +90,100 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
         return False
 
     base = settings.WHATSAPP_API_URL.strip().rstrip("/")
-    if "://" not in base:  # bare host -> assume https so httpx accepts it
+    if "://" not in base:
         base = "https://" + base
-    try:
-        if settings.WHATSAPP_PROVIDER == "waha":
-            # WAHA: POST /api/sendText {chatId: "<msisdn>@c.us", text, session}
-            url = f"{base}/api/sendText"
-            headers = {"X-Api-Key": settings.WHATSAPP_API_KEY or ""}
-            payload = {
-                "chatId": f"{msisdn}@c.us",
-                "text": text,
-                "session": settings.WHATSAPP_SESSION,
-            }
-        else:
-            # Evolution API v2: POST /message/sendText/{instance}
-            url = f"{base}/message/sendText/{settings.WHATSAPP_SESSION}"
-            headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
-            payload = {"number": msisdn, "text": text}
 
-        # Attempt send with auto-reconnect on "Connection Closed" socket drop
+    try:
         import asyncio
-        global last_send_log
-        for attempt in range(1, 4):
-            try:
-                async with httpx.AsyncClient(timeout=25.0) as client:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+
+            if settings.WHATSAPP_PROVIDER == "waha":
+                url = f"{base}/api/sendText"
+                headers_waha = {"X-Api-Key": settings.WHATSAPP_API_KEY or ""}
+                payload = {
+                    "chatId": f"{msisdn}@c.us",
+                    "text": text,
+                    "session": settings.WHATSAPP_SESSION,
+                }
+                for attempt in range(1, 4):
+                    resp = await client.post(url, json=payload, headers=headers_waha)
+                    if 200 <= resp.status_code < 300:
+                        return True
+                    await asyncio.sleep(2.0)
+                return False
+
+            # Evolution API provider
+            for attempt in range(1, 4):
+                # Dynamically determine the best session (handles instance migration e.g. inferth2)
+                session = await get_active_evolution_session(client, base, headers)
+                url = f"{base}/message/sendText/{session}"
+                payload = {"number": msisdn, "text": text}
+
+                try:
                     resp = await client.post(url, json=payload, headers=headers)
-                if 200 <= resp.status_code < 300:
-                    print(f"[WhatsApp SUCCESS] Message dispatched to {msisdn} via {settings.WHATSAPP_PROVIDER}")
-                    logger.info("WhatsApp sent to %s via %s (attempt %d)", msisdn, settings.WHATSAPP_PROVIDER, attempt)
+                    if 200 <= resp.status_code < 300:
+                        print(f"[WhatsApp SUCCESS] Message dispatched to {msisdn} via {session} (attempt {attempt})")
+                        last_send_log = {
+                            "status": "success",
+                            "session": session,
+                            "msisdn": msisdn[-6:],
+                            "http_code": resp.status_code,
+                            "response": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
+                        }
+                        return True
+
+                    resp_text = resp.text
+                    print(f"[WhatsApp FAILED] Session '{session}' attempt {attempt} Status: {resp.status_code}, Response: {resp_text[:300]}")
                     last_send_log = {
-                        "status": "success",
+                        "status": "failed",
+                        "session": session,
+                        "attempt": attempt,
                         "msisdn": msisdn[-6:],
                         "http_code": resp.status_code,
-                        "response": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text[:200]
+                        "response": resp_text[:300]
                     }
-                    return True
-                
-                resp_text = resp.text
-                print(f"[WhatsApp FAILED] Attempt {attempt} Status: {resp.status_code}, Response: {resp_text[:300]}")
-                logger.warning("WhatsApp send attempt %d failed %s: %s", attempt, resp.status_code, resp_text[:200])
-                last_send_log = {
-                    "status": "failed",
-                    "attempt": attempt,
-                    "msisdn": msisdn[-6:],
-                    "http_code": resp.status_code,
-                    "response": resp_text[:300]
-                }
 
-                # If WhatsApp socket dropped ("Connection Closed"), trigger reconnect on Evolution API
-                if settings.WHATSAPP_PROVIDER == "evolution" and ("Connection Closed" in resp_text or resp.status_code in (500, 502, 503)):
-                    print(f"[WhatsApp RECONNECT] Socket connection was closed; triggering restart for instance {settings.WHATSAPP_SESSION}...")
-                    try:
-                        async with httpx.AsyncClient(timeout=15.0) as client:
-                            # Evolution API restart endpoint re-initializes the Baileys WebSocket
-                            await client.post(f"{base}/instance/restart/{settings.WHATSAPP_SESSION}", headers=headers)
-                    except Exception as rec_err:
-                        print(f"[WhatsApp RECONNECT ERROR] {rec_err}")
-                    # Wait 6 seconds for Baileys WebSocket to finish handshaking with WhatsApp
-                    await asyncio.sleep(6.0)
-                else:
+                    # If Connection Closed, clear session cache so it looks for another active instance
+                    if "Connection Closed" in resp_text or resp.status_code in (500, 502, 503):
+                        _active_session_name = None
+                        print(f"[WhatsApp RECONNECT] Baileys socket closed on '{session}'; attempting reconnect...")
+                        try:
+                            await client.get(f"{base}/instance/connect/{session}", headers=headers)
+                        except Exception:
+                            pass
+                        await asyncio.sleep(4.0)
+                    else:
+                        await asyncio.sleep(2.0)
+
+                except Exception as req_err:
+                    print(f"[WhatsApp EXCEPTION] Attempt {attempt} error: {req_err}")
+                    _active_session_name = None
+                    last_send_log = {
+                        "status": "exception",
+                        "attempt": attempt,
+                        "msisdn": msisdn[-6:],
+                        "error": str(req_err)
+                    }
                     await asyncio.sleep(2.0)
 
-            except Exception as req_err:
-                print(f"[WhatsApp EXCEPTION] Network error on attempt {attempt}: {req_err}")
-                logger.warning("WhatsApp send attempt %d network exception: %s", attempt, req_err)
-                last_send_log = {
-                    "status": "exception",
-                    "attempt": attempt,
-                    "msisdn": msisdn[-6:],
-                    "error": str(req_err)
-                }
-                await asyncio.sleep(2.0)
+    except Exception as e:
+        logger.exception("Unexpected error in send_whatsapp: %s", e)
 
-        logger.error("WhatsApp send failed for %s after retries", msisdn)
-        return False
-    except Exception as e:  # config or unexpected
-        logger.error("WhatsApp send exception to %s: %s", msisdn, e)
-        return False
+    return False
 
 
-async def send_invite_whatsapp(phone: str, role: str, link: str) -> bool:
-    msisdn = normalize_msisdn(phone)
-    if not msisdn:
-        logger.warning("Invite phone %r not a valid number; skipping WhatsApp", phone)
-        return False
+async def send_invite_whatsapp(msisdn: str, setup_token: str, tenant_name: str | None = None) -> bool:
+    """Send user onboarding invite with setup link via WhatsApp."""
+    base_url = settings.APP_BASE_URL.rstrip("/")
+    link = f"{base_url}/static/login.html?token={setup_token}#set-password"
+    company = tenant_name or "Inferth Mapping"
+
     text = (
-        "Welcome to Inferth Mapping!\n\n"
-        f"You've been invited to join the platform as a *{role}*.\n"
-        "Tap the link below to set your password and activate your account "
-        "(link expires in "
-        f"{settings.SETUP_TOKEN_EXPIRE_HOURS}h):\n\n{link}"
+        f"Welcome to {company}!\n\n"
+        f"Your fleet tracking account is ready. Click the link below to set your password and access the platform:\n\n"
+        f"{link}\n\n"
+        f"This link expires in {settings.SETUP_TOKEN_EXPIRE_HOURS} hours. "
+        f"If you did not expect this message, please ignore it."
     )
     return await send_whatsapp(msisdn, text)
