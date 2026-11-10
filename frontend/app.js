@@ -8087,6 +8087,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
+// Founder Billing Mode (Monthly vs Prepaid Pay-As-You-Drive)
+window.switchBillingPlanMode = function(mode) {
+    const monthlyView = document.getElementById('billing-monthly-view');
+    const prepaidView = document.getElementById('billing-prepaid-view');
+    const btnMonthly = document.getElementById('btn-billing-monthly');
+    const btnPrepaid = document.getElementById('btn-billing-prepaid');
+
+    if (mode === 'prepaid') {
+        if (monthlyView) monthlyView.classList.add('hidden');
+        if (prepaidView) prepaidView.classList.remove('hidden');
+        if (btnPrepaid) {
+            btnPrepaid.style.background = '#ffffff';
+            btnPrepaid.style.color = '#0f172a';
+            btnPrepaid.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        }
+        if (btnMonthly) {
+            btnMonthly.style.background = 'transparent';
+            btnMonthly.style.color = '#64748b';
+            btnMonthly.style.boxShadow = 'none';
+        }
+    } else {
+        if (monthlyView) monthlyView.classList.remove('hidden');
+        if (prepaidView) prepaidView.classList.add('hidden');
+        if (btnMonthly) {
+            btnMonthly.style.background = '#ffffff';
+            btnMonthly.style.color = '#0f172a';
+            btnMonthly.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        }
+        if (btnPrepaid) {
+            btnPrepaid.style.background = 'transparent';
+            btnPrepaid.style.color = '#64748b';
+            btnPrepaid.style.boxShadow = 'none';
+        }
+    }
+};
+
+window.topUpPrepaidWallet = async function(amountUsd) {
+    if (!confirm(`Proceed to top up $${amountUsd}.00 USD into your Prepaid Fleet Wallet via Paynow (EcoCash / OneMoney / Card)?`)) {
+        return;
+    }
+    try {
+        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=Basic`, {
+            method: 'POST'
+        });
+        if (!response.ok) throw new Error('Failed to initiate Paynow top-up');
+        const result = await response.json();
+        if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            alert(`Paynow session initiated. Check your EcoCash prompt.`);
+        }
+    } catch (err) {
+        alert("Top-up request: " + err.message);
+    }
+};
+
 function setupPaymentListeners() {
     const payBtn = document.getElementById('pay-now-btn');
     const paynowCard = document.getElementById('pay-paynow');

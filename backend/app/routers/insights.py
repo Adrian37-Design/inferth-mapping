@@ -23,6 +23,10 @@ class InsightActionIn(BaseModel):
     action_type: str
     details: Optional[Dict[str, Any]] = None
 
+class InsightOutcomeIn(BaseModel):
+    outcome: str = "CONFIRMED_THEFT"  # CONFIRMED_THEFT, LEGITIMATE_CONSUMPTION, FALSE_ALARM, RESOLVED
+    manager_name: str
+    notes: Optional[str] = ""
 
 class SimulateInsightIn(BaseModel):
     type: str = "fuel_siphoning"  # fuel_siphoning, night_trip, dtc_attention, harsh_braking
@@ -217,6 +221,86 @@ async def resolve_insight(
     db.add(ins)
     await db.commit()
     return {"status": "success", "message": "Insight resolved"}
+
+
+@router.post("/{insight_id}/confirm-outcome")
+async def confirm_insight_outcome(
+    insight_id: str,
+    payload: InsightOutcomeIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    """
+    P2 Strategic Milestone: Ground-truth theft and incident outcome labeling.
+    Strictly restricted to Managers and Admins only. Records manager signature and outcome.
+    """
+    if not payload.manager_name or not payload.manager_name.strip():
+        raise HTTPException(status_code=400, detail="Manager name signature is required")
+
+    mgr_name = payload.manager_name.strip()
+    status_mapped = "confirmed_theft" if payload.outcome == "CONFIRMED_THEFT" else "resolved"
+
+    if insight_id.isdigit():
+        q = await db.execute(
+            select(Insight).where(
+                and_(Insight.id == int(insight_id), Insight.tenant_id == current_user.tenant_id)
+            )
+        )
+        ins = q.scalars().first()
+        if ins:
+            ins.status = status_mapped
+            ins.resolved_at = datetime.utcnow()
+            meta = dict(ins.extra_data or {})
+            meta["outcome"] = payload.outcome
+            meta["confirmed_by_manager"] = mgr_name
+            meta["resolution_notes"] = payload.notes
+            ins.extra_data = meta
+
+            action = InsightAction(
+                insight_id=ins.id,
+                action_type=f"P2_{payload.outcome}",
+                performed_by_id=current_user.id,
+                details={
+                    "manager_name": mgr_name,
+                    "notes": payload.notes,
+                    "outcome": payload.outcome,
+                    "user_email": current_user.email
+                }
+            )
+            db.add(action)
+            await db.commit()
+            return {
+                "status": "success",
+                "message": f"Incident verified as {payload.outcome} by Manager {mgr_name}",
+                "outcome": payload.outcome,
+                "manager_name": mgr_name
+            }
+
+    # For live generated synthetic cards, create resolved DB record
+    ins = Insight(
+        tenant_id=current_user.tenant_id,
+        category="outcome_verified",
+        role_target="manager",
+        severity="blue",
+        title=f"Incident Outcome: {payload.outcome.replace('_', ' ').title()}",
+        description=f"Verified by Manager {mgr_name}: {payload.notes or 'Ground-truth outcome recorded.'}",
+        status=status_mapped,
+        resolved_at=datetime.utcnow(),
+        extra_data={
+            "synthetic_id": insight_id,
+            "outcome": payload.outcome,
+            "confirmed_by_manager": mgr_name,
+            "resolution_notes": payload.notes
+        }
+    )
+    db.add(ins)
+    await db.commit()
+    return {
+        "status": "success",
+        "message": f"Incident verified as {payload.outcome} by Manager {mgr_name}",
+        "outcome": payload.outcome,
+        "manager_name": mgr_name
+    }
 
 
 @router.post("/{insight_id}/action")

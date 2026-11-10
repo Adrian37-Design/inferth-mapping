@@ -174,11 +174,14 @@ function renderInsightsTopBar(topBarData, roleMode) {
             </div>
             <div class="insights-kpi-card">
                 <span class="insights-kpi-label">Active Fuel Benchmark</span>
-                <div class="insights-kpi-value-row">
-                    <span class="insights-kpi-value" style="color:#0f172a;">$${Number(fuelBench.unit_price).toFixed(2)} <small style="font-size:0.8rem; font-weight:500; color:#64748b;">/ L (${(fuelBench.fuel_type || 'diesel').toUpperCase()})</small></span>
+                <div class="insights-kpi-value-row" style="flex-direction:column; align-items:flex-start; gap:2px;">
+                    <div style="font-size:1.12rem; font-weight:700; color:#0f172a;">
+                        <span style="color:#0f172a;">Diesel: $${Number(fuelBench.diesel_price || 2.04).toFixed(2)}</span>
+                        <span style="color:#64748b; font-size:0.85rem; font-weight:500; margin-left:8px;">Petrol: $${Number(fuelBench.petrol_price || 2.05).toFixed(2)}</span>
+                    </div>
                 </div>
                 <span class="insights-kpi-subtext" style="color:#2563eb;">
-                    <i class="fas fa-location-dot"></i> ${escapeHTML(fuelBench.country_name || 'Zimbabwe')} (GPS Detected)
+                    <i class="fas fa-location-dot"></i> ${escapeHTML(fuelBench.country_name || 'Zimbabwe')} · GPS Detected
                 </span>
             </div>
         `;
@@ -422,10 +425,10 @@ function buildEnterpriseActions(card, roleMode) {
                     <button type="button" class="corp-btn corp-btn-primary" onclick="openFuelGraphModal('${devId}', '${escapeHTML(vehicle)}', '${escapeHTML(driver)}', ${fuelDrop}, ${loss})">
                         <i class="fas fa-chart-line"></i> View Fuel Graph
                     </button>
-                    <button type="button" class="corp-btn corp-btn-whatsapp" onclick="messageDriverPrompt('${escapeHTML(driver)}', 'Regarding unexpected fuel drop on ${escapeHTML(vehicle)}')">
-                        <i class="fab fa-whatsapp"></i> Message Driver
+                    <button type="button" class="corp-btn" style="background:#dc2626; color:#ffffff;" onclick="openInsightClosureModal('${id}', 'CONFIRMED_THEFT')">
+                        <i class="fas fa-shield-virus"></i> Confirm Theft
                     </button>
-                    <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
+                    <button type="button" class="corp-btn corp-btn-ghost" onclick="openInsightClosureModal('${id}', 'RESOLVED')">
                         <i class="fas fa-check"></i> Mark Resolved
                     </button>
                 `;
@@ -629,25 +632,83 @@ function renderFuelChart(points) {
     });
 }
 
-// Mark Resolved
-window.resolveInsightCard = async function(insightId) {
+// -------------------------------------------------------------------------
+// P2 Strategic Milestone: Incident Closure & Ground-Truth Outcome Labeling
+// -------------------------------------------------------------------------
+let activeClosureInsightId = null;
+
+window.openInsightClosureModal = function(insightId, defaultOutcome = 'CONFIRMED_THEFT') {
+    if (!window.AuthManager || !window.AuthManager.isManager()) {
+        showInsightToast('Restricted: Manager or Admin access required to verify outcomes');
+        return;
+    }
+    activeClosureInsightId = insightId;
+    const modal = document.getElementById('insight-closure-modal');
+    const outcomeSelect = document.getElementById('closure-outcome-type');
+    const mgrNameInput = document.getElementById('closure-manager-name');
+    const notesInput = document.getElementById('closure-notes');
+
+    if (outcomeSelect) outcomeSelect.value = defaultOutcome;
+    if (notesInput) notesInput.value = '';
+    if (mgrNameInput) {
+        const u = window.AuthManager.user || {};
+        mgrNameInput.value = u.name || u.email || 'Fleet Manager';
+    }
+
+    if (modal) modal.classList.remove('hidden');
+};
+
+window.submitInsightOutcome = async function() {
+    if (!activeClosureInsightId) return;
+    const outcomeSelect = document.getElementById('closure-outcome-type');
+    const mgrNameInput = document.getElementById('closure-manager-name');
+    const notesInput = document.getElementById('closure-notes');
+
+    const outcome = outcomeSelect ? outcomeSelect.value : 'CONFIRMED_THEFT';
+    const managerName = mgrNameInput ? mgrNameInput.value.trim() : '';
+    const notes = notesInput ? notesInput.value.trim() : '';
+
+    if (!managerName) {
+        alert('Please enter your manager signature name');
+        return;
+    }
+
     try {
-        const resp = await window.AuthManager.fetchAPI(`/insights/${insightId}/resolve`, { method: 'POST' });
-        if (!resp.ok) throw new Error('Failed to resolve');
-        
-        showInsightToast('Insight resolved & archived');
-        
-        const cardEl = document.getElementById(`card-${insightId}`);
+        const resp = await window.AuthManager.fetchAPI(`/insights/${activeClosureInsightId}/confirm-outcome`, {
+            method: 'POST',
+            body: JSON.stringify({
+                outcome: outcome,
+                manager_name: managerName,
+                notes: notes
+            })
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || 'Failed to record outcome');
+        }
+
+        window.closeInsightModal('insight-closure-modal');
+        showInsightToast(`Outcome logged: ${outcome.replace('_', ' ')} (Signed by ${managerName})`);
+
+        const cardEl = document.getElementById(`card-${activeClosureInsightId}`);
         if (cardEl) {
-            cardEl.style.transition = 'all 0.2s ease';
+            cardEl.style.transition = 'all 0.25s ease';
             cardEl.style.opacity = '0';
             cardEl.style.transform = 'scale(0.98)';
-            setTimeout(() => cardEl.remove(), 200);
+            setTimeout(() => cardEl.remove(), 250);
         }
+
+        setTimeout(() => window.loadInsights(true), 350);
+
     } catch (err) {
-        console.error(err);
-        showInsightToast('Error resolving insight');
+        console.error('Outcome verification error:', err);
+        alert('Error: ' + err.message);
     }
+};
+
+window.resolveInsightCard = function(insightId) {
+    window.openInsightClosureModal(insightId, 'RESOLVED');
 };
 
 window.messageDriverPrompt = function(driverName, context) {

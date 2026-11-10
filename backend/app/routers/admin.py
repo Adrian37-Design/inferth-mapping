@@ -102,6 +102,27 @@ async def optimize_storage(
     
     return result
 
+from app.services.maintenance import prune_stationary_telemetry
+
+@router.post("/storage/prune-telemetry")
+async def prune_telemetry_endpoint(
+    days: int = 90,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Safely prunes stationary telemetry records older than N days (Risk 2 Founder Fix)."""
+    result = await prune_stationary_telemetry(db, retention_days=days)
+    audit = AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="DATABASE_PRUNE_TELEMETRY",
+        details=result,
+        ip_address="127.0.0.1"
+    )
+    db.add(audit)
+    await db.commit()
+    return result
+
 @router.post("/storage/prune-heartbeats")
 async def prune_heartbeats(
     days: int = 30,

@@ -2647,18 +2647,27 @@ body {
 }
 
 .badge-admin {
-    background-color: #ff4757;
-    color: white;
+    background-color: #dc2626;
+    color: #ffffff;
+    font-weight: 800;
 }
 
 .badge-manager {
-    background-color: #ffa502;
-    color: white;
+    background-color: #d97706;
+    color: #ffffff;
+    font-weight: 800;
 }
 
 .badge-viewer {
-    background-color: #2ed573;
-    color: white;
+    background-color: #0284c7;
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.badge-driver {
+    background-color: #475569;
+    color: #ffffff;
+    font-weight: 800;
 }
 
 /* --- Asset Detail Panel --- */

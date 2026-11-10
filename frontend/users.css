@@ -117,44 +117,56 @@
     filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.5));
 }
 
-/* Badge Styling */
+/* Badge Styling — High-Contrast Professional Roles */
 .badge {
     padding: 6px 14px;
     border-radius: 50px;
-    font-size: 0.7rem;
-    font-weight: 700;
+    font-size: 0.72rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     display: inline-block;
     text-align: center;
-    min-width: 80px;
+    min-width: 86px;
 }
 
 .badge-admin {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    border: 1px solid #b91c1c !important;
+    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+    font-weight: 800;
 }
 
 .badge-manager {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fcd34d;
-    border: 1px solid rgba(245, 158, 11, 0.4);
+    background: #d97706 !important;
+    color: #ffffff !important;
+    border: 1px solid #b45309 !important;
+    box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+    font-weight: 800;
 }
 
 .badge-viewer {
-    background: rgba(16, 185, 129, 0.15);
-    color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border: 1px solid #0369a1 !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    font-weight: 800;
+}
+
+.badge-driver {
+    background: #475569 !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 2px 6px rgba(71, 85, 105, 0.35);
+    font-weight: 800;
 }
 
 .badge-neutral {
-    background: rgba(148, 163, 184, 0.1);
-    color: #94a3b8;
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: #64748b !important;
+    color: #ffffff !important;
+    border: 1px solid #475569 !important;
 }
 
 /* Actions Column */

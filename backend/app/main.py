@@ -385,8 +385,11 @@ async def startup_event():
         
         print(f"CRITICAL: Failed to start TCP tracker server after {max_retries} attempts.")
 
-    # Run the TCP server startup in the background
-    asyncio.create_task(start_tcp_server())
+    # Run the TCP server startup in the background (or bypass if decoupled standalone worker is used)
+    if os.getenv("RUN_TCP_SERVER", "true").lower() == "true":
+        asyncio.create_task(start_tcp_server())
+    else:
+        print("[TCP Server] In-process TCP server disabled by RUN_TCP_SERVER=false (Standalone worker active)")
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
