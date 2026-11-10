@@ -4341,6 +4341,8 @@ function closeModal() {
     editingVehicleId = null;
     document.getElementById('vehicle-imei').value = '';
     document.getElementById('vehicle-name').value = '';
+    const fType = document.getElementById('vehicle-fuel-type');
+    if (fType) fType.value = 'diesel';
 }
 
 function fuelReadingLabel(t) {
@@ -4424,6 +4426,10 @@ function openEditModal(vehicle) {
     document.getElementById('vehicle-imei').value = vehicle.imei;
     document.getElementById('vehicle-name').value = vehicle.name;
     document.getElementById('vehicle-company').value = vehicle.company || '';
+    const fType = document.getElementById('vehicle-fuel-type');
+    if (fType) {
+        fType.value = (vehicle && (vehicle.fuel_type || (vehicle.device_metadata && vehicle.device_metadata.fuel_type))) || 'diesel';
+    }
     applyCompanyFieldLock();
     showFuelCalibration(vehicle);
     document.querySelector('#add-vehicle-modal .modal-header h3').innerHTML = '<i class="fas fa-edit"></i> Edit Vehicle';
@@ -4433,9 +4439,9 @@ function openEditModal(vehicle) {
 }
 
 // Add new vehicle
-async function addVehicle(imei, name, company = null) {
+async function addVehicle(imei, name, company = null, fuel_type = 'diesel') {
     try {
-        const payload = { imei, name: name || imei };
+        const payload = { imei, name: name || imei, fuel_type };
         if (company) payload.company = company;
 
         const response = await fetch(`${API_URL}/devices/`, {
@@ -4462,11 +4468,11 @@ async function addVehicle(imei, name, company = null) {
 }
 
 // Update existing vehicle
-// Update existing vehicle
-async function updateVehicle(id, imei, name, driver_name = null, company = null) {
+async function updateVehicle(id, imei, name, driver_name = null, company = null, fuel_type = null) {
     const payload = { imei, name: name || imei };
     if (driver_name !== null) payload.driver_name = driver_name;
     if (company !== null) payload.company = company;
+    if (fuel_type !== null) payload.fuel_type = fuel_type;
 
     try {
         const response = await fetch(`${API_URL}/devices/${id}`, {
@@ -5265,6 +5271,8 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     const imei = document.getElementById('vehicle-imei').value.trim();
     const name = document.getElementById('vehicle-name').value.trim();
     const company = document.getElementById('vehicle-company').value.trim();
+    const fuelTypeEl = document.getElementById('vehicle-fuel-type');
+    const fuel_type = fuelTypeEl ? fuelTypeEl.value : 'diesel';
 
     if (!imei) {
         alert('Please enter an IMEI');
@@ -5274,9 +5282,9 @@ document.getElementById('add-vehicle-form').addEventListener('submit', (e) => {
     if (editingVehicleId) {
         const id = editingVehicleId;
         const cal = readFuelCalibrationInputs();
-        updateVehicle(id, imei, name, null, company).then(() => saveFuelCalibration(id, cal));
+        updateVehicle(id, imei, name, null, company, fuel_type).then(() => saveFuelCalibration(id, cal));
     } else {
-        addVehicle(imei, name, company);
+        addVehicle(imei, name, company, fuel_type);
     }
 });
 

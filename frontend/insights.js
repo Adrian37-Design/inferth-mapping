@@ -7,7 +7,7 @@ let currentInsightsRoleMode = 'manager';
 let currentFuelChart = null;
 let activeInsightData = null;
 
-// Initialize on page load
+// Role Determination & Initialization
 document.addEventListener('DOMContentLoaded', () => {
     if (window.AuthManager && window.AuthManager.isAuthenticated()) {
         const isMgr = window.AuthManager.isManager();
@@ -26,53 +26,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Role Preview Switcher for Admins / Managers
-window.switchInsightsRoleMode = function(mode) {
-    currentInsightsRoleMode = mode;
-    const btnMgr = document.getElementById('btn-mode-manager');
-    const btnDrv = document.getElementById('btn-mode-driver');
-
-    if (btnMgr && btnDrv) {
-        if (mode === 'manager') {
-            btnMgr.classList.add('active');
-            btnDrv.classList.remove('active');
-        } else {
-            btnDrv.classList.add('active');
-            btnMgr.classList.remove('active');
-        }
-    }
-
-    window.loadInsights(true);
-};
-
 // Main Loader
 window.loadInsights = async function(force = false) {
     const container = document.getElementById('insights-cards-list');
     const topBar = document.getElementById('insights-top-bar');
-    const roleSwitcher = document.getElementById('insights-role-switcher');
     const subtitle = document.getElementById('insights-subtitle');
     const heading = document.getElementById('insights-cards-heading');
     const counterBadge = document.getElementById('insights-counter-badge');
-    const simBtn = document.getElementById('btn-simulate-insight');
 
     if (!container || !topBar) return;
 
-    // Check user actual permissions
+    // Strict Role Separation: Managers see Manager View, Drivers see Driver View
     const isRealManager = window.AuthManager && window.AuthManager.isManager();
-    if (!isRealManager) {
-        currentInsightsRoleMode = 'driver'; // Drivers strictly locked to driver mode
-        if (roleSwitcher) roleSwitcher.style.display = 'none';
-        if (simBtn) simBtn.style.display = 'none';
-    } else {
-        if (roleSwitcher) roleSwitcher.style.display = 'inline-flex';
-        if (simBtn) simBtn.style.display = 'inline-block';
-    }
+    currentInsightsRoleMode = isRealManager ? 'manager' : 'driver';
 
-    // Update subtitles
+    // Update subtitles & headers
     if (currentInsightsRoleMode === 'manager') {
         if (subtitle) subtitle.textContent = 'Automated fleet telemetry exception analysis and operational cost optimization';
         if (heading) heading.textContent = 'Active Telematics Exceptions';
         if (counterBadge) counterBadge.textContent = 'Priority Feed';
+    } else {
+        if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
+        if (heading) heading.textContent = 'Driver Performance & Alerts';
+        if (counterBadge) counterBadge.textContent = 'My Vehicle';
+    }
     } else {
         if (subtitle) subtitle.textContent = 'Your assigned vehicle safety scorecard, fuel economy, and driving guidance';
         if (heading) heading.textContent = 'Driver Performance & Alerts';
@@ -264,21 +241,28 @@ function buildTelemetryStrip(cat, card, extra, roleMode) {
     if (cat === 'fuel_siphoning') {
         const drop = extra.fuel_dropped || 18.5;
         const loss = card.money_impact ? `$${Number(card.money_impact).toFixed(2)}` : '$30.53';
+        const pricingText = extra.country_name 
+            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 1.68).toFixed(2)}/L)`
+            : 'Auto-Detected GPS Rate';
         return `
             <div class="telemetry-strip">
                 <div class="strip-item"><span>Quantity:</span> <strong>-${Number(drop).toFixed(1)} L</strong></div>
                 <div class="strip-item"><span>Est. Loss:</span> <strong>${loss}</strong></div>
+                <div class="strip-item"><span>Pricing Basis:</span> <strong>${pricingText}</strong></div>
                 <div class="strip-item"><span>Condition:</span> <strong>Ignition OFF (Speed 0 km/h)</strong></div>
-                <div class="strip-item"><span>Location:</span> <strong>Depot Zone</strong></div>
             </div>
         `;
     } else if (cat === 'unauthorized_night_trip') {
         const dist = extra.distance_km || 38.4;
         const fuel = extra.fuel_used_l || 5.2;
+        const pricingText = extra.country_name 
+            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()})`
+            : null;
         return `
             <div class="telemetry-strip">
                 <div class="strip-item"><span>Distance:</span> <strong>${dist} km</strong></div>
                 <div class="strip-item"><span>Fuel Used:</span> <strong>${fuel} L</strong></div>
+                ${pricingText ? `<div class="strip-item"><span>Region:</span> <strong>${pricingText}</strong></div>` : ''}
                 <div class="strip-item"><span>Timeframe:</span> <strong>23:30 - 01:15</strong></div>
                 <div class="strip-item"><span>Geofence:</span> <strong>Depot Exit (Unscheduled)</strong></div>
             </div>
@@ -286,10 +270,14 @@ function buildTelemetryStrip(cat, card, extra, roleMode) {
     } else if (cat === 'driver_costing_fuel') {
         const driverRate = extra.driver_l100km || 11.8;
         const fleetAvg = extra.fleet_avg_l100km || 9.5;
+        const pricingText = extra.country_name 
+            ? `${extra.country_name} (${(extra.fuel_type || 'Diesel').toUpperCase()} @ $${Number(extra.fuel_price || 1.68).toFixed(2)}/L)`
+            : null;
         return `
             <div class="telemetry-strip">
                 <div class="strip-item"><span>Driver Rate:</span> <strong>${driverRate} L/100km</strong></div>
                 <div class="strip-item"><span>Fleet Average:</span> <strong>${fleetAvg} L/100km</strong></div>
+                ${pricingText ? `<div class="strip-item"><span>Benchmark:</span> <strong>${pricingText}</strong></div>` : ''}
                 <div class="strip-item"><span>Variance:</span> <strong>+24%</strong></div>
                 <div class="strip-item"><span>Route:</span> <strong>Harare - Bulawayo</strong></div>
             </div>
@@ -829,45 +817,6 @@ window.requestServiceDayPrompt = function(vehicle) {
         </div>
         `
     );
-};
-
-// -------------------------------------------------------------------------
-// Simulation Utilities
-// -------------------------------------------------------------------------
-
-window.openSimulateInsightModal = function() {
-    const modal = document.getElementById('insight-simulate-modal');
-    if (modal) modal.classList.remove('hidden');
-};
-
-window.submitSimulateInsight = async function() {
-    const typeSelect = document.getElementById('sim-event-type');
-    const litersInput = document.getElementById('sim-fuel-liters');
-    const eventType = typeSelect ? typeSelect.value : 'fuel_siphoning';
-    const liters = litersInput ? parseFloat(litersInput.value) : 18.5;
-
-    try {
-        const resp = await window.AuthManager.fetchAPI('/insights/simulate', {
-            method: 'POST',
-            body: JSON.stringify({
-                type: eventType,
-                fuel_drop_liters: liters
-            })
-        });
-
-        if (!resp.ok) throw new Error('Simulation failed');
-        const data = await resp.json();
-
-        closeInsightModal('insight-simulate-modal');
-        showInsightToast(`Simulated event triggered`);
-
-        // Reload feed
-        window.loadInsights(true);
-
-    } catch (err) {
-        console.error('Simulation error:', err);
-        showInsightToast('Simulation request failed');
-    }
 };
 
 // -------------------------------------------------------------------------

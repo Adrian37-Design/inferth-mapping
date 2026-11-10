@@ -16,6 +16,7 @@ class DeviceCreate(BaseModel):
     driver_name: str | None = None
     company: str | None = None
     tenant_name: str | None = None
+    fuel_type: str | None = "diesel"
 
 class FuelCalibrationIn(BaseModel):
     empty_adc: float = Field(ge=0, le=4095)
@@ -27,6 +28,7 @@ class DeviceProfileIn(BaseModel):
     plate: str | None = Field(default=None, max_length=16, pattern=r"^[A-Za-z0-9 \-]*$")
     sim: str | None = Field(default=None, max_length=24, pattern=r"^(\+?[0-9][0-9 \-]{4,22})?$")
     vin: str | None = Field(default=None, max_length=24, pattern=r"^[A-Za-z0-9 \-]*$")
+    fuel_type: str | None = Field(default="diesel")
 
     @field_validator("model", "plate", "sim", "vin", mode="before")
     @classmethod
@@ -75,12 +77,14 @@ async def create_device(
     if target_tenant_id is None:
         target_tenant_id = current_user.tenant_id
 
+    meta = {"fuel_type": (payload.fuel_type or "diesel").lower()}
     device = Device(
         imei=payload.imei, 
         name=payload.name, 
         driver_name=payload.driver_name,
         company=payload.company,
-        tenant_id=target_tenant_id
+        tenant_id=target_tenant_id,
+        device_metadata=meta
     )
     db.add(device)
     
@@ -137,6 +141,7 @@ async def list_devices(
             "company": getattr(d, 'company', None),
             "tenant_id": getattr(d, 'tenant_id', None),
             "device_metadata": getattr(d, 'device_metadata', {}),
+            "fuel_type": (getattr(d, 'device_metadata', {}) or {}).get("fuel_type", "diesel"),
             "fuel_calibration": fuel_calibration_out(cals.get(d.id))
         })
     return output
@@ -225,6 +230,10 @@ async def update_device(
         device.name = payload.name
     if payload.driver_name is not None:
         device.driver_name = payload.driver_name
+    if payload.fuel_type is not None:
+        meta = dict(device.device_metadata or {})
+        meta["fuel_type"] = payload.fuel_type.lower()
+        device.device_metadata = meta
     if payload.company is not None:
         if not await may_set_company(db, current_user, payload.company, device.company):
             raise HTTPException(status_code=403, detail="Only the platform administrator can assign a tracker to another company")

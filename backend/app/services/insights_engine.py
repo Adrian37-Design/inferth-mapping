@@ -76,6 +76,82 @@ async def get_driver_devices(db: AsyncSession, user: User) -> List[Device]:
     return assigned
 
 
+# -------------------------------------------------------------------------
+# Dynamic Country Fuel Pricing Engine (Southern Africa Telematics Benchmark)
+# -------------------------------------------------------------------------
+
+COUNTRY_FUEL_DATA: Dict[str, Dict[str, Any]] = {
+    "ZW": {"name": "Zimbabwe", "currency": "USD", "petrol": 1.62, "diesel": 1.68},
+    "ZA": {"name": "South Africa", "currency": "USD", "petrol": 1.35, "diesel": 1.30},
+    "ZM": {"name": "Zambia", "currency": "USD", "petrol": 1.25, "diesel": 1.15},
+    "BW": {"name": "Botswana", "currency": "USD", "petrol": 1.15, "diesel": 1.18},
+    "MZ": {"name": "Mozambique", "currency": "USD", "petrol": 1.35, "diesel": 1.36},
+    "NA": {"name": "Namibia", "currency": "USD", "petrol": 1.22, "diesel": 1.25},
+}
+
+def detect_country_from_coords(lat: Optional[float], lng: Optional[float]) -> str:
+    """
+    Detect country ISO code from tracker coordinates using regional bounding boxes.
+    Defaults to 'ZW' (Zimbabwe) if coordinates are outside or not yet available.
+    """
+    if lat is None or lng is None:
+        return "ZW"
+    
+    # Zimbabwe: lat [-22.5, -15.5], lng [25.0, 33.5]
+    if -22.5 <= lat <= -15.5 and 25.0 <= lng <= 33.5:
+        return "ZW"
+    
+    # South Africa: lat [-35.0, -22.0], lng [16.0, 33.0]
+    if -35.0 <= lat <= -22.0 and 16.0 <= lng <= 33.0:
+        return "ZA"
+        
+    # Zambia: lat [-18.1, -8.0], lng [22.0, 33.7]
+    if -18.1 <= lat <= -8.0 and 22.0 <= lng <= 33.7:
+        return "ZM"
+
+    # Botswana: lat [-27.0, -17.5], lng [20.0, 29.5]
+    if -27.0 <= lat <= -17.5 and 20.0 <= lng <= 29.5:
+        return "BW"
+
+    # Mozambique: lat [-27.0, -10.5], lng [30.0, 41.0]
+    if -27.0 <= lat <= -10.5 and 30.0 <= lng <= 41.0:
+        return "MZ"
+
+    # Namibia: lat [-29.0, -17.0], lng [11.5, 25.5]
+    if -29.0 <= lat <= -17.0 and 11.5 <= lng <= 25.5:
+        return "NA"
+
+    return "ZW"
+
+def get_fuel_price_info(dev: Optional[Any], lat: Optional[float] = None, lng: Optional[float] = None) -> Dict[str, Any]:
+    """
+    Returns fuel pricing based on vehicle's selected fuel type (petrol or diesel)
+    and the country detected from the tracker's current coordinates.
+    """
+    country_code = detect_country_from_coords(lat, lng)
+    country_info = COUNTRY_FUEL_DATA.get(country_code, COUNTRY_FUEL_DATA["ZW"])
+    
+    # Vehicle fuel type selected by manager/viewer: 'petrol' or 'diesel' (default 'diesel')
+    fuel_type = "diesel"
+    if dev:
+        meta = getattr(dev, "device_metadata", {}) or {}
+        fuel_type = (meta.get("fuel_type") or getattr(dev, "fuel_type", "diesel") or "diesel").lower().strip()
+        if fuel_type not in ["petrol", "diesel"]:
+            fuel_type = "diesel"
+            
+    unit_price = country_info["petrol"] if fuel_type == "petrol" else country_info["diesel"]
+    
+    return {
+        "country_code": country_code,
+        "country_name": country_info["name"],
+        "currency": country_info["currency"],
+        "fuel_type": fuel_type,
+        "unit_price": unit_price,
+        "petrol_price": country_info["petrol"],
+        "diesel_price": country_info["diesel"]
+    }
+
+
 async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User) -> Dict[str, Any]:
     fuel_price = getattr(settings, "FUEL_PRICE_USD", 1.65)
     devices = await get_tenant_devices(db, tenant_id, user)
@@ -176,10 +252,11 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                     engine_off = (p1.ignition is False or p2.ignition is False)
 
                     if fuel_drop >= 15.0 and is_stopped and engine_off and time_diff_min >= 10.0:
-                        loss_usd = round(fuel_drop * fuel_price, 2)
+                        dev = device_map.get(d_id)
+                        pricing = get_fuel_price_info(dev, p2.latitude, p2.longitude)
+                        loss_usd = round(fuel_drop * pricing["unit_price"], 2)
                         total_money_lost += loss_usd
                         urgent_actions_count += 1
-                        dev = device_map.get(d_id)
                         cards.append({
                             "id": f"live-siphon-{d_id}",
                             "category": "fuel_siphoning",
@@ -196,7 +273,10 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                                 "lat": p2.latitude,
                                 "lng": p2.longitude,
                                 "fuel_dropped": fuel_drop,
-                                "fuel_price": fuel_price,
+                                "fuel_price": pricing["unit_price"],
+                                "fuel_type": pricing["fuel_type"],
+                                "country_name": pricing["country_name"],
+                                "country_code": pricing["country_code"],
                                 "time": p2.timestamp.strftime("%Y-%m-%d %H:%M"),
                                 "actions": ["view_fuel_graph", "message_driver", "mark_resolved"]
                             },
@@ -218,12 +298,13 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             if len(night_positions) >= 3:
                 start_p = night_positions[-1]
                 end_p = night_positions[0]
+                dev = device_map.get(d_id)
+                pricing = get_fuel_price_info(dev, end_p.latitude, end_p.longitude)
                 dist_km = round(len(night_positions) * 1.8, 1)  # approx estimated
                 fuel_est = round(dist_km * 0.12, 1)
-                loss_usd = round(fuel_est * fuel_price, 2)
+                loss_usd = round(fuel_est * pricing["unit_price"], 2)
                 total_money_lost += loss_usd
                 urgent_actions_count += 1
-                dev = device_map.get(d_id)
 
                 cards.append({
                     "id": f"live-night-{d_id}",
@@ -242,6 +323,9 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                         "end_time": end_p.timestamp.strftime("%Y-%m-%d %H:%M"),
                         "distance_km": dist_km,
                         "fuel_used_l": fuel_est,
+                        "fuel_price": pricing["unit_price"],
+                        "fuel_type": pricing["fuel_type"],
+                        "country_name": pricing["country_name"],
                         "lat": end_p.latitude,
                         "lng": end_p.longitude,
                         "actions": ["view_trip_replay", "call_driver"]
@@ -272,10 +356,12 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             if ("driver_costing_fuel", d_id) in seen_categories_by_device:
                 continue
             if rate > (fleet_avg_l100 * 1.20):  # 20% above fleet average
-                excess_l = (rate - fleet_avg_l100) * 4.5  # scaled weekly impact
-                impact_usd = round(excess_l * fuel_price, 2)
-                total_money_lost += impact_usd
                 dev = device_map.get(d_id)
+                latest_p = p_list[0] if p_list else None
+                pricing = get_fuel_price_info(dev, latest_p.latitude if latest_p else None, latest_p.longitude if latest_p else None)
+                excess_l = (rate - fleet_avg_l100) * 4.5  # scaled weekly impact
+                impact_usd = round(excess_l * pricing["unit_price"], 2)
+                total_money_lost += impact_usd
 
                 cards.append({
                     "id": f"live-cost-{d_id}",
@@ -294,6 +380,9 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                         "fleet_avg_l100km": round(fleet_avg_l100, 1),
                         "route": "Harare - Chitungwiza Corridor",
                         "money_impact_per_week": impact_usd,
+                        "fuel_price": pricing["unit_price"],
+                        "fuel_type": pricing["fuel_type"],
+                        "country_name": pricing["country_name"],
                         "actions": ["coach_driver", "check_vehicle"]
                     },
                     "actions": ["coach_driver", "check_vehicle"]
@@ -385,6 +474,8 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
 
     # If fleet had no activity yet, provide baseline showcase cards
     if not cards:
+        demo_dev = devices[0] if devices else None
+        demo_pricing = get_fuel_price_info(demo_dev, -17.825, 31.05)
         cards.extend([
             {
                 "id": "showcase-siphon",
@@ -392,13 +483,22 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 "severity": "red",
                 "title": "Possible Fuel Siphoning",
                 "description": "Fuel drop of 18.5L detected while engine OFF and stationary for 14 mins.",
-                "vehicle_name": devices[0].name if devices else "Primary Fleet Vehicle",
-                "device_id": devices[0].id if devices else 1,
-                "driver_name": devices[0].driver_name if (devices and devices[0].driver_name) else "On Duty Driver",
+                "vehicle_name": demo_dev.name if demo_dev else "Primary Fleet Vehicle",
+                "device_id": demo_dev.id if demo_dev else 1,
+                "driver_name": demo_dev.driver_name if (demo_dev and demo_dev.driver_name) else "On Duty Driver",
                 "metric_value": "-18.5 L",
-                "money_impact": round(18.5 * fuel_price, 2),
+                "money_impact": round(18.5 * demo_pricing["unit_price"], 2),
                 "created_at": (now - timedelta(hours=3)).isoformat(),
-                "extra_data": {"fuel_dropped": 18.5, "fuel_price": fuel_price, "time": "Today, 14:20", "lat": -17.825, "lng": 31.05},
+                "extra_data": {
+                    "fuel_dropped": 18.5,
+                    "fuel_price": demo_pricing["unit_price"],
+                    "fuel_type": demo_pricing["fuel_type"],
+                    "country_name": demo_pricing["country_name"],
+                    "country_code": demo_pricing["country_code"],
+                    "time": "Today, 14:20",
+                    "lat": -17.825,
+                    "lng": 31.05
+                },
                 "actions": ["view_fuel_graph", "message_driver", "mark_resolved"]
             },
             {
@@ -407,13 +507,21 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 "severity": "red",
                 "title": "Unauthorized Night Trip",
                 "description": "Vehicle left depot geofence at 23:45 and travelled 42 km without a delivery schedule.",
-                "vehicle_name": devices[0].name if devices else "Primary Fleet Vehicle",
-                "device_id": devices[0].id if devices else 1,
-                "driver_name": devices[0].driver_name if (devices and devices[0].driver_name) else "On Duty Driver",
+                "vehicle_name": demo_dev.name if demo_dev else "Primary Fleet Vehicle",
+                "device_id": demo_dev.id if demo_dev else 1,
+                "driver_name": demo_dev.driver_name if (demo_dev and demo_dev.driver_name) else "On Duty Driver",
                 "metric_value": "42 km (5.8 L)",
-                "money_impact": round(5.8 * fuel_price, 2),
+                "money_impact": round(5.8 * demo_pricing["unit_price"], 2),
                 "created_at": (now - timedelta(hours=8)).isoformat(),
-                "extra_data": {"distance_km": 42, "fuel_used_l": 5.8, "start_time": "23:45", "end_time": "01:15"},
+                "extra_data": {
+                    "distance_km": 42,
+                    "fuel_used_l": 5.8,
+                    "fuel_price": demo_pricing["unit_price"],
+                    "fuel_type": demo_pricing["fuel_type"],
+                    "country_name": demo_pricing["country_name"],
+                    "start_time": "23:45",
+                    "end_time": "01:15"
+                },
                 "actions": ["view_trip_replay", "call_driver"]
             },
             {
