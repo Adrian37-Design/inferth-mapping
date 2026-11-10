@@ -577,13 +577,37 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
     health_penalty = min(60, (urgent_actions_count * 12) + (len(cards) * 4))
     fleet_health_score = max(40, 100 - health_penalty)
 
+    # Determine active fuel benchmark detected for the fleet
+    primary_country = "ZW"
+    primary_fuel_type = "diesel"
+    detected_regions = set()
+    for d in devices:
+        p_list = dev_positions.get(d.id)
+        latest_p = p_list[0] if p_list else None
+        p_info = get_fuel_price_info(d, latest_p.latitude if latest_p else None, latest_p.longitude if latest_p else None)
+        primary_country = p_info["country_code"]
+        primary_fuel_type = p_info["fuel_type"]
+        detected_regions.add(p_info["country_name"])
+
+    c_info = COUNTRY_FUEL_DATA.get(primary_country, COUNTRY_FUEL_DATA["ZW"])
+    benchmark_unit_price = c_info["diesel"] if primary_fuel_type == "diesel" else c_info["petrol"]
+    country_display = ", ".join(sorted(detected_regions)) if detected_regions else c_info["name"]
+
     return {
         "top_bar": {
             "fleet_health_pct": round(fleet_health_score, 1),
             "money_lost_this_week_usd": round(total_money_lost, 2),
             "urgent_actions_count": urgent_actions_count,
             "total_insights_count": len(cards),
-            "currency": "USD"
+            "currency": "USD",
+            "fuel_benchmark": {
+                "unit_price": benchmark_unit_price,
+                "fuel_type": primary_fuel_type,
+                "country_name": country_display,
+                "country_code": primary_country,
+                "petrol_price": c_info["petrol"],
+                "diesel_price": c_info["diesel"]
+            }
         },
         "cards": cards
     }

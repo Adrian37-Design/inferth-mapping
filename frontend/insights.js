@@ -137,6 +137,12 @@ function renderInsightsTopBar(topBarData, roleMode) {
         const health = topBarData.fleet_health_pct || 94.2;
         const money = topBarData.money_lost_this_week_usd || 0;
         const urgent = topBarData.urgent_actions_count || 0;
+        const fuelBench = topBarData.fuel_benchmark || {
+            unit_price: 2.04,
+            fuel_type: 'diesel',
+            country_name: 'Zimbabwe',
+            country_code: 'ZW'
+        };
 
         el.innerHTML = `
             <div class="insights-kpi-card">
@@ -164,6 +170,15 @@ function renderInsightsTopBar(topBarData, roleMode) {
                 </div>
                 <span class="insights-kpi-subtext ${urgent > 0 ? 'alert' : 'positive'}">
                     <i class="fas fa-clock"></i> Requires supervisor review & action
+                </span>
+            </div>
+            <div class="insights-kpi-card">
+                <span class="insights-kpi-label">Active Fuel Benchmark</span>
+                <div class="insights-kpi-value-row">
+                    <span class="insights-kpi-value" style="color:#0f172a;">$${Number(fuelBench.unit_price).toFixed(2)} <small style="font-size:0.8rem; font-weight:500; color:#64748b;">/ L (${(fuelBench.fuel_type || 'diesel').toUpperCase()})</small></span>
+                </div>
+                <span class="insights-kpi-subtext" style="color:#2563eb;">
+                    <i class="fas fa-location-dot"></i> ${escapeHTML(fuelBench.country_name || 'Zimbabwe')} (GPS Detected)
                 </span>
             </div>
         `;
