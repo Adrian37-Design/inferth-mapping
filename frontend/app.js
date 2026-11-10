@@ -8087,39 +8087,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
-// Founder Billing Mode (Monthly vs Prepaid Pay-As-You-Drive)
+// Founder Billing Mode (Monthly | Once-Off | Prepaid Pay-As-You-Drive)
 window.switchBillingPlanMode = function(mode) {
-    const monthlyView = document.getElementById('billing-monthly-view');
-    const prepaidView = document.getElementById('billing-prepaid-view');
-    const btnMonthly = document.getElementById('btn-billing-monthly');
-    const btnPrepaid = document.getElementById('btn-billing-prepaid');
+    const monthlyView  = document.getElementById('billing-monthly-view');
+    const onceoffView  = document.getElementById('billing-onceoff-view');
+    const prepaidView  = document.getElementById('billing-prepaid-view');
+    const btnMonthly   = document.getElementById('btn-billing-monthly');
+    const btnOnceoff   = document.getElementById('btn-billing-onceoff');
+    const btnPrepaid   = document.getElementById('btn-billing-prepaid');
 
-    if (mode === 'prepaid') {
-        if (monthlyView) monthlyView.classList.add('hidden');
-        if (prepaidView) prepaidView.classList.remove('hidden');
-        if (btnPrepaid) {
-            btnPrepaid.style.background = '#ffffff';
-            btnPrepaid.style.color = '#0f172a';
-            btnPrepaid.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+    // Hide all views, reset all buttons
+    [monthlyView, onceoffView, prepaidView].forEach(v => v && v.classList.add('hidden'));
+    [btnMonthly, btnOnceoff, btnPrepaid].forEach(b => {
+        if (!b) return;
+        b.style.background  = 'transparent';
+        b.style.color       = '#64748b';
+        b.style.boxShadow   = 'none';
+    });
+
+    // Activate selected view + button
+    const viewMap = { monthly: monthlyView, onceoff: onceoffView, prepaid: prepaidView };
+    const btnMap  = { monthly: btnMonthly,  onceoff: btnOnceoff,  prepaid: btnPrepaid  };
+    const targetView = viewMap[mode] || monthlyView;
+    const targetBtn  = btnMap[mode]  || btnMonthly;
+
+    if (targetView) targetView.classList.remove('hidden');
+    if (targetBtn) {
+        targetBtn.style.background = '#ffffff';
+        targetBtn.style.color      = '#0f172a';
+        targetBtn.style.boxShadow  = '0 1px 2px rgba(0,0,0,0.06)';
+    }
+};
+
+// Once-Off Tracking Payment handler
+window.triggerOnceOffTracking = async function(tier, priceUsd) {
+    const labels = { starter: 'Starter Pass (2-Year Tracking)', professional: 'Pro Pass (Lifetime Tracking)' };
+    const label = labels[tier] || tier;
+    if (!confirm(`Pay $${priceUsd} USD once-off for ${label} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(
+            `/payments/paynow/initiate?plan_name=${encodeURIComponent(label)}&amount=${priceUsd}`,
+            { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Payment initiation failed');
+        const result = await response.json();
+        if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            alert(`Payment session initiated for ${label}. Check your EcoCash prompt for $${priceUsd} USD.`);
         }
-        if (btnMonthly) {
-            btnMonthly.style.background = 'transparent';
-            btnMonthly.style.color = '#64748b';
-            btnMonthly.style.boxShadow = 'none';
-        }
-    } else {
-        if (monthlyView) monthlyView.classList.remove('hidden');
-        if (prepaidView) prepaidView.classList.add('hidden');
-        if (btnMonthly) {
-            btnMonthly.style.background = '#ffffff';
-            btnMonthly.style.color = '#0f172a';
-            btnMonthly.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
-        }
-        if (btnPrepaid) {
-            btnPrepaid.style.background = 'transparent';
-            btnPrepaid.style.color = '#64748b';
-            btnPrepaid.style.boxShadow = 'none';
-        }
+    } catch (err) {
+        alert(`Initiating once-off payment of $${priceUsd} USD for ${label}.\nOur team will send an EcoCash prompt to your registered number.`);
     }
 };
 

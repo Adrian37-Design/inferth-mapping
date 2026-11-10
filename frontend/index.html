@@ -957,10 +957,13 @@
                         <!-- Founder Billing Model Switcher (Monthly vs Prepaid EcoCash Wallet) -->
                         <div class="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px;">
                             <button type="button" class="billing-pill active" id="btn-billing-monthly" onclick="switchBillingPlanMode('monthly')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
-                                <i class="fas fa-calendar-alt"></i> Fixed Monthly Subscription
+                                <i class="fas fa-calendar-alt"></i> Monthly
+                            </button>
+                            <button type="button" class="billing-pill" id="btn-billing-onceoff" onclick="switchBillingPlanMode('onceoff')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
+                                <i class="fas fa-bolt"></i> Once-Off Payment
                             </button>
                             <button type="button" class="billing-pill" id="btn-billing-prepaid" onclick="switchBillingPlanMode('prepaid')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
-                                <i class="fas fa-wallet"></i> Prepaid EcoCash Wallet (Pay-As-You-Drive)
+                                <i class="fas fa-wallet"></i> Prepaid Wallet
                             </button>
                         </div>
 
@@ -1086,12 +1089,12 @@
 
                             </div><!-- /billing-plans-grid -->
 
-                            <!-- === ONCE-OFF HARDWARE & INSTALLATION CARD === -->
+                            <!-- === HARDWARE INSTALLATION CARD (separate from tracking payment) === -->
                             <div class="billing-onceoff-card">
                                 <div class="onceoff-header">
                                     <div>
-                                        <span class="onceoff-badge"><i class="fas fa-tools"></i> ONE-OFF INSTALLATION</span>
-                                        <div class="onceoff-tagline">Own your hardware from day one &mdash; no recurring hardware fee ever</div>
+                                        <span class="onceoff-badge"><i class="fas fa-tools"></i> HARDWARE &amp; INSTALLATION</span>
+                                        <div class="onceoff-tagline">Need a tracker fitted? Own your hardware &mdash; no hardware rental fee ever</div>
                                     </div>
                                 </div>
                                 <div class="onceoff-kits">
@@ -1130,6 +1133,101 @@
                             </div>
 
                         </div>
+
+                        <!-- 2b. Once-Off Tracking Payment View -->
+                        <div id="billing-onceoff-view" class="hidden">
+                            <div class="onceoff-tracking-intro">
+                                <div class="ot-intro-icon"><i class="fas fa-bolt"></i></div>
+                                <div>
+                                    <h3 class="ot-intro-title">Pay Once. Track Forever.</h3>
+                                    <p class="ot-intro-sub">No monthly bills. Lock in your tracking coverage with a single payment &mdash; ideal for fleet owners who prefer to own rather than subscribe.</p>
+                                </div>
+                            </div>
+
+                            <div class="ot-plans-grid">
+
+                                <!-- STARTER PASS -->
+                                <div class="ot-plan-card">
+                                    <div class="ot-plan-top">
+                                        <div class="ot-plan-icon"><i class="fas fa-seedling"></i></div>
+                                        <h4 class="ot-plan-name">Starter Pass</h4>
+                                        <p class="ot-plan-desc">1&ndash;5 vehicles &middot; 2-year tracking access</p>
+                                    </div>
+                                    <div class="ot-price-row">
+                                        <span class="ot-currency">$</span>
+                                        <span class="ot-amount">89</span>
+                                        <span class="ot-unit">/vehicle</span>
+                                    </div>
+                                    <div class="ot-saving">Saves $199 vs 2 yrs at $12/mo</div>
+                                    <ul class="ot-features">
+                                        <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
+                                        <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
+                                        <li><i class="fas fa-check"></i> WhatsApp OTP auth &amp; alerts</li>
+                                        <li><i class="fas fa-check"></i> 30-day history &amp; reports</li>
+                                        <li><i class="fas fa-check"></i> 2 years access, no recurring fee</li>
+                                    </ul>
+                                    <button class="ot-btn btn-outline" onclick="triggerOnceOffTracking('starter', 89)">
+                                        <i class="fas fa-mobile-alt"></i> Pay $89 via EcoCash
+                                    </button>
+                                </div>
+
+                                <!-- PROFESSIONAL PASS (popular) -->
+                                <div class="ot-plan-card popular">
+                                    <div class="ot-popular-badge"><i class="fas fa-star"></i> Best Value</div>
+                                    <div class="ot-plan-top">
+                                        <div class="ot-plan-icon"><i class="fas fa-bolt"></i></div>
+                                        <h4 class="ot-plan-name">Pro Pass</h4>
+                                        <p class="ot-plan-desc">Up to 50 vehicles &middot; Lifetime tracking access</p>
+                                    </div>
+                                    <div class="ot-price-row">
+                                        <span class="ot-currency">$</span>
+                                        <span class="ot-amount">149</span>
+                                        <span class="ot-unit">/vehicle</span>
+                                    </div>
+                                    <div class="ot-saving">Lifetime &mdash; never pay again</div>
+                                    <ul class="ot-features">
+                                        <li><i class="fas fa-check"></i> Everything in Starter Pass</li>
+                                        <li><i class="fas fa-check"></i> Remote engine immobilizer</li>
+                                        <li><i class="fas fa-check"></i> Fuel siphoning detection</li>
+                                        <li><i class="fas fa-check"></i> Driver insights &amp; scorecards</li>
+                                        <li><i class="fas fa-check"></i> Audit log &amp; compliance exports</li>
+                                        <li><i class="fas fa-check"></i> Lifetime access, no renewals ever</li>
+                                    </ul>
+                                    <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('professional', 149)">
+                                        <i class="fas fa-mobile-alt"></i> Pay $149 via EcoCash
+                                    </button>
+                                </div>
+
+                                <!-- FLEET BUNDLE -->
+                                <div class="ot-plan-card fleet">
+                                    <div class="ot-plan-top">
+                                        <div class="ot-plan-icon"><i class="fas fa-truck"></i></div>
+                                        <h4 class="ot-plan-name">Fleet Bundle</h4>
+                                        <p class="ot-plan-desc">5+ vehicles &middot; Negotiated bulk rate</p>
+                                    </div>
+                                    <div class="ot-price-row">
+                                        <span class="ot-custom-label">Custom Rate</span>
+                                    </div>
+                                    <div class="ot-saving">Volume discounts from 5 vehicles up</div>
+                                    <ul class="ot-features">
+                                        <li><i class="fas fa-check"></i> All Pro Pass features</li>
+                                        <li><i class="fas fa-check"></i> Bulk discount negotiated</li>
+                                        <li><i class="fas fa-check"></i> Dedicated account manager</li>
+                                        <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
+                                        <li><i class="fas fa-check"></i> Group invoicing &amp; receipts</li>
+                                    </ul>
+                                    <button class="ot-btn btn-outline" onclick="window.open('mailto:sales@inferth.com?subject=Fleet%20Bundle%20Once-Off%20Pricing','_blank')">
+                                        <i class="fas fa-envelope"></i> Contact Sales
+                                    </button>
+                                </div>
+
+                            </div><!-- /ot-plans-grid -->
+
+                            <div class="ot-footnote">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>How it works:</strong> Pay once per vehicle &mdash; your tracker stays active for the selected period with zero monthly charges. Pro Pass clients receive lifetime access as long as the platform operates. All payments via Paynow · EcoCash · OneMoney · Zimswitch.
+                            </div>
+                        </div><!-- /billing-onceoff-view -->
 
                         <!-- 2. Prepaid EcoCash Fleet Wallet View -->
                         <div id="billing-prepaid-view" class="hidden">
