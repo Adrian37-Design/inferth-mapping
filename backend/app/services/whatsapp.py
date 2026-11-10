@@ -131,7 +131,7 @@ async def get_active_evolution_session(client: httpx.AsyncClient, base: str, hea
     global _active_session_name, _last_session_check
     import time
     now = time.time()
-    if _active_session_name and (now - _last_session_check) < 45.0:
+    if _active_session_name and (now - _last_session_check) < 300.0:
         return _active_session_name
 
     default_session = settings.WHATSAPP_SESSION
@@ -235,6 +235,20 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                         "http_code": resp.status_code,
                         "response": resp_text[:300]
                     }
+
+                    # If Rate Limited (429), back off or reboot to clear rate-limiter in RAM
+                    if resp.status_code == 429:
+                        print(f"[WhatsApp RATE-LIMIT] Session '{session}' rate-limited on attempt {attempt}")
+                        if attempt >= 2:
+                            print(f"[WhatsApp RATE-LIMIT] Auto-rebooting Evolution container to reset rate-limit window...")
+                            redeploy_res = await trigger_evolution_redeploy()
+                            if redeploy_res.get("status") == "success":
+                                await asyncio.sleep(13.0)
+                            else:
+                                await asyncio.sleep(5.0)
+                        else:
+                            await asyncio.sleep(4.0)
+                        continue
 
                     # If Connection Closed or gateway down, trigger auto-reboot and WAIT for reboot to complete
                     if "Connection Closed" in resp_text or resp.status_code in (500, 502, 503):

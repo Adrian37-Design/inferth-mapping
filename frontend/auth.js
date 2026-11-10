@@ -21,6 +21,11 @@ class AuthManager {
                 this.applyTheme(this.user.theme);
             }
         }
+
+        // Initialize 15-minute inactivity auto-logout on dashboard pages
+        if (!isAuthPage && this.isAuthenticated()) {
+            this.initInactivityTimer(15);
+        }
     }
 
     // Clear authentication data
@@ -240,9 +245,44 @@ class AuthManager {
     }
 
     // Logout
-    logout() {
+    logout(reason = null) {
         this.clearAuth();
-        window.location.href = 'login.html';
+        if (reason === 'inactivity') {
+            window.location.href = 'login.html?timeout=inactivity';
+        } else {
+            window.location.href = 'login.html';
+        }
+    }
+
+    // Inactivity Auto-Logout: Monitors user idle time and logs out after 15 mins
+    initInactivityTimer(timeoutMinutes = 15) {
+        if (!this.isAuthenticated()) return;
+        const isAuthPage = window.location.pathname.includes('login.html') ||
+                           window.location.pathname.includes('signup.html') ||
+                           window.location.pathname.includes('setup.html');
+        if (isAuthPage) return;
+
+        if (this._inactivityTimerInitialized) return;
+        this._inactivityTimerInitialized = true;
+
+        const timeoutMs = timeoutMinutes * 60 * 1000;
+        let lastActivity = Date.now();
+
+        const recordActivity = () => {
+            lastActivity = Date.now();
+        };
+
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(evt => {
+            window.addEventListener(evt, recordActivity, { passive: true });
+        });
+
+        // Periodic idle check every 25 seconds
+        setInterval(() => {
+            if (this.isAuthenticated() && (Date.now() - lastActivity > timeoutMs)) {
+                console.warn('[AuthManager] Session timed out due to 15m inactivity.');
+                this.logout('inactivity');
+            }
+        }, 25000);
     }
 
     // Initialize signup page
@@ -465,6 +505,18 @@ class AuthManager {
                 errorMsg.style.background = 'rgba(16, 185, 129, 0.1)';
                 errorMsg.style.color = '#10b981';
                 errorMsg.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                errorMsg.classList.add('show');
+            }
+        }
+
+        const timeoutReason = urlParams.get('timeout');
+        if (timeoutReason === 'inactivity') {
+            const errorMsg = document.getElementById('error-message');
+            if (errorMsg) {
+                errorMsg.textContent = 'You have been automatically logged out due to inactivity for security. Please sign in again.';
+                errorMsg.style.background = 'rgba(245, 158, 11, 0.12)';
+                errorMsg.style.color = '#f59e0b';
+                errorMsg.style.borderColor = 'rgba(245, 158, 11, 0.3)';
                 errorMsg.classList.add('show');
             }
         }
@@ -925,6 +977,7 @@ class AuthManager {
         if (user.theme) {
             this.applyTheme(user.theme);
         }
+        this.initInactivityTimer(15);
     }
 }
 

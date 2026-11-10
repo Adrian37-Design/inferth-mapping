@@ -265,9 +265,11 @@ async def _whatsapp_keepalive_loop():
 
     await asyncio.sleep(60)  # Let the app fully boot before first ping
 
+    _settings_configured = False
+
     while True:
         if not (settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL):
-            await asyncio.sleep(120)
+            await asyncio.sleep(300)
             continue
 
         base = settings.WHATSAPP_API_URL.strip().rstrip("/")
@@ -276,7 +278,7 @@ async def _whatsapp_keepalive_loop():
         session = settings.WHATSAPP_SESSION
         headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
 
-        # Ping WhatsApp gateway to keep container and socket awake
+        # Ping WhatsApp gateway gently (every 5 minutes, avoiding rate limits)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 if settings.WHATSAPP_PROVIDER == "waha":
@@ -296,25 +298,28 @@ async def _whatsapp_keepalive_loop():
                                 if r_conn.status_code != 200 or (r_conn.json().get("instance") or {}).get("state") == "close":
                                     from app.services.whatsapp import trigger_evolution_redeploy
                                     await trigger_evolution_redeploy()
+                            # Apply settings once per boot, never repeatedly
+                            if not _settings_configured:
+                                valid_settings = {
+                                    "rejectCall": False,
+                                    "msgCall": "",
+                                    "groupsIgnore": True,
+                                    "alwaysOnline": True,
+                                    "readMessages": False,
+                                    "readStatus": False,
+                                    "syncFullHistory": False
+                                }
+                                await client.post(f"{base}/settings/set/{target_sess}", headers=headers, json=valid_settings)
+                                _settings_configured = True
                         except Exception:
                             pass
+                    elif r.status_code == 429:
+                        print(f"[WA-ping] Rate limited by Evolution API (429) — backing off for 180s...")
+                        await asyncio.sleep(180)
+                        continue
                     elif r.status_code in (500, 502, 503):
                         from app.services.whatsapp import trigger_evolution_redeploy
                         await trigger_evolution_redeploy()
-                    # Enforce complete Evolution API v2 settings schema (prevents schema validation error logs)
-                    try:
-                        valid_settings = {
-                            "rejectCall": False,
-                            "msgCall": "",
-                            "groupsIgnore": True,
-                            "alwaysOnline": True,
-                            "readMessages": False,
-                            "readStatus": False,
-                            "syncFullHistory": False
-                        }
-                        await client.post(f"{base}/settings/set/{target_sess}", headers=headers, json=valid_settings)
-                    except Exception:
-                        pass
                 print(f"[WA-ping] connectionState ({target_sess}) -> {r.status_code}")
         except Exception as e:
             print(f"[WA-ping] failed: {e}")
@@ -327,7 +332,7 @@ async def _whatsapp_keepalive_loop():
         except Exception as e:
             print(f"[self-keepalive] ping failed: {e}")
 
-        await asyncio.sleep(120)  # 2-minute cycle
+        await asyncio.sleep(300)  # Gentle 5-minute cycle
 
 
 @app.on_event("startup")

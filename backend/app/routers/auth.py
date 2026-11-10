@@ -804,12 +804,20 @@ async def get_latest_otp():
     return {"latest_codes": _latest_otps[-5:]}
 
 
+_last_warm_gateway_ts: float = 0.0
+_cached_warm_gateway_result: dict = {"status": "ready"}
+
 @router.get("/warm-gateway")
 async def warm_gateway():
     """Background pre-warm triggered whenever the login page opens.
-    Verifies that WhatsApp socket is healthy. If closed, reboots the container
-    while the user is still on the login page typing their credentials!
+    Cached for 180 seconds to avoid tripping Evolution API rate limits.
     """
+    global _last_warm_gateway_ts, _cached_warm_gateway_result
+    import time
+    now = time.time()
+    if (now - _last_warm_gateway_ts) < 180.0:
+        return _cached_warm_gateway_result
+
     from app.services.whatsapp import get_active_evolution_session, trigger_evolution_redeploy
     import httpx
     if not (settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL):
@@ -825,18 +833,26 @@ async def warm_gateway():
             sess = await get_active_evolution_session(client, base, headers)
             # Query instance connection state
             r = await client.get(f"{base}/instance/connectionState/{sess}", headers=headers)
+            _last_warm_gateway_ts = now
             if r.status_code == 200:
                 data = r.json()
                 state = (data.get("instance") or {}).get("state") or data.get("state")
                 if state == "close":
                     print(f"[WarmGateway] State is 'close' on {sess} — auto-rebooting container before user signs in...")
                     reboot_res = await trigger_evolution_redeploy()
-                    return {"status": "rebooting", "session": sess, "result": reboot_res}
-                return {"status": "ready", "session": sess, "state": state}
+                    _cached_warm_gateway_result = {"status": "rebooting", "session": sess, "result": reboot_res}
+                    return _cached_warm_gateway_result
+                _cached_warm_gateway_result = {"status": "ready", "session": sess, "state": state}
+                return _cached_warm_gateway_result
+            elif r.status_code == 429:
+                print(f"[WarmGateway] Rate limited by Evolution API — pausing checks for 180s")
+                _cached_warm_gateway_result = {"status": "rate_limited"}
+                return _cached_warm_gateway_result
             elif r.status_code in (500, 502, 503):
                 print(f"[WarmGateway] Gateway error {r.status_code} — auto-rebooting container...")
                 reboot_res = await trigger_evolution_redeploy()
-                return {"status": "rebooting", "session": sess, "result": reboot_res}
+                _cached_warm_gateway_result = {"status": "rebooting", "session": sess, "result": reboot_res}
+                return _cached_warm_gateway_result
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
