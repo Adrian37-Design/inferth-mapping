@@ -452,6 +452,9 @@ class AuthManager {
     // Initialize login page — credentials & OTP steps
     // ====================================================================
     async initLoginPage() {
+        // Pre-warm / health-check WhatsApp gateway immediately when user opens login page
+        fetch('/auth/warm-gateway').catch(() => {});
+
         const urlParams = new URLSearchParams(window.location.search);
         const setupSuccess = urlParams.get('setup_success');
 

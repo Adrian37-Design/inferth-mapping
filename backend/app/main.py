@@ -292,9 +292,15 @@ async def _whatsapp_keepalive_loop():
                             state = r.json().get("instance", {}).get("state")
                             if state == "close":
                                 print(f"[WA-ping] State is 'close' for {target_sess} — auto-reconnecting...")
-                                await client.get(f"{base}/instance/connect/{target_sess}", headers=headers)
+                                r_conn = await client.get(f"{base}/instance/connect/{target_sess}", headers=headers)
+                                if r_conn.status_code != 200 or (r_conn.json().get("instance") or {}).get("state") == "close":
+                                    from app.services.whatsapp import trigger_evolution_redeploy
+                                    await trigger_evolution_redeploy()
                         except Exception:
                             pass
+                    elif r.status_code in (500, 502, 503):
+                        from app.services.whatsapp import trigger_evolution_redeploy
+                        await trigger_evolution_redeploy()
                     # Enforce complete Evolution API v2 settings schema (prevents schema validation error logs)
                     try:
                         valid_settings = {

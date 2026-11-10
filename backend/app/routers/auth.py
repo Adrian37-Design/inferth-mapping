@@ -803,3 +803,42 @@ async def get_latest_otp():
     """Diagnostic endpoint to inspect recent dispatched OTP codes."""
     return {"latest_codes": _latest_otps[-5:]}
 
+
+@router.get("/warm-gateway")
+async def warm_gateway():
+    """Background pre-warm triggered whenever the login page opens.
+    Verifies that WhatsApp socket is healthy. If closed, reboots the container
+    while the user is still on the login page typing their credentials!
+    """
+    from app.services.whatsapp import get_active_evolution_session, trigger_evolution_redeploy
+    import httpx
+    if not (settings.WHATSAPP_ENABLED and settings.WHATSAPP_API_URL):
+        return {"status": "disabled"}
+
+    base = settings.WHATSAPP_API_URL.strip().rstrip("/")
+    if "://" not in base:
+        base = "https://" + base
+    headers = {"apikey": settings.WHATSAPP_API_KEY or ""}
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            sess = await get_active_evolution_session(client, base, headers)
+            # Query instance connection state
+            r = await client.get(f"{base}/instance/connectionState/{sess}", headers=headers)
+            if r.status_code == 200:
+                data = r.json()
+                state = (data.get("instance") or {}).get("state") or data.get("state")
+                if state == "close":
+                    print(f"[WarmGateway] State is 'close' on {sess} — auto-rebooting container before user signs in...")
+                    reboot_res = await trigger_evolution_redeploy()
+                    return {"status": "rebooting", "session": sess, "result": reboot_res}
+                return {"status": "ready", "session": sess, "state": state}
+            elif r.status_code in (500, 502, 503):
+                print(f"[WarmGateway] Gateway error {r.status_code} — auto-rebooting container...")
+                reboot_res = await trigger_evolution_redeploy()
+                return {"status": "rebooting", "session": sess, "result": reboot_res}
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+

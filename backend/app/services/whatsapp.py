@@ -205,8 +205,8 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                     await asyncio.sleep(2.0)
                 return False
 
-            # Evolution API provider
-            for attempt in range(1, 4):
+            # Evolution API provider (up to 4 attempts with reboot-aware wait)
+            for attempt in range(1, 5):
                 # Dynamically determine the best session (handles instance migration e.g. inferth2)
                 session = await get_active_evolution_session(client, base, headers)
                 url = f"{base}/message/sendText/{session}"
@@ -236,16 +236,18 @@ async def send_whatsapp(msisdn: str, text: str) -> bool:
                         "response": resp_text[:300]
                     }
 
-                    # If Connection Closed, clear session cache so it looks for another active instance
+                    # If Connection Closed or gateway down, trigger auto-reboot and WAIT for reboot to complete
                     if "Connection Closed" in resp_text or resp.status_code in (500, 502, 503):
                         _active_session_name = None
                         print(f"[WhatsApp RECONNECT] Baileys socket closed on '{session}'; triggering auto-heal...")
-                        await trigger_evolution_redeploy()
-                        try:
-                            await client.get(f"{base}/instance/connect/{session}", headers=headers)
-                        except Exception:
-                            pass
-                        await asyncio.sleep(4.0)
+                        redeploy_res = await trigger_evolution_redeploy()
+                        # If a reboot was successfully initiated, wait for the container to finish rebooting (~13s)
+                        # so the NEXT attempt sends the message rather than failing while booting!
+                        if redeploy_res.get("status") == "success":
+                            print(f"[WhatsApp RECONNECT] Evolution API reboot in progress; waiting 13s for boot completion...")
+                            await asyncio.sleep(13.0)
+                        else:
+                            await asyncio.sleep(3.0)
                     else:
                         await asyncio.sleep(2.0)
 
