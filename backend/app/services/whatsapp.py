@@ -49,12 +49,37 @@ async def trigger_evolution_redeploy() -> dict:
                             if node.get("name") in ("production", "prod"):
                                 break
 
-                payload = {
-                    "query": """mutation serviceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
-                        serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
+                # Try deploymentRestart on latest active deployment first (Project Tokens typically have permission for this)
+                q_dep = {
+                    "query": """query getLatestDeployment($serviceId: String!, $environmentId: String!) {
+                        deployments(input: { serviceId: $serviceId, environmentId: $environmentId }) {
+                            edges { node { id status } }
+                        }
                     }""",
-                    "variables": {"environmentId": resolved_env or env_id, "serviceId": svc_id}
+                    "variables": {"serviceId": svc_id, "environmentId": resolved_env}
                 }
+                r_dep = await client.post(gql_url, headers=headers, json=q_dep)
+                dep_data = r_dep.json()
+                dep_edges = (((dep_data.get("data") or {}).get("deployments") or {}).get("edges") or [])
+                latest_dep_id = None
+                for de in dep_edges:
+                    node = de.get("node") or {}
+                    if node.get("status") in ("SUCCESS", "INITIALIZING"):
+                        latest_dep_id = node.get("id")
+                        break
+                if not latest_dep_id and dep_edges:
+                    latest_dep_id = dep_edges[0].get("node", {}).get("id")
+
+                if latest_dep_id:
+                    payload = {
+                        "query": "mutation restartDep($id: String!) { deploymentRestart(id: $id) }",
+                        "variables": {"id": latest_dep_id}
+                    }
+                else:
+                    payload = {
+                        "query": "mutation serviceInstanceRedeploy($environmentId: String!, $serviceId: String!) { serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId) }",
+                        "variables": {"environmentId": resolved_env or env_id, "serviceId": svc_id}
+                    }
                 r = await client.post(gql_url, headers=headers, json=payload)
                 print(f"[WhatsApp AUTO-HEAL] Triggered Evolution restart via Railway GraphQL! Status: {r.status_code}, Body: {r.text[:200]}")
                 return {"status": "success", "method": "railway_api", "http_code": r.status_code, "response": r.json() if r.status_code == 200 else r.text[:200], "resolved_env": resolved_env}
