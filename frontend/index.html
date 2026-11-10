@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=156">
+    <link rel="stylesheet" href="/static/app.css?v=157">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -682,44 +682,57 @@
                         <h4 class="section-title">Rules Engine</h4>
                     </div>
 
-                    <!-- Rule Builder UI (Sentence Form) -->
+                    <!-- Rule Builder UI -->
                     <div class="rules-builder-card">
-                        <div class="sentence-builder">
-                            <span>Notify me when</span>
-                            <select id="rule-asset" class="dd-select inline-select">
-                                <option value="all">Any Vehicle</option>
-                            </select>
-                            <span>triggers</span>
-                            <select id="rule-event" class="dd-select inline-select">
-                                <option value="speeding">Speeding</option>
-                                <option value="geofence_entry">Geofence Entry</option>
-                                <option value="geofence_exit">Geofence Exit</option>
-                                <option value="power_alarm">Power Alarm (Cut)</option>
-                                <option value="sensor_alarm">Sensor Alarm (Vibration)</option>
-                                <option value="offline">Offline</option>
-                                <option value="harsh_braking">Harsh Braking</option>
-                            </select>
-                            <!-- Dynamic Input (Visible based on event) -->
-                            <span id="rule-value-container">
-                                <span>over</span>
-                                <input type="number" id="rule-value" class="inline-input" placeholder="0" value="80">
-                                <span id="rule-unit">km/h</span>
-                            </span>
-                        </div>
-                        <div class="sentence-builder-row2">
-                            <span>via</span>
-                            <select id="rule-channel" class="dd-select inline-select">
-                                <option value="email">Email</option>
-                                <option value="sms">SMS</option>
-                                <option value="whatsapp">WhatsApp</option>
-                            </select>
-                            <span id="contact-container" style="display: inline; margin-left: 10px;">
-                                <input type="text" id="rule-contact" class="inline-input"
-                                    placeholder="Enter email address..." style="min-width: 150px;">
-                            </span>
-                            <button id="save-rule-btn" class="btn-primary btn-sm" onclick="saveRule()">
-                                <i class="fas fa-plus"></i> Save Rule
-                            </button>
+                        <div class="rule-builder-grid">
+                            <div class="rule-field">
+                                <label class="rule-field-label" for="rule-asset">Vehicle</label>
+                                <select id="rule-asset" class="dd-select rule-control">
+                                    <option value="all">Any Vehicle</option>
+                                </select>
+                            </div>
+
+                            <div class="rule-field">
+                                <label class="rule-field-label" for="rule-event">Event</label>
+                                <select id="rule-event" class="dd-select rule-control">
+                                    <option value="speeding">Speeding</option>
+                                    <option value="geofence_entry">Geofence Entry</option>
+                                    <option value="geofence_exit">Geofence Exit</option>
+                                    <option value="power_alarm">Power Alarm (Cut)</option>
+                                    <option value="sensor_alarm">Sensor Alarm (Vibration)</option>
+                                    <option value="offline">Offline</option>
+                                    <option value="harsh_braking">Harsh Braking</option>
+                                </select>
+                            </div>
+
+                            <!-- Threshold is shown only for events that carry a value -->
+                            <div class="rule-field" id="rule-value-container">
+                                <label class="rule-field-label" for="rule-value">Threshold</label>
+                                <div class="rule-control-inline">
+                                    <input type="number" id="rule-value" class="rule-control" placeholder="0" value="80" min="0">
+                                    <span id="rule-unit" class="rule-unit">km/h</span>
+                                </div>
+                            </div>
+
+                            <div class="rule-field">
+                                <label class="rule-field-label" for="rule-channel">Notify via</label>
+                                <select id="rule-channel" class="dd-select rule-control">
+                                    <option value="email">Email</option>
+                                    <option value="sms">SMS</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                </select>
+                            </div>
+
+                            <div class="rule-field" id="contact-container">
+                                <label class="rule-field-label" for="rule-contact">Contact</label>
+                                <input type="text" id="rule-contact" class="rule-control" placeholder="Enter email address">
+                            </div>
+
+                            <div class="rule-field rule-field-action">
+                                <button id="save-rule-btn" class="btn-primary btn-sm rule-save" onclick="saveRule()">
+                                    <i class="fas fa-plus"></i> Save Rule
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -933,12 +946,12 @@
 
                                 <details class="faq-item" data-faq-id="supported-trackers">
                                     <summary>Which trackers are supported?</summary>
-                                    <div class="faq-answer"><p>Hardwired GT06, Sinotrack, Teltonika and H02-family units, in 2G and 4G versions. If you are buying new hardware, confirm the model with us before fitting an unlisted device.</p></div>
+                                    <div class="faq-answer"><p>All trackers are supported. The platform already reads the common GT06, Sinotrack, Teltonika and H02 families in 2G and 4G, and any other unit can be onboarded by pointing its server address and port at ours. If a model reports in a protocol we have not seen before, send us the model and IMEI and we will add it.</p></div>
                                 </details>
 
                                 <details class="faq-item" data-faq-id="own-tracker">
                                     <summary>Can I use a tracker I already own?</summary>
-                                    <div class="faq-answer"><p>Usually yes, provided it reports on one of the supported protocols. Send us the model and IMEI and we will confirm; the device may need the server address and port set to ours.</p></div>
+                                    <div class="faq-answer"><p>Yes. Any unit can be onboarded, whatever the brand or age. Send us the model and IMEI and we will confirm the setup; existing devices usually only need the server address and port changed to ours.</p></div>
                                 </details>
 
                                 <details class="faq-item" data-faq-id="hardware-cost">
@@ -2067,7 +2080,7 @@
     <script src="/static/auth.js?v=65"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=156"></script>
+    <script src="/static/app.js?v=157"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

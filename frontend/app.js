@@ -6973,10 +6973,12 @@ function renderRules() {
         list.innerHTML = '<p class="empty-state">No rules defined. Try creating one above.</p>';
     } else {
         list.innerHTML = activeRules.map(rule => {
-            const eventLabel = rule.event_type.replace('_', ' ').charAt(0).toUpperCase() + rule.event_type.replace('_', ' ').slice(1);
-            let text = `Notify me when <strong>Vehicle</strong> triggers <strong>${eventLabel}</strong>`;
-            if (rule.event_type === 'speeding') text += ` (>${rule.threshold} km/h)`;
-            text += ` via <strong>${rule.channel}</strong>`;
+            const eventLabel = rule.event_type.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+            const channelLabel = { email: 'Email', sms: 'SMS', whatsapp: 'WhatsApp' }[rule.channel] || rule.channel;
+            const target = rule.device_id ? 'this vehicle' : 'any vehicle';
+            let text = `Notify me when <strong>${target}</strong> triggers <strong>${eventLabel}</strong>`;
+            if (rule.event_type === 'speeding' && rule.threshold) text += ` (over ${rule.threshold} km/h)`;
+            text += ` via <strong>${channelLabel}</strong>`;
             
             return `
             <div class="rule-item">
