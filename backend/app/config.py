@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     WHATSAPP_API_KEY: str | None = None
     WHATSAPP_SESSION: str = "inferth"  # Evolution "instance" / WAHA "session" name
     EVOLUTION_REDEPLOY_WEBHOOK_URL: str | None = None
+    RAILWAY_API_TOKEN: str | None = None
+    RAILWAY_EVOLUTION_SERVICE_ID: str = "b3a77ae0-f189-49c2-9de0-ba40108aeb62"
     SMS_SENDER: str = "Inferth" # Sender ID (Alphanumeric or Number)
     
     # Twilio Specific

@@ -15,26 +15,55 @@ _last_redeploy_trigger: float = 0.0
 
 
 async def trigger_evolution_redeploy() -> dict:
-    """Trigger a Railway container restart/redeploy for the Evolution API service via webhook."""
+    """Trigger a Railway container restart/redeploy for the Evolution API service.
+    Supports either Railway GraphQL API Token or Webhook URL.
+    """
     global _last_redeploy_trigger
-    import time
-    webhook_url = (settings.EVOLUTION_REDEPLOY_WEBHOOK_URL or "").strip()
-    if not webhook_url:
-        return {"status": "skipped", "message": "EVOLUTION_REDEPLOY_WEBHOOK_URL not configured in Railway"}
-    
+    import time, os
     now = time.time()
-    if (now - _last_redeploy_trigger) < 120.0:
+    if (now - _last_redeploy_trigger) < 90.0:
         return {"status": "debounced", "message": f"Redeploy already triggered {int(now - _last_redeploy_trigger)}s ago"}
-    
+
     _last_redeploy_trigger = now
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            r = await client.post(webhook_url)
-            print(f"[WhatsApp AUTO-HEAL] Triggered Evolution API container redeploy via Railway Webhook! Status: {r.status_code}")
-            return {"status": "success", "http_code": r.status_code, "response": r.text[:200]}
-    except Exception as e:
-        print(f"[WhatsApp AUTO-HEAL] Failed to trigger Evolution API redeploy: {e}")
-        return {"status": "error", "error": str(e)}
+
+    # Strategy 1: Railway Official GraphQL API
+    token = (settings.RAILWAY_API_TOKEN or os.environ.get("RAILWAY_API_TOKEN") or "").strip()
+    if token:
+        env_id = os.environ.get("RAILWAY_ENVIRONMENT_ID") or "production"
+        svc_id = settings.RAILWAY_EVOLUTION_SERVICE_ID
+        gql_url = "https://backboard.railway.app/graphql/v2"
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        payload = {
+            "query": """mutation serviceInstanceRedeploy($environmentId: String!, $serviceId: String!) {
+                serviceInstanceRedeploy(environmentId: $environmentId, serviceId: $serviceId)
+            }""",
+            "variables": {"environmentId": env_id, "serviceId": svc_id}
+        }
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(gql_url, headers=headers, json=payload)
+                print(f"[WhatsApp AUTO-HEAL] Triggered Evolution restart via Railway GraphQL! Status: {r.status_code}, Body: {r.text[:200]}")
+                return {"status": "success", "method": "railway_api", "http_code": r.status_code, "response": r.json() if r.status_code == 200 else r.text[:200]}
+        except Exception as e:
+            print(f"[WhatsApp AUTO-HEAL] Railway GraphQL error: {e}")
+            return {"status": "error", "method": "railway_api", "error": str(e)}
+
+    # Strategy 2: Webhook URL fallback
+    webhook_url = (settings.EVOLUTION_REDEPLOY_WEBHOOK_URL or "").strip()
+    if webhook_url:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(webhook_url)
+                print(f"[WhatsApp AUTO-HEAL] Triggered Evolution restart via Webhook! Status: {r.status_code}")
+                return {"status": "success", "method": "webhook", "http_code": r.status_code, "response": r.text[:200]}
+        except Exception as e:
+            print(f"[WhatsApp AUTO-HEAL] Webhook error: {e}")
+            return {"status": "error", "method": "webhook", "error": str(e)}
+
+    return {
+        "status": "unconfigured",
+        "message": "Set RAILWAY_API_TOKEN in backend Variables to enable 100% automated container reboots."
+    }
 
 
 def normalize_msisdn(raw: str | None) -> str | None:
