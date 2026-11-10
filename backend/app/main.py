@@ -283,17 +283,24 @@ async def _whatsapp_keepalive_loop():
                     r = await client.get(f"{base}/api/health",
                                          headers={"X-Api-Key": settings.WHATSAPP_API_KEY or ""})
                 else:
-                    r = await client.get(f"{base}/instance/connectionState/{session}",
+                    from app.services.whatsapp import get_active_evolution_session
+                    target_sess = await get_active_evolution_session(client, base, headers)
+                    r = await client.get(f"{base}/instance/connectionState/{target_sess}",
                                          headers=headers)
                     if r.status_code == 200:
                         try:
                             state = r.json().get("instance", {}).get("state")
                             if state == "close":
-                                print(f"[WA-ping] State is 'close' — auto-reconnecting...")
-                                await client.get(f"{base}/instance/connect/{session}", headers=headers)
+                                print(f"[WA-ping] State is 'close' for {target_sess} — auto-reconnecting...")
+                                await client.get(f"{base}/instance/connect/{target_sess}", headers=headers)
                         except Exception:
                             pass
-                print(f"[WA-ping] connectionState -> {r.status_code}")
+                    # Ensure alwaysOnline presence is maintained so WhatsApp never times out
+                    try:
+                        await client.post(f"{base}/settings/set/{target_sess}", headers=headers, json={"alwaysOnline": True, "rejectCall": False})
+                    except Exception:
+                        pass
+                print(f"[WA-ping] connectionState ({target_sess}) -> {r.status_code}")
         except Exception as e:
             print(f"[WA-ping] failed: {e}")
 
