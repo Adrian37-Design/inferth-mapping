@@ -27,7 +27,7 @@ async def trigger_evolution_redeploy() -> dict:
     _last_redeploy_trigger = now
 
     # Strategy 1: Railway Official GraphQL API
-    token = (settings.RAILWAY_API_TOKEN or os.environ.get("RAILWAY_API_TOKEN") or "").strip()
+    token = (settings.RAILWAY_TOKEN or settings.RAILWAY_API_TOKEN or os.environ.get("RAILWAY_TOKEN") or os.environ.get("RAILWAY_API_TOKEN") or "").strip()
     if token:
         env_id = os.environ.get("RAILWAY_ENVIRONMENT_ID") or "production"
         svc_id = settings.RAILWAY_EVOLUTION_SERVICE_ID
