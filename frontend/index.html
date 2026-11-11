@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=158">
-    <link rel="stylesheet" href="/static/spotlight.css?v=4">
+    <link rel="stylesheet" href="/static/app.css?v=160">
+    <link rel="stylesheet" href="/static/spotlight.css?v=5">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
     <link rel="stylesheet" href="/static/insights.css?v=4">
@@ -1376,15 +1376,33 @@
                 <!-- Tab: Billing & Subscription (Step 10) -->
                 <div id="tab-billing" class="tab-content">
                     <div class="billing-container">
-                        <!-- Founder Billing Model Switcher (Monthly vs Prepaid EcoCash Wallet) -->
-                        <div class="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px;">
-                            <button type="button" class="billing-pill active" id="btn-billing-monthly" onclick="switchBillingPlanMode('monthly')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+                        <!-- Eye-Catcher Hero: Use Your Own Tracker (BYOT) / Platform Rental -->
+                        <div class="byot-hero-card" onclick="switchBillingPlanMode('byot')">
+                            <div class="byot-hero-badge"><i class="fas fa-plug"></i> ZERO HARDWARE PURCHASE REQUIRED</div>
+                            <div class="byot-hero-content">
+                                <div class="byot-hero-text">
+                                    <h3 class="byot-hero-title">Already Have a GPS Tracker? Use It on Inferth &amp; Save Up to 60%</h3>
+                                    <p class="byot-hero-desc">Have a SinoTrack, GT06, Coban, or Teltonika tracker installed? Connect it to Inferth Mapping in under 2 minutes with a simple SMS command &mdash; keep your existing hardware, zero rewiring!</p>
+                                </div>
+                                <button type="button" class="byot-hero-cta" onclick="event.stopPropagation(); switchBillingPlanMode('byot');">
+                                    <span>Connect My Tracker</span>
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Founder Billing Model Switcher (Monthly vs Once-Off vs BYOT vs Prepaid) -->
+                        <div class="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px; flex-wrap:wrap;">
+                            <button type="button" class="billing-pill active" id="btn-billing-monthly" onclick="switchBillingPlanMode('monthly')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
                                 <i class="fas fa-calendar-alt"></i> Monthly
                             </button>
-                            <button type="button" class="billing-pill" id="btn-billing-onceoff" onclick="switchBillingPlanMode('onceoff')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
+                            <button type="button" class="billing-pill" id="btn-billing-onceoff" onclick="switchBillingPlanMode('onceoff')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
                                 <i class="fas fa-bolt"></i> Once-Off Payment
                             </button>
-                            <button type="button" class="billing-pill" id="btn-billing-prepaid" onclick="switchBillingPlanMode('prepaid')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
+                            <button type="button" class="billing-pill" id="btn-billing-byot" onclick="switchBillingPlanMode('byot')" style="flex:1; min-width:150px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
+                                <i class="fas fa-plug"></i> Use Your Tracker (BYOT)
+                            </button>
+                            <button type="button" class="billing-pill" id="btn-billing-prepaid" onclick="switchBillingPlanMode('prepaid')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
                                 <i class="fas fa-wallet"></i> Prepaid Wallet
                             </button>
                         </div>
@@ -1563,6 +1581,152 @@
 
                         </div><!-- /billing-onceoff-view -->
 
+                        <!-- 2c. Bring Your Own Tracker (BYOT) & Platform Rental View -->
+                        <div id="billing-byot-view" class="hidden">
+                            <!-- Hero intro for BYOT -->
+                            <div class="byot-header-banner">
+                                <div class="byot-header-icon"><i class="fas fa-plug-circle-bolt"></i></div>
+                                <div>
+                                    <h3 class="byot-header-title">Bring Your Own Tracker &mdash; Software-Only Plans</h3>
+                                    <p class="byot-header-desc">
+                                        Don&rsquo;t buy expensive new hardware. If your car or truck already has a <strong>SinoTrack, GT06, Coban, Concox, or Teltonika</strong> GPS unit installed, you can switch to Inferth Mapping in under 2 minutes. Keep your tracker, wire nothing &mdash; just enjoy our real-time map, fuel telemetry, and WhatsApp alerts.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- BYOT Plans Grid -->
+                            <div class="byot-plans-grid">
+                                <!-- PLAN 1: BYOT Monthly -->
+                                <div class="byot-card">
+                                    <div class="byot-card-top">
+                                        <div class="byot-card-icon"><i class="fas fa-mobile-screen"></i></div>
+                                        <h4 class="byot-card-title">BYOT Monthly</h4>
+                                        <p class="byot-card-subtitle">Connect your existing tracker on a flexible monthly pay-as-you-go software plan.</p>
+                                    </div>
+                                    <div class="byot-price-box">
+                                        <span class="byot-currency">$</span>
+                                        <span class="byot-price">7</span>
+                                        <span class="byot-unit">/vehicle/month</span>
+                                    </div>
+                                    <div class="byot-subnote">Or $65/year &mdash; saves $19</div>
+                                    <ul class="byot-features">
+                                        <li><i class="fas fa-check"></i> Connect any GT06, SinoTrack, Coban, Teltonika</li>
+                                        <li><i class="fas fa-check"></i> Real-time live GPS tracking (10s updates)</li>
+                                        <li><i class="fas fa-check"></i> Instant WhatsApp OTP login &amp; alerts</li>
+                                        <li><i class="fas fa-check"></i> 30-day route history &amp; playback</li>
+                                        <li><i class="fas fa-check"></i> Up to 5 geofence zones</li>
+                                        <li><i class="fas fa-check"></i> Cancel or switch anytime</li>
+                                    </ul>
+                                    <button type="button" class="byot-btn btn-outline" onclick="triggerByotPayment('Monthly', 7)">
+                                        <i class="fas fa-credit-card"></i> Start at $7/mo
+                                    </button>
+                                </div>
+
+                                <!-- PLAN 2: BYOT Lifetime Pass (Featured) -->
+                                <div class="byot-card featured">
+                                    <div class="byot-badge-popular"><i class="fas fa-crown"></i> BEST FOUNDER VALUE</div>
+                                    <div class="byot-card-top">
+                                        <div class="byot-card-icon"><i class="fas fa-infinity"></i></div>
+                                        <h4 class="byot-card-title">BYOT Lifetime Pass</h4>
+                                        <p class="byot-card-subtitle">Pay once, track forever. Use your own hardware with zero monthly fees for life.</p>
+                                    </div>
+                                    <div class="byot-price-box">
+                                        <span class="byot-currency">$</span>
+                                        <span class="byot-price">99</span>
+                                        <span class="byot-unit">/vehicle once-off</span>
+                                    </div>
+                                    <div class="byot-subnote highlight"><i class="fas fa-fire"></i> Never pay another subscription bill</div>
+                                    <ul class="byot-features">
+                                        <li><i class="fas fa-check"></i> All BYOT Monthly features included</li>
+                                        <li><i class="fas fa-check"></i> <strong>Lifetime platform access</strong> (no renewals)</li>
+                                        <li><i class="fas fa-check"></i> Remote immobilizer cutoff command</li>
+                                        <li><i class="fas fa-check"></i> Fuel siphoning detection (if probe wired)</li>
+                                        <li><i class="fas fa-check"></i> Driver performance &amp; scorecards</li>
+                                        <li><i class="fas fa-check"></i> Transferable to new car / IMEI anytime</li>
+                                    </ul>
+                                    <button type="button" class="byot-btn btn-primary" onclick="triggerByotPayment('Lifetime_Pass', 99)">
+                                        <i class="fas fa-bolt"></i> Get Lifetime Pass ($99)
+                                    </button>
+                                </div>
+
+                                <!-- PLAN 3: Platform Fleet Rental (For Transporters & Auto-Electricians) -->
+                                <div class="byot-card rental">
+                                    <div class="byot-card-top">
+                                        <div class="byot-card-icon"><i class="fas fa-server"></i></div>
+                                        <h4 class="byot-card-title">Platform Fleet Rental</h4>
+                                        <p class="byot-card-subtitle">For fleet managers &amp; auto-electricians renting the software console for multiple trackers.</p>
+                                    </div>
+                                    <div class="byot-price-box">
+                                        <span class="byot-currency">$</span>
+                                        <span class="byot-price">49</span>
+                                        <span class="byot-unit">/month flat</span>
+                                    </div>
+                                    <div class="byot-subnote">Covers up to 10 vehicles ($4.90/truck)</div>
+                                    <ul class="byot-features">
+                                        <li><i class="fas fa-check"></i> <strong>Console Rental for 10 vehicles</strong> ($49/mo)</li>
+                                        <li><i class="fas fa-check"></i> <strong>30-vehicle fleet pack:</strong> $99/mo</li>
+                                        <li><i class="fas fa-check"></i> <strong>100-vehicle fleet pack:</strong> $199/mo</li>
+                                        <li><i class="fas fa-check"></i> Multi-user manager &amp; viewer accounts</li>
+                                        <li><i class="fas fa-check"></i> Automated Excel/PDF weekly fuel reports</li>
+                                        <li><i class="fas fa-check"></i> Dedicated WhatsApp support SLA</li>
+                                    </ul>
+                                    <button type="button" class="byot-btn btn-outline" onclick="triggerByotPayment('Fleet_Rental_10', 49)">
+                                        <i class="fas fa-building"></i> Rent Fleet Console ($49)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 2-Minute SMS Setup Guide (How to connect your tracker) -->
+                            <div class="byot-setup-guide">
+                                <div class="byot-setup-header">
+                                    <i class="fas fa-screwdriver-wrench"></i>
+                                    <div>
+                                        <h4 style="margin:0 0 4px; font-size:1rem; color:#0f172a; font-weight:800;">How to Connect Your Tracker in 2 Minutes</h4>
+                                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Send a quick SMS to the SIM card inside your vehicle&rsquo;s tracker, then register the IMEI in your Inferth dashboard:</p>
+                                    </div>
+                                </div>
+
+                                <div class="byot-sms-grid">
+                                    <!-- SinoTrack -->
+                                    <div class="byot-sms-card">
+                                        <div class="byot-sms-model"><i class="fas fa-satellite"></i> SinoTrack (ST-901, ST-906, etc.)</div>
+                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
+                                        <code class="byot-sms-code">8030000 inferth-mapping.up.railway.app 5013</code>
+                                        <span class="byot-sms-sub">Port 5013 &middot; Protocol SinoTrack TCP</span>
+                                    </div>
+
+                                    <!-- GT06 / Generic Chinese -->
+                                    <div class="byot-sms-card">
+                                        <div class="byot-sms-model"><i class="fas fa-microchip"></i> GT06 / Concox / Generic Clone</div>
+                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
+                                        <code class="byot-sms-code">SERVER,1,inferth-mapping.up.railway.app,5023,0#</code>
+                                        <span class="byot-sms-sub">Port 5023 &middot; Protocol GT06 binary</span>
+                                    </div>
+
+                                    <!-- Coban GPS103 -->
+                                    <div class="byot-sms-card">
+                                        <div class="byot-sms-model"><i class="fas fa-car-side"></i> Coban / GPS103 / TK103</div>
+                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
+                                        <code class="byot-sms-code">adminip123456 inferth-mapping.up.railway.app 5013</code>
+                                        <span class="byot-sms-sub">Port 5013 &middot; Protocol Coban / H02</span>
+                                    </div>
+
+                                    <!-- Teltonika -->
+                                    <div class="byot-sms-card">
+                                        <div class="byot-sms-model"><i class="fas fa-server"></i> Teltonika (FMB920, FMB120, etc.)</div>
+                                        <p class="byot-sms-text">Set via Teltonika Configurator or SMS:</p>
+                                        <code class="byot-sms-code">setparam 2004:inferth-mapping.up.railway.app 2005:5027 2006:0</code>
+                                        <span class="byot-sms-sub">Port 5027 &middot; Protocol Teltonika Codec 8/8E</span>
+                                    </div>
+                                </div>
+
+                                <div class="byot-setup-foot">
+                                    <i class="fas fa-circle-check" style="color:#16a34a;"></i>
+                                    <span>Need help pointing your device? WhatsApp our tech support directly: <strong>+263 713 150 172</strong> &mdash; we will configure your tracker for free within 5 minutes.</span>
+                                </div>
+                            </div>
+                        </div><!-- /billing-byot-view -->
+
                         <!-- 2. Prepaid EcoCash Fleet Wallet View -->
                         <div id="billing-prepaid-view" class="hidden">
                             <div class="billing-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:20px; margin-bottom:16px;">
@@ -1683,6 +1847,25 @@
         <!-- Map Container -->
         <div class="map-wrapper">
             <div id="map"></div>
+
+            <!-- Floating Map Status Widget: Moving, Stationary, Offline (Bottom-Right corner above Leaflet attribution) -->
+            <div class="map-status-dock" id="map-status-dock" aria-label="Live tracker status summary">
+                <div class="map-status-chip chip-moving" id="map-chip-moving" title="Moving trackers">
+                    <span class="status-pulse-dot dot-moving"></span>
+                    <span class="chip-label">Moving:</span>
+                    <span class="chip-count" id="map-stat-moving">0</span>
+                </div>
+                <div class="map-status-chip chip-stationary" id="map-chip-stationary" title="Stationary trackers">
+                    <span class="status-pulse-dot dot-stationary"></span>
+                    <span class="chip-label">Stationary:</span>
+                    <span class="chip-count" id="map-stat-stationary">0</span>
+                </div>
+                <div class="map-status-chip chip-offline" id="map-chip-offline" title="Offline trackers">
+                    <span class="status-pulse-dot dot-offline"></span>
+                    <span class="chip-label">Offline:</span>
+                    <span class="chip-count" id="map-stat-offline">0</span>
+                </div>
+            </div>
 
             <!-- Dashboard Summary REMOVED (Moved to Sidebar) -->
 

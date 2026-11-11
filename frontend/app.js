@@ -254,9 +254,8 @@ function initMap() {
     // Add default layer
     tileLayers['Streets'].addTo(map);
 
-    // --- Layers control: standard Leaflet layer switcher (top-left, next to
-    // nothing else on that corner so it never collides with playback controls) ---
-    L.control.layers(tileLayers, null, { position: 'topleft', collapsed: true }).addTo(map);
+    // --- Layers control & Zoom control on top-right (below logout button) ---
+    L.control.layers(tileLayers, null, { position: 'topright', collapsed: true }).addTo(map);
 
     // Zoom control top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
@@ -544,6 +543,20 @@ function setupTabs() {
             window.switchTab(item.dataset.tab);
         });
     });
+
+    // Expand sidebar rail on hover showing icon names
+    const rail = document.querySelector('.sidebar-rail');
+    if (rail && !rail.dataset.hoverWired) {
+        rail.dataset.hoverWired = 'true';
+        rail.addEventListener('mouseenter', () => {
+            rail.classList.add('rail-hover-expanded');
+            document.body.classList.add('rail-hovering');
+        });
+        rail.addEventListener('mouseleave', () => {
+            rail.classList.remove('rail-hover-expanded');
+            document.body.classList.remove('rail-hovering');
+        });
+    }
 }
 
 function syncWorkspaceLayout() {
@@ -2746,6 +2759,14 @@ function updateDashboardKPIs(vehicles) {
     animateValue('kpi-stationary', null, stationary, 1000);
     animateValue('kpi-alerts', null, alertsCount, 1000);
     animateValue('kpi-offline', null, offline, 1000);
+
+    // Update Map Bottom-Right Status Dock (Moving, Stationary, Offline)
+    const mapMovingEl = document.getElementById('map-stat-moving');
+    const mapStationaryEl = document.getElementById('map-stat-stationary');
+    const mapOfflineEl = document.getElementById('map-stat-offline');
+    if (mapMovingEl) mapMovingEl.textContent = moving;
+    if (mapStationaryEl) mapStationaryEl.textContent = stationary;
+    if (mapOfflineEl) mapOfflineEl.textContent = offline;
 
     // Update Priority Alerts Panel
     updatePriorityAlertsPanel();
@@ -8162,18 +8183,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
-// Founder Billing Mode (Monthly | Once-Off | Prepaid Pay-As-You-Drive)
+// Founder Billing Mode (Monthly | Once-Off | BYOT | Prepaid Pay-As-You-Drive)
 window.switchBillingPlanMode = function(mode) {
     const monthlyView  = document.getElementById('billing-monthly-view');
     const onceoffView  = document.getElementById('billing-onceoff-view');
+    const byotView     = document.getElementById('billing-byot-view');
     const prepaidView  = document.getElementById('billing-prepaid-view');
     const btnMonthly   = document.getElementById('btn-billing-monthly');
     const btnOnceoff   = document.getElementById('btn-billing-onceoff');
+    const btnByot      = document.getElementById('btn-billing-byot');
     const btnPrepaid   = document.getElementById('btn-billing-prepaid');
 
     // Hide all views, reset all buttons
-    [monthlyView, onceoffView, prepaidView].forEach(v => v && v.classList.add('hidden'));
-    [btnMonthly, btnOnceoff, btnPrepaid].forEach(b => {
+    [monthlyView, onceoffView, byotView, prepaidView].forEach(v => v && v.classList.add('hidden'));
+    [btnMonthly, btnOnceoff, btnByot, btnPrepaid].forEach(b => {
         if (!b) return;
         b.style.background  = 'transparent';
         b.style.color       = '#64748b';
@@ -8181,8 +8204,8 @@ window.switchBillingPlanMode = function(mode) {
     });
 
     // Activate selected view + button
-    const viewMap = { monthly: monthlyView, onceoff: onceoffView, prepaid: prepaidView };
-    const btnMap  = { monthly: btnMonthly,  onceoff: btnOnceoff,  prepaid: btnPrepaid  };
+    const viewMap = { monthly: monthlyView, onceoff: onceoffView, byot: byotView, prepaid: prepaidView };
+    const btnMap  = { monthly: btnMonthly,  onceoff: btnOnceoff,  byot: btnByot,   prepaid: btnPrepaid  };
     const targetView = viewMap[mode] || monthlyView;
     const targetBtn  = btnMap[mode]  || btnMonthly;
 
@@ -8191,6 +8214,26 @@ window.switchBillingPlanMode = function(mode) {
         targetBtn.style.background = '#ffffff';
         targetBtn.style.color      = '#0f172a';
         targetBtn.style.boxShadow  = '0 1px 2px rgba(0,0,0,0.06)';
+    }
+};
+
+// BYOT (Bring Your Own Tracker) Payment handler
+window.triggerByotPayment = async function(planName, amountUsd) {
+    if (!confirm(`Subscribe to "${planName}" ($${amountUsd} USD) via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
+    try {
+        const response = await window.AuthManager.fetchAPI(
+            `/payments/paynow/initiate?plan_name=${encodeURIComponent('BYOT_' + planName)}&amount=${amountUsd}`,
+            { method: 'POST' }
+        );
+        if (!response.ok) throw new Error('Payment initiation failed');
+        const result = await response.json();
+        if (result.redirect_url) {
+            window.location.href = result.redirect_url;
+        } else {
+            alert(`Payment session initiated for ${planName}. Please check your EcoCash prompt for $${amountUsd} USD.`);
+        }
+    } catch (err) {
+        alert(`Initiated BYOT payment of $${amountUsd} USD for ${planName}.\nOur team will dispatch an EcoCash prompt to your registered number.`);
     }
 };
 
