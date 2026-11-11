@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=160">
+    <link rel="stylesheet" href="/static/app.css?v=162">
     <link rel="stylesheet" href="/static/spotlight.css?v=5">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -1681,48 +1681,62 @@
                                 <div class="byot-setup-header">
                                     <i class="fas fa-screwdriver-wrench"></i>
                                     <div>
-                                        <h4 style="margin:0 0 4px; font-size:1rem; color:#0f172a; font-weight:800;">How to Connect Your Tracker in 2 Minutes</h4>
-                                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Send a quick SMS to the SIM card inside your vehicle&rsquo;s tracker, then register the IMEI in your Inferth dashboard:</p>
+                                        <h4 style="margin:0 0 4px; font-size:1.02rem; color:#0f172a; font-weight:800;">How to Connect Your Tracker to Inferth</h4>
+                                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Every tracker brand has its own specific SMS syntax, numeric IP, and dedicated TCP port. Our technical desk sends you the exact command for your device:</p>
                                     </div>
                                 </div>
 
                                 <div class="byot-sms-grid">
                                     <!-- SinoTrack -->
                                     <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-satellite"></i> SinoTrack (ST-901, ST-906, etc.)</div>
-                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
-                                        <code class="byot-sms-code">8030000 inferth-mapping.up.railway.app 5013</code>
-                                        <span class="byot-sms-sub">Port 5013 &middot; Protocol SinoTrack TCP</span>
+                                        <div class="byot-sms-model"><i class="fas fa-satellite"></i> SinoTrack (ST-901, ST-906, ST-915)</div>
+                                        <p class="byot-sms-text">SinoTrack TCP Protocol &middot; Configured via 1 SMS</p>
+                                        <div class="byot-sms-action">
+                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20SinoTrack%20SMS%20setup%20command%20for%20my%20tracker" target="_blank" class="byot-wa-link">
+                                                <i class="fab fa-whatsapp"></i> Get SinoTrack SMS Setup
+                                            </a>
+                                        </div>
                                     </div>
 
                                     <!-- GT06 / Generic Chinese -->
                                     <div class="byot-sms-card">
                                         <div class="byot-sms-model"><i class="fas fa-microchip"></i> GT06 / Concox / Generic Clone</div>
-                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
-                                        <code class="byot-sms-code">SERVER,1,inferth-mapping.up.railway.app,5023,0#</code>
-                                        <span class="byot-sms-sub">Port 5023 &middot; Protocol GT06 binary</span>
+                                        <p class="byot-sms-text">GT06 Binary Protocol &middot; Configured via 1 SMS</p>
+                                        <div class="byot-sms-action">
+                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20GT06%20SMS%20setup%20command%20for%20my%20tracker" target="_blank" class="byot-wa-link">
+                                                <i class="fab fa-whatsapp"></i> Get GT06 SMS Setup
+                                            </a>
+                                        </div>
                                     </div>
 
                                     <!-- Coban GPS103 -->
                                     <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-car-side"></i> Coban / GPS103 / TK103</div>
-                                        <p class="byot-sms-text">Send this SMS to your tracker&rsquo;s SIM number:</p>
-                                        <code class="byot-sms-code">adminip123456 inferth-mapping.up.railway.app 5013</code>
-                                        <span class="byot-sms-sub">Port 5013 &middot; Protocol Coban / H02</span>
+                                        <div class="byot-sms-model"><i class="fas fa-car-side"></i> Coban / GPS103 / TK103 / H02</div>
+                                        <p class="byot-sms-text">H02 / Coban ASCII Protocol &middot; Configured via 1 SMS</p>
+                                        <div class="byot-sms-action">
+                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20Coban%20GPS103%20SMS%20setup%20command" target="_blank" class="byot-wa-link">
+                                                <i class="fab fa-whatsapp"></i> Get Coban SMS Setup
+                                            </a>
+                                        </div>
                                     </div>
 
                                     <!-- Teltonika -->
                                     <div class="byot-sms-card">
                                         <div class="byot-sms-model"><i class="fas fa-server"></i> Teltonika (FMB920, FMB120, etc.)</div>
-                                        <p class="byot-sms-text">Set via Teltonika Configurator or SMS:</p>
-                                        <code class="byot-sms-code">setparam 2004:inferth-mapping.up.railway.app 2005:5027 2006:0</code>
-                                        <span class="byot-sms-sub">Port 5027 &middot; Protocol Teltonika Codec 8/8E</span>
+                                        <p class="byot-sms-text">Codec 8/8E TCP &middot; Configured via Configurator or SMS</p>
+                                        <div class="byot-sms-action">
+                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20Teltonika%20server%20IP%20and%20port" target="_blank" class="byot-wa-link">
+                                                <i class="fab fa-whatsapp"></i> Get Teltonika Server IP &amp; Port
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div class="byot-setup-foot">
-                                    <i class="fas fa-circle-check" style="color:#16a34a;"></i>
-                                    <span>Need help pointing your device? WhatsApp our tech support directly: <strong>+263 713 150 172</strong> &mdash; we will configure your tracker for free within 5 minutes.</span>
+                                    <i class="fab fa-whatsapp" style="color:#25d366; font-size:1.2rem; flex-shrink:0;"></i>
+                                    <div>
+                                        <strong>Direct Tech Support (24/7):</strong> WhatsApp us at <a href="https://wa.me/263783009275" target="_blank" style="color:#0284c7; font-weight:800; text-decoration:none;">+263 783 009 275</a> with your tracker model. We send you the exact IP &amp; port command and verify your tracker's live signal in 2 minutes.
+                                    </div>
                                 </div>
                             </div>
                         </div><!-- /billing-byot-view -->

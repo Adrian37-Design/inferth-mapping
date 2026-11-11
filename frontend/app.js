@@ -259,7 +259,58 @@ function initMap() {
 
     // Zoom control top-right
     L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // Center all trackers control on top-right (directly beneath zoom in/out)
+    const CenterFleetControl = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function () {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-center-fleet');
+            const btn = L.DomUtil.create('a', 'leaflet-control-btn center-fleet-btn', container);
+            btn.href = '#';
+            btn.title = 'Center all trackers on map';
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('aria-label', 'Center all trackers on map');
+            btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.on(btn, 'click', function (e) {
+                L.DomEvent.stop(e);
+                window.centerAllTrackers();
+            });
+            return container;
+        }
+    });
+    new CenterFleetControl().addTo(map);
 }
+
+// Global function to center and fit all trackers on map
+window.centerAllTrackers = function() {
+    if (!map) return;
+    const activeLatLngs = [];
+    if (typeof markers !== 'undefined' && markers) {
+        Object.values(markers).forEach(m => {
+            if (m && typeof m.getLatLng === 'function') {
+                const ll = m.getLatLng();
+                if (ll && !isNaN(ll.lat) && !isNaN(ll.lng) && (ll.lat !== 0 || ll.lng !== 0)) {
+                    activeLatLngs.push(ll);
+                }
+            }
+        });
+    }
+    if (activeLatLngs.length === 0 && typeof vehiclePositions !== 'undefined' && vehiclePositions) {
+        Object.values(vehiclePositions).forEach(pos => {
+            if (pos && pos.latitude && pos.longitude && (pos.latitude !== 0 || pos.longitude !== 0)) {
+                activeLatLngs.push(L.latLng(pos.latitude, pos.longitude));
+            }
+        });
+    }
+    if (activeLatLngs.length > 0) {
+        const bounds = L.latLngBounds(activeLatLngs);
+        map.fitBounds(bounds, { padding: [70, 70], maxZoom: 15 });
+    } else {
+        map.setView([-17.8252, 31.0335], 12);
+    }
+};
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -550,11 +601,11 @@ function setupTabs() {
         rail.dataset.hoverWired = 'true';
         rail.addEventListener('mouseenter', () => {
             rail.classList.add('rail-hover-expanded');
-            document.body.classList.add('rail-hovering');
+            document.body.classList.add('rail-expanded', 'rail-hovering');
         });
         rail.addEventListener('mouseleave', () => {
             rail.classList.remove('rail-hover-expanded');
-            document.body.classList.remove('rail-hovering');
+            document.body.classList.remove('rail-expanded', 'rail-hovering');
         });
     }
 }
