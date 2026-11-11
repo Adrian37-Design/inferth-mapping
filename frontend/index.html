@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=157">
+    <link rel="stylesheet" href="/static/app.css?v=158">
     <link rel="stylesheet" href="/static/spotlight.css?v=4">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -21,10 +21,6 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar" aria-label="Application controls" data-spot-raise>
-        <div class="nav-brand">
-            <img src="/static/inferth_mapping_mark.png" alt="Inferth Logo" class="brand-logo">
-            <span id="nav-brand-name">Inferth Mapping</span>
-        </div>
         <span class="role-badge" id="user-role-display"></span>
         <div class="nav-search spot" id="global-search" data-spotlight>
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
@@ -41,6 +37,10 @@
                 <i class="fas fa-sign-out-alt"></i>
                 <span>Logout</span>
             </button>
+            <button type="button" class="rail-toggle-btn" id="rail-toggle-btn" title="Expand navigation"
+                aria-controls="sidebar" aria-expanded="false" aria-label="Expand navigation rail">
+                <i class="fas fa-table-columns" aria-hidden="true"></i>
+            </button>
         </div>
     </nav>
 
@@ -51,6 +51,10 @@
             <!-- Icon Rail -->
             <div class="sidebar-rail" aria-label="Main navigation">
 
+                <div class="rail-brand">
+                    <img src="/static/inferth_mapping_mark.png" alt="Inferth Mapping" class="brand-logo">
+                    <span id="nav-brand-name">Inferth Mapping</span>
+                </div>
 
                 <button type="button" class="rail-item" data-tab="tab-dashboard" title="Dashboard" aria-controls="tab-dashboard">
                     <i class="fas fa-tachometer-alt"></i>
@@ -2080,7 +2084,7 @@
     <script src="/static/auth.js?v=65"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=157"></script>
+    <script src="/static/app.js?v=158"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

@@ -6469,3 +6469,186 @@ select.dd-select:disabled {
     line-height: 1.55;
 }
 .faq-foot a { color: #2563eb; font-weight: 600; }
+
+/* ============================================
+   Floating controls + expandable navigation rail
+   ============================================ */
+
+:root {
+    --rail-expanded-width: 210px;
+}
+
+/* Header: no bar, no border — controls float over the workspace */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: var(--rail-width);
+    right: 0;
+    height: var(--header-height);
+    padding: 0 20px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    z-index: 3000;
+    pointer-events: none;
+    transition: left 0.22s ease;
+}
+
+.navbar > * {
+    pointer-events: auto;
+}
+
+/* Spotlight raises the nav; it must stay fixed so the workspace never jumps */
+[data-spot-raise].navbar.spot-raised {
+    position: fixed;
+}
+
+/* Workspace starts at the top of the window, under the floating controls */
+.main-container {
+    height: 100vh;
+    height: 100dvh;
+}
+
+.sidebar-panel {
+    padding-top: var(--header-height);
+}
+
+/* Rail spans the full height and carries the brand */
+.sidebar-rail {
+    padding-top: 14px;
+    transition: width 0.22s ease;
+}
+
+.rail-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 0 4px 14px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.rail-brand .brand-logo {
+    height: 26px;
+    width: auto;
+    max-width: 48px;
+    object-fit: contain;
+    filter: none;
+}
+
+.rail-brand #nav-brand-name {
+    display: none;
+}
+
+/* Collapsed rail: icons only */
+body:not(.rail-expanded) .rail-label {
+    display: none;
+}
+
+body:not(.rail-expanded) .rail-item {
+    min-height: 44px;
+    padding: 0;
+}
+
+body:not(.rail-expanded) .rail-item i {
+    font-size: 1.02rem;
+}
+
+/* Expanded rail: icon + name, one row per tab */
+body.rail-expanded {
+    --rail-width: var(--rail-expanded-width);
+}
+
+body.rail-expanded .sidebar-rail {
+    align-items: stretch;
+    padding: 14px 10px;
+}
+
+body.rail-expanded .rail-brand {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 6px 14px;
+}
+
+body.rail-expanded .rail-brand #nav-brand-name {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.rail-expanded .rail-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 0 12px;
+    text-align: left;
+}
+
+body.rail-expanded .rail-item i {
+    flex: 0 0 20px;
+    width: 20px;
+    font-size: 1rem;
+}
+
+body.rail-expanded .rail-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+    opacity: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.rail-expanded .rail-badge {
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+}
+
+/* Rail toggle, floating with the other controls */
+.rail-toggle-btn {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 34px;
+    flex: 0 0 auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.rail-toggle-btn:hover {
+    color: var(--text-primary);
+    border-color: #cbd5e1;
+    background: var(--card-bg);
+}
+
+.rail-toggle-btn i {
+    font-size: 0.95rem;
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        padding: 0 12px;
+    }
+
+    body.rail-expanded {
+        --rail-expanded-width: 190px;
+    }
+}
