@@ -714,10 +714,10 @@ window.switchTab = function(targetId) {
 
         if (targetId === 'tab-billing') {
             loadBillingData();
-        }
-
-        if (targetId === 'tab-insights' && typeof window.loadInsights === 'function') {
-            window.loadInsights();
+        }
+
+        if (targetId === 'tab-insights' && typeof window.loadInsights === 'function') {
+            window.loadInsights();
         }
 
         if (targetId === 'tab-history') {
@@ -8495,29 +8495,3 @@ const Dropdown = (() => {
 Dropdown.enhanceAll();
 
 /* ---------- Expandable navigation rail ---------- */
-(function setupRailToggle() {
-    const RAIL_KEY = 'inferth.railExpanded';
-
-    function applyRailState(expanded) {
-        document.body.classList.toggle('rail-expanded', expanded);
-        const btn = document.getElementById('rail-toggle-btn');
-        if (!btn) return;
-        btn.setAttribute('aria-expanded', String(expanded));
-        btn.title = expanded ? 'Collapse navigation' : 'Expand navigation';
-        btn.setAttribute('aria-label', expanded ? 'Collapse navigation rail' : 'Expand navigation rail');
-        const icon = btn.querySelector('i');
-        if (icon) icon.className = expanded ? 'fas fa-angles-left' : 'fas fa-table-columns';
-    }
-
-    let expanded = false;
-    try { expanded = localStorage.getItem(RAIL_KEY) === '1'; } catch (e) { expanded = false; }
-    applyRailState(expanded);
-
-    const toggle = document.getElementById('rail-toggle-btn');
-    if (!toggle) return;
-    toggle.addEventListener('click', () => {
-        const next = !document.body.classList.contains('rail-expanded');
-        applyRailState(next);
-        try { localStorage.setItem(RAIL_KEY, next ? '1' : '0'); } catch (e) { /* storage unavailable */ }
-    });
-})();

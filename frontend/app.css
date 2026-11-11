@@ -245,7 +245,7 @@ body {
 /* Navbar */
 .navbar {
     background: var(--nav-bg);
-    backdrop-filter: blur(20px);
+    backdrop-filter: none;
     border-bottom: 1px solid rgba(24, 24, 27, 0.04);
     padding: 6px 24px;
     display: flex;
@@ -255,6 +255,34 @@ body {
     z-index: 1000;
     height: 70px;
     transition: background 0.3s ease;
+}
+
+.nav-search {
+    flex: 1 1 260px;
+    min-width: 160px;
+    max-width: 380px;
+    height: 36px;
+    margin: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 0 12px;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+    border-radius: 10px;
+    background: #ffffff;
+    color: #18181b;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+.nav-search:hover {
+    border-color: rgba(100, 116, 139, 0.4);
+    background: #ffffff;
+}
+
+.nav-search.is-open {
+    border-color: #3f3f46;
+    background: #ffffff;
+    color: #a1a1aa;
 }
 
 .nav-brand {
@@ -344,7 +372,7 @@ body {
 }
 
 .logout-btn {
-    background: rgba(239, 68, 68, 0.1);
+    background: #ffffff;
     border: 1px solid var(--danger);
     color: var(--danger);
     padding: 8px 16px;
@@ -6616,31 +6644,6 @@ body.rail-expanded .rail-badge {
     top: 50%;
     right: 10px;
     transform: translateY(-50%);
-}
-
-/* Rail toggle, floating with the other controls */
-.rail-toggle-btn {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 34px;
-    flex: 0 0 auto;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: var(--card-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-
-.rail-toggle-btn:hover {
-    color: var(--text-primary);
-    border-color: #cbd5e1;
-    background: var(--card-bg);
-}
-
-.rail-toggle-btn i {
-    font-size: 0.95rem;
 }
 
 @media (max-width: 768px) {
