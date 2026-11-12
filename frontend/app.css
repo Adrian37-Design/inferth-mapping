@@ -7470,3 +7470,41 @@ body.rail-expanded .rail-item {
 #tab-dashboard .perf-graph-card.collapsed > .perf-graph-common {
     display: none !important;
 }
+
+/* Billing change control — companies see only their current billing option */
+.billing-change-bar { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.billing-change-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f172a;
+    color: #ffffff;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.billing-change-btn:hover { background: #1e293b; }
+.billing-change-panel { margin-bottom: 16px; }
+.bcp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 4px 0 10px;
+}
+.bcp-head h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+.bcp-cancel {
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border-radius: 7px;
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.bcp-cancel:hover { border-color: var(--primary); color: var(--primary); }

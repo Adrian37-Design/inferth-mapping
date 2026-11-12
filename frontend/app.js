@@ -778,6 +778,7 @@ window.switchTab = function(targetId) {
 
         if (targetId === 'tab-billing') {
             loadBillingData();
+            window.initBillingAccess();
         }
 
         if (targetId === 'tab-insights' && typeof window.loadInsights === 'function') {
@@ -8245,7 +8246,87 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Founder Billing Mode (Monthly | Once-Off | BYOT | Prepaid Pay-As-You-Drive)
+var _billingIsAdmin = false;
+var _billingOptionsOpen = false;
+var _billingCurrentMode = 'monthly';
+var _billingModes = ['monthly', 'onceoff', 'byot', 'prepaid'];
+
+window.billingModeFromCycle = function(cycle) {
+    const c = String(cycle || 'monthly').toLowerCase();
+    if (c.indexOf('once') !== -1) return 'onceoff';
+    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1) return 'byot';
+    if (c.indexOf('prepaid') !== -1 || c.indexOf('wallet') !== -1) return 'prepaid';
+    return 'monthly';
+};
+
+window.initBillingAccess = function() {
+    const user = window.AuthManager && window.AuthManager.user;
+    const role = (user && user.role ? String(user.role) : '').toLowerCase();
+    _billingIsAdmin = role === 'admin';
+
+    const cycleEl = document.getElementById('billing-cycle');
+    const cycle = (user && user.subscription && user.subscription.cycle) || (cycleEl && cycleEl.textContent) || 'Monthly';
+    _billingCurrentMode = window.billingModeFromCycle(cycle);
+
+    const bar = document.getElementById('billing-change-bar');
+    const panel = document.getElementById('billing-change-panel');
+
+    if (_billingIsAdmin) {
+        _billingOptionsOpen = false;
+        if (bar) bar.classList.add('hidden');
+        if (panel) panel.classList.remove('hidden');
+        const adminHead = panel && panel.querySelector('.bcp-head');
+        if (adminHead) adminHead.classList.add('hidden');
+        _billingModes.forEach(function(m) {
+            const b = document.getElementById('btn-billing-' + m);
+            if (b) b.classList.remove('hidden');
+        });
+        return;
+    }
+
+    _billingOptionsOpen = false;
+    if (bar) bar.classList.remove('hidden');
+    if (panel) panel.classList.add('hidden');
+    const userHead = panel && panel.querySelector('.bcp-head');
+    if (userHead) userHead.classList.remove('hidden');
+    window.switchBillingPlanMode(_billingCurrentMode);
+};
+
+window.openBillingChangeOptions = function() {
+    if (_billingIsAdmin) return;
+    _billingOptionsOpen = true;
+    const panel = document.getElementById('billing-change-panel');
+    const bar = document.getElementById('billing-change-bar');
+    if (panel) panel.classList.remove('hidden');
+    if (bar) bar.classList.add('hidden');
+    _billingModes.forEach(function(m) {
+        const v = document.getElementById('billing-' + m + '-view');
+        if (v) v.classList.add('hidden');
+        const b = document.getElementById('btn-billing-' + m);
+        if (b) b.classList.toggle('hidden', m === _billingCurrentMode);
+    });
+};
+
+window.closeBillingChangeOptions = function() {
+    _billingOptionsOpen = false;
+    const panel = document.getElementById('billing-change-panel');
+    const bar = document.getElementById('billing-change-bar');
+    if (panel) panel.classList.add('hidden');
+    if (bar) bar.classList.remove('hidden');
+    _billingModes.forEach(function(m) {
+        const b = document.getElementById('btn-billing-' + m);
+        if (b) b.classList.remove('hidden');
+    });
+    window.switchBillingPlanMode(_billingCurrentMode);
+};
+
 window.switchBillingPlanMode = function(mode) {
+    // Companies cannot jump to another billing page directly — they go through
+    // the change-billing button first.
+    if (!_billingIsAdmin && !_billingOptionsOpen && mode !== _billingCurrentMode) {
+        window.openBillingChangeOptions();
+        return;
+    }
     const monthlyView  = document.getElementById('billing-monthly-view');
     const onceoffView  = document.getElementById('billing-onceoff-view');
     const byotView     = document.getElementById('billing-byot-view');
@@ -8275,6 +8356,20 @@ window.switchBillingPlanMode = function(mode) {
         targetBtn.style.background = '#ffffff';
         targetBtn.style.color      = '#0f172a';
         targetBtn.style.boxShadow  = '0 1px 2px rgba(0,0,0,0.06)';
+    }
+
+    // Non-admin company chose an option from the change panel: that view replaces the page
+    if (!_billingIsAdmin && _billingOptionsOpen) {
+        _billingCurrentMode = mode;
+        _billingOptionsOpen = false;
+        const changePanel = document.getElementById('billing-change-panel');
+        const changeBar = document.getElementById('billing-change-bar');
+        if (changePanel) changePanel.classList.add('hidden');
+        if (changeBar) changeBar.classList.remove('hidden');
+        _billingModes.forEach(function(m) {
+            const b = document.getElementById('btn-billing-' + m);
+            if (b) b.classList.remove('hidden');
+        });
     }
 };
 

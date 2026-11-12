@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=165">
+    <link rel="stylesheet" href="/static/app.css?v=166">
     <link rel="stylesheet" href="/static/spotlight.css?v=5">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -1601,8 +1601,21 @@
                             </div>
                         </div>
 
-                        <!-- Founder Billing Model Switcher (Monthly vs Once-Off vs BYOT vs Prepaid) -->
-                        <div class="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px; flex-wrap:wrap;">
+                        <!-- Change-billing control (hidden for admins) -->
+                        <div class="billing-change-bar hidden" id="billing-change-bar">
+                            <button type="button" class="billing-change-btn" id="billing-change-btn" onclick="window.openBillingChangeOptions()">
+                                <i class="fas fa-arrows-rotate"></i> Change billing option
+                            </button>
+                        </div>
+
+                        <!-- Billing model options (revealed when changing) -->
+                        <div class="billing-change-panel hidden" id="billing-change-panel">
+                            <div class="bcp-head">
+                                <h4>Choose a billing option</h4>
+                                <button type="button" class="bcp-cancel" onclick="window.closeBillingChangeOptions()">Cancel</button>
+                            </div>
+                            <!-- Founder Billing Model Switcher (Monthly vs Once-Off vs BYOT vs Prepaid) -->
+                            <div class="billing-model-toggle" id="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="billing-pill active" id="btn-billing-monthly" onclick="switchBillingPlanMode('monthly')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
                                 <i class="fas fa-calendar-alt"></i> Monthly
                             </button>
@@ -1615,7 +1628,8 @@
                             <button type="button" class="billing-pill" id="btn-billing-prepaid" onclick="switchBillingPlanMode('prepaid')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
                                 <i class="fas fa-wallet"></i> Prepaid Wallet
                             </button>
-                        </div>
+                            </div>
+                        </div><!-- /billing-change-panel -->
 
                         <!-- 1. Monthly Subscription View -->
                         <div id="billing-monthly-view">
@@ -2487,7 +2501,7 @@
     <script src="/static/auth.js?v=65"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=165"></script>
+    <script src="/static/app.js?v=166"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
