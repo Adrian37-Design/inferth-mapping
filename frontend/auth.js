@@ -968,6 +968,162 @@ class AuthManager {
         }
     }
 
+    showForgotPanel() {
+        const creds = document.getElementById('credentials-panel');
+        const otp = document.getElementById('otp-panel');
+        const forgot = document.getElementById('forgot-panel');
+        const reset = document.getElementById('reset-password-panel');
+        if (creds) creds.style.display = 'none';
+        if (otp) otp.style.display = 'none';
+        if (reset) reset.style.display = 'none';
+        if (forgot) {
+            forgot.style.display = 'block';
+            const fEmail = document.getElementById('forgot-email');
+            const mainEmail = document.getElementById('email');
+            if (fEmail && mainEmail && mainEmail.value) fEmail.value = mainEmail.value;
+            if (fEmail) fEmail.focus();
+        }
+    }
+
+    showLoginPanel() {
+        const creds = document.getElementById('credentials-panel');
+        const otp = document.getElementById('otp-panel');
+        const forgot = document.getElementById('forgot-panel');
+        const reset = document.getElementById('reset-password-panel');
+        if (forgot) forgot.style.display = 'none';
+        if (otp) otp.style.display = 'none';
+        if (reset) reset.style.display = 'none';
+        if (creds) creds.style.display = 'block';
+    }
+
+    togglePassVisibility(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (!inp) return;
+        const isPass = inp.type === 'password';
+        inp.type = isPass ? 'text' : 'password';
+        if (btn) {
+            const icon = btn.querySelector('i');
+            if (icon) icon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+        }
+    }
+
+    async requestPasswordReset() {
+        const emailInput = document.getElementById('forgot-email');
+        const errEl = document.getElementById('forgot-error-message');
+        const btn = document.getElementById('send-reset-code-btn');
+        if (errEl) { errEl.classList.remove('show'); errEl.textContent = ''; }
+        if (!emailInput || !emailInput.value.trim()) {
+            if (errEl) { errEl.textContent = 'Please enter your account email address.'; errEl.classList.add('show'); }
+            return;
+        }
+
+        const email = emailInput.value.trim();
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending WhatsApp code...';
+        }
+
+        try {
+            const res = await fetch(`${this.API_BASE}/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Failed to send recovery code.');
+            }
+
+            this._resetSession = { tempToken: data.temp_token, email: email };
+            const forgot = document.getElementById('forgot-panel');
+            const reset = document.getElementById('reset-password-panel');
+            if (forgot) forgot.style.display = 'none';
+            if (reset) {
+                reset.style.display = 'block';
+                const otpInp = document.getElementById('reset-otp-input');
+                if (otpInp) otpInp.focus();
+            }
+        } catch (err) {
+            if (errEl) {
+                errEl.textContent = err.message;
+                errEl.classList.add('show');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Send WhatsApp Code</span> <i class="fab fa-whatsapp" style="font-size:1rem;"></i>';
+            }
+        }
+    }
+
+    async submitNewPassword() {
+        const otpInp = document.getElementById('reset-otp-input');
+        const passInp = document.getElementById('new-password');
+        const confirmInp = document.getElementById('confirm-new-password');
+        const errEl = document.getElementById('reset-error-message');
+        const btn = document.getElementById('save-new-password-btn');
+
+        if (errEl) { errEl.classList.remove('show'); errEl.textContent = ''; }
+
+        const otp = (otpInp ? otpInp.value : '').trim();
+        const pass = (passInp ? passInp.value : '');
+        const confirmPass = (confirmInp ? confirmInp.value : '');
+
+        if (!otp || otp.length !== 6) {
+            if (errEl) { errEl.textContent = 'Please enter the 6-digit WhatsApp recovery code.'; errEl.classList.add('show'); }
+            return;
+        }
+        if (!pass || pass.length < 8) {
+            if (errEl) { errEl.textContent = 'Password must be at least 8 characters long.'; errEl.classList.add('show'); }
+            return;
+        }
+        if (pass !== confirmPass) {
+            if (errEl) { errEl.textContent = 'Passwords do not match.'; errEl.classList.add('show'); }
+            return;
+        }
+        if (!this._resetSession || !this._resetSession.tempToken) {
+            if (errEl) { errEl.textContent = 'Reset session expired. Please start over.'; errEl.classList.add('show'); }
+            return;
+        }
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating password...';
+        }
+
+        try {
+            const res = await fetch(`${this.API_BASE}/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: this._resetSession.email,
+                    temp_token: this._resetSession.tempToken,
+                    otp: otp,
+                    password: pass
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Failed to reset password.');
+            }
+
+            alert('Password successfully updated! Please sign in with your new password.');
+            this.showLoginPanel();
+            const mainPass = document.getElementById('password');
+            if (mainPass) mainPass.value = '';
+        } catch (err) {
+            if (errEl) {
+                errEl.textContent = err.message;
+                errEl.classList.add('show');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Set New Password</span> <i class="fas fa-check"></i>';
+            }
+        }
+    }
+
     setAuth(token, user) {
         this.token = token;
         this.user = user;

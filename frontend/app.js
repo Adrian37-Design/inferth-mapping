@@ -2863,6 +2863,16 @@ function renderDashVehicles() {
     setC('dash-count-stationary', counts.stationary);
     setC('dash-count-offline', counts.offline);
 
+    // Status dock floating above the Leaflet attribution bar
+    setC('dash-stat-total', counts.all);
+    setC('dash-stat-moving', counts.moving);
+    setC('dash-stat-stationary', counts.stationary);
+    setC('dash-stat-offline', counts.offline);
+    setC('subtab-badge-vehicles', counts.all);
+    const dockAlertCount = (typeof alerts !== 'undefined' && Array.isArray(alerts))
+        ? alerts.filter(a => !a.read).length : 0;
+    setC('dash-stat-alerts', dockAlertCount);
+
     const rows = allVehicles.filter(v => {
         if (dashVehicleFilter !== 'all' && statuses[v.id] !== dashVehicleFilter) return false;
         if (query) {
@@ -8589,3 +8599,267 @@ const Dropdown = (() => {
 Dropdown.enhanceAll();
 
 /* ---------- Expandable navigation rail ---------- */
+
+
+// ===== DASHBOARD SUB-TABS (Vehicles / Alerts / Fleet Performance) =====
+
+window.switchDashboardSubtab = function(tab) {
+    // Update active button
+    document.querySelectorAll('.dash-subtab').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById('subtab-dash-' + tab);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const midGrid   = document.getElementById('dash-main-mid-grid');
+    const perfView  = document.getElementById('dash-performance-view');
+    const vPanel    = document.getElementById('dash-vehicles-mini-panel');
+    const aPanel    = document.getElementById('dash-alerts-mini-panel');
+    const dashTab   = document.getElementById('tab-dashboard');
+
+    // Fleet Performance mode hides the rest of the dashboard chrome/panels
+    if (dashTab) dashTab.classList.toggle('perf-mode', tab === 'performance');
+
+    if (tab === 'performance') {
+        if (midGrid)  midGrid.classList.add('hidden');
+        if (perfView) perfView.classList.remove('hidden');
+        refreshFleetPerformanceGraphs();
+    } else {
+        if (perfView) perfView.classList.add('hidden');
+        if (midGrid)  midGrid.classList.remove('hidden');
+
+        if (tab === 'vehicles') {
+            if (vPanel) vPanel.classList.remove('hidden');
+            if (aPanel) aPanel.classList.add('hidden');
+        } else { // alerts
+            if (vPanel) vPanel.classList.add('hidden');
+            if (aPanel) aPanel.classList.remove('hidden');
+            renderDashMiniAlerts();
+        }
+    }
+};
+
+// ---- Dash Mini Alerts ----
+let _dashAlertFilter = 'all';
+
+window.filterDashMiniAlerts = function(filter) {
+    _dashAlertFilter = filter;
+    const chipIds = { all: 'chip-alert-all', unread: 'chip-alert-unread', critical: 'chip-alert-critical' };
+    Object.keys(chipIds).forEach(key => {
+        const chip = document.getElementById(chipIds[key]);
+        if (chip) chip.classList.toggle('active', key === filter);
+    });
+    renderDashMiniAlerts();
+};
+
+window.renderDashMiniAlerts = function() {
+    const list = document.getElementById('dash-mini-alerts-list');
+    if (!list) return;
+    const allAlerts = (typeof alerts !== 'undefined' && Array.isArray(alerts)) ? alerts : [];
+
+    let filtered = allAlerts;
+    if (_dashAlertFilter === 'unread') filtered = allAlerts.filter(a => !a.read);
+    if (_dashAlertFilter === 'critical') filtered = allAlerts.filter(a => a.severity === 'critical' || a.type === 'critical' || a.priority === 'high');
+
+    // Update badge counts
+    const unreadCount = allAlerts.filter(a => !a.read).length;
+    const criticalCount = allAlerts.filter(a => a.severity === 'critical' || a.priority === 'high').length;
+    const badgeAlerts = document.getElementById('subtab-badge-alerts');
+    if (badgeAlerts) badgeAlerts.textContent = unreadCount;
+    _setEl('dash-stat-alerts', unreadCount);
+    _setEl('dash-mini-alert-all', allAlerts.length);
+    _setEl('dash-mini-alert-unread', unreadCount);
+    _setEl('dash-mini-alert-critical', criticalCount);
+    const countEl = document.getElementById('dash-mini-alerts-count');
+    if (countEl) countEl.textContent = `${filtered.length} alert${filtered.length !== 1 ? 's' : ''}`;
+
+    if (filtered.length === 0) {
+        list.innerHTML = '<div class="dash-alerts-empty"><i class="fas fa-check-circle" style="color:#22c55e;font-size:28px;"></i><p>No alerts to show</p></div>';
+        return;
+    }
+
+    list.innerHTML = filtered.slice(0, 30).map(a => {
+        const sev = a.severity || a.priority || 'info';
+        const severityClass = sev === 'critical' || sev === 'high' ? 'alert-sev-critical' : (sev === 'medium' || sev === 'warning' ? 'alert-sev-warning' : 'alert-sev-info');
+        const icon = sev === 'critical' || sev === 'high' ? 'fa-exclamation-circle' : (sev === 'warning' || sev === 'medium' ? 'fa-exclamation-triangle' : 'fa-info-circle');
+        const ts = a.timestamp ? new Date(a.timestamp).toLocaleTimeString('en-ZW', {hour: '2-digit', minute: '2-digit'}) : '';
+        return `<div class="dash-mini-alert-row ${a.read ? '' : 'unread'} ${severityClass}">
+            <i class="fas ${icon} alert-row-icon"></i>
+            <div class="alert-row-body">
+                <span class="alert-row-title">${escapeHTML(a.message || a.type || 'Alert')}</span>
+                <span class="alert-row-vehicle">${escapeHTML(a.device_name || a.vehicle_name || '')}</span>
+            </div>
+            <span class="alert-row-time">${ts}</span>
+        </div>`;
+    }).join('');
+};
+
+// ---- Performance Graph collapse/expand ----
+window.togglePerformanceGraph = function(cardId) {
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.classList.toggle('collapsed');
+    const chevron = card.querySelector('.dash-graph-toggle-btn i');
+    if (chevron) {
+        chevron.classList.toggle('fa-chevron-up', !card.classList.contains('collapsed'));
+        chevron.classList.toggle('fa-chevron-down', card.classList.contains('collapsed'));
+    }
+};
+
+// ---- Performance period selection ----
+window.setPerformancePeriod = function(period) {
+    document.querySelectorAll('.perf-period-btn').forEach(btn => btn.classList.remove('active'));
+    const target = document.querySelector(`.perf-period-btn[data-period="${period}"]`);
+    if (target) target.classList.add('active');
+    refreshFleetPerformanceGraphs();
+};
+
+// ---- Performance chart instances (persist to avoid recreation) ----
+let _perfCharts = {};
+
+window.refreshFleetPerformanceGraphs = function() {
+    const periodBtn = document.querySelector('.perf-period-btn.active');
+    const period    = periodBtn ? periodBtn.dataset.period : 'daily';
+    const vehicleSel = document.getElementById('perf-vehicle-select');
+    const deviceId   = vehicleSel ? vehicleSel.value : 'fleet';
+
+    // Populate vehicle select if empty (clone from existing vehicles list)
+    if (vehicleSel && vehicleSel.options.length <= 1 && typeof allVehicles !== 'undefined') {
+        allVehicles.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.textContent = v.name || v.plate || `Vehicle ${v.id}`;
+            vehicleSel.appendChild(opt);
+        });
+    }
+
+    const url = deviceId === 'fleet'
+        ? `/positions/analytics/fleet?period=${period}`
+        : `/positions/analytics/device/${deviceId}/chart?period=${period}`;
+
+    const request = (window.AuthManager && typeof window.AuthManager.fetchAPI === 'function')
+        ? window.AuthManager.fetchAPI(url)
+        : fetch((window.API_URL || '') + url, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        });
+
+    Promise.resolve(request)
+        .then(r => (r && r.ok) ? r.json() : null)
+        .then(data => _renderPerfGraphs(data, period))
+        .catch(() => _renderPerfGraphs(null, period));
+};
+
+function _renderPerfGraphs(data, period) {
+    // Build safe defaults
+    const labels  = (data && Array.isArray(data.labels) && data.labels.length) ? data.labels : _buildDefaultLabels(period);
+    const fleetCount = (typeof allVehicles !== 'undefined') ? allVehicles.length : 0;
+
+    // Mileage series — backend returns cumulative `mileage`
+    const mileageSeries = (data && (data.mileage_series || data.mileage)) || labels.map(() => 0);
+    // Utilization series — backend returns cumulative `hours`
+    const driveSeries   = (data && (data.drive_hours_series || data.hours)) || labels.map(() => 0);
+    const idleSeries    = (data && data.idle_hours_series) || labels.map(() => 0);
+
+    const _last = arr => (Array.isArray(arr) && arr.length) ? (+arr[arr.length - 1] || 0) : 0;
+    const _deltaSum = arr => {
+        if (!Array.isArray(arr) || !arr.length) return 0;
+        let prev = 0, sum = 0;
+        arr.forEach(v => { const n = +v || 0; sum += Math.max(0, n - prev); prev = n; });
+        return sum;
+    };
+
+    // Safety series
+    const speedingSeries = (data && data.speeding_events_series) || labels.map(() => 0);
+
+    // Fuel series — measured litres when available, else estimate at 8 km/L
+    const fuelSeries = (data && data.fuel_liters_series)
+        || mileageSeries.map(km => +((+km || 0) / 8).toFixed(2));
+    const costSeries = fuelSeries.map(l => +(l * 2.04).toFixed(2));
+
+    const totalKm = (data && data.total_km != null) ? +data.total_km : _last(mileageSeries);
+    const totalHours = (data && data.drive_hours_series) ? _deltaSum(driveSeries) : _last(driveSeries);
+    const avgSpd = (data && data.avg_speed != null)
+        ? +data.avg_speed
+        : (totalHours > 0 ? totalKm / totalHours : 0);
+    const safeScore      = (data && data.safety_score != null) ? data.safety_score : null;
+    const speedingTotal  = speedingSeries.reduce((s, v) => s + v, 0);
+    const safeText       = safeScore != null ? `${safeScore.toFixed(0)}% Clean` : (speedingTotal === 0 ? '100% Clean' : `${speedingTotal} event${speedingTotal !== 1 ? 's' : ''}`);
+
+    // Update common metrics strip
+    _setEl('perf-metric-fleet-count', `${fleetCount} Vehicle${fleetCount !== 1 ? 's' : ''}`);
+    _setEl('perf-metric-total-km', `${(+totalKm).toFixed(1)} km`);
+    _setEl('perf-metric-avg-speed', `${(+avgSpd).toFixed(1)} km/h`);
+    _setEl('perf-metric-safety-score', safeText);
+
+    // Same headline metrics repeated on every graph card
+    document.querySelectorAll('.pgc-fleet').forEach(el => { el.textContent = fleetCount; });
+    document.querySelectorAll('.pgc-km').forEach(el => { el.textContent = (+totalKm).toFixed(1); });
+    document.querySelectorAll('.pgc-speed').forEach(el => { el.textContent = (+avgSpd).toFixed(1); });
+    document.querySelectorAll('.pgc-safety').forEach(el => { el.textContent = safeText; });
+
+    // Chart.js helper
+    const baseOpts = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 } } }
+        }
+    };
+
+    _buildBarChart('chart-perf-mileage', labels,
+        [{ label: 'Distance (km)', data: mileageSeries, backgroundColor: 'rgba(2,132,199,0.75)', borderColor: '#0284c7', borderWidth: 1, borderRadius: 4 }],
+        baseOpts, 'mileage');
+
+    _buildBarChart('chart-perf-utilization', labels,
+        [
+            { label: 'Drive Hours', data: driveSeries, backgroundColor: 'rgba(16,185,129,0.75)', borderColor: '#10b981', borderWidth: 1, borderRadius: 4 },
+            { label: 'Idle Hours',  data: idleSeries,  backgroundColor: 'rgba(245,158,11,0.45)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 4 }
+        ], baseOpts, 'utilization');
+
+    _buildBarChart('chart-perf-fuel', labels,
+        [
+            { label: 'Fuel (L)',   data: fuelSeries, backgroundColor: 'rgba(245,158,11,0.75)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 4 },
+            { label: 'Cost ($USD)', data: costSeries, backgroundColor: 'rgba(220,38,38,0.35)',  borderColor: '#dc2626', borderWidth: 1, borderRadius: 4 }
+        ], baseOpts, 'fuel');
+
+    _buildBarChart('chart-perf-safety', labels,
+        [{ label: 'Speeding Events', data: speedingSeries, backgroundColor: 'rgba(220,38,38,0.65)', borderColor: '#dc2626', borderWidth: 1, borderRadius: 4 }],
+        baseOpts, 'safety');
+
+    // Update badge labels
+    const totalFuelL = fuelSeries.reduce((s, v) => s + v, 0);
+    const totalCost  = costSeries.reduce((s, v) => s + v, 0);
+    _setEl('badge-mileage-metric',     `${totalKm.toFixed ? totalKm.toFixed(1) : totalKm} km`);
+    _setEl('badge-utilization-metric', `${totalHours.toFixed(1)} h driven`);
+    _setEl('badge-fuel-metric',        `$${totalCost.toFixed(2)}`);
+    _setEl('badge-safety-metric',      safeText);
+}
+
+function _buildBarChart(canvasId, labels, datasets, baseOpts, key) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (_perfCharts[key]) { _perfCharts[key].destroy(); }
+    _perfCharts[key] = new Chart(canvas, { type: 'bar', data: { labels, datasets }, options: JSON.parse(JSON.stringify(baseOpts)) });
+}
+
+function _buildDefaultLabels(period) {
+    const now = new Date();
+    if (period === 'daily') {
+        return Array.from({length: 24}, (_, i) => `${String(i).padStart(2,'0')}:00`);
+    } else if (period === 'weekly') {
+        return Array.from({length: 7}, (_, i) => {
+            const d = new Date(now); d.setDate(d.getDate() - 6 + i);
+            return d.toLocaleDateString('en-ZW', {weekday:'short', day:'numeric'});
+        });
+    } else {
+        return Array.from({length: 30}, (_, i) => {
+            const d = new Date(now); d.setDate(d.getDate() - 29 + i);
+            return d.toLocaleDateString('en-ZW', {month:'short', day:'numeric'});
+        });
+    }
+}
+
+function _setEl(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+// ===== END DASHBOARD SUB-TABS =====

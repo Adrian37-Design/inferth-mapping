@@ -7269,3 +7269,191 @@ body.rail-expanded .rail-item {
 .byot-wa-link:hover {
     background: #128c7e;
 }
+
+/* ============================================
+   Dashboard sub-tabs, map status dock & Fleet Performance view
+   ============================================ */
+.dash-subtab-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 4px;
+    background: rgba(24, 24, 27, 0.045);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.dash-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.dash-subtab:hover { color: var(--text-primary); background: rgba(24, 24, 27, 0.05); }
+.dash-subtab.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.10); }
+.subtab-badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(24, 24, 27, 0.08);
+    color: var(--text-secondary);
+    font-size: 0.63rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.dash-subtab.active .subtab-badge { background: var(--primary); color: #fff; }
+.subtab-badge.alert-badge { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.dash-subtab.active .subtab-badge.alert-badge { background: var(--danger); color: #fff; }
+
+/* Left mini-panel slot: vehicles and alerts swap inside without moving the map */
+.dash-mini-panel-container { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.dash-mini-panel-container > .dash-card { flex: 1 1 auto; min-height: 0; }
+
+.dash-mini-alerts-list { overflow: auto; max-height: 320px; display: flex; flex-direction: column; gap: 6px; }
+.dash-mini-alert-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 8px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    font-size: 0.75rem;
+}
+.dash-mini-alert-row.unread { border-left: 3px solid var(--primary); }
+.dash-mini-alert-row.alert-sev-critical { border-left-color: var(--danger); }
+.dash-mini-alert-row.alert-sev-warning { border-left-color: var(--warning); }
+.alert-row-icon { margin-top: 3px; }
+.alert-sev-critical .alert-row-icon { color: var(--danger); }
+.alert-sev-warning .alert-row-icon { color: var(--warning); }
+.alert-sev-info .alert-row-icon { color: var(--primary); }
+.alert-row-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.alert-row-title { font-weight: 600; color: var(--text-primary); }
+.alert-row-vehicle { font-size: 0.68rem; color: var(--text-secondary); }
+.alert-row-time { font-size: 0.66rem; color: var(--text-secondary); white-space: nowrap; }
+.dash-alerts-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 26px 10px;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
+/* Floating status dock above the Leaflet attribution bar */
+.dash-map-status-dock {
+    position: absolute;
+    bottom: 26px;
+    left: 12px;
+    z-index: 990;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #ffffff;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    padding: 5px 9px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.14);
+    font-size: 0.72rem;
+    font-weight: 700;
+    pointer-events: auto;
+}
+.dash-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot-total { background: #0284c7; }
+.dot-alerts { background: #ef4444; }
+.dash-stat-chip .chip-label { color: #64748b; font-size: 0.68rem; font-weight: 600; }
+.dash-stat-chip .chip-val { color: #0f172a; font-size: 0.76rem; font-weight: 800; }
+.chip-moving .chip-val { color: #16a34a; }
+.chip-stationary .chip-val { color: #d97706; }
+.chip-offline .chip-val { color: #dc2626; }
+.chip-alerts .chip-val { color: #dc2626; }
+@media (max-width: 640px) {
+    .dash-map-status-dock { left: 8px; right: 8px; bottom: 22px; gap: 4px; padding: 4px 6px; }
+    .dash-stat-chip .chip-label { display: none; }
+}
+
+/* Fleet Performance analytics view */
+.dash-performance-view { display: block; margin: 12px 0 0; }
+.perf-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.perf-heading { margin: 0 0 3px; font-size: 1.02rem; font-weight: 700; color: var(--text-primary); }
+.perf-sub { margin: 0; font-size: 0.74rem; color: var(--text-secondary); }
+.perf-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.perf-period-pills { display: flex; gap: 4px; background: rgba(24, 24, 27, 0.045); border: 1px solid var(--border-color); border-radius: 8px; padding: 3px; }
+.perf-period-btn { border: 0; background: transparent; color: var(--text-secondary); font-size: 0.72rem; font-weight: 600; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+.perf-period-btn:hover { color: var(--text-primary); }
+.perf-period-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
+
+.perf-common-metrics-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.pcm-item { display: flex; flex-direction: column; gap: 3px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 9px 12px; }
+.pcm-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: var(--text-secondary); }
+.pcm-val { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+
+.perf-graphs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+.perf-graph-card { display: flex; flex-direction: column; min-width: 0; }
+.dash-graph-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.dgh-left { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+.dgh-icon { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 0.82rem; }
+.dgh-title { margin: 0; font-size: 0.86rem; font-weight: 600; color: var(--text-primary); }
+.dgh-sub { font-size: 0.67rem; color: var(--text-secondary); }
+.dgh-right { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.dgh-badge { font-size: 0.63rem; font-weight: 700; color: var(--primary); background: rgba(45, 95, 109, 0.10); border: 1px solid rgba(45, 95, 109, 0.22); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.dash-graph-toggle-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.66rem; }
+.dash-graph-toggle-btn:hover { border-color: var(--primary); color: var(--primary); }
+.perf-graph-card.collapsed .dash-graph-body { display: none; }
+.perf-graph-card.collapsed { padding-bottom: 12px; }
+
+/* Performance mode replaces the rest of the dashboard content */
+#tab-dashboard.perf-mode > .dash-header,
+#tab-dashboard.perf-mode > .dash-kpi-grid,
+#tab-dashboard.perf-mode > .dash-alerts-card,
+#tab-dashboard.perf-mode > .chart-section,
+#tab-dashboard.perf-mode > .dash-scroll-cue { display: none !important; }
+
+/* Headline metrics repeated inside each performance graph card */
+.perf-graph-common {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 2px 0 10px;
+}
+.perf-graph-common > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    background: rgba(24, 24, 27, 0.045);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+.perf-graph-common b { font-size: 0.7rem; font-weight: 800; color: var(--text-primary); }
+
+.dash-search-spot { margin-bottom: 10px; }
+.dash-mini-alerts-card .dash-filter-chips { margin-bottom: 8px; }
+.chip-total .chip-val { color: #0284c7; }

@@ -157,6 +157,15 @@ class SetupAccountRequest(BaseModel):
     token: str
     password: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    temp_token: str
+    otp: str
+    password: str
+
 class CreateUserRequest(BaseModel):
     email: EmailStr
     role: str = "viewer"
@@ -795,6 +804,125 @@ async def verify_setup_token(token: str, db: AsyncSession = Depends(get_db)):
     return {
         "email": user.email,
         "valid": True
+    }
+
+
+@router.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+    """Dispatch WhatsApp recovery OTP for password reset."""
+    _purge_expired_otps()
+    email_clean = data.email.lower().strip()
+    result = await db.execute(select(User).where(User.email == email_clean))
+    user = result.scalars().first()
+
+    if not user:
+        return {
+            "status": "ok",
+            "message": "If an account matches this email, a verification code has been dispatched."
+        }
+
+    phone = getattr(user, "phone", None)
+    if not phone:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No WhatsApp phone number is linked to this account. Please contact tech support at +263 783 009 275."
+        )
+
+    clean_phone = re.sub(r'[^0-9]', '', phone)
+    if clean_phone.startswith('0'):
+        clean_phone = '263' + clean_phone[1:]
+    elif not clean_phone.startswith('263') and len(clean_phone) == 9:
+        clean_phone = '263' + clean_phone
+
+    temp_token = secrets.token_urlsafe(32)
+    otp = f"{random.SystemRandom().randint(0, 999999):06d}"
+
+    _otp_store[temp_token] = {
+        "hashed_otp": _hash_otp(otp),
+        "user_id": user.id,
+        "email": user.email,
+        "phone": clean_phone,
+        "action": "password_reset",
+        "expires_at": datetime.utcnow() + timedelta(seconds=_OTP_TTL_SECONDS),
+        "attempts": 0,
+        "last_sent_at": datetime.utcnow(),
+    }
+
+    masked_phone = clean_phone[:3] + "****" + clean_phone[-3:] if len(clean_phone) >= 6 else clean_phone
+
+    msg = (
+        f"🔐 *Inferth Mapping Password Reset*\n\n"
+        f"Your verification code is: *{otp}*\n\n"
+        f"This code expires in 5 minutes. If you did not request a password reset, please contact security immediately."
+    )
+    background_tasks.add_task(send_whatsapp_message, clean_phone, msg)
+    print(f"[Password Reset OTP] Dispatched to {clean_phone}: {otp}")
+    _latest_otps.append({"type": "reset", "code": otp, "phone": clean_phone, "ts": datetime.utcnow().isoformat()})
+    if len(_latest_otps) > 10:
+        _latest_otps.pop(0)
+
+    return {
+        "status": "ok",
+        "temp_token": temp_token,
+        "phone_masked": masked_phone,
+        "message": f"Verification code sent to WhatsApp ({masked_phone})"
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Verify WhatsApp OTP and securely update password."""
+    _purge_expired_otps()
+    record = _otp_store.get(data.temp_token)
+    if not record or record.get("action") != "password_reset":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset session. Please request a new code."
+        )
+
+    if datetime.utcnow() > record["expires_at"]:
+        _otp_store.pop(data.temp_token, None)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset code has expired. Please request a new one."
+        )
+
+    record["attempts"] = record.get("attempts", 0) + 1
+    if record["attempts"] > _OTP_MAX_ATTEMPTS:
+        _otp_store.pop(data.temp_token, None)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Reset session cancelled."
+        )
+
+    if not record.get("hashed_otp") or _hash_otp(data.otp.strip()) != record["hashed_otp"]:
+        remaining = _OTP_MAX_ATTEMPTS - record["attempts"]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect verification code. {max(remaining, 0)} attempt(s) remaining."
+        )
+
+    if len(data.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long."
+        )
+
+    user_id = record["user_id"]
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    user.hashed_password = hash_password(data.password)
+    user.token_version = (user.token_version or 0) + 1
+    await db.commit()
+    await db.refresh(user)
+
+    _otp_store.pop(data.temp_token, None)
+    return {
+        "status": "ok",
+        "message": "Password successfully updated! You can now sign in with your new password."
     }
 
 

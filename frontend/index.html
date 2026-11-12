@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=162">
+    <link rel="stylesheet" href="/static/app.css?v=163">
     <link rel="stylesheet" href="/static/spotlight.css?v=5">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -588,40 +588,255 @@
                         </div>
                     </div>
 
+                    <!-- Dashboard Sub-tabs: Vehicles | Alerts | Fleet Performance -->
+                    <div class="dash-subtab-bar">
+                        <button type="button" class="dash-subtab active" id="subtab-dash-vehicles" onclick="switchDashboardSubtab('vehicles')">
+                            <i class="fas fa-truck"></i>
+                            <span>Vehicles</span>
+                            <span class="subtab-badge" id="subtab-badge-vehicles">0</span>
+                        </button>
+                        <button type="button" class="dash-subtab" id="subtab-dash-alerts" onclick="switchDashboardSubtab('alerts')">
+                            <i class="fas fa-bell"></i>
+                            <span>Alerts</span>
+                            <span class="subtab-badge alert-badge" id="subtab-badge-alerts">0</span>
+                        </button>
+                        <button type="button" class="dash-subtab" id="subtab-dash-performance" onclick="switchDashboardSubtab('performance')">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Fleet Performance</span>
+                        </button>
+                    </div>
+
                     <!-- Vehicles list + fleet map -->
-                    <div class="dash-mid-grid">
-                        <div class="dash-card dash-vehicles-card">
-                            <div class="dash-card-header">
-                                <h4><i class="fas fa-truck"></i> Vehicles</h4>
-                                <div class="dash-card-actions">
-                                    <a class="dash-link" onclick="window.switchTab('tab-fleet')">View all <i class="fas fa-arrow-right"></i></a>
-                                    <button type="button" class="dash-collapse-btn" title="Collapse" aria-label="Collapse vehicles section"><i class="fas fa-chevron-down"></i></button>
+                    <div class="dash-mid-grid" id="dash-main-mid-grid">
+                        <!-- LEFT MINI-PANEL: Vehicles or Alerts swap seamlessly -->
+                        <div class="dash-mini-panel-container">
+                            <!-- 1. Vehicles Mini-Panel -->
+                            <div class="dash-card dash-vehicles-card" id="dash-vehicles-mini-panel">
+                                <div class="dash-card-header">
+                                    <h4><i class="fas fa-truck"></i> Vehicles</h4>
+                                    <div class="dash-card-actions">
+                                        <a class="dash-link" onclick="window.switchTab('tab-fleet')">View all <i class="fas fa-arrow-right"></i></a>
+                                        <button type="button" class="dash-collapse-btn" title="Collapse" aria-label="Collapse vehicles section"><i class="fas fa-chevron-down"></i></button>
+                                    </div>
                                 </div>
+                                <div class="spot dash-search-spot" data-spotlight><span class="spot-input-wrap"><input type="text" id="dash-vehicle-search" class="glass-input" placeholder="Search by plate, name or IMEI…" autocomplete="off"></span></div>
+                                <div class="dash-filter-chips">
+                                    <button type="button" class="dash-chip active" data-dash-filter="all">All (<span id="dash-count-all">0</span>)</button>
+                                    <button type="button" class="dash-chip" data-dash-filter="moving">Moving (<span id="dash-count-moving">0</span>)</button>
+                                    <button type="button" class="dash-chip" data-dash-filter="stationary">Stationary (<span id="dash-count-stationary">0</span>)</button>
+                                    <button type="button" class="dash-chip" data-dash-filter="offline">Offline (<span id="dash-count-offline">0</span>)</button>
+                                </div>
+                                <div class="dash-table-wrap">
+                                    <table class="dash-table">
+                                        <thead>
+                                            <tr><th>Vehicle</th><th>Status</th><th>Speed</th><th></th></tr>
+                                        </thead>
+                                        <tbody id="dash-vehicle-rows"></tbody>
+                                    </table>
+                                </div>
+                                <div class="dash-table-footer"><span id="dash-vehicle-count">Showing 0 vehicles</span></div>
                             </div>
-                            <div class="spot dash-search-spot" data-spotlight><span class="spot-input-wrap"><input type="text" id="dash-vehicle-search" class="glass-input" placeholder="Search by plate, name or IMEI…" autocomplete="off"></span></div>
-                            <div class="dash-filter-chips">
-                                <button type="button" class="dash-chip active" data-dash-filter="all">All (<span id="dash-count-all">0</span>)</button>
-                                <button type="button" class="dash-chip" data-dash-filter="moving">Moving (<span id="dash-count-moving">0</span>)</button>
-                                <button type="button" class="dash-chip" data-dash-filter="stationary">Stationary (<span id="dash-count-stationary">0</span>)</button>
-                                <button type="button" class="dash-chip" data-dash-filter="offline">Offline (<span id="dash-count-offline">0</span>)</button>
+
+                            <!-- 2. Alerts Mini-Panel (swaps into this slot when Alerts tab clicked) -->
+                            <div class="dash-card dash-mini-alerts-card hidden" id="dash-alerts-mini-panel">
+                                <div class="dash-card-header">
+                                    <h4><i class="fas fa-bell"></i> Live Alerts</h4>
+                                    <div class="dash-card-actions">
+                                        <a class="dash-link" onclick="window.switchTab('tab-alerts')">View all <i class="fas fa-arrow-right"></i></a>
+                                    </div>
+                                </div>
+                                <div class="dash-filter-chips">
+                                    <button type="button" class="dash-chip active" id="chip-alert-all" onclick="filterDashMiniAlerts('all')">All (<span id="dash-mini-alert-all">0</span>)</button>
+                                    <button type="button" class="dash-chip" id="chip-alert-unread" onclick="filterDashMiniAlerts('unread')">Unread (<span id="dash-mini-alert-unread">0</span>)</button>
+                                    <button type="button" class="dash-chip" id="chip-alert-critical" onclick="filterDashMiniAlerts('critical')">Critical (<span id="dash-mini-alert-critical">0</span>)</button>
+                                </div>
+                                <div class="dash-mini-alerts-list" id="dash-mini-alerts-list">
+                                    <div class="dash-alerts-empty"><i class="fas fa-circle-check" style="color:#10b981;"></i> No priority alerts active</div>
+                                </div>
+                                <div class="dash-table-footer"><span id="dash-mini-alerts-count">0 alerts</span></div>
                             </div>
-                            <div class="dash-table-wrap">
-                                <table class="dash-table">
-                                    <thead>
-                                        <tr><th>Vehicle</th><th>Status</th><th>Speed</th><th></th></tr>
-                                    </thead>
-                                    <tbody id="dash-vehicle-rows"></tbody>
-                                </table>
-                            </div>
-                            <div class="dash-table-footer"><span id="dash-vehicle-count">Showing 0 vehicles</span></div>
                         </div>
 
+                        <!-- RIGHT: Embedded Fleet Map (stays stable!) -->
                         <div class="dash-card dash-map-card">
                             <div class="dash-map-toggle">
                                 <button type="button" class="dash-map-btn active" id="dash-map-streets"><i class="fas fa-map"></i> Map</button>
                                 <button type="button" class="dash-map-btn" id="dash-map-satellite"><i class="fas fa-satellite"></i> Satellite</button>
                             </div>
                             <div id="dash-map" class="dash-map"></div>
+
+                            <!-- Floating Dashboard Map Status Widget (Above Leaflet attribution) -->
+                            <div class="dash-map-status-dock" id="dash-map-status-dock" aria-label="Dashboard map tracker status">
+                                <div class="dash-stat-chip chip-total" title="Total registered vehicles">
+                                    <span class="chip-dot dot-total"></span>
+                                    <span class="chip-label">Total:</span>
+                                    <span class="chip-val" id="dash-stat-total">0</span>
+                                </div>
+                                <div class="dash-stat-chip chip-moving" title="Moving vehicles">
+                                    <span class="chip-dot dot-moving"></span>
+                                    <span class="chip-label">Moving:</span>
+                                    <span class="chip-val" id="dash-stat-moving">0</span>
+                                </div>
+                                <div class="dash-stat-chip chip-stationary" title="Stationary vehicles">
+                                    <span class="chip-dot dot-stationary"></span>
+                                    <span class="chip-label">Stationary:</span>
+                                    <span class="chip-val" id="dash-stat-stationary">0</span>
+                                </div>
+                                <div class="dash-stat-chip chip-offline" title="Offline vehicles">
+                                    <span class="chip-dot dot-offline"></span>
+                                    <span class="chip-label">Offline:</span>
+                                    <span class="chip-val" id="dash-stat-offline">0</span>
+                                </div>
+                                <div class="dash-stat-chip chip-alerts" title="Active alerts">
+                                    <span class="chip-dot dot-alerts"></span>
+                                    <span class="chip-label">Alerts:</span>
+                                    <span class="chip-val" id="dash-stat-alerts">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Fleet Performance View (replaces mid-grid when Fleet Performance tab is selected) -->
+                    <div id="dash-performance-view" class="dash-performance-view hidden">
+                        <!-- Toolbar -->
+                        <div class="perf-toolbar">
+                            <div>
+                                <h3 class="perf-heading">Fleet Performance Analytics</h3>
+                                <p class="perf-sub">Real-time telemetry aggregation, fuel benchmarks, and driver safety analysis</p>
+                            </div>
+                            <div class="perf-controls">
+                                <select id="perf-vehicle-select" class="dd-select inline-select-small" onchange="refreshFleetPerformanceGraphs()">
+                                    <option value="fleet">All Fleet Vehicles</option>
+                                </select>
+                                <div class="perf-period-pills">
+                                    <button type="button" class="perf-period-btn active" data-period="daily" onclick="setPerformancePeriod('daily')">Today</button>
+                                    <button type="button" class="perf-period-btn" data-period="weekly" onclick="setPerformancePeriod('weekly')">7 Days</button>
+                                    <button type="button" class="perf-period-btn" data-period="monthly" onclick="setPerformancePeriod('monthly')">30 Days</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Common metrics strip across all performance graphs -->
+                        <div class="perf-common-metrics-strip">
+                            <div class="pcm-item">
+                                <span class="pcm-label">Monitored Fleet</span>
+                                <span class="pcm-val" id="perf-metric-fleet-count">0 Vehicles</span>
+                            </div>
+                            <div class="pcm-item">
+                                <span class="pcm-label">Total Distance</span>
+                                <span class="pcm-val" id="perf-metric-total-km">0.0 km</span>
+                            </div>
+                            <div class="pcm-item">
+                                <span class="pcm-label">Avg Fleet Speed</span>
+                                <span class="pcm-val" id="perf-metric-avg-speed">0.0 km/h</span>
+                            </div>
+                            <div class="pcm-item">
+                                <span class="pcm-label">ZERA Fuel Benchmark</span>
+                                <span class="pcm-val" style="color:#0284c7;">$2.04 / L Diesel</span>
+                            </div>
+                            <div class="pcm-item">
+                                <span class="pcm-label">Fleet Safety Rating</span>
+                                <span class="pcm-val" id="perf-metric-safety-score" style="color:#16a34a;">100% Clean</span>
+                            </div>
+                        </div>
+
+                        <!-- 4 Collapsible/Expandable Graphs Grid -->
+                        <div class="perf-graphs-grid">
+                            <!-- GRAPH 1: Distance & Mileage Traveled -->
+                            <div class="dash-card perf-graph-card" id="card-perf-mileage">
+                                <div class="dash-graph-header">
+                                    <div class="dgh-left">
+                                        <span class="dgh-icon" style="color:#0284c7; background:rgba(2,132,199,0.12);"><i class="fas fa-road"></i></span>
+                                        <div>
+                                            <h4 class="dgh-title">Distance &amp; Mileage (km)</h4>
+                                            <span class="dgh-sub">Kilometers covered across monitoring period</span>
+                                        </div>
+                                    </div>
+                                    <div class="dgh-right">
+                                        <span class="dgh-badge" id="badge-mileage-metric">Distance</span>
+                                        <button type="button" class="dash-graph-toggle-btn" onclick="togglePerformanceGraph('card-perf-mileage')" title="Expand / Collapse">
+                                            <i class="fas fa-chevron-up"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="perf-graph-common"><span><b class="pgc-fleet">0</b> vehicles</span><span><b class="pgc-km">0</b> km</span><span><b class="pgc-speed">0</b> km/h avg</span><span><b class="pgc-safety">&mdash;</b> safety</span></div><div class="dash-graph-body">
+                                    <div class="chart-container" style="height:250px;">
+                                        <canvas id="chart-perf-mileage"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- GRAPH 2: Utilization (Moving vs Idle vs Parked Hours) -->
+                            <div class="dash-card perf-graph-card" id="card-perf-utilization">
+                                <div class="dash-graph-header">
+                                    <div class="dgh-left">
+                                        <span class="dgh-icon" style="color:#10b981; background:rgba(16,185,129,0.12);"><i class="fas fa-clock"></i></span>
+                                        <div>
+                                            <h4 class="dgh-title">Fleet Utilization &amp; Operating Hours</h4>
+                                            <span class="dgh-sub">Moving drive hours vs stationary engine idling</span>
+                                        </div>
+                                    </div>
+                                    <div class="dgh-right">
+                                        <span class="dgh-badge" id="badge-utilization-metric">Drive Time</span>
+                                        <button type="button" class="dash-graph-toggle-btn" onclick="togglePerformanceGraph('card-perf-utilization')" title="Expand / Collapse">
+                                            <i class="fas fa-chevron-up"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="perf-graph-common"><span><b class="pgc-fleet">0</b> vehicles</span><span><b class="pgc-km">0</b> km</span><span><b class="pgc-speed">0</b> km/h avg</span><span><b class="pgc-safety">&mdash;</b> safety</span></div><div class="dash-graph-body">
+                                    <div class="chart-container" style="height:250px;">
+                                        <canvas id="chart-perf-utilization"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- GRAPH 3: Fuel Consumed & Operating Cost -->
+                            <div class="dash-card perf-graph-card" id="card-perf-fuel">
+                                <div class="dash-graph-header">
+                                    <div class="dgh-left">
+                                        <span class="dgh-icon" style="color:#f59e0b; background:rgba(245,158,11,0.12);"><i class="fas fa-gas-pump"></i></span>
+                                        <div>
+                                            <h4 class="dgh-title">Fuel Consumption &amp; Operating Cost ($USD)</h4>
+                                            <span class="dgh-sub">Liters consumed &amp; financial cost ($2.04/L Diesel)</span>
+                                        </div>
+                                    </div>
+                                    <div class="dgh-right">
+                                        <span class="dgh-badge" id="badge-fuel-metric">$2.04 / L Diesel</span>
+                                        <button type="button" class="dash-graph-toggle-btn" onclick="togglePerformanceGraph('card-perf-fuel')" title="Expand / Collapse">
+                                            <i class="fas fa-chevron-up"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="perf-graph-common"><span><b class="pgc-fleet">0</b> vehicles</span><span><b class="pgc-km">0</b> km</span><span><b class="pgc-speed">0</b> km/h avg</span><span><b class="pgc-safety">&mdash;</b> safety</span></div><div class="dash-graph-body">
+                                    <div class="chart-container" style="height:250px;">
+                                        <canvas id="chart-perf-fuel"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- GRAPH 4: Speed & Safety Telematics Exceptions -->
+                            <div class="dash-card perf-graph-card" id="card-perf-safety">
+                                <div class="dash-graph-header">
+                                    <div class="dgh-left">
+                                        <span class="dgh-icon" style="color:#ef4444; background:rgba(239,68,68,0.12);"><i class="fas fa-shield-halved"></i></span>
+                                        <div>
+                                            <h4 class="dgh-title">Speed Spikes &amp; Telematics Safety Exceptions</h4>
+                                            <span class="dgh-sub">Excessive speed events, harsh braking, and route violations</span>
+                                        </div>
+                                    </div>
+                                    <div class="dgh-right">
+                                        <span class="dgh-badge" id="badge-safety-metric">Safety</span>
+                                        <button type="button" class="dash-graph-toggle-btn" onclick="togglePerformanceGraph('card-perf-safety')" title="Expand / Collapse">
+                                            <i class="fas fa-chevron-up"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="perf-graph-common"><span><b class="pgc-fleet">0</b> vehicles</span><span><b class="pgc-km">0</b> km</span><span><b class="pgc-speed">0</b> km/h avg</span><span><b class="pgc-safety">&mdash;</b> safety</span></div><div class="dash-graph-body">
+                                    <div class="chart-container" style="height:250px;">
+                                        <canvas id="chart-perf-safety"></canvas>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -2277,7 +2492,7 @@
     <script src="/static/auth.js?v=65"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=158"></script>
+    <script src="/static/app.js?v=163"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

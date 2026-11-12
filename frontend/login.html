@@ -657,7 +657,7 @@
                     <h1 class="welcome-title">Welcome back</h1>
                     <p class="welcome-sub">Sign in to your account</p>
 
-                    <button type="button" class="google-btn" onclick="document.getElementById('email').focus()">
+                    <button type="button" class="google-btn" style="display: none !important;" onclick="document.getElementById('email').focus()">
                         <svg width="20" height="20" viewBox="0 0 24 24">
                             <path fill="currentColor" fill-opacity=".54" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                             <path fill="#4285F4" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -667,7 +667,7 @@
                         <span>Login with Google</span>
                     </button>
 
-                    <div class="divider"><span>or</span></div>
+                    <div class="divider" style="display: none !important;"><span>or</span></div>
 
                     <form id="login-form" method="POST" action="javascript:void(0);" onsubmit="event.preventDefault(); return false;">
                         <div class="field">
@@ -694,8 +694,86 @@
                         </button>
 
                         <div class="forgot-row">
-                            <a href="#">Forgot password?</a>
+                            <a href="#" id="forgot-password-link" onclick="window.AuthManager && window.AuthManager.showForgotPanel(); return false;">Forgot password?</a>
                         </div>
+                    </form>
+                </div>
+
+                <!-- ── Step 1b: Forgot Password Walkthrough ─────────────── -->
+                <div id="forgot-panel" style="display: none;">
+                    <div class="otp-icon" style="background: linear-gradient(135deg, #f59e0b, #ef4444); box-shadow: 0 8px 20px -4px rgba(239, 68, 68, 0.4);">
+                        <i class="fas fa-key" style="color:#fff; font-size:1.6rem;"></i>
+                    </div>
+                    <h2 class="welcome-title" style="text-align: center; font-size: 1.4rem;">Reset Password</h2>
+                    <p class="welcome-sub" style="text-align: center; margin-bottom: 1.5rem;">Enter your email to receive a secure recovery code on WhatsApp.</p>
+
+                    <form id="forgot-form" method="POST" action="javascript:void(0);" onsubmit="event.preventDefault(); return false;">
+                        <div class="field">
+                            <label for="forgot-email">Account Email <span class="req">*</span></label>
+                            <input type="email" id="forgot-email" name="forgot-email" required placeholder="name@company.com" autocomplete="email">
+                        </div>
+
+                        <div class="error-message" id="forgot-error-message"></div>
+
+                        <button type="button" class="submit-btn" id="send-reset-code-btn" onclick="window.AuthManager && window.AuthManager.requestPasswordReset()">
+                            <span>Send WhatsApp Code</span>
+                            <i class="fab fa-whatsapp" style="font-size: 1rem;"></i>
+                            <span class="shimmer"></span>
+                        </button>
+
+                        <button type="button" class="otp-back" onclick="window.AuthManager && window.AuthManager.showLoginPanel()">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>Back to Sign in</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ── Step 1c: Create New Password Panel ───────────────── -->
+                <div id="reset-password-panel" style="display: none;">
+                    <div class="otp-icon" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.4);">
+                        <i class="fas fa-lock" style="color:#fff; font-size:1.6rem;"></i>
+                    </div>
+                    <h2 class="welcome-title" style="text-align: center; font-size: 1.4rem;">Create New Password</h2>
+                    <p class="welcome-sub" style="text-align: center; margin-bottom: 1.25rem;">Enter the code sent to your WhatsApp and choose your new password.</p>
+
+                    <form id="reset-password-form" method="POST" action="javascript:void(0);" onsubmit="event.preventDefault(); return false;">
+                        <div class="field">
+                            <label for="reset-otp-input">WhatsApp Recovery Code (6 Digits) <span class="req">*</span></label>
+                            <input type="text" id="reset-otp-input" inputmode="numeric" maxlength="6" required placeholder="123456" style="text-align:center; font-size:1.3rem; letter-spacing:0.25em; font-weight:800;">
+                        </div>
+
+                        <div class="field">
+                            <label for="new-password">New Password <span class="req">*</span></label>
+                            <div class="input-wrap">
+                                <input type="password" id="new-password" name="new-password" required placeholder="Minimum 8 characters" autocomplete="new-password">
+                                <button type="button" class="toggle-password" id="toggle-new-password" aria-label="Toggle password" onclick="window.AuthManager && window.AuthManager.togglePassVisibility('new-password', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="confirm-new-password">Confirm New Password <span class="req">*</span></label>
+                            <div class="input-wrap">
+                                <input type="password" id="confirm-new-password" name="confirm-new-password" required placeholder="Repeat new password" autocomplete="new-password">
+                                <button type="button" class="toggle-password" id="toggle-confirm-password" aria-label="Toggle password" onclick="window.AuthManager && window.AuthManager.togglePassVisibility('confirm-new-password', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="error-message" id="reset-error-message"></div>
+
+                        <button type="button" class="submit-btn" id="save-new-password-btn" onclick="window.AuthManager && window.AuthManager.submitNewPassword()">
+                            <span>Set New Password</span>
+                            <i class="fas fa-check" style="font-size: 0.85rem;"></i>
+                            <span class="shimmer"></span>
+                        </button>
+
+                        <button type="button" class="otp-back" onclick="window.AuthManager && window.AuthManager.showLoginPanel()">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>Cancel</span>
+                        </button>
                     </form>
                 </div>
 
@@ -760,7 +838,7 @@
         </div>
     </div>
 
-    <script src="auth.js?v=65"></script>
+    <script src="auth.js?v=66"></script>
     <script>
         if (window.AuthManager) {
             window.AuthManager.initLoginPage();
