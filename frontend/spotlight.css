@@ -10,14 +10,15 @@
     content: '';
     position: absolute;
     inset: 0;
-    border-radius: 12px;
+    border-radius: 999px;
     pointer-events: none;
-    box-shadow: 0 0 0 0 rgba(24, 24, 27, 0);
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
     transition: box-shadow 0.3s ease;
 }
 
+/* Focus halo follows the pill shape of the field so no square corner peeps out */
 .spot.is-open::after {
-    box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.18);
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22);
 }
 
 .spot-input-wrap {
@@ -281,29 +282,30 @@
     flex: 1 1 260px;
     min-width: 160px;
     max-width: 380px;
-    height: 36px;
+    height: 38px;
     margin: 0 16px;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 8px 0 12px;
-    border: 1.5px solid #cbd5e1;
-    border-radius: 10px;
-    background: #ffffff;
-    color: #0f172a;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    padding: 0 8px 0 14px;
+    border: none;
+    border-radius: 50px;
+    background: #e8ecf1;
+    color: #2d3748;
+    box-shadow: inset 4px 4px 10px rgba(163,177,198,0.6), inset -3px -3px 8px rgba(255,255,255,0.8);
+    transition: box-shadow 0.2s ease;
 }
 
 .nav-search:hover {
-    border-color: #94a3b8;
-    background: #ffffff;
+    box-shadow: inset 3px 3px 7px rgba(163,177,198,0.5), inset -2px -2px 6px rgba(255,255,255,0.75);
+    background: #e8ecf1;
 }
 
 .nav-search.is-open {
-    border-color: #3f3f46;
-    background: #ffffff;
-    color: #a1a1aa;
+    box-shadow: inset 3px 3px 7px rgba(163,177,198,0.55), inset -2px -2px 6px rgba(255,255,255,0.75),
+                0 0 0 3px rgba(249,115,22,0.18);
+    background: #e8ecf1;
+    color: #2d3748;
 }
 
 .nav-search > i {
