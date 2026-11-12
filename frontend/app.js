@@ -8290,6 +8290,8 @@ function applyBillingView(mode) {
 
     const byotView = viewMap.byot;
     if (byotView) byotView.classList.toggle('rental-only', mode === 'rental');
+    const setupGuide = document.querySelector('.byot-setup-guide');
+    if (setupGuide) setupGuide.classList.toggle('hidden', _billingCurrentMode !== 'byot');
     if (window.markActiveRentalPlan) window.markActiveRentalPlan();
 
     const targetView = viewMap[mode] || viewMap.monthly;

@@ -7615,3 +7615,39 @@ body.rail-expanded .rail-item {
 
 /* Rental-only page: no BYOT software-plan options */
 #billing-byot-view.rental-only .byot-plans-grid { display: none !important; }
+
+/* Realistic WhatsApp setup buttons (BYOT subscribers only) */
+.byot-sms-action { margin-top: 4px; }
+.byot-wa-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    background: #25d366;
+    color: #ffffff !important;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 9px;
+    text-decoration: none;
+    margin-top: 6px;
+    box-shadow: 0 3px 10px rgba(37, 211, 102, 0.28);
+    transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.byot-wa-link i {
+    font-size: 1.05rem;
+    line-height: 1;
+    color: #ffffff;
+    background: transparent !important;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+}
+.byot-wa-link:hover {
+    background: #1ebe5b;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
+}
+.byot-wa-link:active { transform: translateY(0); }
