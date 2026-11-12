@@ -8249,12 +8249,13 @@ document.addEventListener('DOMContentLoaded', () => {
 var _billingIsAdmin = false;
 var _billingOptionsOpen = false;
 var _billingCurrentMode = 'monthly';
-var _billingModes = ['monthly', 'onceoff', 'byot', 'prepaid'];
+var _billingModes = ['monthly', 'onceoff', 'byot', 'rental', 'prepaid'];
 
 window.billingModeFromCycle = function(cycle) {
     const c = String(cycle || 'monthly').toLowerCase();
     if (c.indexOf('once') !== -1) return 'onceoff';
-    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1 || c.indexOf('rent') !== -1) return 'byot';
+    if (c.indexOf('rent') !== -1) return 'rental';
+    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1) return 'byot';
     if (c.indexOf('prepaid') !== -1 || c.indexOf('wallet') !== -1) return 'prepaid';
     return 'monthly';
 };
@@ -8264,12 +8265,14 @@ function applyBillingView(mode) {
         monthly: document.getElementById('billing-monthly-view'),
         onceoff: document.getElementById('billing-onceoff-view'),
         byot: document.getElementById('billing-byot-view'),
+        rental: document.getElementById('billing-byot-view'),
         prepaid: document.getElementById('billing-prepaid-view')
     };
     const btnMap = {
         monthly: document.getElementById('btn-billing-monthly'),
         onceoff: document.getElementById('btn-billing-onceoff'),
         byot: document.getElementById('btn-billing-byot'),
+        rental: document.getElementById('btn-billing-rental'),
         prepaid: document.getElementById('btn-billing-prepaid')
     };
 
@@ -8283,6 +8286,9 @@ function applyBillingView(mode) {
             b.style.boxShadow = 'none';
         }
     });
+
+    const byotView = viewMap.byot;
+    if (byotView) byotView.classList.toggle('rental-only', mode === 'rental');
 
     const targetView = viewMap[mode] || viewMap.monthly;
     const targetBtn = btnMap[mode] || btnMap.monthly;
@@ -8303,7 +8309,7 @@ window.initBillingAccess = function() {
     const cycle = (user && user.subscription && user.subscription.cycle) || (cycleEl && cycleEl.textContent) || 'Monthly';
     _billingCurrentMode = window.billingModeFromCycle(cycle);
     const billingCompany = (user && user.company_name) || '';
-    if (/console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'byot';
+    if (/console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'rental';
 
     const bar = document.getElementById('billing-change-bar');
     const panel = document.getElementById('billing-change-panel');
@@ -8972,3 +8978,22 @@ function _setEl(id, text) {
     if (el) el.textContent = text;
 }
 // ===== END DASHBOARD SUB-TABS =====
+
+
+/* ---------- BYOT promo banner: dismiss for 30 days ---------- */
+(function initByotPromoDismiss() {
+    var KEY = 'inferth.byotBannerHiddenUntil';
+    function readUntil() {
+        try { return parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) { return 0; }
+    }
+    function apply() {
+        var banner = document.querySelector('.byot-header-banner');
+        if (!banner) return;
+        banner.style.display = (Date.now() < readUntil()) ? 'none' : '';
+    }
+    window.dismissByotPromo = function () {
+        try { localStorage.setItem(KEY, String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch (e) { /* storage unavailable */ }
+        apply();
+    };
+    apply();
+})();

@@ -7508,3 +7508,29 @@ body.rail-expanded .rail-item {
     cursor: pointer;
 }
 .bcp-cancel:hover { border-color: var(--primary); color: var(--primary); }
+
+/* BYOT banner dismiss control (hidden for 30 days) */
+.byot-header-banner { position: relative; padding-right: 52px; }
+.byot-dismiss-btn {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 1.1rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.byot-dismiss-btn:hover { background: rgba(255, 255, 255, 0.25); }
+
+/* Rental-only billing: just the Platform Fleet Rental plan, no BYOT options */
+#billing-byot-view.rental-only .byot-header-banner,
+#billing-byot-view.rental-only .byot-card:not(.rental) { display: none !important; }
+#billing-byot-view.rental-only .byot-plans-grid { grid-template-columns: minmax(0, 560px); }
