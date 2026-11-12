@@ -8254,10 +8254,45 @@ var _billingModes = ['monthly', 'onceoff', 'byot', 'prepaid'];
 window.billingModeFromCycle = function(cycle) {
     const c = String(cycle || 'monthly').toLowerCase();
     if (c.indexOf('once') !== -1) return 'onceoff';
-    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1) return 'byot';
+    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1 || c.indexOf('rent') !== -1) return 'byot';
     if (c.indexOf('prepaid') !== -1 || c.indexOf('wallet') !== -1) return 'prepaid';
     return 'monthly';
 };
+
+function applyBillingView(mode) {
+    const viewMap = {
+        monthly: document.getElementById('billing-monthly-view'),
+        onceoff: document.getElementById('billing-onceoff-view'),
+        byot: document.getElementById('billing-byot-view'),
+        prepaid: document.getElementById('billing-prepaid-view')
+    };
+    const btnMap = {
+        monthly: document.getElementById('btn-billing-monthly'),
+        onceoff: document.getElementById('btn-billing-onceoff'),
+        byot: document.getElementById('btn-billing-byot'),
+        prepaid: document.getElementById('btn-billing-prepaid')
+    };
+
+    _billingModes.forEach(function(m) {
+        const v = viewMap[m];
+        if (v) v.classList.add('hidden');
+        const b = btnMap[m];
+        if (b) {
+            b.style.background = 'transparent';
+            b.style.color = '#64748b';
+            b.style.boxShadow = 'none';
+        }
+    });
+
+    const targetView = viewMap[mode] || viewMap.monthly;
+    const targetBtn = btnMap[mode] || btnMap.monthly;
+    if (targetView) targetView.classList.remove('hidden');
+    if (targetBtn) {
+        targetBtn.style.background = '#ffffff';
+        targetBtn.style.color = '#0f172a';
+        targetBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+    }
+}
 
 window.initBillingAccess = function() {
     const user = window.AuthManager && window.AuthManager.user;
@@ -8270,41 +8305,52 @@ window.initBillingAccess = function() {
 
     const bar = document.getElementById('billing-change-bar');
     const panel = document.getElementById('billing-change-panel');
+    const head = panel && panel.querySelector('.bcp-head');
+
+    _billingOptionsOpen = false;
 
     if (_billingIsAdmin) {
-        _billingOptionsOpen = false;
         if (bar) bar.classList.add('hidden');
         if (panel) panel.classList.remove('hidden');
-        const adminHead = panel && panel.querySelector('.bcp-head');
-        if (adminHead) adminHead.classList.add('hidden');
+        if (head) head.classList.add('hidden');
         _billingModes.forEach(function(m) {
             const b = document.getElementById('btn-billing-' + m);
             if (b) b.classList.remove('hidden');
         });
+        applyBillingView(_billingCurrentMode);
         return;
     }
 
-    _billingOptionsOpen = false;
     if (bar) bar.classList.remove('hidden');
     if (panel) panel.classList.add('hidden');
-    const userHead = panel && panel.querySelector('.bcp-head');
-    if (userHead) userHead.classList.remove('hidden');
-    window.switchBillingPlanMode(_billingCurrentMode);
+    if (head) head.classList.remove('hidden');
+    _billingModes.forEach(function(m) {
+        const b = document.getElementById('btn-billing-' + m);
+        if (b) b.classList.remove('hidden');
+    });
+    applyBillingView(_billingCurrentMode);
 };
 
-window.openBillingChangeOptions = function() {
+window.openBillingChangeOptions = function(preferredMode) {
     if (_billingIsAdmin) return;
     _billingOptionsOpen = true;
+
     const panel = document.getElementById('billing-change-panel');
     const bar = document.getElementById('billing-change-bar');
+    const head = panel && panel.querySelector('.bcp-head');
     if (panel) panel.classList.remove('hidden');
     if (bar) bar.classList.add('hidden');
+    if (head) head.classList.remove('hidden');
+
     _billingModes.forEach(function(m) {
-        const v = document.getElementById('billing-' + m + '-view');
-        if (v) v.classList.add('hidden');
         const b = document.getElementById('btn-billing-' + m);
         if (b) b.classList.toggle('hidden', m === _billingCurrentMode);
     });
+
+    // Show a full billing page for the first remaining option (or the requested one)
+    const others = _billingModes.filter(function(m) { return m !== _billingCurrentMode; });
+    const target = (preferredMode && others.indexOf(preferredMode) !== -1) ? preferredMode : others[0];
+    applyBillingView(target);
 };
 
 window.closeBillingChangeOptions = function() {
@@ -8317,60 +8363,17 @@ window.closeBillingChangeOptions = function() {
         const b = document.getElementById('btn-billing-' + m);
         if (b) b.classList.remove('hidden');
     });
-    window.switchBillingPlanMode(_billingCurrentMode);
+    applyBillingView(_billingCurrentMode);
 };
 
 window.switchBillingPlanMode = function(mode) {
-    // Companies cannot jump to another billing page directly — they go through
-    // the change-billing button first.
+    // Companies cannot jump to another billing page directly — the change flow
+    // opens with the remaining options, showing their full billing pages.
     if (!_billingIsAdmin && !_billingOptionsOpen && mode !== _billingCurrentMode) {
-        window.openBillingChangeOptions();
+        window.openBillingChangeOptions(mode);
         return;
     }
-    const monthlyView  = document.getElementById('billing-monthly-view');
-    const onceoffView  = document.getElementById('billing-onceoff-view');
-    const byotView     = document.getElementById('billing-byot-view');
-    const prepaidView  = document.getElementById('billing-prepaid-view');
-    const btnMonthly   = document.getElementById('btn-billing-monthly');
-    const btnOnceoff   = document.getElementById('btn-billing-onceoff');
-    const btnByot      = document.getElementById('btn-billing-byot');
-    const btnPrepaid   = document.getElementById('btn-billing-prepaid');
-
-    // Hide all views, reset all buttons
-    [monthlyView, onceoffView, byotView, prepaidView].forEach(v => v && v.classList.add('hidden'));
-    [btnMonthly, btnOnceoff, btnByot, btnPrepaid].forEach(b => {
-        if (!b) return;
-        b.style.background  = 'transparent';
-        b.style.color       = '#64748b';
-        b.style.boxShadow   = 'none';
-    });
-
-    // Activate selected view + button
-    const viewMap = { monthly: monthlyView, onceoff: onceoffView, byot: byotView, prepaid: prepaidView };
-    const btnMap  = { monthly: btnMonthly,  onceoff: btnOnceoff,  byot: btnByot,   prepaid: btnPrepaid  };
-    const targetView = viewMap[mode] || monthlyView;
-    const targetBtn  = btnMap[mode]  || btnMonthly;
-
-    if (targetView) targetView.classList.remove('hidden');
-    if (targetBtn) {
-        targetBtn.style.background = '#ffffff';
-        targetBtn.style.color      = '#0f172a';
-        targetBtn.style.boxShadow  = '0 1px 2px rgba(0,0,0,0.06)';
-    }
-
-    // Non-admin company chose an option from the change panel: that view replaces the page
-    if (!_billingIsAdmin && _billingOptionsOpen) {
-        _billingCurrentMode = mode;
-        _billingOptionsOpen = false;
-        const changePanel = document.getElementById('billing-change-panel');
-        const changeBar = document.getElementById('billing-change-bar');
-        if (changePanel) changePanel.classList.add('hidden');
-        if (changeBar) changeBar.classList.remove('hidden');
-        _billingModes.forEach(function(m) {
-            const b = document.getElementById('btn-billing-' + m);
-            if (b) b.classList.remove('hidden');
-        });
-    }
+    applyBillingView(mode);
 };
 
 // BYOT (Bring Your Own Tracker) Payment handler
