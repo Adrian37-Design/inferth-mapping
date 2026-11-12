@@ -1114,7 +1114,7 @@ function renderAlerts() {
             <div class="alert-content">
                 <h5>${escapeHTML(alert.title)}</h5>
                 <p>${escapeHTML(alert.message)}</p>
-                <span class="alert-time">${alert.time.toLocaleTimeString()}</span>
+                <span class="alert-time">${alert.time.toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 <div class="alert-detail">
                     <p>${escapeHTML(alert.message)}</p>
                     <span class="alert-detail-meta">${escapeHTML(alert.type || 'alert')} · ${alert.time.toLocaleString()} · #${escapeHTML(String(alert.id))}</span>
@@ -8680,7 +8680,8 @@ window.renderDashMiniAlerts = function() {
         const sev = a.severity || a.priority || 'info';
         const severityClass = sev === 'critical' || sev === 'high' ? 'alert-sev-critical' : (sev === 'medium' || sev === 'warning' ? 'alert-sev-warning' : 'alert-sev-info');
         const icon = sev === 'critical' || sev === 'high' ? 'fa-exclamation-circle' : (sev === 'warning' || sev === 'medium' ? 'fa-exclamation-triangle' : 'fa-info-circle');
-        const ts = a.timestamp ? new Date(a.timestamp).toLocaleTimeString('en-ZW', {hour: '2-digit', minute: '2-digit'}) : '';
+        const rawTs = a.timestamp || a.time;
+        const ts = rawTs ? new Date(rawTs).toLocaleString('en-ZW', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
         return `<div class="dash-mini-alert-row ${a.read ? '' : 'unread'} ${severityClass}">
             <i class="fas ${icon} alert-row-icon"></i>
             <div class="alert-row-body">
@@ -8726,7 +8727,8 @@ window.refreshFleetPerformanceGraphs = function() {
         allVehicles.forEach(v => {
             const opt = document.createElement('option');
             opt.value = v.id;
-            opt.textContent = v.name || v.plate || `Vehicle ${v.id}`;
+            const meta = v.device_metadata || {};
+            opt.textContent = v.name || meta.plate || v.imei || `Vehicle ${v.id}`;
             vehicleSel.appendChild(opt);
         });
     }
@@ -8743,14 +8745,19 @@ window.refreshFleetPerformanceGraphs = function() {
 
     Promise.resolve(request)
         .then(r => (r && r.ok) ? r.json() : null)
-        .then(data => _renderPerfGraphs(data, period))
-        .catch(() => _renderPerfGraphs(null, period));
+        .then(data => _renderPerfGraphs(data, period, deviceId))
+        .catch(() => _renderPerfGraphs(null, period, deviceId));
 };
 
-function _renderPerfGraphs(data, period) {
+function _renderPerfGraphs(data, period, deviceId) {
+    const isFleet = !deviceId || deviceId === 'fleet';
+    const vehicleSel = document.getElementById('perf-vehicle-select');
+    const selectedLabel = (!isFleet && vehicleSel && vehicleSel.selectedIndex > 0)
+        ? vehicleSel.options[vehicleSel.selectedIndex].textContent
+        : '';
     // Build safe defaults
     const labels  = (data && Array.isArray(data.labels) && data.labels.length) ? data.labels : _buildDefaultLabels(period);
-    const fleetCount = (typeof allVehicles !== 'undefined') ? allVehicles.length : 0;
+    const fleetCount = isFleet ? ((typeof allVehicles !== 'undefined') ? allVehicles.length : 0) : 1;
 
     // Mileage series — backend returns cumulative `mileage`
     const mileageSeries = (data && (data.mileage_series || data.mileage)) || labels.map(() => 0);
@@ -8784,7 +8791,9 @@ function _renderPerfGraphs(data, period) {
     const safeText       = safeScore != null ? `${safeScore.toFixed(0)}% Clean` : (speedingTotal === 0 ? '100% Clean' : `${speedingTotal} event${speedingTotal !== 1 ? 's' : ''}`);
 
     // Update common metrics strip
-    _setEl('perf-metric-fleet-count', `${fleetCount} Vehicle${fleetCount !== 1 ? 's' : ''}`);
+    _setEl('perf-metric-fleet-count', isFleet
+        ? `${fleetCount} Vehicle${fleetCount !== 1 ? 's' : ''}`
+        : (selectedLabel || '1 Vehicle'));
     _setEl('perf-metric-total-km', `${(+totalKm).toFixed(1)} km`);
     _setEl('perf-metric-avg-speed', `${(+avgSpd).toFixed(1)} km/h`);
     _setEl('perf-metric-safety-score', safeText);
