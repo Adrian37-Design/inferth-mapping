@@ -612,6 +612,16 @@
             animation: fadeUp 0.4s ease-out 0.95s forwards;
         }
     </style>
+<style>
+/* NM-LOGIN-PASS — neumorphic submit buttons and arrows */
+.submit-btn{border-radius:50px !important;font-weight:700 !important;
+ box-shadow:4px 4px 10px rgba(249,115,22,.35),-2px -2px 6px rgba(255,255,255,.9) !important;}
+.submit-btn:hover:not(:disabled){transform:translateY(-1px) scale(1) !important;
+ box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px rgba(255,255,255,.9) !important;}
+.submit-btn:active:not(:disabled){transform:translateY(0) scale(1) !important;
+ box-shadow:inset 3px 3px 8px rgba(163,177,198,.6),inset -2px -2px 6px rgba(255,255,255,.8) !important;}
+.submit-btn i.fa-arrow-right{font-size:.8rem;line-height:1;display:inline-flex;align-items:center;}
+</style>
 </head>
 
 <body>

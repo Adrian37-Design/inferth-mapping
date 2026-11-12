@@ -591,3 +591,155 @@
     align-items: center;
     gap: 8px;
 }
+/* ═══════════════════════════════════════════════════════════════════════════
+   INSIGHTS — neumorphic surface pass (loaded after app.css)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.insights-view-wrapper {
+    background: var(--nm-bg) !important;
+    color: var(--nm-text) !important;
+    padding: 20px 22px 28px !important;
+}
+.insights-top-header { border-bottom: 1px solid rgba(163, 177, 198, 0.35) !important; }
+.insights-main-title { color: var(--nm-text) !important; }
+.insights-subtitle { color: var(--nm-text-muted) !important; }
+
+/* Role switch (Manager / Driver) as a recessed segmented control */
+.insights-pill-toggle {
+    background: var(--nm-bg) !important;
+    border-radius: 50px !important;
+    box-shadow: var(--nm-pressed) !important;
+    padding: 4px !important;
+    gap: 4px !important;
+}
+.insights-pill-toggle .toggle-pill {
+    border: none !important;
+    border-radius: 50px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--nm-text-muted) !important;
+    font-weight: 700 !important;
+    padding: 5px 14px !important;
+    cursor: pointer !important;
+}
+.insights-pill-toggle .toggle-pill.active {
+    background: var(--nm-bg) !important;
+    color: var(--nm-primary) !important;
+    box-shadow: var(--nm-raised) !important;
+}
+.insights-icon-btn {
+    width: 34px !important;
+    height: 34px !important;
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    box-shadow: var(--nm-raised) !important;
+    color: #4a5568 !important;
+}
+.insights-icon-btn:hover {
+    background: var(--nm-bg) !important;
+    color: var(--nm-primary) !important;
+    border: none !important;
+    box-shadow: var(--nm-flat) !important;
+}
+
+/* KPI cards */
+.insights-kpi-card {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: var(--nm-raised) !important;
+    padding: 16px 18px !important;
+    gap: 6px !important;
+}
+.insights-kpi-card:hover { border: none !important; box-shadow: var(--nm-flat) !important; }
+.insights-kpi-label { color: var(--nm-text-muted) !important; }
+.insights-kpi-value { color: var(--nm-text) !important; }
+.insights-kpi-subtext { color: var(--nm-text-muted) !important; }
+
+/* Feed */
+.feed-section-heading { color: var(--nm-text) !important; }
+.feed-counter {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 50px !important;
+    box-shadow: var(--nm-pressed) !important;
+    color: var(--nm-text-muted) !important;
+}
+.telematics-card {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: var(--nm-raised) !important;
+    padding: 16px 18px !important;
+}
+.telematics-card:hover { border: none !important; box-shadow: var(--nm-flat) !important; }
+.telematics-card.sev-red { border-left: 4px solid #dc2626 !important; }
+.telematics-card.sev-orange { border-left: 4px solid #d97706 !important; }
+.telematics-card.sev-blue { border-left: 4px solid #2563eb !important; }
+.telematics-card.sev-green { border-left: 4px solid #16a34a !important; }
+.card-headline { color: var(--nm-text) !important; }
+.card-narrative { color: #3f4a5a !important; }
+.card-vehicle-tag { color: var(--nm-text) !important; }
+.card-driver-tag { color: var(--nm-text-muted) !important; }
+.card-time-ago { color: #5a6779 !important; }
+
+.telemetry-strip {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: var(--nm-pressed) !important;
+    gap: 14px !important;
+}
+.strip-item { color: var(--nm-text-muted) !important; }
+.strip-item strong { color: var(--nm-text) !important; }
+
+.card-actions-bar { border-top: 1px solid rgba(163, 177, 198, 0.35) !important; gap: 8px !important; }
+.corp-btn {
+    border: none !important;
+    border-radius: 50px !important;
+    box-shadow: var(--nm-raised) !important;
+    padding: 8px 16px !important;
+    font-weight: 700 !important;
+    color: var(--nm-text) !important;
+    background: var(--nm-bg) !important;
+}
+.corp-btn:hover { box-shadow: var(--nm-flat) !important; color: var(--nm-primary) !important; }
+.corp-btn-primary { background: var(--nm-bg) !important; color: var(--nm-primary) !important; }
+.corp-btn-danger { background: var(--nm-bg) !important; color: #b91c1c !important; }
+.corp-btn-ghost { background: transparent !important; box-shadow: none !important; color: var(--nm-text-muted) !important; }
+.corp-btn-ghost:hover { box-shadow: var(--nm-flat) !important; }
+
+.insights-loading-state {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 16px !important;
+    box-shadow: var(--nm-pressed) !important;
+    color: var(--nm-text-muted) !important;
+}
+.insights-loading-state i { color: var(--nm-primary) !important; }
+
+/* Insight modal */
+.insight-modal-card {
+    background: var(--nm-bg) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 20px 60px rgba(24, 24, 27, 0.3) !important;
+}
+.insight-modal-header {
+    background: var(--nm-bg) !important;
+    border-bottom: 1px solid rgba(163, 177, 198, 0.35) !important;
+}
+.insight-modal-header h4 { color: var(--nm-text) !important; }
+.insight-modal-body { color: #3f4a5a !important; background: var(--nm-bg) !important; }
+.insight-modal-footer {
+    background: var(--nm-bg) !important;
+    border-top: 1px solid rgba(163, 177, 198, 0.35) !important;
+}
+.insight-modal-close {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    box-shadow: var(--nm-flat) !important;
+    color: #4a5568 !important;
+}
+.insight-modal-close:hover { background: var(--nm-bg) !important; color: var(--nm-primary) !important; }
