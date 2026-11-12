@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inferth Mapping — Social Post 1080</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1080px;height:1080px;overflow:hidden}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    background:
+      radial-gradient(900px 600px at 88% 8%, rgba(249,115,22,.20), transparent 62%),
+      radial-gradient(700px 520px at 4% 96%, rgba(239,72,53,.12), transparent 60%),
+      #e8ecf1;
+    color:#2d3748;
+    position:relative;
+  }
+  .grain{position:absolute;inset:0;background-image:
+    linear-gradient(90deg,rgba(148,163,184,.08) 1px,transparent 1px),
+    linear-gradient(0deg,rgba(148,163,184,.08) 1px,transparent 1px);
+    background-size:72px 72px;pointer-events:none}
+  .frame{position:relative;width:1080px;height:1080px;padding:64px 64px 56px;display:flex;flex-direction:column}
+
+  .top{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:18px}
+  .brand img{width:76px;height:76px;object-fit:contain;filter:drop-shadow(6px 6px 12px rgba(163,177,198,.85))}
+  .brand-name{font-size:30px;font-weight:900;letter-spacing:-.02em}
+  .brand-tag{font-size:15px;font-weight:700;color:#5a6779;letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+  .live{display:flex;align-items:center;gap:10px;background:#e8ecf1;border-radius:60px;padding:12px 22px;
+    box-shadow:6px 6px 14px rgba(163,177,198,.8),-4px -4px 10px rgba(255,255,255,.9);font-size:17px;font-weight:800;color:#15803d}
+  .live .dot{width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 6px rgba(34,197,94,.15)}
+
+  .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:28px;margin-top:52px}
+  .kicker{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:800;letter-spacing:.13em;
+    text-transform:uppercase;color:#c2410c;background:#e8ecf1;border-radius:60px;padding:11px 20px;
+    box-shadow:5px 5px 12px rgba(163,177,198,.8),-3px -3px 9px rgba(255,255,255,.9)}
+  h1{font-size:74px;line-height:1.02;font-weight:900;letter-spacing:-.035em;margin-top:26px}
+  h1 span{color:#f97316}
+  .sub{font-size:22px;line-height:1.45;color:#4a5568;max-width:620px;margin-top:22px;font-weight:500}
+
+  .price-card{margin-top:38px;display:inline-flex;align-items:center;gap:22px;background:#e8ecf1;border-radius:26px;
+    padding:26px 32px;box-shadow:9px 9px 22px rgba(163,177,198,.75),-7px -7px 18px rgba(255,255,255,.9)}
+  .price-main{display:flex;align-items:flex-start;gap:4px}
+  .cur{font-size:30px;font-weight:800;color:#f97316;margin-top:10px}
+  .amt{font-size:82px;font-weight:900;line-height:.9;letter-spacing:-.04em;color:#f97316}
+  .per{font-size:19px;font-weight:700;color:#4a5568;max-width:110px;line-height:1.25;margin-top:34px}
+  .price-div{width:2px;height:86px;background:rgba(163,177,198,.55);border-radius:2px}
+  .price-alt{font-size:20px;font-weight:700;color:#3f4a5a;line-height:1.5}
+  .price-alt strong{color:#c2410c}
+
+  .mock{position:relative;width:392px;height:392px;border-radius:32px;background:#e8ecf1;
+    box-shadow:12px 12px 28px rgba(163,177,198,.8),-10px -10px 24px rgba(255,255,255,.92);padding:18px;
+    display:flex;flex-direction:column;gap:14px;flex:0 0 auto;margin-top:14px}
+  .mock-top{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 0}
+  .mock-title{font-size:16px;font-weight:800}
+  .mock-live{font-size:13px;font-weight:800;color:#15803d;display:flex;align-items:center;gap:6px}
+  .mock-live .d{width:8px;height:8px;border-radius:50%;background:#22c55e}
+  .map{position:relative;flex:1;border-radius:20px;overflow:hidden;
+    box-shadow:inset 4px 4px 12px rgba(163,177,198,.6),inset -3px -3px 9px rgba(255,255,255,.8);
+    background:
+      linear-gradient(90deg,rgba(148,163,184,.22) 1px,transparent 1px) 0 0/44px 44px,
+      linear-gradient(0deg,rgba(148,163,184,.22) 1px,transparent 1px) 0 0/44px 44px,
+      radial-gradient(circle at 26% 26%,#dbeafe,transparent 58%),
+      radial-gradient(circle at 78% 74%,#dcfce7,transparent 58%),
+      #eef2f7}
+  .road{position:absolute;background:rgba(148,163,184,.5);border-radius:6px}
+  .r1{left:-6%;right:-6%;top:52%;height:11px;transform:rotate(-7deg)}
+  .r2{top:-6%;bottom:-6%;left:36%;width:9px;transform:rotate(9deg)}
+  .r3{left:6%;bottom:18%;width:76%;height:8px;transform:rotate(15deg)}
+  .pin{position:absolute;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:19px;background:linear-gradient(135deg,#f97316,#ea6c0a);
+    box-shadow:4px 4px 10px rgba(249,115,22,.45),0 0 0 7px rgba(249,115,22,.12)}
+  .p1{top:20%;left:22%}.p2{top:52%;left:62%}.p3{top:66%;left:30%}
+  .mock-dock{display:flex;align-items:center;justify-content:space-between;background:#e8ecf1;border-radius:60px;
+    padding:12px 18px;box-shadow:4px 4px 10px rgba(163,177,198,.75),-3px -3px 8px rgba(255,255,255,.9);
+    font-size:14px;font-weight:800;color:#3f4a5a}
+  .mock-dock span{display:flex;align-items:center;gap:7px}
+  .dg{background:#22c55e}.dy{background:#f59e0b}.dr{background:#ef4444}
+  .mock-dock .d{width:9px;height:9px;border-radius:50%}
+
+  .features{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px}
+  .feat{background:#e8ecf1;border-radius:20px;padding:18px 16px;display:flex;align-items:center;gap:12px;
+    box-shadow:5px 5px 12px rgba(163,177,198,.8),-3px -3px 9px rgba(255,255,255,.9)}
+  .feat i{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    background:#e8ecf1;box-shadow:inset 3px 3px 7px rgba(163,177,198,.6),inset -2px -2px 6px rgba(255,255,255,.8);
+    color:#f97316;font-size:16px;flex:0 0 38px}
+  .feat b{display:block;font-size:15px;font-weight:800;line-height:1.2}
+  .feat small{display:block;font-size:12px;color:#5a6779;font-weight:600;margin-top:2px}
+
+  .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-top:30px}
+  .cta{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#f97316,#ea6c0a);
+    color:#fff;border-radius:70px;padding:19px 34px;font-size:24px;font-weight:800;
+    box-shadow:7px 7px 18px rgba(249,115,22,.42),-4px -4px 12px rgba(255,255,255,.85)}
+  .cta i{font-size:28px}
+  .site{text-align:right;font-size:19px;font-weight:800;color:#2d3748;line-height:1.4}
+  .site small{display:block;font-size:14px;font-weight:700;color:#5a6779;letter-spacing:.04em;margin-top:3px}
+  .chips{display:flex;gap:9px;margin-top:20px;flex-wrap:wrap}
+  .chip{font-size:13px;font-weight:800;color:#3f4a5a;background:#e8ecf1;border-radius:50px;padding:8px 14px;
+    box-shadow:3px 3px 8px rgba(163,177,198,.8),-2px -2px 6px rgba(255,255,255,.9)}
+  .chip i{color:#16a34a;margin-right:5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="frame">
+  <div class="top">
+    <div class="brand">
+      <img src="inferth_mapping_mark.png" alt="">
+      <div>
+        <div class="brand-name">Inferth Mapping</div>
+        <div class="brand-tag">Fleet tracking · Zimbabwe</div>
+      </div>
+    </div>
+    <div class="live"><span class="dot"></span> Live fleet</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="kicker"><i class="fas fa-satellite-dish"></i> Use Your Tracker (BYOT)</div>
+      <h1>Your tracker.<br><span>Our platform.</span></h1>
+      <p class="sub">Keep the GPS unit already in your vehicle. Point it at Inferth and get the full live console &mdash; map, history, geofences, alerts and reports.</p>
+
+      <div class="price-card">
+        <div class="price-main">
+          <span class="cur">$</span><span class="amt">7</span><span class="per">per vehicle<br>per month</span>
+        </div>
+        <div class="price-div"></div>
+        <div class="price-alt">or <strong>$65 / year</strong><br>Fleet rental from <strong>$49/mo</strong></div>
+      </div>
+
+      <div class="chips">
+        <span class="chip"><i class="fas fa-check"></i>GT06</span>
+        <span class="chip"><i class="fas fa-check"></i>SinoTrack</span>
+        <span class="chip"><i class="fas fa-check"></i>Coban / H02</span>
+        <span class="chip"><i class="fas fa-check"></i>Teltonika</span>
+      </div>
+    </div>
+
+    <div class="mock">
+      <div class="mock-top">
+        <span class="mock-title"><i class="fas fa-map-location-dot" style="color:#f97316"></i> Live fleet</span>
+        <span class="mock-live"><span class="d"></span> LIVE</span>
+      </div>
+      <div class="map">
+        <span class="road r1"></span><span class="road r2"></span><span class="road r3"></span>
+        <span class="pin p1"><i class="fas fa-car"></i></span>
+        <span class="pin p2"><i class="fas fa-truck"></i></span>
+        <span class="pin p3"><i class="fas fa-van-shuttle"></i></span>
+      </div>
+      <div class="mock-dock">
+        <span><span class="d dg"></span>Moving 2</span>
+        <span><span class="d dy"></span>Idle 1</span>
+        <span><span class="d dr"></span>Offline 1</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feat"><i class="fas fa-map-pin"></i><div><b>10s live map</b><small>Real-time positions</small></div></div>
+    <div class="feat"><i class="fas fa-bell"></i><div><b>WhatsApp alerts</b><small>Speed &amp; geofence</small></div></div>
+    <div class="feat"><i class="fas fa-power-off"></i><div><b>Immobilizer</b><small>Remote engine cut</small></div></div>
+    <div class="feat"><i class="fas fa-chart-line"></i><div><b>Fuel reports</b><small>CSV · Excel · PDF</small></div></div>
+  </div>
+
+  <div class="foot">
+    <div class="cta"><i class="fa-brands fa-whatsapp"></i> +263 783 009 275</div>
+    <div class="site">inferthmapping.co.zw<small>Connect in under 2 minutes</small></div>
+  </div>
+</div>
+</body>
+</html>

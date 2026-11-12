@@ -515,7 +515,7 @@ class AuthManager {
             if (errorMsg) {
                 errorMsg.textContent = 'You have been automatically logged out due to inactivity for security. Please sign in again.';
                 errorMsg.style.background = 'rgba(245, 158, 11, 0.12)';
-                errorMsg.style.color = '#f59e0b';
+                errorMsg.style.color = '#8a4b08';
                 errorMsg.style.borderColor = 'rgba(245, 158, 11, 0.3)';
                 errorMsg.classList.add('show');
             }

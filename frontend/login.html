@@ -622,6 +622,80 @@
  box-shadow:inset 3px 3px 8px rgba(163,177,198,.6),inset -2px -2px 6px rgba(255,255,255,.8) !important;}
 .submit-btn i.fa-arrow-right{font-size:.8rem;line-height:1;display:inline-flex;align-items:center;}
 </style>
+<style>
+/* LOGIN-NM-PASS — neumorphic sign-in surface */
+body { background: #e8ecf1 !important; }
+.signin-card {
+    background: #e8ecf1 !important;
+    border-radius: 22px !important;
+    box-shadow: 10px 10px 26px rgba(163,177,198,.75), -8px -8px 20px rgba(255,255,255,.9) !important;
+}
+.form-pane { background: #e8ecf1 !important; }
+.form-inner { color: #2d3748 !important; }
+.welcome-title { color: #2d3748 !important; }
+.welcome-sub,
+.brand-sub,
+.field-hint,
+.forgot-link,
+.auth-switch { color: #5a6779 !important; }
+.forgot-link { color: #c2410c !important; font-weight: 600 !important; }
+
+.field { margin-bottom: 1.15rem !important; }
+.field label { color: #3f4a5a !important; font-weight: 700 !important; letter-spacing: .01em; }
+.field input,
+#whatsapp-phone-input {
+    background: #e8ecf1 !important;
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: inset 3px 3px 8px rgba(163,177,198,.6), inset -2px -2px 6px rgba(255,255,255,.8) !important;
+    color: #2d3748 !important;
+    padding: .7rem .95rem !important;
+    font-size: .9rem !important;
+    width: 100% !important;
+    transition: box-shadow .18s ease !important;
+}
+.field input::placeholder { color: #5c6a7c !important; opacity: 1 !important; }
+.field input:focus,
+#whatsapp-phone-input:focus {
+    outline: none !important;
+    box-shadow: inset 3px 3px 8px rgba(163,177,198,.6),
+                inset -2px -2px 6px rgba(255,255,255,.8),
+                0 0 0 3px rgba(249,115,22,.22) !important;
+}
+.password-toggle {
+    background: #e8ecf1 !important;
+    border: none !important;
+    border-radius: 50% !important;
+    box-shadow: 3px 3px 8px rgba(163,177,198,.8), -2px -2px 6px rgba(255,255,255,.9) !important;
+    color: #4a5568 !important;
+}
+.password-toggle:hover { box-shadow: 2px 2px 6px rgba(163,177,198,.8), -1px -1px 4px rgba(255,255,255,.9) !important; }
+#error-message.show {
+    border-radius: 12px !important;
+    box-shadow: inset 3px 3px 8px rgba(163,177,198,.45),
+                inset -2px -2px 6px rgba(255,255,255,.7) !important;
+    font-weight: 600 !important;
+    padding: .65rem .85rem !important;
+}
+#error-message.show[style*="245, 158, 11"] { color: #8a4b08 !important; }
+.submit-btn {
+    min-height: 44px !important;
+    letter-spacing: .01em !important;
+}
+.otp-box {
+    background: #e8ecf1 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: inset 3px 3px 8px rgba(163,177,198,.6), inset -2px -2px 6px rgba(255,255,255,.8) !important;
+    color: #2d3748 !important;
+}
+.otp-box:focus { box-shadow: inset 3px 3px 8px rgba(163,177,198,.6), 0 0 0 3px rgba(249,115,22,.22) !important; }
+.otp-box.filled { box-shadow: 0 0 0 2px rgba(249,115,22,.55) !important; }
+@media (max-width: 860px) {
+    .signin-card { box-shadow: 6px 6px 18px rgba(163,177,198,.7), -5px -5px 14px rgba(255,255,255,.9) !important; }
+}
+</style>
+
 </head>
 
 <body>
@@ -848,7 +922,7 @@
         </div>
     </div>
 
-    <script src="auth.js?v=67"></script>
+    <script src="auth.js?v=68"></script>
     <script>
         if (window.AuthManager) {
             window.AuthManager.initLoginPage();

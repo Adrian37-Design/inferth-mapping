@@ -9152,3 +9152,107 @@ textarea::placeholder,
 .vehicle-card.status-moving { border-left: 4px solid #16a34a !important; }
 .vehicle-card.status-stationary { border-left: 4px solid #0284c7 !important; }
 .vehicle-card.status-offline { border-left: 4px solid #ef4444 !important; }
+/* ── Asset-details map popup — full neumorphic surface ─────────────────── */
+.pro-popup {
+    background: var(--nm-bg) !important;
+    color: var(--nm-text) !important;
+    border-radius: 14px !important;
+    padding: 2px !important;
+}
+.pro-popup-header {
+    border-bottom: 1px solid rgba(163, 177, 198, 0.45) !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 10px !important;
+}
+.pro-popup-title { color: var(--nm-text) !important; font-weight: 800 !important; }
+.pro-popup-sub { color: var(--nm-text-muted) !important; }
+.pro-popup-badge { border-radius: 50px !important; font-weight: 700 !important; }
+.pro-popup-addr {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: var(--nm-pressed) !important;
+    padding: 8px 10px !important;
+    color: var(--nm-text) !important;
+    margin-bottom: 10px !important;
+}
+.pro-popup-addr i { color: var(--nm-primary) !important; }
+.pro-popup-grid { gap: 8px !important; }
+.pro-popup-cell {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: var(--nm-flat) !important;
+    padding: 8px 10px !important;
+}
+.pro-popup-label { color: var(--nm-text-muted) !important; font-weight: 700 !important; }
+.pro-popup-val { color: var(--nm-text) !important; font-weight: 700 !important; }
+.pro-popup-obd {
+    background: var(--nm-bg) !important;
+    box-shadow: var(--nm-pressed) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    color: var(--nm-text) !important;
+}
+.pro-popup .popup-history-btn {
+    background: var(--nm-bg) !important;
+    color: var(--nm-primary) !important;
+    border: none !important;
+    border-radius: 50px !important;
+    box-shadow: var(--nm-raised) !important;
+    font-weight: 800 !important;
+    padding: 9px 14px !important;
+}
+.pro-popup .popup-history-btn:hover { box-shadow: var(--nm-flat) !important; }
+.leaflet-popup-content-wrapper { padding: 6px !important; }
+
+/* ── Modals: never clip the content, always scroll inside the body ─────── */
+.modal-content {
+    max-height: calc(100vh - 40px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+}
+.modal-body::-webkit-scrollbar { width: 8px; }
+.modal-body::-webkit-scrollbar-thumb {
+    background: rgba(163, 177, 198, 0.65);
+    border-radius: 50px;
+}
+#edit-company-modal .modal-content { max-width: 640px !important; width: calc(100% - 32px) !important; }
+#edit-company-modal .form-group + .form-group { margin-top: 20px !important; }
+
+/* ── Geofence tab arrows and controls ──────────────────────────────────── */
+.geo-violations-toggle,
+.geo-section-toggle,
+.geo-zone-delete {
+    background: var(--nm-bg) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    box-shadow: var(--nm-raised) !important;
+    color: #4a5568 !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+}
+.geo-violations-toggle:hover,
+.geo-section-toggle:hover,
+.geo-zone-delete:hover { box-shadow: var(--nm-flat) !important; color: var(--nm-primary) !important; }
+.geo-violations-toggle:active,
+.geo-section-toggle:active { box-shadow: var(--nm-pressed) !important; }
+.geo-violations-toggle[aria-expanded="true"] i,
+.geo-section-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+.geo-toggles {
+    background: var(--nm-bg) !important;
+    border-radius: 50px !important;
+    box-shadow: var(--nm-pressed) !important;
+    padding: 4px !important;
+    border: none !important;
+}
