@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=168">
+    <link rel="stylesheet" href="/static/app.css?v=169">
     <link rel="stylesheet" href="/static/spotlight.css?v=5">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -1850,30 +1850,81 @@
                                     </button>
                                 </div>
 
-                                <!-- PLAN 3: Platform Fleet Rental (For Transporters & Auto-Electricians) -->
-                                <div class="byot-card rental">
-                                    <div class="byot-card-top">
-                                        <div class="byot-card-icon"><i class="fas fa-server"></i></div>
-                                        <h4 class="byot-card-title">Platform Fleet Rental</h4>
-                                        <p class="byot-card-subtitle">For fleet managers &amp; auto-electricians renting the software console for multiple trackers.</p>
+                                                            </div>
+
+                            <!-- Platform Fleet Rental Plans -->
+                            <div class="rental-plans-section">
+                                <div class="rental-plans-head">
+                                    <h3>Platform Fleet Rental Plans</h3>
+                                    <p>Software console rental for fleet managers and auto-electricians. Your plan is matched to the number of vehicles running on the console &mdash; no hardware purchase, and you can move up a pack as the fleet grows.</p>
+                                </div>
+                                <div class="rental-plans-grid">
+                                    <div class="rental-plan-card" data-rental-min="1" data-rental-max="10">
+                                        <div class="rental-plan-badge">Console Rental</div>
+                                        <div class="rental-plan-top">
+                                            <span class="rental-plan-icon"><i class="fas fa-truck"></i></span>
+                                            <div>
+                                                <h4>Console Rental &mdash; 10</h4>
+                                                <p class="rental-plan-range">Up to 10 vehicles</p>
+                                            </div>
+                                        </div>
+                                        <div class="rental-plan-price"><span class="cur">$</span><span class="amt">49</span><span class="per">/month flat</span></div>
+                                        <div class="rental-plan-note">$4.90 per truck at full capacity</div>
+                                        <ul class="rental-plan-features">
+                                            <li><i class="fas fa-check"></i> Full Inferth console for up to 10 vehicles</li>
+                                            <li><i class="fas fa-check"></i> Live GPS tracking with 10-second updates</li>
+                                            <li><i class="fas fa-check"></i> WhatsApp OTP login, alerts and immobilizer cut</li>
+                                            <li><i class="fas fa-check"></i> 30-day route history, playback and geofences</li>
+                                            <li><i class="fas fa-check"></i> Automated weekly Excel/PDF fuel reports</li>
+                                            <li><i class="fas fa-check"></i> Manager and viewer accounts for your team</li>
+                                            <li><i class="fas fa-check"></i> Dedicated WhatsApp support SLA</li>
+                                        </ul>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Fleet_Rental_10', 49)">Rent 10 &mdash; $49/mo</button>
                                     </div>
-                                    <div class="byot-price-box">
-                                        <span class="byot-currency">$</span>
-                                        <span class="byot-price">49</span>
-                                        <span class="byot-unit">/month flat</span>
+
+                                    <div class="rental-plan-card" data-rental-min="11" data-rental-max="30">
+                                        <div class="rental-plan-badge">Fleet Pack</div>
+                                        <div class="rental-plan-top">
+                                            <span class="rental-plan-icon"><i class="fas fa-truck-fast"></i></span>
+                                            <div>
+                                                <h4>Fleet Pack &mdash; 30</h4>
+                                                <p class="rental-plan-range">11 to 30 vehicles</p>
+                                            </div>
+                                        </div>
+                                        <div class="rental-plan-price"><span class="cur">$</span><span class="amt">99</span><span class="per">/month flat</span></div>
+                                        <div class="rental-plan-note">About $3.30 per truck &mdash; 32% cheaper per vehicle</div>
+                                        <ul class="rental-plan-features">
+                                            <li><i class="fas fa-check"></i> Everything in Console Rental, for up to 30 vehicles</li>
+                                            <li><i class="fas fa-check"></i> Multi-depot vehicle grouping and filters</li>
+                                            <li><i class="fas fa-check"></i> Driver scorecards with harsh braking and speeding events</li>
+                                            <li><i class="fas fa-check"></i> Fuel and cost benchmarks at the ZERA $2.04/L diesel rate</li>
+                                            <li><i class="fas fa-check"></i> Automated weekly fuel and utilisation reports</li>
+                                            <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
+                                        </ul>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Fleet_Rental_30', 99)">Upgrade &mdash; $99/mo</button>
                                     </div>
-                                    <div class="byot-subnote">Covers up to 10 vehicles ($4.90/truck)</div>
-                                    <ul class="byot-features">
-                                        <li><i class="fas fa-check"></i> <strong>Console Rental for 10 vehicles</strong> ($49/mo)</li>
-                                        <li><i class="fas fa-check"></i> <strong>30-vehicle fleet pack:</strong> $99/mo</li>
-                                        <li><i class="fas fa-check"></i> <strong>100-vehicle fleet pack:</strong> $199/mo</li>
-                                        <li><i class="fas fa-check"></i> Multi-user manager &amp; viewer accounts</li>
-                                        <li><i class="fas fa-check"></i> Automated Excel/PDF weekly fuel reports</li>
-                                        <li><i class="fas fa-check"></i> Dedicated WhatsApp support SLA</li>
-                                    </ul>
-                                    <button type="button" class="byot-btn btn-outline" onclick="triggerByotPayment('Fleet_Rental_10', 49)">
-                                        <i class="fas fa-building"></i> Rent Fleet Console ($49)
-                                    </button>
+
+                                    <div class="rental-plan-card" data-rental-min="31" data-rental-max="100">
+                                        <div class="rental-plan-badge">Scale Pack</div>
+                                        <div class="rental-plan-top">
+                                            <span class="rental-plan-icon"><i class="fas fa-building"></i></span>
+                                            <div>
+                                                <h4>Scale Pack &mdash; 100</h4>
+                                                <p class="rental-plan-range">31 to 100 vehicles</p>
+                                            </div>
+                                        </div>
+                                        <div class="rental-plan-price"><span class="cur">$</span><span class="amt">199</span><span class="per">/month flat</span></div>
+                                        <div class="rental-plan-note">About $1.99 per truck &mdash; 60% cheaper per vehicle</div>
+                                        <ul class="rental-plan-features">
+                                            <li><i class="fas fa-check"></i> Everything in Fleet Pack, for up to 100 vehicles</li>
+                                            <li><i class="fas fa-check"></i> Sub-accounts per depot with manager and viewer roles</li>
+                                            <li><i class="fas fa-check"></i> Branded PDF and Excel reports for clients</li>
+                                            <li><i class="fas fa-check"></i> API and webhook access for your own systems</li>
+                                            <li><i class="fas fa-check"></i> 4-hour WhatsApp support SLA</li>
+                                            <li><i class="fas fa-check"></i> Quarterly fleet profitability review with the founder team</li>
+                                        </ul>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Fleet_Rental_100', 199)">Upgrade &mdash; $199/mo</button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -2478,7 +2529,7 @@
     <script src="/static/auth.js?v=67"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=169"></script>
+    <script src="/static/app.js?v=170"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

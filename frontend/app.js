@@ -2620,6 +2620,7 @@ async function loadVehicles() {
 
         const vehicles = await response.json();
         allVehicles = vehicles; // Store globally for geofence assignment
+        if (window.markActiveRentalPlan) window.markActiveRentalPlan();
         vehicles.forEach(v => { if (v.device_metadata && v.device_metadata.last_seen) markContact(v.id, v.device_metadata.last_seen); });
         updateChartVehicleSelector(allVehicles);
         populateHistoryVehicleSelect();
@@ -8289,6 +8290,7 @@ function applyBillingView(mode) {
 
     const byotView = viewMap.byot;
     if (byotView) byotView.classList.toggle('rental-only', mode === 'rental');
+    if (window.markActiveRentalPlan) window.markActiveRentalPlan();
 
     const targetView = viewMap[mode] || viewMap.monthly;
     const targetBtn = btnMap[mode] || btnMap.monthly;
@@ -8310,6 +8312,7 @@ window.initBillingAccess = function() {
     _billingCurrentMode = window.billingModeFromCycle(cycle);
     const billingCompany = (user && user.company_name) || '';
     if (/console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'rental';
+    if (window.markActiveRentalPlan) window.markActiveRentalPlan();
 
     const bar = document.getElementById('billing-change-bar');
     const panel = document.getElementById('billing-change-panel');
@@ -8997,3 +9000,28 @@ function _setEl(id, text) {
     };
     apply();
 })();
+
+
+/* ---------- Platform Fleet Rental: mark the plan matching the fleet size ---------- */
+window.markActiveRentalPlan = function() {
+    var cards = document.querySelectorAll('.rental-plan-card');
+    if (!cards.length) return;
+    var count = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length)
+        ? allVehicles.length : 2; // Console Telematics currently runs 2 vehicles
+    var byotView = document.getElementById('billing-byot-view');
+    var isRental = !!(byotView && byotView.classList.contains('rental-only'));
+    cards.forEach(function(card) {
+        var min = parseInt(card.getAttribute('data-rental-min') || '1', 10);
+        var max = parseInt(card.getAttribute('data-rental-max') || '10', 10);
+        var active = isRental && count >= min && count <= max;
+        card.classList.toggle('is-active', active);
+        var btn = card.querySelector('.rental-plan-btn');
+        if (btn) {
+            btn.classList.toggle('is-current', active);
+            btn.disabled = active;
+            if (active) btn.textContent = 'Current plan';
+        }
+        var badge = card.querySelector('.rental-plan-badge');
+        if (badge) badge.textContent = active ? 'Current Plan' : (max <= 10 ? 'Console Rental' : (max >= 100 ? 'Scale Pack' : 'Fleet Pack'));
+    });
+};

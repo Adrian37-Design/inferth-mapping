@@ -7534,3 +7534,84 @@ body.rail-expanded .rail-item {
 #billing-byot-view.rental-only .byot-header-banner,
 #billing-byot-view.rental-only .byot-card:not(.rental) { display: none !important; }
 #billing-byot-view.rental-only .byot-plans-grid { grid-template-columns: minmax(0, 560px); }
+
+/* Platform Fleet Rental plan containers */
+.rental-plans-section { margin: 8px 0 20px; }
+.rental-plans-head { margin-bottom: 12px; }
+.rental-plans-head h3 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; color: var(--text-primary); }
+.rental-plans-head p { margin: 0; font-size: 0.8rem; color: var(--text-secondary); max-width: 780px; }
+
+.rental-plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.rental-plan-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rental-plan-card.is-active {
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.rental-plan-badge {
+    align-self: flex-start;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: rgba(24, 24, 27, 0.06);
+    border-radius: 999px;
+    padding: 3px 9px;
+}
+.rental-plan-card.is-active .rental-plan-badge { background: var(--primary); color: #ffffff; }
+.rental-plan-top { display: flex; gap: 10px; align-items: flex-start; }
+.rental-plan-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(45, 95, 109, 0.12);
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.rental-plan-top h4 { margin: 0; font-size: 0.98rem; font-weight: 800; color: var(--text-primary); }
+.rental-plan-range { margin: 2px 0 0; font-size: 0.72rem; color: var(--text-secondary); }
+.rental-plan-price { display: flex; align-items: baseline; gap: 3px; }
+.rental-plan-price .cur { font-size: 1rem; font-weight: 700; color: var(--text-secondary); }
+.rental-plan-price .amt { font-size: 2rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.rental-plan-price .per { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
+.rental-plan-note { font-size: 0.7rem; font-weight: 700; color: var(--primary); }
+.rental-plan-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.rental-plan-features li { display: flex; gap: 8px; font-size: 0.76rem; color: var(--text-primary); line-height: 1.35; }
+.rental-plan-features i { color: var(--primary); margin-top: 3px; font-size: 0.6rem; flex: 0 0 auto; }
+.rental-plan-btn {
+    margin-top: auto;
+    width: 100%;
+    border: 1px solid var(--primary);
+    background: var(--primary);
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+.rental-plan-btn:hover { opacity: 0.9; }
+.rental-plan-btn.is-current,
+.rental-plan-btn:disabled {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #64748b;
+    cursor: default;
+}
+
+/* Rental-only page: no BYOT software-plan options */
+#billing-byot-view.rental-only .byot-plans-grid { display: none !important; }
