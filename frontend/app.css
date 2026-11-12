@@ -7457,3 +7457,16 @@ body.rail-expanded .rail-item {
 .dash-search-spot { margin-bottom: 10px; }
 .dash-mini-alerts-card .dash-filter-chips { margin-bottom: 8px; }
 .chip-total .chip-val { color: #0284c7; }
+
+/* Dashboard cleanup: remove the large KPI cards and secondary panels */
+#tab-dashboard > .dash-kpi-grid,
+#tab-dashboard > .dash-alerts-card,
+#tab-dashboard > .chart-section { display: none !important; }
+
+/* Collapsed performance graphs keep their header so the expand chevron stays visible */
+#tab-dashboard .perf-graph-card.collapsed > .dash-graph-header {
+    display: flex !important;
+}
+#tab-dashboard .perf-graph-card.collapsed > .perf-graph-common {
+    display: none !important;
+}
