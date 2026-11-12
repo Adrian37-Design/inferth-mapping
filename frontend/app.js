@@ -2821,6 +2821,25 @@ function updateDashboardKPIs(vehicles) {
     if (mapStationaryEl) mapStationaryEl.textContent = stationary;
     if (mapOfflineEl) mapOfflineEl.textContent = offline;
 
+    // Update Dashboard Sub-Tab Status Dock chips
+    const dsTotal = document.getElementById('dash-stat-total');
+    const dsMoving = document.getElementById('dash-stat-moving');
+    const dsStationary = document.getElementById('dash-stat-stationary');
+    const dsOffline = document.getElementById('dash-stat-offline');
+    const dsAlerts = document.getElementById('dash-stat-alerts');
+    if (dsTotal)      dsTotal.textContent      = vehicles.length;
+    if (dsMoving)     dsMoving.textContent      = moving;
+    if (dsStationary) dsStationary.textContent  = stationary;
+    if (dsOffline)    dsOffline.textContent      = offline;
+    if (dsAlerts)     dsAlerts.textContent       = alertsCount;
+
+    // Subtab vehicle count badge
+    const vBadge = document.getElementById('subtab-badge-vehicles');
+    if (vBadge) vBadge.textContent = vehicles.length;
+    // Alert badge is updated by renderDashMiniAlerts, but keep it in sync here too
+    const aBadge = document.getElementById('subtab-badge-alerts');
+    if (aBadge) aBadge.textContent = alertsCount;
+
     // Update Priority Alerts Panel
     updatePriorityAlertsPanel();
 

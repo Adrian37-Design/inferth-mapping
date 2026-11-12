@@ -7651,3 +7651,683 @@ body.rail-expanded .rail-item {
     box-shadow: 0 6px 16px rgba(37, 211, 102, 0.35);
 }
 .byot-wa-link:active { transform: translateY(0); }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFERTH MAPPING — NEUMORPHISM DESIGN SYSTEM + 6 UX LAWS
+   Applied: Closure · Figure-Ground · Banner Blindness · Parkinson's Law
+            · Connectedness · Choice Overload
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. NEUMORPHIC CSS CUSTOM PROPERTIES ───────────────────────────────── */
+:root {
+  /* Neumorphic palette — warm light-grey canvas */
+  --nm-bg:          #e8ecf1;      /* base surface */
+  --nm-bg-alt:      #f0f4f8;      /* slightly lighter variant */
+  --nm-shadow-dark: rgba(163,177,198,0.80);  /* recessed dark shadow */
+  --nm-shadow-lite: rgba(255,255,255,0.90);  /* raised light shadow */
+  --nm-inset-dark:  rgba(163,177,198,0.60);
+  --nm-inset-lite:  rgba(255,255,255,0.80);
+  --nm-primary:     #f97316;      /* Inferth orange — accent only */
+  --nm-primary-glow:rgba(249,115,22,0.22);
+  --nm-text:        #2d3748;
+  --nm-text-muted:  #718096;
+  --nm-radius:      18px;
+  --nm-radius-sm:   10px;
+  --nm-radius-xs:   7px;
+  /* Soft raised shadow (card floating above surface) */
+  --nm-raised:      6px 6px 14px var(--nm-shadow-dark),
+                   -4px -4px 10px var(--nm-shadow-lite);
+  /* Pressed / inset shadow (toggled state, active input) */
+  --nm-pressed:     inset 4px 4px 10px var(--nm-inset-dark),
+                    inset -3px -3px 8px var(--nm-inset-lite);
+  /* Flat (hover between raised and pressed) */
+  --nm-flat:        3px 3px 8px var(--nm-shadow-dark),
+                   -2px -2px 6px var(--nm-shadow-lite);
+}
+
+/* ── 2. GLOBAL PAGE SURFACE ─────────────────────────────────────────────── */
+/* Figure-Ground Law: distinct background plane separates UI from content */
+body {
+  background: var(--nm-bg) !important;
+  color: var(--nm-text) !important;
+}
+
+/* ── 3. NEUMORPHIC CARD MIXIN ───────────────────────────────────────────── */
+/* Closure Law: soft rounded cards give a complete, enclosed shape feel
+   even without hard borders — brain completes the boundary */
+.nm-card,
+.dash-card,
+.kpi-card,
+.analytics-card,
+.report-card,
+.billing-card,
+.byot-plan-card,
+.rental-plan-card,
+.byot-hero-card,
+.insight-card,
+.geofence-row,
+.vehicle-row,
+.company-row {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-raised) !important;
+  transition: box-shadow 0.22s ease, transform 0.22s ease !important;
+}
+.nm-card:hover,
+.dash-card:hover,
+.kpi-card:hover,
+.analytics-card:hover {
+  box-shadow: var(--nm-flat) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── 4. NAVBAR — neumorphic strip ──────────────────────────────────────── */
+/* Figure-Ground: navbar floats as a distinct plane above the map canvas */
+.navbar {
+  background: var(--nm-bg) !important;
+  box-shadow: 0 4px 16px var(--nm-shadow-dark),
+              0 -1px 0 var(--nm-shadow-lite) !important;
+  border-bottom: none !important;
+}
+
+/* Nav search bar — inset (Parkinson's Law: single prominent field, no clutter) */
+.nav-search {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-pressed) !important;
+  padding: 8px 18px !important;
+}
+.nav-search input {
+  background: transparent !important;
+  color: var(--nm-text) !important;
+}
+
+/* ── 5. LEFT RAIL — neumorphic vertical strip ───────────────────────────── */
+/* Connectedness Law: all nav icons share one continuous raised rail shape,
+   signalling they belong to the same navigation group */
+.rail,
+.nav-rail {
+  background: var(--nm-bg) !important;
+  box-shadow: 4px 0 16px var(--nm-shadow-dark),
+             -1px 0  4px var(--nm-shadow-lite) !important;
+  border-right: none !important;
+}
+
+.rail-icon-btn,
+.rail-item {
+  border-radius: var(--nm-radius-sm) !important;
+  transition: box-shadow 0.18s ease, background 0.18s ease !important;
+}
+.rail-icon-btn:hover,
+.rail-item:hover {
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-flat) !important;
+}
+.rail-icon-btn.active,
+.rail-item.active {
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-pressed) !important;
+  color: var(--nm-primary) !important;
+}
+
+/* Rail labels (shown on hover expand) */
+.rail-label {
+  color: var(--nm-text) !important;
+  font-weight: 600 !important;
+}
+
+/* ── 6. BUTTONS — raised neumorphic ────────────────────────────────────── */
+/* Parkinson's Law: big, unambiguous action buttons with generous padding
+   ensure users click promptly without hunting */
+.btn-primary,
+.btn-nm-primary,
+button.primary,
+.billing-cta-btn,
+.byot-plan-btn,
+.rental-plan-btn {
+  background: var(--nm-bg) !important;
+  color: var(--nm-primary) !important;
+  border: 2px solid var(--nm-primary) !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-raised), 0 0 0 0 var(--nm-primary-glow) !important;
+  font-weight: 700 !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+  padding: 12px 28px !important;
+}
+.btn-primary:hover,
+.billing-cta-btn:hover,
+.byot-plan-btn:hover,
+.rental-plan-btn:hover {
+  box-shadow: var(--nm-flat), 0 0 12px var(--nm-primary-glow) !important;
+  transform: translateY(-1px) !important;
+}
+.btn-primary:active,
+.billing-cta-btn:active {
+  box-shadow: var(--nm-pressed) !important;
+  transform: translateY(0) !important;
+}
+
+/* Primary filled orange action (Sign in, Add device, etc.) */
+.btn-orange,
+.sign-in-btn,
+#login-btn,
+.add-btn,
+.save-btn,
+.confirm-btn {
+  background: linear-gradient(135deg, #f97316 0%, #ea6c0a 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 50px !important;
+  box-shadow: 4px 4px 10px rgba(249,115,22,0.35),
+             -2px -2px 6px var(--nm-shadow-lite) !important;
+  font-weight: 700 !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease !important;
+}
+.btn-orange:hover,
+.sign-in-btn:hover,
+#login-btn:hover {
+  box-shadow: 2px 2px 6px rgba(249,115,22,0.5),
+             -1px -1px 4px var(--nm-shadow-lite) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── 7. KPI STAT CARDS ─────────────────────────────────────────────────── */
+/* Closure + Figure-Ground: KPI cards are islands; value stands out from label */
+.kpi-card {
+  border-radius: var(--nm-radius) !important;
+  padding: 20px 22px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--nm-radius);
+  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 60%);
+  pointer-events: none;
+}
+.kpi-value {
+  font-size: 2.2rem !important;
+  font-weight: 800 !important;
+  color: var(--nm-primary) !important;
+  line-height: 1 !important;
+}
+.kpi-label {
+  color: var(--nm-text-muted) !important;
+  font-size: 0.72rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-weight: 600 !important;
+}
+
+/* ── 8. FORM INPUTS — inset neumorphic ─────────────────────────────────── */
+/* Parkinson's Law: visible inset inputs signal "fillable area" immediately,
+   reducing decision time. Focus ring uses orange to guide attention. */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: var(--nm-radius-sm) !important;
+  box-shadow: var(--nm-pressed) !important;
+  color: var(--nm-text) !important;
+  padding: 12px 16px !important;
+  transition: box-shadow 0.2s ease !important;
+  outline: none !important;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: inset 3px 3px 8px var(--nm-inset-dark),
+              inset -2px -2px 6px var(--nm-inset-lite),
+              0 0 0 3px var(--nm-primary-glow) !important;
+}
+
+/* ── 9. DASHBOARD SUB-TABS ─────────────────────────────────────────────── */
+/* Connectedness: tabs share the same surface strip — they read as one group */
+.dash-subtab-bar {
+  background: var(--nm-bg) !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-pressed) !important;
+  padding: 6px 8px !important;
+  display: flex !important;
+  gap: 6px !important;
+  margin-bottom: 16px !important;
+  border: none !important;
+}
+.dash-subtab {
+  border-radius: var(--nm-radius-sm) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  color: var(--nm-text-muted) !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  padding: 8px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+.dash-subtab:hover {
+  box-shadow: var(--nm-flat) !important;
+  color: var(--nm-text) !important;
+}
+.dash-subtab.active {
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-raised) !important;
+  color: var(--nm-primary) !important;
+}
+
+/* ── 10. MAP CONTAINER — figure-ground prominence ──────────────────────── */
+/* Figure-Ground: map is the primary "figure"; the UI chrome is "ground" */
+.dash-map,
+.map-container,
+#main-map,
+.leaflet-container {
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-raised) !important;
+  overflow: hidden !important;
+  border: none !important;
+}
+
+/* ── 11. MAP STATUS DOCK ────────────────────────────────────────────────── */
+/* Closure: stat chips are grouped in one raised pill cluster */
+.map-status-dock,
+.dash-map-status-dock,
+#map-status-dock,
+#dash-map-status-dock {
+  background: var(--nm-bg) !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-raised) !important;
+  border: none !important;
+  padding: 6px 14px !important;
+  display: flex !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+.dash-stat-chip,
+.map-stat-item {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ── 12. ALERTS BADGE — banner blindness workaround ──────────────────────
+   Banner Blindness: avoid bright red banners that look like ads.
+   Use subtle neumorphic pressed-pill badge instead — it feels native */
+.subtab-badge,
+.alert-badge,
+.nav-badge {
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-pressed) !important;
+  color: var(--nm-primary) !important;
+  border-radius: 50px !important;
+  font-weight: 700 !important;
+  font-size: 0.65rem !important;
+  padding: 2px 7px !important;
+  border: none !important;
+}
+.alert-badge {
+  color: #ef4444 !important;
+}
+
+/* ── 13. PERFORMANCE GRAPH CARDS ────────────────────────────────────────── */
+/* Choice Overload: each graph is independently collapsible — user sees
+   only what they need. Default expanded shows all, tap to hide clutter. */
+.perf-graph-card {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-raised) !important;
+}
+.dash-graph-header {
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 16px 20px 12px !important;
+}
+.dgh-icon {
+  border-radius: var(--nm-radius-sm) !important;
+  box-shadow: var(--nm-raised) !important;
+  width: 40px !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.dash-graph-toggle-btn {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  box-shadow: var(--nm-raised) !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  color: var(--nm-text-muted) !important;
+  transition: box-shadow 0.18s ease !important;
+}
+.dash-graph-toggle-btn:hover {
+  box-shadow: var(--nm-flat) !important;
+  color: var(--nm-primary) !important;
+}
+.dash-graph-toggle-btn:active {
+  box-shadow: var(--nm-pressed) !important;
+}
+
+/* ── 14. COMMON METRICS STRIP ───────────────────────────────────────────── */
+/* Connectedness: all 5 metrics share one recessed channel — one data family */
+.perf-common-metrics-strip {
+  background: var(--nm-bg) !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-pressed) !important;
+  border: none !important;
+  padding: 14px 20px !important;
+  display: flex !important;
+  gap: 0 !important;
+  margin-bottom: 16px !important;
+}
+.pcm-item {
+  border-right: 1px solid rgba(163,177,198,0.4) !important;
+  padding: 0 20px !important;
+  flex: 1 !important;
+}
+.pcm-item:first-child { padding-left: 0 !important; }
+.pcm-item:last-child  { border-right: none !important; padding-right: 0 !important; }
+.pcm-label {
+  color: var(--nm-text-muted) !important;
+  font-size: 0.68rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+.pcm-val {
+  font-weight: 800 !important;
+  color: var(--nm-text) !important;
+  font-size: 0.95rem !important;
+}
+
+/* ── 15. BILLING / BYOT CARDS ───────────────────────────────────────────── */
+/* Choice Overload: plan picker uses raised cards with ONE CTA per plan.
+   The "popular" plan is raised higher (double shadow depth) to guide choice. */
+.byot-plan-card,
+.rental-plan-card {
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-raised) !important;
+  background: var(--nm-bg) !important;
+  border: none !important;
+  position: relative !important;
+  transition: box-shadow 0.22s ease, transform 0.22s ease !important;
+}
+.byot-plan-card.popular,
+.rental-plan-card.featured {
+  box-shadow: 8px 8px 20px var(--nm-shadow-dark),
+             -6px -6px 16px var(--nm-shadow-lite) !important;
+  transform: translateY(-4px) !important;
+}
+.byot-plan-card:hover,
+.rental-plan-card:hover {
+  box-shadow: var(--nm-flat) !important;
+}
+/* Plan price digit — big and clear (Parkinson's: decision in < 3 seconds) */
+.plan-price-amount,
+.byot-price-big {
+  font-size: 2.4rem !important;
+  font-weight: 900 !important;
+  color: var(--nm-primary) !important;
+  line-height: 1 !important;
+}
+
+/* ── 16. TOGGLE SWITCHES — neumorphic pill ──────────────────────────────── */
+/* Figure-Ground: ON state glows orange (figure), OFF is recessed (ground) */
+.toggle-switch,
+.nm-toggle {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-pressed) !important;
+  position: relative !important;
+  cursor: pointer !important;
+  transition: box-shadow 0.2s ease !important;
+}
+.toggle-switch.active,
+.nm-toggle.on {
+  box-shadow: inset 2px 2px 6px rgba(249,115,22,0.3),
+              inset -1px -1px 4px var(--nm-shadow-lite) !important;
+  background: linear-gradient(135deg, #f97316, #ea6c0a) !important;
+}
+
+/* ── 17. LOGOUT BUTTON — special ────────────────────────────────────────── */
+/* Figure-Ground: logout is visually separated (danger zone) */
+#logout-btn,
+.logout-btn {
+  background: var(--nm-bg) !important;
+  color: #ef4444 !important;
+  border: none !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-raised) !important;
+  font-weight: 700 !important;
+  transition: box-shadow 0.2s ease, color 0.2s ease !important;
+}
+#logout-btn:hover,
+.logout-btn:hover {
+  box-shadow: var(--nm-flat),
+              0 0 0 2px rgba(239,68,68,0.3) !important;
+  color: #dc2626 !important;
+  background: var(--nm-bg) !important;
+}
+
+/* ── 18. SECTION HEADINGS — with neumorphic accent line ─────────────────── */
+/* Closure: underline accent completes the heading's visual boundary */
+.section-title,
+.tab-title,
+.panel-heading,
+.page-header h2,
+.page-header h3 {
+  position: relative !important;
+  display: inline-block !important;
+}
+.section-title::after,
+.tab-title::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 4px;
+  background: var(--nm-primary);
+  border-radius: 2px;
+  margin-top: 6px;
+  box-shadow: 2px 2px 4px rgba(249,115,22,0.25);
+}
+
+/* ── 19. SCROLLBARS — neumorphic ────────────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track {
+  background: var(--nm-bg);
+  border-radius: 10px;
+  box-shadow: var(--nm-pressed);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(163,177,198,0.7);
+  border-radius: 10px;
+  box-shadow: 1px 1px 3px var(--nm-shadow-dark);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(249,115,22,0.6); }
+
+/* ── 20. MODAL / PANEL DRAWERS ──────────────────────────────────────────── */
+/* Figure-Ground: modal floats as bright figure above dimmed ground */
+.modal-overlay {
+  background: rgba(163,177,198,0.45) !important;
+  backdrop-filter: blur(4px) !important;
+}
+.modal-content,
+.panel-drawer,
+.slide-panel {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: 12px 12px 32px var(--nm-shadow-dark),
+             -8px -8px 24px var(--nm-shadow-lite) !important;
+}
+
+/* ── 21. STATUS BADGES / CHIPS ──────────────────────────────────────────── */
+/* Banner Blindness: status = neumorphic pressed pill, NOT a flat coloured banner */
+.status-badge,
+.status-chip {
+  border-radius: 50px !important;
+  font-weight: 700 !important;
+  font-size: 0.68rem !important;
+  padding: 3px 10px !important;
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-pressed) !important;
+  border: none !important;
+}
+.status-badge.success, .chip-status-moving  { color: #10b981 !important; }
+.status-badge.warning, .chip-status-idle    { color: #f59e0b !important; }
+.status-badge.danger,  .chip-status-offline { color: #ef4444 !important; }
+.status-badge.info                          { color: #0284c7 !important; }
+
+/* Role badges (ADMIN / MANAGER / VIEWER) — high-contrast neumorphic pills */
+/* Closure: each role pill reads as a distinct closed unit */
+.role-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  border-radius: 50px !important;
+  padding: 5px 14px !important;
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  box-shadow: var(--nm-raised) !important;
+  background: var(--nm-bg) !important;
+  border: none !important;
+}
+.role-badge.admin   { color: #f97316 !important; }
+.role-badge.manager { color: #0284c7 !important; }
+.role-badge.viewer  { color: #10b981 !important; }
+
+/* ── 22. TABLE ROWS ─────────────────────────────────────────────────────── */
+/* Connectedness: alternating pressed rows group every other record visually */
+.data-table tbody tr,
+.vehicles-table tbody tr,
+.team-table tbody tr {
+  border-radius: var(--nm-radius-xs) !important;
+  transition: box-shadow 0.15s ease !important;
+}
+.data-table tbody tr:nth-child(even) {
+  background: rgba(163,177,198,0.08) !important;
+}
+.data-table tbody tr:hover {
+  box-shadow: var(--nm-flat) !important;
+  background: var(--nm-bg) !important;
+}
+
+/* ── 23. INLINE ALERTS / NOTIFICATIONS ─────────────────────────────────── */
+/* Banner Blindness: inline contextual blocks (not full-width banners) */
+.alert-inline,
+.notification-bar {
+  border-radius: var(--nm-radius-sm) !important;
+  box-shadow: var(--nm-pressed) !important;
+  background: var(--nm-bg) !important;
+  border-left: 4px solid var(--nm-primary) !important;
+  padding: 12px 16px !important;
+}
+
+/* ── 24. MAP TYPE SELECTOR & ZOOM CONTROLS ──────────────────────────────── */
+/* Connectedness: zoom + center buttons share one raised cluster */
+.leaflet-control-zoom,
+.map-type-toggle,
+.map-controls-group {
+  background: var(--nm-bg) !important;
+  border: none !important;
+  border-radius: var(--nm-radius-sm) !important;
+  box-shadow: var(--nm-raised) !important;
+  overflow: hidden !important;
+}
+.leaflet-control-zoom a {
+  background: var(--nm-bg) !important;
+  color: var(--nm-text) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(163,177,198,0.3) !important;
+  transition: box-shadow 0.15s ease !important;
+}
+.leaflet-control-zoom a:hover {
+  box-shadow: var(--nm-pressed) !important;
+  background: var(--nm-bg) !important;
+  color: var(--nm-primary) !important;
+}
+.leaflet-control-zoom a:last-child { border-bottom: none !important; }
+
+/* ── 25. PERFORMANCE PERIOD PILLS ───────────────────────────────────────── */
+/* Choice Overload: only 3 period choices, raised pill cluster */
+.perf-period-pills {
+  display: flex !important;
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-pressed) !important;
+  border-radius: 50px !important;
+  padding: 4px !important;
+  gap: 2px !important;
+}
+.perf-period-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 50px !important;
+  padding: 6px 16px !important;
+  font-weight: 600 !important;
+  font-size: 0.78rem !important;
+  color: var(--nm-text-muted) !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+.perf-period-btn.active {
+  background: var(--nm-bg) !important;
+  box-shadow: var(--nm-raised) !important;
+  color: var(--nm-primary) !important;
+}
+
+/* ── 26. FORGOT PASSWORD PANELS (login.html) ────────────────────────────── */
+/* Parkinson's Law: 1 field per step, big CTA — decision friction near zero */
+.forgot-panel,
+.reset-panel,
+#forgot-panel,
+#reset-password-panel {
+  background: var(--nm-bg) !important;
+  border-radius: var(--nm-radius) !important;
+  box-shadow: var(--nm-raised) !important;
+  border: none !important;
+  padding: 32px !important;
+}
+
+/* ── 27. LEAFLET ATTRIBUTION — neumorphic pill ──────────────────────────── */
+.leaflet-control-attribution {
+  background: var(--nm-bg) !important;
+  border-radius: 50px !important;
+  box-shadow: var(--nm-raised) !important;
+  border: none !important;
+  font-size: 0.65rem !important;
+  padding: 3px 10px !important;
+  color: var(--nm-text-muted) !important;
+}
+
+/* ── 28. RESPONSIVE: preserve neumorphism on mobile ────────────────────── */
+@media (max-width: 768px) {
+  :root {
+    --nm-raised: 4px 4px 10px var(--nm-shadow-dark), -3px -3px 7px var(--nm-shadow-lite);
+    --nm-pressed: inset 3px 3px 7px var(--nm-inset-dark), inset -2px -2px 5px var(--nm-inset-lite);
+    --nm-flat:   2px 2px 6px var(--nm-shadow-dark), -1px -1px 4px var(--nm-shadow-lite);
+  }
+  .kpi-value { font-size: 1.7rem !important; }
+  .plan-price-amount { font-size: 1.9rem !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   END NEUMORPHISM DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */

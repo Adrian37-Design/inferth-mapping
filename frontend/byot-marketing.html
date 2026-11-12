@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inferth Mapping — Bring Your Own Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   BYOT Marketing Page — Neumorphic · 6 UX Laws Applied
+   ═══════════════════════════════════════════════════════════════ */
+
+/* --- Variables ------------------------------------------------ */
+:root{
+  --bg:#e8ecf1;
+  --shadow-d:rgba(163,177,198,.8);
+  --shadow-l:rgba(255,255,255,.9);
+  --raised:6px 6px 14px var(--shadow-d),-4px -4px 10px var(--shadow-l);
+  --pressed:inset 4px 4px 10px rgba(163,177,198,.6),inset -3px -3px 8px rgba(255,255,255,.8);
+  --flat:3px 3px 8px var(--shadow-d),-2px -2px 6px var(--shadow-l);
+  --orange:#f97316;
+  --orange-dark:#ea6c0a;
+  --orange-glow:rgba(249,115,22,.22);
+  --text:#2d3748;
+  --muted:#718096;
+  --r:18px;--rs:10px;--rxs:7px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{text-decoration:none;color:inherit}
+
+/* --- Utility -------------------------------------------------- */
+.nm-card{background:var(--bg);border-radius:var(--r);box-shadow:var(--raised)}
+.nm-inset{background:var(--bg);border-radius:var(--rs);box-shadow:var(--pressed)}
+.orange{color:var(--orange)}
+.muted{color:var(--muted)}
+.upper{text-transform:uppercase;letter-spacing:.08em;font-size:.7rem;font-weight:700}
+
+/* --- Navbar --------------------------------------------------- */
+/* Figure-Ground: navbar floats as a crisp figure above the warm surface */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;height:68px;
+  background:var(--bg);
+  box-shadow:0 4px 16px var(--shadow-d),0 -1px 0 var(--shadow-l);
+  position:sticky;top:0;z-index:100;
+}
+.nav-logo{display:flex;align-items:center;gap:12px;font-weight:900;font-size:1.1rem}
+.nav-logo img{width:36px;height:36px;border-radius:50%;box-shadow:var(--raised)}
+.nav-links{display:flex;gap:8px}
+.nav-link{
+  padding:8px 18px;border-radius:50px;font-weight:600;font-size:.85rem;
+  color:var(--muted);cursor:pointer;transition:all .2s ease;
+}
+.nav-link:hover{box-shadow:var(--flat);color:var(--text)}
+.nav-cta{
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  color:#fff;padding:10px 24px;border-radius:50px;font-weight:700;font-size:.85rem;
+  box-shadow:3px 3px 8px rgba(249,115,22,.35),-2px -2px 6px var(--shadow-l);
+  cursor:pointer;transition:all .2s ease;
+}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
+
+/* --- Hero (Card 1) -------------------------------------------- */
+/* Closure Law: hero card is a self-contained island — brain fills missing edges */
+/* Figure-Ground: map/device graphic is the FIGURE; warm bg is GROUND */
+.hero{
+  max-width:1200px;margin:60px auto 0;padding:0 24px;
+  display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
+}
+.hero-text h1{
+  font-size:3.2rem;font-weight:900;line-height:1.1;
+  margin-bottom:20px;
+}
+.hero-text h1 span{color:var(--orange)}
+.hero-text p{color:var(--muted);font-size:1.05rem;line-height:1.6;margin-bottom:28px}
+
+/* Protocol chips — Connectedness: grouped in one row, same style = one family */
+.protocol-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+.chip{
+  padding:5px 14px;border-radius:50px;font-size:.72rem;font-weight:700;
+  box-shadow:var(--raised);color:var(--muted);
+}
+.chip-orange{color:var(--orange)}
+
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-nm-primary{
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  color:#fff;border:none;border-radius:50px;padding:14px 32px;
+  font-size:.95rem;font-weight:700;cursor:pointer;
+  box-shadow:4px 4px 10px rgba(249,115,22,.35),-2px -2px 6px var(--shadow-l);
+  transition:all .2s ease;
+}
+.btn-nm-primary:hover{transform:translateY(-2px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
+.btn-nm-ghost{
+  background:var(--bg);border:none;border-radius:50px;padding:14px 32px;
+  font-size:.95rem;font-weight:700;cursor:pointer;color:var(--orange);
+  box-shadow:var(--raised);transition:all .2s ease;
+}
+.btn-nm-ghost:hover{box-shadow:var(--flat);transform:translateY(-1px)}
+
+/* Hero visual — Map mockup card */
+.hero-visual{position:relative}
+.map-mockup{
+  background:var(--bg);border-radius:var(--r);
+  box-shadow:var(--raised);padding:24px;
+  overflow:hidden;min-height:320px;
+  display:flex;flex-direction:column;gap:16px;
+}
+.map-mockup-top{display:flex;align-items:center;justify-content:space-between}
+.map-title{font-weight:700;font-size:.85rem}
+.map-live{
+  background:var(--bg);border-radius:50px;padding:4px 12px;
+  box-shadow:var(--pressed);font-size:.7rem;font-weight:700;color:#10b981;
+}
+.map-screen{
+  flex:1;border-radius:12px;min-height:200px;
+  background:linear-gradient(135deg,#c8e6c9 0%,#b3d9f7 50%,#e1bee7 100%);
+  position:relative;overflow:hidden;box-shadow:var(--pressed);
+}
+.map-screen::before{
+  content:'🗺️';font-size:80px;position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);opacity:.15;
+}
+/* Tracker markers */
+.marker{
+  position:absolute;width:28px;height:28px;
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  box-shadow:3px 3px 8px rgba(249,115,22,.4);
+  animation:pulse 2s ease-in-out infinite;
+}
+.marker i{color:#fff;font-size:.75rem}
+.m1{top:30%;left:40%} .m2{top:50%;left:65%} .m3{top:65%;left:30%} .m4{top:40%;left:20%}
+@keyframes pulse{0%,100%{box-shadow:3px 3px 8px rgba(249,115,22,.4),0 0 0 0 rgba(249,115,22,.3)}
+  50%{box-shadow:3px 3px 8px rgba(249,115,22,.4),0 0 0 8px rgba(249,115,22,0)}}
+
+/* Map status dock */
+.map-dock{
+  display:flex;gap:10px;background:var(--bg);border-radius:50px;
+  padding:6px 14px;box-shadow:var(--raised);width:fit-content;
+}
+.dock-chip{font-size:.7rem;font-weight:700;display:flex;align-items:center;gap:5px}
+.dot{width:7px;height:7px;border-radius:50%}
+.dot-g{background:#10b981} .dot-y{background:#f59e0b} .dot-r{background:#ef4444}
+
+/* --- Section Header ------------------------------------------ */
+.section-hdr{text-align:center;max-width:620px;margin:72px auto 48px}
+.section-hdr .eyebrow{color:var(--orange);font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.section-hdr h2{font-size:2.4rem;font-weight:900;line-height:1.15}
+.section-hdr p{color:var(--muted);margin-top:12px;font-size:1rem;line-height:1.6}
+
+/* --- Pricing Grid (Cards 2 & 4) ------------------------------ */
+/* Choice Overload: 3 plans max. ONE CTA per card. Popular card elevated. */
+/* Connectedness: all 3 cards share same column rhythm & shadow treatment */
+.pricing{max-width:1100px;margin:0 auto;padding:0 24px 80px}
+.pricing-toggle{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-bottom:40px;
+}
+.toggle-track{
+  width:48px;height:26px;border-radius:50px;cursor:pointer;position:relative;
+  box-shadow:var(--pressed);background:var(--bg);transition:background .2s ease;
+}
+.toggle-track.on{background:linear-gradient(135deg,var(--orange),var(--orange-dark))}
+.toggle-thumb{
+  width:20px;height:20px;border-radius:50%;background:#fff;
+  position:absolute;top:3px;left:3px;transition:transform .2s ease;
+  box-shadow:2px 2px 4px rgba(0,0,0,.2);
+}
+.toggle-track.on .toggle-thumb{transform:translateX(22px)}
+.toggle-label{font-weight:600;font-size:.85rem;color:var(--muted)}
+.toggle-label.on{color:var(--text)}
+.save-pill{background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:#fff;border-radius:50px;padding:2px 10px;font-size:.65rem;font-weight:700;margin-left:4px}
+
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.plan-card{
+  background:var(--bg);border-radius:var(--r);
+  box-shadow:var(--raised);padding:28px 24px;
+  display:flex;flex-direction:column;gap:16px;
+  position:relative;transition:box-shadow .22s ease,transform .22s ease;
+}
+.plan-card:hover{box-shadow:var(--flat);transform:translateY(-2px)}
+.plan-card.featured{
+  box-shadow:8px 8px 22px var(--shadow-d),-6px -6px 18px var(--shadow-l);
+  transform:translateY(-6px);
+}
+.plan-card.featured:hover{transform:translateY(-8px)}
+
+.featured-label{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  color:#fff;border-radius:50px;padding:5px 20px;font-size:.7rem;font-weight:800;
+  box-shadow:2px 2px 8px rgba(249,115,22,.35);white-space:nowrap;
+}
+.plan-name{font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.plan-price{display:flex;align-items:baseline;gap:4px;line-height:1}
+.plan-price-big{font-size:2.6rem;font-weight:900;color:var(--orange)}
+.plan-price-per{font-size:.8rem;color:var(--muted);font-weight:600}
+.plan-desc{color:var(--muted);font-size:.82rem;line-height:1.5}
+
+/* Features — Connectedness: bullet list all share icon+text alignment */
+.plan-features{list-style:none;display:flex;flex-direction:column;gap:9px;flex:1}
+.plan-features li{font-size:.82rem;color:var(--text);display:flex;align-items:center;gap:9px}
+.plan-features li i{color:var(--orange);font-size:.8rem;width:16px}
+
+.plan-btn{
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  color:#fff;border:none;border-radius:50px;padding:12px 24px;
+  font-size:.88rem;font-weight:700;cursor:pointer;width:100%;
+  box-shadow:3px 3px 8px rgba(249,115,22,.3),-2px -2px 6px var(--shadow-l);
+  transition:all .2s ease;
+}
+.plan-btn:hover{transform:translateY(-1px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
+.plan-btn-ghost{
+  background:var(--bg);color:var(--orange);border:none;border-radius:50px;
+  padding:12px 24px;font-size:.88rem;font-weight:700;cursor:pointer;width:100%;
+  box-shadow:var(--raised);transition:all .2s ease;
+}
+.plan-btn-ghost:hover{box-shadow:var(--flat);transform:translateY(-1px)}
+
+/* --- Lifetime Pass (Card 4) ----------------------------------- */
+/* Parkinson's Law: single "$99 lifetime" message, one CTA — zero decision delay */
+.lifetime-section{max-width:900px;margin:0 auto 80px;padding:0 24px}
+.lifetime-card{
+  background:var(--bg);border-radius:var(--r);
+  box-shadow:var(--raised);padding:48px;
+  display:grid;grid-template-columns:1fr auto;gap:40px;align-items:center;
+  position:relative;overflow:hidden;
+}
+.lifetime-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:280px;height:280px;border-radius:50%;
+  background:var(--orange-glow);
+  box-shadow:0 0 60px 30px var(--orange-glow);
+}
+.lt-eyebrow{color:var(--orange);font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
+.lt-title{font-size:2.6rem;font-weight:900;line-height:1.1;margin-bottom:16px}
+.lt-price{display:flex;align-items:baseline;gap:6px;margin-bottom:20px}
+.lt-price-big{font-size:4rem;font-weight:900;color:var(--orange);line-height:1}
+.lt-price-label{font-size:1rem;font-weight:700;color:var(--muted)}
+.lt-features{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.lt-features li{font-size:.88rem;display:flex;align-items:center;gap:10px}
+.lt-features li i{color:var(--orange);width:18px}
+.lt-note{
+  background:var(--bg);box-shadow:var(--pressed);border-radius:var(--rs);
+  padding:12px 16px;font-size:.75rem;color:var(--muted);
+  border-left:3px solid var(--orange);
+}
+.lt-cta{
+  display:flex;flex-direction:column;gap:16px;align-items:center;
+  position:relative;z-index:1;
+}
+.lt-btn{
+  background:linear-gradient(135deg,var(--orange),var(--orange-dark));
+  color:#fff;border:none;border-radius:50px;padding:16px 36px;
+  font-size:1rem;font-weight:800;cursor:pointer;white-space:nowrap;
+  box-shadow:5px 5px 14px rgba(249,115,22,.4),-3px -3px 10px var(--shadow-l);
+  transition:all .2s ease;
+}
+.lt-btn:hover{transform:translateY(-2px);box-shadow:3px 3px 10px rgba(249,115,22,.5),-2px -2px 8px var(--shadow-l)}
+.lt-wa{
+  display:flex;align-items:center;gap:8px;
+  background:#25d366;color:#fff;border-radius:50px;padding:11px 22px;
+  font-size:.82rem;font-weight:700;white-space:nowrap;
+  box-shadow:3px 3px 8px rgba(37,211,102,.3);transition:all .2s ease;
+}
+.lt-wa:hover{transform:translateY(-1px);box-shadow:2px 2px 6px rgba(37,211,102,.5)}
+
+/* --- Feature Strip (Card 3) ----------------------------------- */
+/* Banner Blindness: features presented as neumorphic cards, NOT banner ads */
+.features-section{max-width:1100px;margin:0 auto 80px;padding:0 24px}
+.features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.feat-card{
+  background:var(--bg);border-radius:var(--r);box-shadow:var(--raised);
+  padding:28px 20px;text-align:center;transition:all .22s ease;
+}
+.feat-card:hover{box-shadow:var(--flat);transform:translateY(-2px)}
+.feat-icon{
+  width:56px;height:56px;border-radius:var(--rs);margin:0 auto 16px;
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;
+  box-shadow:var(--raised);color:var(--orange);
+}
+.feat-title{font-size:.9rem;font-weight:800;margin-bottom:8px}
+.feat-desc{font-size:.78rem;color:var(--muted);line-height:1.5}
+
+/* --- Protocol Compatibility ----------------------------------- */
+/* Connectedness: all trackers grouped in one recessed container = one family */
+.compat-section{max-width:900px;margin:0 auto 80px;padding:0 24px}
+.compat-box{
+  background:var(--bg);border-radius:var(--r);box-shadow:var(--pressed);
+  padding:36px;
+}
+.compat-title{font-size:1.3rem;font-weight:800;margin-bottom:8px}
+.compat-sub{color:var(--muted);font-size:.85rem;margin-bottom:24px}
+.compat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.compat-item{
+  background:var(--bg);border-radius:var(--rs);box-shadow:var(--raised);
+  padding:16px;text-align:center;transition:all .2s ease;
+}
+.compat-item:hover{box-shadow:var(--flat);transform:translateY(-1px)}
+.compat-item i{font-size:1.5rem;color:var(--orange);margin-bottom:8px;display:block}
+.compat-item .c-name{font-weight:800;font-size:.82rem;margin-bottom:4px}
+.compat-item .c-port{
+  font-size:.68rem;color:var(--muted);
+  background:var(--bg);box-shadow:var(--pressed);
+  border-radius:50px;padding:2px 8px;display:inline-block;margin-top:4px;
+}
+
+/* --- Footer --------------------------------------------------- */
+footer{
+  background:var(--bg);box-shadow:0 -4px 16px var(--shadow-d);
+  padding:36px 48px;display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:16px;
+}
+.footer-brand{display:flex;align-items:center;gap:10px;font-weight:800}
+.footer-links{display:flex;gap:8px;flex-wrap:wrap}
+.footer-link{
+  padding:6px 14px;border-radius:50px;font-size:.78rem;color:var(--muted);font-weight:600;
+  box-shadow:var(--raised);transition:all .18s ease;
+}
+.footer-link:hover{box-shadow:var(--flat);color:var(--text)}
+.footer-wa{
+  display:flex;align-items:center;gap:8px;background:#25d366;color:#fff;
+  border-radius:50px;padding:9px 20px;font-size:.8rem;font-weight:700;
+  box-shadow:3px 3px 8px rgba(37,211,102,.3);transition:all .2s ease;
+}
+.footer-wa:hover{transform:translateY(-1px)}
+
+/* Responsive */
+@media(max-width:900px){
+  .hero{grid-template-columns:1fr}
+  .plans-grid{grid-template-columns:1fr}
+  .plan-card.featured{transform:none}
+  .lifetime-card{grid-template-columns:1fr}
+  .features-grid,.compat-grid{grid-template-columns:repeat(2,1fr)}
+  nav{padding:0 20px}
+  .hero-text h1{font-size:2.2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-logo">
+    <div style="width:36px;height:36px;background:linear-gradient(135deg,#f97316,#ea6c0a);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--raised)">
+      <i class="fas fa-fire" style="color:#fff;font-size:1rem"></i>
+    </div>
+    Inferth Mapping
+  </div>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="#compat" class="nav-link">Compatible Trackers</a>
+  </div>
+  <a href="https://wa.me/263783009275?text=BYOT%20enquiry" target="_blank" class="nav-cta">
+    <i class="fab fa-whatsapp"></i> Get Started
+  </a>
+</nav>
+
+<!-- ══ HERO ════════════════════════════════════════════════════════ -->
+<!-- Closure + Figure-Ground: hero card as self-contained raised island -->
+<section class="hero" id="top">
+  <div class="hero-text">
+    <div class="upper orange" style="margin-bottom:12px"><i class="fas fa-satellite-dish"></i>&nbsp; Bring Your Own Tracker</div>
+    <h1>Your Tracker.<br><span>Our Platform.</span></h1>
+    <p>Already have a GPS tracker? Connect it to Inferth Mapping in minutes. No hardware lock-in. Full real-time fleet intelligence — starting from just <strong>$5/month</strong>.</p>
+
+    <!-- Protocol chips — Connectedness: same pill family -->
+    <div class="protocol-chips">
+      <span class="chip chip-orange"><i class="fas fa-check" style="font-size:.6rem;margin-right:4px"></i> GT06</span>
+      <span class="chip chip-orange"><i class="fas fa-check" style="font-size:.6rem;margin-right:4px"></i> Sinotrack</span>
+      <span class="chip chip-orange"><i class="fas fa-check" style="font-size:.6rem;margin-right:4px"></i> Teltonika</span>
+      <span class="chip chip-orange"><i class="fas fa-check" style="font-size:.6rem;margin-right:4px"></i> H02</span>
+      <span class="chip"><i class="fas fa-plus" style="font-size:.6rem;margin-right:4px"></i> More</span>
+    </div>
+
+    <div class="hero-btns">
+      <a href="#pricing" class="btn-nm-primary"><i class="fas fa-bolt"></i>&nbsp; See Plans</a>
+      <a href="https://wa.me/263783009275?text=I%20want%20to%20connect%20my%20own%20tracker" target="_blank" class="btn-nm-ghost"><i class="fab fa-whatsapp"></i>&nbsp; Ask via WhatsApp</a>
+    </div>
+  </div>
+
+  <!-- Map mockup visual — Figure (map) on Ground (bg) -->
+  <div class="hero-visual">
+    <div class="map-mockup nm-card">
+      <div class="map-mockup-top">
+        <span class="map-title"><i class="fas fa-map-marked-alt orange"></i>&nbsp; Live Fleet Map</span>
+        <span class="map-live"><i class="fas fa-circle" style="font-size:.5rem"></i>&nbsp; LIVE</span>
+      </div>
+      <div class="map-screen">
+        <div class="marker m1"><i class="fas fa-car"></i></div>
+        <div class="marker m2"><i class="fas fa-truck"></i></div>
+        <div class="marker m3"><i class="fas fa-car"></i></div>
+        <div class="marker m4"><i class="fas fa-bus"></i></div>
+      </div>
+      <!-- Status dock — Closure: grouped pill completes the map card -->
+      <div class="map-dock">
+        <div class="dock-chip"><span class="dot dot-g"></span>Moving: <strong>2</strong></div>
+        <div class="dock-chip"><span class="dot dot-y"></span>Stationary: <strong>1</strong></div>
+        <div class="dock-chip"><span class="dot dot-r"></span>Offline: <strong>1</strong></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ════════════════════════════════════════════════════ -->
+<!-- Banner Blindness: features as cards, NOT as a banner strip -->
+<section class="features-section" id="features">
+  <div class="section-hdr">
+    <div class="eyebrow"><i class="fas fa-star"></i>&nbsp; Everything included</div>
+    <h2>Full Fleet Intelligence.<br>Your Tracker. Zero Lock-In.</h2>
+    <p>Every BYOT plan includes the complete Inferth Mapping feature suite — no paywalled add-ons.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon"><i class="fas fa-map-pin"></i></div>
+      <div class="feat-title">Real-Time Tracking</div>
+      <div class="feat-desc">Live GPS positions updated every 10–30 seconds. See your fleet move on the map.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon"><i class="fas fa-bell"></i></div>
+      <div class="feat-title">Speed & Geofence Alerts</div>
+      <div class="feat-desc">Instant WhatsApp/SMS alerts when vehicles speed, leave zones, or go offline.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon"><i class="fas fa-power-off"></i></div>
+      <div class="feat-title">Remote Shutdown</div>
+      <div class="feat-desc">Cut ignition remotely from your dashboard. Full immobilizer control via one click.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon"><i class="fas fa-chart-bar"></i></div>
+      <div class="feat-title">Fleet Analytics</div>
+      <div class="feat-desc">Mileage, utilization hours, fuel cost estimates, and driver safety scoring.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRICING ═════════════════════════════════════════════════════ -->
+<!-- Choice Overload: 3 plans, one CTA each, clear hierarchy -->
+<section class="pricing" id="pricing">
+  <div class="section-hdr" style="margin-top:0">
+    <div class="eyebrow"><i class="fas fa-tags"></i>&nbsp; Simple Pricing</div>
+    <h2>No Hardware Fees.<br>Just Platform Access.</h2>
+    <p>Bring your own tracker and pay only for the platform. Month-to-month, cancel anytime.</p>
+  </div>
+
+  <!-- Toggle monthly/yearly — Parkinson's Law: one toggle, two states, decision in 1 second -->
+  <div class="pricing-toggle">
+    <span class="toggle-label on" id="lbl-monthly">Monthly</span>
+    <div class="toggle-track" id="billing-toggle" onclick="toggleBilling()">
+      <div class="toggle-thumb"></div>
+    </div>
+    <span class="toggle-label" id="lbl-yearly">Yearly <span class="save-pill">Save 20%</span></span>
+  </div>
+
+  <div class="plans-grid">
+
+    <!-- PLAN 1: Solo -->
+    <div class="plan-card">
+      <div class="plan-name">Solo Tracker</div>
+      <div class="plan-price">
+        <span class="plan-price-big" id="p1-price">$5</span>
+        <span class="plan-price-per" id="p1-per">/month</span>
+      </div>
+      <div class="plan-desc">1 tracker. Perfect for a single vehicle owner managing their own car or bike.</div>
+      <ul class="plan-features">
+        <li><i class="fas fa-check-circle"></i> 1 Tracker Connected</li>
+        <li><i class="fas fa-check-circle"></i> Real-Time Live Map</li>
+        <li><i class="fas fa-check-circle"></i> Speed & Geofence Alerts</li>
+        <li><i class="fas fa-check-circle"></i> 30-Day Trip History</li>
+        <li><i class="fas fa-check-circle"></i> WhatsApp Notifications</li>
+        <li><i class="fas fa-times-circle" style="color:#cbd5e1"></i> <span style="color:#a0aec0">Remote Shutdown</span></li>
+      </ul>
+      <a href="https://wa.me/263783009275?text=I%20want%20the%20Solo%20BYOT%20plan" target="_blank">
+        <button class="plan-btn-ghost">Get Started →</button>
+      </a>
+    </div>
+
+    <!-- PLAN 2: Fleet 5 (POPULAR) — elevated (Choice Overload: guide to best value) -->
+    <div class="plan-card featured">
+      <div class="featured-label">⭐ Most Popular</div>
+      <div class="plan-name">Fleet 5</div>
+      <div class="plan-price">
+        <span class="plan-price-big" id="p2-price">$18</span>
+        <span class="plan-price-per" id="p2-per">/month</span>
+      </div>
+      <div class="plan-desc">Up to 5 trackers. Ideal for small business owners, taxi operators, and delivery fleets.</div>
+      <ul class="plan-features">
+        <li><i class="fas fa-check-circle"></i> Up to 5 Trackers</li>
+        <li><i class="fas fa-check-circle"></i> Real-Time Live Map</li>
+        <li><i class="fas fa-check-circle"></i> Speed & Geofence Alerts</li>
+        <li><i class="fas fa-check-circle"></i> 90-Day Trip History</li>
+        <li><i class="fas fa-check-circle"></i> Remote Shutdown</li>
+        <li><i class="fas fa-check-circle"></i> Fleet Analytics Dashboard</li>
+      </ul>
+      <a href="https://wa.me/263783009275?text=I%20want%20the%20Fleet%205%20BYOT%20plan" target="_blank">
+        <button class="plan-btn">Get Started →</button>
+      </a>
+    </div>
+
+    <!-- PLAN 3: Fleet 20 -->
+    <div class="plan-card">
+      <div class="plan-name">Fleet 20</div>
+      <div class="plan-price">
+        <span class="plan-price-big" id="p3-price">$60</span>
+        <span class="plan-price-per" id="p3-per">/month</span>
+      </div>
+      <div class="plan-desc">Up to 20 trackers. For transport companies, logistics operators, and corporate fleets.</div>
+      <ul class="plan-features">
+        <li><i class="fas fa-check-circle"></i> Up to 20 Trackers</li>
+        <li><i class="fas fa-check-circle"></i> Real-Time Live Map</li>
+        <li><i class="fas fa-check-circle"></i> All Alert Types</li>
+        <li><i class="fas fa-check-circle"></i> 1-Year Trip History</li>
+        <li><i class="fas fa-check-circle"></i> Remote Shutdown (All)</li>
+        <li><i class="fas fa-check-circle"></i> Team Manager Access</li>
+      </ul>
+      <a href="https://wa.me/263783009275?text=I%20want%20the%20Fleet%2020%20BYOT%20plan" target="_blank">
+        <button class="plan-btn-ghost">Get Started →</button>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ LIFETIME PASS ════════════════════════════════════════════════ -->
+<!-- Parkinson's Law: $99 once-off, explained in < 10 seconds, 1 button -->
+<section class="lifetime-section" id="lifetime">
+  <div class="lifetime-card nm-card">
+    <div>
+      <div class="lt-eyebrow"><i class="fas fa-infinity"></i>&nbsp; Lifetime Access</div>
+      <div class="lt-title">$99 Once-Off.<br><span style="color:var(--orange)">Track Forever.</span></div>
+      <div class="lt-price">
+        <span class="lt-price-big">$99</span>
+        <span class="lt-price-label">once-off · no monthly fees</span>
+      </div>
+      <ul class="lt-features">
+        <li><i class="fas fa-infinity"></i> 1 Tracker — Lifetime Platform Access</li>
+        <li><i class="fas fa-check-circle"></i> Full Real-Time Tracking Dashboard</li>
+        <li><i class="fas fa-check-circle"></i> Speed Alerts & Geofences</li>
+        <li><i class="fas fa-check-circle"></i> Remote Immobilizer (Shutdown)</li>
+        <li><i class="fas fa-check-circle"></i> Trip History & Analytics</li>
+        <li><i class="fas fa-check-circle"></i> WhatsApp Alert Notifications</li>
+      </ul>
+      <div class="lt-note">
+        <i class="fas fa-info-circle" style="color:var(--orange)"></i>&nbsp;
+        Self-managed plan for single-tracker owners. Use your existing GT06, Sinotrack, Teltonika, or H02 tracker. Contact support to configure APN settings.
+      </div>
+    </div>
+    <div class="lt-cta">
+      <div style="text-align:center;margin-bottom:4px">
+        <div style="font-size:4.5rem;font-weight:900;color:var(--orange);line-height:1">$99</div>
+        <div style="font-size:.8rem;color:var(--muted);font-weight:600;margin-top:4px">once-off · never expires</div>
+      </div>
+      <a href="https://wa.me/263783009275?text=I%20want%20the%20%2499%20Lifetime%20BYOT%20pass" target="_blank">
+        <button class="lt-btn"><i class="fas fa-bolt"></i>&nbsp; Claim My Lifetime Pass</button>
+      </a>
+      <a href="https://wa.me/263783009275" target="_blank" class="lt-wa">
+        <i class="fab fa-whatsapp"></i> +263 783 009 275
+      </a>
+      <div style="font-size:.7rem;color:var(--muted);text-align:center;max-width:200px;line-height:1.4">
+        WhatsApp us to get your tracker configured and live within 1 hour.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ COMPATIBLE TRACKERS ══════════════════════════════════════════ -->
+<!-- Connectedness: all trackers in one recessed channel = same family -->
+<section class="compat-section" id="compat">
+  <div class="compat-box">
+    <div class="compat-title">Supported Tracker Protocols</div>
+    <div class="compat-sub">If your tracker speaks one of these protocols, it works on Inferth Mapping. Contact support to verify your specific model.</div>
+    <div class="compat-grid">
+      <div class="compat-item">
+        <i class="fas fa-satellite-dish"></i>
+        <div class="c-name">GT06 / GT02</div>
+        <div style="font-size:.72rem;color:var(--muted)">Most Chinese clone trackers</div>
+        <span class="c-port">Port 9005</span>
+      </div>
+      <div class="compat-item">
+        <i class="fas fa-broadcast-tower"></i>
+        <div class="c-name">Sinotrack</div>
+        <div style="font-size:.72rem;color:var(--muted)">ST-901, ST-902 series</div>
+        <span class="c-port">Port 9005</span>
+      </div>
+      <div class="compat-item">
+        <i class="fas fa-microchip"></i>
+        <div class="c-name">Teltonika</div>
+        <div style="font-size:.72rem;color:var(--muted)">FMB series (Codec 8/8E)</div>
+        <span class="c-port">Port 9005</span>
+      </div>
+      <div class="compat-item">
+        <i class="fas fa-wifi"></i>
+        <div class="c-name">H02 Protocol</div>
+        <div style="font-size:.72rem;color:var(--muted)">Various Asian OEM trackers</div>
+        <span class="c-port">Port 9005</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ═══════════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-brand">
+    <div style="width:32px;height:32px;background:linear-gradient(135deg,#f97316,#ea6c0a);border-radius:50%;display:flex;align-items:center;justify-content:center">
+      <i class="fas fa-fire" style="color:#fff;font-size:.85rem"></i>
+    </div>
+    Inferth Mapping
+  </div>
+  <div class="footer-links">
+    <a href="/static/index.html" class="footer-link">Dashboard Login</a>
+    <a href="#pricing" class="footer-link">Plans</a>
+    <a href="#compat" class="footer-link">Compatible Trackers</a>
+  </div>
+  <a href="https://wa.me/263783009275" target="_blank" class="footer-wa">
+    <i class="fab fa-whatsapp"></i> +263 783 009 275
+  </a>
+</footer>
+
+<script>
+// Parkinson's Law: billing toggle is instant — no spinner, no page reload
+let isYearly = false;
+const prices = {
+  monthly: ['$5','$18','$60'],
+  yearly:  ['$48','$173','$576'],
+  perMonthly: ['/month','/month','/month'],
+  perYearly:  ['/year','/year','/year'],
+};
+function toggleBilling() {
+  isYearly = !isYearly;
+  const track = document.getElementById('billing-toggle');
+  track.classList.toggle('on', isYearly);
+  document.getElementById('lbl-monthly').classList.toggle('on', !isYearly);
+  document.getElementById('lbl-yearly').classList.toggle('on', isYearly);
+  const p = isYearly ? prices.yearly : prices.monthly;
+  const per = isYearly ? prices.perYearly : prices.perMonthly;
+  ['p1','p2','p3'].forEach((id,i) => {
+    document.getElementById(id+'-price').textContent = p[i];
+    document.getElementById(id+'-per').textContent = per[i];
+  });
+}
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) { e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+  });
+});
+</script>
+</body>
+</html>
