@@ -928,6 +928,14 @@ class AuthManager {
             navBg = navBg || 'linear-gradient(to right, #1a1c23, #2d3139)';
             navText = navText || (navBg === '#ffffff' || navBg === 'white' ? primary : '#ffffff');
         }
+        // Console Telematics rents the platform — always use the default Inferth palette
+        const _company = (this.user && this.user.company_name) || '';
+        if (/console\s*telematics/i.test(_company)) {
+            primary = '#18181b';
+            secondary = '#ef4835';
+            navBg = '#ffffff';
+            navText = '#18181b';
+        }
 
         root.style.setProperty('--primary', primary);
         root.style.setProperty('--secondary', secondary);

@@ -212,6 +212,19 @@ async def run_migrations_and_branding():
                 except Exception as e:
                     print(f"Branding Init Warning: {e}")
 
+                # Console Telematics rents the platform: default Inferth palette + Rental billing.
+                try:
+                    from sqlalchemy import text as _text
+                    await db.execute(_text(
+                        "UPDATE tenants SET primary_color = '#ff8c00', secondary_color = '#ef4835', "
+                        "navbar_bg = '#ffffff', navbar_text_color = '#ff8c00', billing_cycle = 'Rental' "
+                        "WHERE TRIM(LOWER(name)) = 'console telematics'"
+                    ))
+                    await db.commit()
+                    print("Console Telematics normalized to Inferth defaults (rental billing).")
+                except Exception as e:
+                    print(f"Console Telematics normalization warning: {e}")
+
                 # 3. Ensure Default Tenant & First Admin
                 from app.models import User
                 from app.security import hash_password
@@ -966,10 +979,11 @@ async def repair_production_state(current_user: User = Depends(require_super_adm
 
         # 1. Fix Logos
         try:
-            # Point all Console Telematics variations to logo.png and set colors (Pure Neon Green #00FF00 / Dark Navbar)
+            # Point all Console Telematics variations to logo.png and use the default Inferth colours.
+            # Console Telematics rents the platform, so its billing model is Rental (BYOT).
             await db.execute(
-                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s, navbar_bg = :nb, navbar_text_color = :nt WHERE TRIM(LOWER(name)) = LOWER(:name)"),
-                {"url": "/static/logo.png", "p": "#00FF00", "s": "#ADFF2F", "nb": "linear-gradient(to right, #1a1c23, #2d3139)", "nt": "#00FF00", "name": "Console Telematics"}
+                text("UPDATE tenants SET logo_url = :url, primary_color = :p, secondary_color = :s, navbar_bg = :nb, navbar_text_color = :nt, billing_cycle = 'Rental' WHERE TRIM(LOWER(name)) = LOWER(:name)"),
+                {"url": "/static/logo.png", "p": "#ff8c00", "s": "#ef4835", "nb": "#ffffff", "nt": "#ff8c00", "name": "Console Telematics"}
             )
             # Ensure Inferth Mapping is correct (White Navbar)
             await db.execute(

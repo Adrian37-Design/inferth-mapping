@@ -8302,6 +8302,8 @@ window.initBillingAccess = function() {
     const cycleEl = document.getElementById('billing-cycle');
     const cycle = (user && user.subscription && user.subscription.cycle) || (cycleEl && cycleEl.textContent) || 'Monthly';
     _billingCurrentMode = window.billingModeFromCycle(cycle);
+    const billingCompany = (user && user.company_name) || '';
+    if (/console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'byot';
 
     const bar = document.getElementById('billing-change-bar');
     const panel = document.getElementById('billing-change-panel');
