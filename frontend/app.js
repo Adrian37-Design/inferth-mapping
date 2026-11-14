@@ -652,6 +652,11 @@ window.toggleMobileWorkspace = function() {
     }
 };
 
+window.toggleMobileDrawer = function(forceState) {
+    const isOpen = typeof forceState === 'boolean' ? forceState : !document.body.classList.contains('mobile-drawer-open');
+    document.body.classList.toggle('mobile-drawer-open', isOpen);
+};
+
 
 // ── Help & FAQ tab: search, section jumps and deep links from other views ──
 function applyFaqFilter(term) {
@@ -772,6 +777,7 @@ window.switchTab = function(targetId) {
         const sidebar = document.querySelector('.sidebar-container');
         if (window.innerWidth < 768 && sidebar) {
             sidebar.classList.remove('collapsed');
+            window.toggleMobileDrawer && window.toggleMobileDrawer(false);
         }
         if (sidebar) sidebar.classList.remove('collapsed');
 
@@ -1578,11 +1584,41 @@ function renderReportOutput(type, data, container) {
         </div>
     `;
 
-    // Combine everything into container
-    container.innerHTML = kpiCardsHTML + analysisCardHTML + graphsGridHTML + tableHTML;
+    const visual = document.getElementById('report-visual')?.value || 'analytics';
 
-    // Render the 3 interactive Chart.js graphs
-    _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours);
+    if (visual === 'analytics') {
+        container.innerHTML = kpiCardsHTML + analysisCardHTML + graphsGridHTML;
+        _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours);
+    } else if (visual === 'table') {
+        container.innerHTML = kpiCardsHTML + tableHTML;
+    } else if (visual === 'heatmap') {
+        container.innerHTML = kpiCardsHTML + `
+            <div class="report-table-section nm-card" style="background:var(--nm-bg); padding:18px; border-radius:12px; box-shadow:var(--nm-raised); margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <h4 style="margin:0; font-size:0.9rem; font-weight:800; color:var(--text-primary);"><i class="fas fa-fire" style="color:#ea580c; margin-right:6px;"></i> Fleet Activity Heatmap</h4>
+                </div>
+                ${buildReportHeatmap(type, data)}
+            </div>
+        `;
+    } else {
+        // Visual charts: bar, line, pie, doughnut, scatter, stacked
+        container.innerHTML = kpiCardsHTML + `
+            <div class="report-table-section nm-card" style="background:var(--nm-bg); padding:18px; border-radius:12px; box-shadow:var(--nm-raised); margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+                    <h4 style="margin:0; font-size:0.9rem; font-weight:800; color:var(--text-primary); text-transform:capitalize;"><i class="fas fa-chart-area" style="color:#ea580c; margin-right:6px;"></i> ${visual} Graph</h4>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-secondary btn-sm" onclick="exportReport('csv')">CSV</button>
+                        <button class="btn-secondary btn-sm" onclick="exportReport('excel')">Excel</button>
+                        <button class="btn-secondary btn-sm" onclick="exportReport('pdf')" style="background:#ea580c; color:#fff; border-color:#ea580c;">PDF</button>
+                    </div>
+                </div>
+                <div class="report-chart-wrap" style="height:360px; position:relative; width:100%;">
+                    <canvas id="report-chart-canvas"></canvas>
+                </div>
+            </div>
+        `;
+        renderReportChart(visual, type, data, container);
+    }
 }
 
 function _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours) {
@@ -1738,10 +1774,10 @@ function updateReportMetricOptions() {
     const sel = document.getElementById('report-metric');
     const group = document.getElementById('report-metric-group');
     if (!sel || !group) return;
-    const visual = document.getElementById('report-visual')?.value || 'table';
+    const visual = document.getElementById('report-visual')?.value || 'analytics';
 
-    // Metric only matters for visual renderings — hide it for plain tables.
-    group.style.display = visual === 'table' ? 'none' : '';
+    // Metric only matters for visual renderings — hide it for plain tables and executive analytics.
+    group.style.display = (visual === 'table' || visual === 'analytics') ? 'none' : '';
 
     const prev = sel.value;
     let opts = REPORT_METRIC_OPTIONS[type] || [];

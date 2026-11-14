@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=182">
+    <link rel="stylesheet" href="/static/app.css?v=183">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -21,6 +21,9 @@
 <body>
     <!-- Navigation -->
     <nav class="navbar" aria-label="Application controls" data-spot-raise>
+        <button type="button" id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle navigation menu" onclick="window.toggleMobileDrawer && window.toggleMobileDrawer()">
+            <i class="fas fa-bars"></i>
+        </button>
         <span class="role-badge" id="user-role-display"></span>
         <div class="nav-search spot" id="global-search" data-spotlight>
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
@@ -28,10 +31,6 @@
             <kbd class="spot-kbd" id="global-search-kbd">Ctrl K</kbd>
         </div>
         <div class="nav-stats">
-            <a href="/static/mobile-preview.html" target="_blank" class="nav-mobile-sim-btn" id="nav-mobile-sim-btn" title="Open Mobile Phone Replica on PC screen">
-                <i class="fas fa-mobile-screen-button"></i>
-                <span>Mobile Preview</span>
-            </a>
             <div class="stat-item" role="status">
                 <i class="fas fa-circle" id="status-dot"></i>
                 <span id="status-text">Connecting...</span>
@@ -46,6 +45,9 @@
 
     <!-- Main Container -->
     <div class="main-container panel-collapsed" data-workspace="tab-fleet">
+        <!-- Mobile Navigation Backdrop -->
+        <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop" onclick="window.toggleMobileDrawer && window.toggleMobileDrawer(false)"></div>
+
         <!-- Tabbed Sidebar -->
         <aside class="sidebar-container collapsed" id="sidebar">
             <!-- Icon Rail -->
@@ -1011,6 +1013,7 @@
                         <div class="report-control-group">
                             <label>Data Type</label>
                             <select id="report-visual" class="dd-select glass-input">
+                                <option value="analytics" selected>Executive Analytics</option>
                                 <option value="table">Table</option>
                                 <option value="bar">Bar Graph</option>
                                 <option value="pie">Pie Chart</option>
@@ -2626,7 +2629,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=174"></script>
+    <script src="/static/app.js?v=175"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

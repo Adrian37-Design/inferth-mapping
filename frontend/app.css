@@ -9782,23 +9782,261 @@ input:checked + .slider:before {
 
 
 /* ══════════════════════════════════════════════════════════════
-   MOBILE RESPONSIVENESS — Platform (device-width viewport fix)
-   Supplements existing 768px/480px breakpoints already in file
+   MOBILE RESPONSIVENESS — Overhaul (No vertical rail distraction, 100% width, compact scale)
    ══════════════════════════════════════════════════════════════ */
+
+/* ── Mobile UI Helpers (Hidden on Desktop) ── */
+.mobile-menu-btn {
+    display: none;
+}
+.mobile-drawer-backdrop {
+    display: none;
+}
+.mobile-floating-toggle {
+    display: none;
+}
 
 @media (max-width: 768px) {
 
-    /* ── Navbar: compact on mobile ── */
-    .stat-item span { display: none !important; }
-    .stat-item { padding: 6px 8px !important; border-radius: 50% !important; }
-    .role-badge { display: none !important; }
-    .nm-nav { padding: 0 10px !important; gap: 8px !important; }
-    .user-pill { max-width: 140px !important; font-size: 0.72rem !important; }
+    /* ── Proportional Scale-Down (Eliminates "huge" appearance on phone) ── */
+    :root {
+        font-size: 13.5px !important;
+        --rail-width: 0px !important;
+    }
 
-    /* ── Reports controls: stack on mobile ── */
+    /* ── Mobile Hamburger Menu Button in Navbar ── */
+    .mobile-menu-btn {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 9px !important;
+        background: #e8ecf1 !important;
+        border: 1px solid rgba(163, 177, 198, 0.6) !important;
+        box-shadow: 2px 2px 5px #cbd5e1, -2px -2px 5px #ffffff !important;
+        color: #ea580c !important;
+        font-size: 1.05rem !important;
+        cursor: pointer !important;
+        flex-shrink: 0 !important;
+        margin-right: 6px !important;
+        transition: transform 0.15s ease, background 0.15s ease !important;
+    }
+    .mobile-menu-btn:active {
+        box-shadow: inset 2px 2px 4px #cbd5e1, inset -2px -2px 4px #ffffff !important;
+        background: #dce2e9 !important;
+    }
+
+    /* ── Dark Backdrop for Mobile Navigation Drawer ── */
+    .mobile-drawer-backdrop {
+        display: none;
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(15, 23, 42, 0.55) !important;
+        backdrop-filter: blur(3px) !important;
+        z-index: 9400 !important;
+    }
+    body.mobile-drawer-open .mobile-drawer-backdrop {
+        display: block !important;
+    }
+
+    /* ── Sidebar Rail: Transform into Slide-Over Drawer (Never stays on screen disturbing elements) ── */
+    .sidebar-container {
+        position: static !important;
+    }
+
+    .sidebar-rail,
+    .sidebar-rail:hover,
+    .sidebar-rail.rail-hover-expanded,
+    body.rail-hovering .sidebar-rail,
+    body.rail-expanded .sidebar-rail {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: 250px !important;
+        min-width: 250px !important;
+        max-width: 250px !important;
+        flex: none !important;
+        z-index: 9500 !important;
+        transform: translateX(-105%) !important;
+        transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background: #ffffff !important;
+        box-shadow: 6px 0 28px rgba(15, 23, 42, 0.24) !important;
+        padding: 18px 12px !important;
+        overflow-y: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+
+    body.mobile-drawer-open .sidebar-rail {
+        transform: translateX(0) !important;
+    }
+
+    /* Drawer contents */
+    .sidebar-rail .rail-brand {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        padding: 0 8px 14px !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        margin-bottom: 8px !important;
+    }
+    .sidebar-rail .rail-brand #nav-brand-name {
+        display: block !important;
+        font-size: 0.95rem !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+    }
+    .sidebar-rail .rail-item {
+        width: 100% !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        padding: 0 14px !important;
+        border-radius: 8px !important;
+        margin: 0 !important;
+        font-size: 0.88rem !important;
+        color: #334155 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    .sidebar-rail .rail-item i {
+        font-size: 1rem !important;
+        width: 20px !important;
+        text-align: center !important;
+        color: #ea580c !important;
+    }
+    .sidebar-rail .rail-item .rail-label {
+        display: block !important;
+        font-size: 0.88rem !important;
+        font-weight: 600 !important;
+        color: inherit !important;
+        white-space: nowrap !important;
+    }
+    .sidebar-rail .rail-item.active {
+        background: #fff7ed !important;
+        color: #ea580c !important;
+        font-weight: 700 !important;
+    }
+
+    /* ── Full Width for Map and Workspace Panel on Mobile (NO DISTURBING VERTICAL TAB!) ── */
+    .main-container {
+        width: 100vw !important;
+        height: calc(100dvh - 48px) !important;
+        height: calc(100vh - 48px) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+    }
+
+    #map {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100% !important;
+        z-index: 10 !important;
+    }
+
+    .main-container.panel-collapsed .sidebar-panel {
+        display: none !important;
+    }
+
+    .main-container:not(.panel-collapsed) .sidebar-panel {
+        display: block !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100% !important;
+        z-index: 4000 !important;
+        background: #e8ecf1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* ── Top Navbar Compact Scaling ── */
+    .navbar {
+        height: 48px !important;
+        padding: 0 10px !important;
+        gap: 6px !important;
+    }
+    .nav-search {
+        max-width: 170px !important;
+        min-width: 110px !important;
+        height: 34px !important;
+    }
+    .spot-input { font-size: 0.78rem !important; }
+    .spot-kbd { display: none !important; }
+    .stat-item { padding: 4px 6px !important; }
+    .stat-item span { display: none !important; }
+    .role-badge { display: none !important; }
+    .logout-btn {
+        padding: 6px 9px !important;
+        min-height: 32px !important;
+        font-size: 0.74rem !important;
+    }
+    .logout-btn span { display: none !important; }
+
+    /* ── Fix "Appearing Huge": Cards, Forms & Typography ── */
+    .tab-content {
+        padding: 10px 10px 80px !important; /* bottom padding for floating button */
+    }
+    .panel-header {
+        padding: 10px 12px !important;
+        min-height: 46px !important;
+    }
+    .panel-header h3 {
+        font-size: 1.05rem !important;
+    }
+    .workspace-eyebrow {
+        display: none !important;
+    }
+    .nm-card, .rules-builder-card, .report-summary-card, .report-table-section {
+        padding: 12px 14px !important;
+        border-radius: 12px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* KPI Cards on Mobile: compact 2-col */
+    .kpi-strip, .report-summary-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    .kpi-card, .report-summary-card {
+        padding: 10px 8px !important;
+        border-radius: 10px !important;
+    }
+    .kpi-value, .report-summary-card .value {
+        font-size: 1.3rem !important;
+        margin: 2px 0 !important;
+    }
+
+    /* Inputs & Selects: compact touch-friendly height */
+    select.dd-select, input[type="text"], input[type="date"], input[type="email"], input[type="tel"] {
+        height: 38px !important;
+        min-height: 38px !important;
+        font-size: 0.8rem !important;
+        border-radius: 8px !important;
+    }
+
+    /* Reports controls on mobile */
     .reports-controls {
         flex-direction: column !important;
-        gap: 10px !important;
+        gap: 8px !important;
         align-items: stretch !important;
     }
     .report-control-group {
@@ -9815,58 +10053,17 @@ input:checked + .slider:before {
         justify-content: center !important;
     }
 
-    /* ── Alert rules builder: single column ── */
-    .rule-builder-grid {
+    /* Active rules table and team table scrollable */
+    #rules-list, .rules-list-table, .users-table-wrap {
+        overflow-x: auto !important;
+    }
+    .rules-table { min-width: 540px !important; }
+    .users-table { min-width: 500px !important; }
+
+    /* Billing plans single column */
+    .bplan-grid, .byot-plans-grid, .ot-plans-grid {
         grid-template-columns: 1fr !important;
     }
-    .rule-field { min-width: 100% !important; }
-
-    /* ── Active rules table: horizontal scroll ── */
-    #rules-list, .rules-list-table { overflow-x: auto !important; }
-    .rules-table { min-width: 580px !important; }
-
-    /* ── Billing plans: single column ── */
-    .bplan-grid,
-    .byot-plans-grid,
-    .ot-plans-grid {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* ── Team management table ── */
-    .users-table-wrap { overflow-x: auto !important; }
-    .users-table { min-width: 540px !important; }
-
-    /* ── Sidebar panel: full width when open ── */
-    .sidebar-panel {
-        width: calc(100vw - 52px) !important;
-        min-width: unset !important;
-    }
-
-    /* ── KPI strip: 2-column grid on small screens ── */
-    .kpi-strip {
-        grid-template-columns: 1fr 1fr !important;
-        gap: 10px !important;
-    }
-
-    /* ── Map popup: responsive width ── */
-    .leaflet-popup-content-wrapper {
-        max-width: calc(100vw - 80px) !important;
-    }
-
-    /* ── Modals: full width ── */
-    .modal-box, .nm-modal-box {
-        width: calc(100vw - 24px) !important;
-        max-width: 100% !important;
-        margin: 12px !important;
-        padding: 18px !important;
-    }
-
-    /* ── Report analysis card graphs: 1-col ── */
-    .report-graphs-grid {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* ── Billing hero card: stack vertically ── */
     .byot-hero-card {
         flex-direction: column !important;
         align-items: flex-start !important;
@@ -9876,76 +10073,11 @@ input:checked + .slider:before {
         justify-content: center !important;
     }
 
-    /* ── Billing tabs: allow scrolling ── */
-    .billing-tabs {
-        overflow-x: auto !important;
-        flex-wrap: nowrap !important;
-        -webkit-overflow-scrolling: touch;
-    }
-    .billing-tab {
-        white-space: nowrap !important;
-        flex-shrink: 0 !important;
-    }
-}
-
-@media (max-width: 480px) {
-    /* ── Even tighter: KPI single column ── */
-    .kpi-strip { grid-template-columns: 1fr !important; }
-
-    /* ── Font size reduction for titles ── */
-    .page-title, h2.section-title { font-size: 1rem !important; }
-
-    /* ── Tab buttons: icon-only on very small screens ── */
-    .tab-nav-btn span { display: none; }
-    .tab-nav-btn { padding: 8px 10px !important; min-width: 36px !important; }
-}
-
-
-/* ══════════════════════════════════════════════════════════════
-   MOBILE PREVIEW & RESPONSIVE POLISH (Takudzwa Phone & PC Replica)
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Desktop Navbar Mobile Preview Pill ── */
-.nav-mobile-sim-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 13px;
-    border-radius: 50px;
-    background: #e8ecf1;
-    border: 1px solid rgba(234, 88, 12, 0.45);
-    box-shadow: 3px 3px 6px #cbd5e1, -3px -3px 6px #ffffff;
-    color: #ea580c;
-    font-size: 0.76rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-}
-.nav-mobile-sim-btn:hover {
-    background: #ea580c;
-    color: #ffffff;
-    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
-    transform: translateY(-1px);
-}
-.nav-mobile-sim-btn i {
-    font-size: 0.88rem;
-}
-
-/* ── Mobile Floating Map/Fleet Toggle Button ── */
-.mobile-floating-toggle {
-    display: none;
-}
-
-@media (max-width: 768px) {
-    /* Hide desktop mobile preview pill on mobile screens */
-    .nav-mobile-sim-btn { display: none !important; }
-
-    /* ── Floating Map/List Switcher Button ── */
+    /* Floating Map/Fleet Switcher Button */
     .mobile-floating-toggle {
         display: inline-flex !important;
         position: fixed !important;
-        bottom: 22px !important;
+        bottom: 18px !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
         z-index: 8000 !important;
@@ -9953,10 +10085,10 @@ input:checked + .slider:before {
         color: #ffffff !important;
         border: none !important;
         border-radius: 50px !important;
-        padding: 10px 22px !important;
-        font-size: 0.86rem !important;
+        padding: 9px 20px !important;
+        font-size: 0.84rem !important;
         font-weight: 800 !important;
-        box-shadow: 0 4px 20px rgba(234, 88, 12, 0.5), 0 2px 6px rgba(0,0,0,0.15) !important;
+        box-shadow: 0 4px 18px rgba(234, 88, 12, 0.5), 0 2px 6px rgba(0,0,0,0.15) !important;
         cursor: pointer !important;
         align-items: center !important;
         gap: 8px !important;
@@ -9969,94 +10101,30 @@ input:checked + .slider:before {
         background: #c2410c !important;
     }
     .mobile-floating-toggle i {
-        font-size: 0.95rem !important;
+        font-size: 0.9rem !important;
     }
 
-    /* ── Sidebar Rail: Pin to 50px, disable hover-expansion completely ── */
-    .sidebar-rail,
-    .sidebar-rail:hover,
-    .sidebar-rail.rail-hover-expanded,
-    body.rail-hovering .sidebar-rail,
-    body.rail-expanded .sidebar-rail {
-        width: 50px !important;
-        min-width: 50px !important;
-        max-width: 50px !important;
-        flex: 0 0 50px !important;
-        flex-basis: 50px !important;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.06) !important;
-        padding: 10px 4px !important;
-        overflow-x: hidden !important;
-        background: #ffffff !important;
-    }
-    .sidebar-rail:hover .rail-label,
-    .sidebar-rail.rail-hover-expanded .rail-label,
-    body.rail-hovering .sidebar-rail .rail-label,
-    body.rail-expanded .sidebar-rail .rail-label,
-    .sidebar-rail:hover .rail-brand #nav-brand-name {
-        display: none !important;
-    }
-    .rail-item {
-        width: 42px !important;
-        height: 42px !important;
-        min-height: 42px !important;
-        padding: 0 !important;
-        justify-content: center !important;
-        border-radius: 10px !important;
-        margin: 2px auto !important;
-    }
-
-    /* ── Navbar compact layout ── */
-    .navbar {
-        padding: 6px 10px !important;
-        height: 52px !important;
-        gap: 8px !important;
-    }
-    .nav-search {
-        max-width: 170px !important;
-        min-width: 110px !important;
-        height: 36px !important;
-    }
-    .spot-kbd { display: none !important; }
-    .spot-input { font-size: 0.78rem !important; }
-    .nav-stats { gap: 6px !important; }
-    .logout-btn {
-        padding: 6px 10px !important;
-        min-height: 34px !important;
-        font-size: 0.76rem !important;
-    }
-    .logout-btn span { display: none !important; }
-
-    /* ── Workspace Panel & Map Overlay ── */
-    .main-container.panel-collapsed .sidebar-panel {
-        display: none !important;
-        width: 0 !important;
-    }
-    .main-container.panel-collapsed #map {
-        width: calc(100vw - 50px) !important;
-        left: 50px !important;
-    }
-
-    .main-container:not(.panel-collapsed) .sidebar-panel {
-        width: calc(100vw - 50px) !important;
-        left: 50px !important;
-        position: absolute !important;
-        top: 0 !important;
-        bottom: 0 !important;
-        z-index: 4000 !important;
-        background: #e8ecf1 !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    /* ── Leaflet Controls & Dock on Mobile ── */
+    /* Leaflet Controls & Dock on Mobile */
     .map-status-dock {
-        bottom: 74px !important; /* Above floating toggle */
-        right: 12px !important;
-        padding: 6px 12px !important;
-        font-size: 0.72rem !important;
+        bottom: 66px !important;
+        right: 10px !important;
+        padding: 5px 10px !important;
+        font-size: 0.7rem !important;
     }
     .leaflet-top.leaflet-right {
-        top: 60px !important;
-        right: 12px !important;
+        top: 54px !important;
+        right: 10px !important;
     }
+    .leaflet-popup-content-wrapper {
+        max-width: calc(100vw - 40px) !important;
+    }
+
+    /* Modals on Mobile */
+    .modal-box, .nm-modal-box {
+        width: calc(100vw - 20px) !important;
+        max-width: 100% !important;
+        margin: 10px !important;
+        padding: 16px !important;
+    }
+}
 }
