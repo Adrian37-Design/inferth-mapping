@@ -10,10 +10,10 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=179">
+    <link rel="stylesheet" href="/static/app.css?v=180">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
-    <link rel="stylesheet" href="/static/users.css?v=62">
+    <link rel="stylesheet" href="/static/users.css?v=63">
     <link rel="stylesheet" href="/static/insights.css?v=5">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
 </head>
@@ -890,20 +890,20 @@
                 <div id="tab-alerts" class="tab-content">
                     <!-- Automated WhatsApp Alert Dispatch Card -->
                     <div class="nm-card alerts-automation-card" id="alerts-automation-card">
-                        <div class="alerts-automation-header">
-                            <div style="display: flex; align-items: center; gap: 14px;">
+                        <div class="alerts-automation-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 14px; flex: 1 1 auto; min-width: 0;">
                                 <div class="header-tile">
                                     <i class="fa-brands fa-whatsapp"></i>
                                 </div>
-                                <div>
-                                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--nm-text, #0f172a); display: flex; align-items: center; gap: 10px;">
+                                <div style="min-width: 0;">
+                                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--nm-text, #0f172a); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                                         WhatsApp Alert Dispatch Automation
                                         <span class="status-badge" id="alert-auto-status-pill" style="font-size: 0.7rem; font-weight: 700; background: rgba(37,211,102,0.15); color: #16a34a; border: 1px solid rgba(37,211,102,0.3); padding: 2px 10px; border-radius: 999px;">Active</span>
                                     </h4>
                                     <p style="margin: 3px 0 0; font-size: 0.8rem; color: var(--nm-text-muted, #64748b);">Configure which alert priority and delivery intervals the WhatsApp bot automatically dispatches</p>
                                 </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="switch-wrap" style="margin-left: auto; flex-shrink: 0; display: flex; align-items: center;">
                                 <label class="switch" style="margin: 0;">
                                     <input type="checkbox" id="alert-auto-enabled" checked onchange="window.toggleAlertAutomation && window.toggleAlertAutomation(this.checked)">
                                     <span class="slider round"></span>

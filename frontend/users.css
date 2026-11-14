@@ -247,12 +247,12 @@
 }
 
 input:checked+.slider {
-    background-color: var(--success);
-    border-color: var(--success);
+    background-color: #ea580c;
+    border-color: #ea580c;
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px var(--success);
+    box-shadow: 0 0 1px #ea580c;
 }
 
 input:checked+.slider:before {
