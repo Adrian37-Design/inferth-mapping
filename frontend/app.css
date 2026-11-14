@@ -2674,28 +2674,18 @@ body {
     letter-spacing: 0.5px;
 }
 
-.badge-admin {
-    background-color: #dc2626;
-    color: #ffffff;
-    font-weight: 800;
-}
-
-.badge-manager {
-    background-color: #d97706;
-    color: #ffffff;
-    font-weight: 800;
-}
-
-.badge-viewer {
-    background-color: #0284c7;
-    color: #ffffff;
-    font-weight: 800;
-}
-
+.badge-admin,
+.badge-manager,
+.badge-viewer,
 .badge-driver {
-    background-color: #475569;
-    color: #ffffff;
-    font-weight: 800;
+    background-color: #ea580c !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    border-radius: 999px !important;
+    padding: 3px 12px !important;
+    box-shadow: 0 2px 6px rgba(234, 88, 12, 0.28) !important;
+    display: inline-block !important;
+    letter-spacing: 0.04em !important;
 }
 
 /* --- Asset Detail Panel --- */
@@ -5985,8 +5975,9 @@ select.dd-select:disabled {
 }
 .save-badge {
     display: inline-block;
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #ffedd5;
+    color: #ea580c;
+    border: 1px solid #fed7aa;
     border-radius: 999px;
     padding: 1px 7px;
     font-size: 0.7rem;
@@ -6020,11 +6011,11 @@ select.dd-select:disabled {
 
 /* Popular card — dark */
 .bplan-card.popular {
-    background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
-    border-color: #0f172a;
+    background: linear-gradient(160deg, #18181b 0%, #27272a 50%, #c2410c 100%);
+    border-color: #ea580c;
     color: #e2e8f0;
     transform: scale(1.03);
-    box-shadow: 0 8px 28px rgba(15,23,42,0.22);
+    box-shadow: 0 8px 28px rgba(194, 65, 12, 0.28);
 }
 .bplan-card.popular .bplan-name,
 .bplan-card.popular .bplan-currency,
@@ -6032,15 +6023,15 @@ select.dd-select:disabled {
 .bplan-card.popular .bplan-period { color: #fff; }
 .bplan-card.popular .bplan-desc { color: #94a3b8; }
 .bplan-card.popular .bplan-features li { color: #cbd5e1; }
-.bplan-card.popular .bplan-features li i { color: #38bdf8; }
-.bplan-card.popular .bplan-yearly-note { color: #7dd3fc; }
+.bplan-card.popular .bplan-features li i { color: #f97316; }
+.bplan-card.popular .bplan-yearly-note { color: #fdba74; }
 
 .bplan-popular-badge {
     position: absolute;
     top: -13px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(90deg, #2563eb, #0ea5e9);
+    background: linear-gradient(90deg, #f97316, #ea580c);
     color: #fff;
     font-size: 0.7rem;
     font-weight: 800;
@@ -6048,15 +6039,16 @@ select.dd-select:disabled {
     border-radius: 999px;
     white-space: nowrap;
     letter-spacing: 0.03em;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
 }
 
 .bplan-top { margin-bottom: 14px; }
 .bplan-icon {
     font-size: 1.4rem;
     margin-bottom: 8px;
-    color: #2563eb;
+    color: #ea580c;
 }
-.bplan-card.popular .bplan-icon { color: #38bdf8; }
+.bplan-card.popular .bplan-icon { color: #f97316; }
 .bplan-name { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
 .bplan-desc { font-size: 0.78rem; color: #64748b; margin: 0; line-height: 1.4; }
 
@@ -6128,11 +6120,11 @@ select.dd-select:disabled {
 }
 .bplan-btn:active { transform: scale(0.98); }
 .bplan-btn.btn-primary {
-    background: #2563eb;
+    background: #ea580c;
     color: #fff;
-    border-color: #2563eb;
+    border-color: #ea580c;
 }
-.bplan-btn.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.bplan-btn.btn-primary:hover { background: #c2410c; border-color: #c2410c; }
 .bplan-btn.btn-outline {
     background: transparent;
     color: #0f172a;
@@ -6140,11 +6132,11 @@ select.dd-select:disabled {
 }
 .bplan-btn.btn-outline:hover { background: #f1f5f9; }
 .bplan-card.popular .bplan-btn.btn-primary {
-    background: #fff;
-    color: #0f172a;
-    border-color: #fff;
+    background: #ea580c;
+    color: #fff;
+    border-color: #ea580c;
 }
-.bplan-card.popular .bplan-btn.btn-primary:hover { background: #e2e8f0; }
+.bplan-card.popular .bplan-btn.btn-primary:hover { background: #c2410c; border-color: #c2410c; }
 
 /* Price fade animation on period switch */
 .bplan-amount.fading { opacity: 0; }
@@ -6228,10 +6220,14 @@ select.dd-select:disabled {
 .ot-plan-icon {
     font-size: 1.3rem;
     margin-bottom: 8px;
-    color: #2563eb;
+    color: #ea580c;
 }
-.ot-plan-card.popular .ot-plan-icon { color: #38bdf8; }
-.ot-plan-card.fleet .ot-plan-icon   { color: #64748b; }
+.ot-plan-card.popular .ot-plan-icon { color: #f97316; }
+.ot-plan-card.fleet .ot-plan-icon {
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+    color: #ea580c;
+}
 .ot-plan-name { font-size: 1rem; font-weight: 800; color: #0f172a; margin: 0 0 3px; }
 .ot-plan-desc { font-size: 0.75rem; color: #64748b; margin: 0; line-height: 1.4; }
 .ot-plan-card.popular .ot-plan-name { color: #fff; }
@@ -6271,7 +6267,7 @@ select.dd-select:disabled {
 .ot-features li { font-size: 0.78rem; color: #334155; display: flex; align-items: center; gap: 7px; }
 .ot-features li i { color: #16a34a; font-size: 0.65rem; flex-shrink: 0; }
 .ot-plan-card.popular .ot-features li { color: #cbd5e1; }
-.ot-plan-card.popular .ot-features li i { color: #38bdf8; }
+.ot-plan-card.popular .ot-features li i { color: #f97316; }
 .ot-plan-card.fleet .ot-features li { color: #475569; }
 
 .ot-btn {
@@ -6290,12 +6286,12 @@ select.dd-select:disabled {
     margin-top: auto;
 }
 .ot-btn:active { transform: scale(0.98); }
-.ot-btn.btn-primary  { background: #2563eb; color: #fff; border-color: #2563eb; }
-.ot-btn.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.ot-btn.btn-primary { background: #ea580c; color: #fff; border-color: #ea580c; }
+.ot-btn.btn-primary:hover { background: #c2410c; border-color: #c2410c; }
 .ot-btn.btn-outline  { background: transparent; color: #0f172a; border-color: #cbd5e1; }
 .ot-btn.btn-outline:hover { background: #f1f5f9; }
-.ot-plan-card.popular .ot-btn.btn-primary  { background: #fff; color: #0f172a; border-color: #fff; }
-.ot-plan-card.popular .ot-btn.btn-primary:hover { background: #e2e8f0; }
+.ot-plan-card.popular .ot-btn.btn-primary { background: #ea580c; color: #fff; border-color: #ea580c; }
+.ot-plan-card.popular .ot-btn.btn-primary:hover { background: #c2410c; border-color: #c2410c; }
 
 .ot-footnote {
     background: #f8fafc;
@@ -6886,15 +6882,15 @@ body.rail-expanded .rail-badge {
 
 /* ===== 5. BYOT Hero Card & Plans Grid ===== */
 .byot-hero-card {
-    background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #0369a1 100%);
-    border-radius: 12px;
-    padding: 16px 20px;
+    background: linear-gradient(135deg, #18181b 0%, #27272a 45%, #c2410c 100%);
+    border-radius: 14px;
+    padding: 18px 22px;
     margin-bottom: 16px;
     color: #ffffff;
     cursor: pointer;
-    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 6px 20px rgba(194, 65, 12, 0.22);
     transition: transform 0.18s ease, box-shadow 0.18s ease;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(249, 115, 22, 0.35);
 }
 .byot-hero-card:hover {
     transform: translateY(-1px);
@@ -6904,9 +6900,9 @@ body.rail-expanded .rail-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(56, 189, 248, 0.2);
-    border: 1px solid rgba(56, 189, 248, 0.4);
-    color: #7dd3fc;
+    background: rgba(249, 115, 22, 0.25);
+    border: 1px solid rgba(249, 115, 22, 0.6);
+    color: #fdba74;
     font-size: 0.68rem;
     font-weight: 800;
     padding: 3px 10px;
@@ -6938,18 +6934,19 @@ body.rail-expanded .rail-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #0284c7;
+    background: linear-gradient(135deg, #f97316, #ea580c);
     color: #ffffff;
     border: none;
     border-radius: 8px;
-    padding: 9px 18px;
-    font-size: 0.8rem;
+    padding: 10px 20px;
+    font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.18s;
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+    transition: transform 0.15s ease, background 0.18s ease;
 }
-.byot-hero-cta:hover { background: #0369a1; }
+.byot-hero-cta:hover { background: #c2410c; transform: translateY(-1px); }
 
 .byot-header-banner {
     display: flex;
@@ -7006,7 +7003,7 @@ body.rail-expanded .rail-badge {
 .byot-card.featured .byot-price { color: #ffffff; }
 .byot-card.featured .byot-currency { color: #ffffff; }
 .byot-card.featured .byot-features li { color: #cbd5e1; }
-.byot-card.featured .byot-features li i { color: #38bdf8; }
+.byot-card.featured .byot-features li i { color: #f97316; }
 .byot-badge-popular {
     position: absolute;
     top: -12px;
@@ -7022,8 +7019,8 @@ body.rail-expanded .rail-badge {
     letter-spacing: 0.04em;
 }
 .byot-card-top { margin-bottom: 12px; }
-.byot-card-icon { font-size: 1.3rem; color: #0284c7; margin-bottom: 6px; }
-.byot-card.featured .byot-card-icon { color: #38bdf8; }
+.byot-card-icon { font-size: 1.3rem; color: #ea580c; margin-bottom: 6px; }
+.byot-card.featured .byot-card-icon { color: #f97316; }
 .byot-card-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
 .byot-card-subtitle { font-size: 0.76rem; color: #64748b; margin: 0; line-height: 1.4; }
 .byot-price-box { display: flex; align-items: baseline; gap: 3px; margin: 10px 0 2px; }
@@ -8238,9 +8235,13 @@ select:not(.dd-select):focus {
   background: var(--nm-bg) !important;
   border: none !important;
 }
-.role-badge.admin   { color: #f97316 !important; }
-.role-badge.manager { color: #0284c7 !important; }
-.role-badge.viewer  { color: #10b981 !important; }
+.role-badge.admin,
+.role-badge.manager,
+.role-badge.viewer {
+    color: #ea580c !important;
+    background: #ffedd5 !important;
+    border: 1px solid #fed7aa !important;
+}
 
 /* ── 22. TABLE ROWS ─────────────────────────────────────────────────────── */
 /* Connectedness: alternating pressed rows group every other record visually */
@@ -9255,4 +9256,121 @@ textarea::placeholder,
     box-shadow: var(--nm-pressed) !important;
     padding: 4px !important;
     border: none !important;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   AUTOMATION & REPORTS ANALYTICS ENHANCEMENTS
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Role badges unified to 1 color */
+.badge-admin,
+.badge-manager,
+.badge-viewer,
+.badge-driver {
+    background: #ea580c !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    border-radius: 999px !important;
+    padding: 3px 12px !important;
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.3) !important;
+    display: inline-block !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    font-size: 0.72rem !important;
+}
+
+/* Alert Automation Card */
+.alerts-automation-card {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.alerts-automation-card select,
+.alerts-automation-card input {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.04) !important;
+}
+.alerts-automation-card select:focus,
+.alerts-automation-card input:focus {
+    border-color: #ea580c !important;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15) !important;
+}
+
+/* Report Automation Modal */
+#modal-report-automation select,
+#modal-report-automation input {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.04) !important;
+}
+#modal-report-automation select:focus,
+#modal-report-automation input:focus {
+    border-color: #ea580c !important;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15) !important;
+}
+
+/* Reports Analytics Executive Card */
+.report-analysis-card {
+    animation: fadeDown 0.35s ease-out both;
+}
+.report-analysis-card li {
+    position: relative;
+    padding-left: 2px;
+}
+
+/* Report Graphs Grid */
+.report-graphs-grid {
+    animation: fadeUp 0.35s ease-out both;
+}
+
+/* Billing Theme Overrides — Inferth Orange Guarantee */
+.byot-hero-card {
+    background: linear-gradient(135deg, #18181b 0%, #27272a 45%, #c2410c 100%) !important;
+    border: 1px solid rgba(249, 115, 22, 0.4) !important;
+    box-shadow: 0 8px 24px rgba(194, 65, 12, 0.25) !important;
+}
+.byot-hero-badge {
+    background: rgba(249, 115, 22, 0.25) !important;
+    border: 1px solid rgba(249, 115, 22, 0.6) !important;
+    color: #fdba74 !important;
+}
+.byot-hero-cta {
+    background: linear-gradient(135deg, #f97316, #ea580c) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35) !important;
+}
+.byot-hero-cta:hover {
+    background: #c2410c !important;
+}
+.save-badge {
+    background: #ffedd5 !important;
+    color: #ea580c !important;
+    border: 1px solid #fed7aa !important;
+}
+.bplan-popular-badge {
+    background: linear-gradient(90deg, #f97316, #ea580c) !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+}
+.bplan-btn.btn-primary,
+.ot-btn.btn-primary {
+    background: #ea580c !important;
+    border-color: #ea580c !important;
+    color: #ffffff !important;
+}
+.bplan-btn.btn-primary:hover,
+.ot-btn.btn-primary:hover {
+    background: #c2410c !important;
+    border-color: #c2410c !important;
+}
+.bplan-icon,
+.ot-plan-icon,
+.byot-card-icon {
+    color: #ea580c !important;
+}
+.bplan-card.popular .bplan-features li i,
+.ot-plan-card.popular .ot-features li i,
+.byot-card.featured .byot-features li i {
+    color: #f97316 !important;
 }

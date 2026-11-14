@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=175">
+    <link rel="stylesheet" href="/static/app.css?v=176">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=62">
@@ -888,6 +888,70 @@
 
                 <!-- Tab: Alerts -->
                 <div id="tab-alerts" class="tab-content">
+                    <!-- Automated WhatsApp Alert Dispatch Card -->
+                    <div class="nm-card alerts-automation-card" id="alerts-automation-card" style="margin-bottom: 22px; padding: 18px 22px; border-radius: 14px; background: var(--nm-bg); box-shadow: var(--nm-raised);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 38px; height: 38px; border-radius: 50%; background: #25d366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(37,211,102,0.35);">
+                                    <i class="fab fa-whatsapp" style="color: #ffffff; font-size: 1.25rem;"></i>
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                                        WhatsApp Alert Dispatch Automation
+                                        <span class="status-badge" id="alert-auto-status-pill" style="font-size: 0.68rem; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 999px;">Active</span>
+                                    </h4>
+                                    <p style="margin: 2px 0 0; font-size: 0.78rem; color: var(--text-muted);">Configure which alert priority and delivery intervals the WhatsApp bot automatically dispatches</p>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label class="switch" style="margin: 0;">
+                                    <input type="checkbox" id="alert-auto-enabled" checked onchange="window.toggleAlertAutomation && window.toggleAlertAutomation(this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 14px;">
+                            <div>
+                                <label style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                                    <i class="fas fa-filter" style="color:#ea580c; margin-right:4px;"></i> Priority to Send Automatically
+                                </label>
+                                <select id="alert-auto-priority" class="dd-select" style="width: 100%;">
+                                    <option value="critical" selected>🚨 Critical Only (Panic, Power Cut, Breach, >120km/h)</option>
+                                    <option value="high_critical">⚠️ High &amp; Critical (Harsh Braking, Speeding, Geofences)</option>
+                                    <option value="all">ℹ️ All Priorities (Full Fleet Event Stream)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                                    <i class="fas fa-clock" style="color:#ea580c; margin-right:4px;"></i> Dispatch Cadence / Interval
+                                </label>
+                                <select id="alert-auto-interval" class="dd-select" style="width: 100%;">
+                                    <option value="instant" selected>⚡ Real-Time Instant (&lt; 2 seconds)</option>
+                                    <option value="hourly_digest">⏱️ Hourly Digest Batch</option>
+                                    <option value="daily_digest">📅 Daily Morning Summary (08:00 AM)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+                                    <i class="fab fa-whatsapp" style="color:#25d366; margin-right:4px;"></i> WhatsApp Recipient Phone
+                                </label>
+                                <input type="text" id="alert-auto-whatsapp" placeholder="+263 78 300 9275" style="width: 100%; font-size: 0.85rem; padding: 9px 12px;">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center; border-top: 1px solid rgba(0,0,0,0.06); padding-top: 12px;">
+                            <button type="button" class="btn-secondary btn-sm" onclick="window.sendTestWhatsAppAlert && window.sendTestWhatsAppAlert()" id="btn-test-alert-whatsapp">
+                                <i class="fab fa-whatsapp" style="color: #25d366; margin-right: 5px;"></i> Send Test Alert
+                            </button>
+                            <button type="button" class="btn-primary btn-sm" onclick="window.saveAlertAutomationConfig && window.saveAlertAutomationConfig()" id="btn-save-alert-automation" style="background:#ea580c; border-color:#ea580c; color:#fff;">
+                                <i class="fas fa-check" style="margin-right: 5px;"></i> Save Alert Automation
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="alert-controls">
                         <h4 class="section-title">Rules Engine</h4>
                     </div>
@@ -1021,6 +1085,9 @@
                             <label>Metric</label>
                             <select id="report-metric" class="dd-select glass-input"></select>
                         </div>
+                        <button type="button" class="btn-secondary" id="btn-report-automation" onclick="window.openReportAutomationModal && window.openReportAutomationModal()" title="Schedule automated WhatsApp report delivery" style="display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fab fa-whatsapp" style="color: #25d366; font-size: 1rem;"></i> Automate Delivery
+                        </button>
                         <button class="btn-primary" onclick="loadReport()">
                             <i class="fas fa-sync-alt"></i> Run
                         </button>
@@ -1033,6 +1100,90 @@
 
                     <div class="report-output" id="report-output">
                         <p class="empty-state">Select a vehicle and report type, then click Run.</p>
+                    </div>
+                
+                    <!-- Report WhatsApp Automation Modal -->
+                    <div id="modal-report-automation" class="modal-overlay hidden" onclick="if(event.target===this) window.closeReportAutomationModal && window.closeReportAutomationModal()" style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 10090; display: none; align-items: center; justify-content: center; padding: 16px;">
+                        <div class="modal-content nm-card" style="max-width: 540px; width: 100%; padding: 24px; border-radius: 16px; background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.22); position: relative;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #25d366; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(37,211,102,0.35);">
+                                        <i class="fab fa-whatsapp" style="color: #ffffff; font-size: 1.3rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #0f172a;">Automated WhatsApp Reports</h3>
+                                        <p style="margin: 2px 0 0; font-size: 0.78rem; color: #64748b;">Schedule delivery of analytical briefs and report files</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="window.closeReportAutomationModal && window.closeReportAutomationModal()" style="font-size: 1.2rem; color: #94a3b8; background: none; border: none; cursor: pointer;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 5px;">Delivery Interval</label>
+                                    <select id="auto-report-interval" class="dd-select" style="width: 100%;" onchange="window.updateAutomationIntervalUI && window.updateAutomationIntervalUI()">
+                                        <option value="daily" selected>📅 Daily (Every morning at selected time)</option>
+                                        <option value="weekly">📆 Weekly (Consolidated week-in-review)</option>
+                                        <option value="monthly">📊 Monthly (30-day comprehensive cycle)</option>
+                                    </select>
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" id="auto-report-timing-grid">
+                                    <div>
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 5px;">Delivery Time</label>
+                                        <input type="time" id="auto-report-time" value="08:00" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                                    </div>
+                                    <div id="auto-report-day-wrap" style="display: none;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 5px;">Day of Week</label>
+                                        <select id="auto-report-day" class="dd-select" style="width: 100%;">
+                                            <option value="monday" selected>Monday</option>
+                                            <option value="friday">Friday</option>
+                                            <option value="sunday">Sunday</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 5px;">Selected File Format to Send</label>
+                                    <select id="auto-report-format" class="dd-select" style="width: 100%;">
+                                        <option value="pdf" selected>📄 PDF Document (Executive Brief + Analytics + Table)</option>
+                                        <option value="excel">📊 Excel Spreadsheet (.xlsx)</option>
+                                        <option value="csv">📑 CSV Spreadsheet (.csv)</option>
+                                        <option value="summary">💬 Executive Summary Brief (Fast WhatsApp Text)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 5px;">WhatsApp Recipient Phone</label>
+                                    <input type="text" id="auto-report-whatsapp" placeholder="+263 78 300 9275" style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+                                </div>
+
+                                <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <div>
+                                        <span style="font-size: 0.85rem; font-weight: 700; color: #0f172a; display: block;">Enable Automation</span>
+                                        <span style="font-size: 0.72rem; color: #64748b;">WhatsApp bot will automatically dispatch on this schedule</span>
+                                    </div>
+                                    <label class="switch" style="margin: 0;">
+                                        <input type="checkbox" id="auto-report-enabled" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
+                                <button type="button" class="btn-secondary btn-sm" onclick="window.sendTestWhatsAppReport && window.sendTestWhatsAppReport()" id="btn-test-report-whatsapp" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fab fa-whatsapp" style="color: #25d366;"></i> Send Instant Test
+                                </button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn-text" onclick="window.closeReportAutomationModal && window.closeReportAutomationModal()">Cancel</button>
+                                    <button type="button" class="btn-primary" onclick="window.saveReportAutomationConfig && window.saveReportAutomationConfig()" style="background:#ea580c; border-color:#ea580c; color:#fff;">
+                                        <i class="fas fa-check" style="margin-right: 5px;"></i> Save Schedule
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
