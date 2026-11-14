@@ -5100,7 +5100,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     height: 28px;
     border-radius: 7px;
     background: rgba(14, 165, 233, 0.14);
-    color: #38bdf8;
+    color: #ea580c;
     font-size: 0.78rem;
 }
 #tab-history .timeline-stop .timeline-icon {
@@ -5120,7 +5120,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     gap: 4px;
     font-size: 0.65rem;
     font-weight: 600;
-    color: #38bdf8;
+    color: #ea580c;
     background: rgba(14, 165, 233, 0.14);
     border: 1px solid rgba(14, 165, 233, 0.3);
     padding: 2px 7px;
@@ -6157,7 +6157,7 @@ select.dd-select:disabled {
 }
 .ot-intro-icon {
     font-size: 2rem;
-    color: #38bdf8;
+    color: #ea580c;
     flex-shrink: 0;
     width: 48px;
     height: 48px;
@@ -6348,7 +6348,7 @@ select.dd-select:disabled {
     align-items: center;
     gap: 8px;
 }
-.faq-title i { color: #2563eb; font-size: 0.95rem; }
+.faq-title i { color: #ea580c; font-size: 0.95rem; }
 
 .faq-sub {
     margin: 0 0 12px;
@@ -6366,7 +6366,7 @@ select.dd-select:disabled {
     border-radius: 7px;
     padding: 7px 10px;
 }
-.faq-search:focus-within { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.faq-search:focus-within { border-color: #ea580c; box-shadow: 0 0 0 3px rgba(234,88,12,0.15); }
 .faq-search > i { color: #94a3b8; font-size: 0.78rem; }
 .faq-search input {
     flex: 1;
@@ -6436,7 +6436,7 @@ select.dd-select:disabled {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .faq-item[open] { border-color: #cbd5e1; box-shadow: 0 1px 3px rgba(15,23,42,0.05); }
-.faq-item.is-target { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.faq-item.is-target { border-color: #ea580c; box-shadow: 0 0 0 3px rgba(234,88,12,0.15); }
 
 .faq-item summary {
     display: flex;
@@ -6473,7 +6473,7 @@ select.dd-select:disabled {
 .faq-answer p { margin: 0 0 8px; }
 .faq-answer p:last-child { margin-bottom: 0; }
 .faq-answer strong { color: #0f172a; font-weight: 700; }
-.faq-answer a { color: #2563eb; font-weight: 600; }
+.faq-answer a { color: #ea580c; font-weight: 600; }
 
 .faq-empty {
     margin: 0;
@@ -6492,7 +6492,7 @@ select.dd-select:disabled {
     color: #64748b;
     line-height: 1.55;
 }
-.faq-foot a { color: #2563eb; font-weight: 600; }
+.faq-foot a { color: #ea580c; font-weight: 600; }
 
 /* ============================================
    Floating controls + expandable navigation rail
@@ -6881,16 +6881,67 @@ body.rail-expanded .rail-badge {
 .chip-offline .chip-count { color: #dc2626; }
 
 /* ===== 5. BYOT Hero Card & Plans Grid ===== */
+/* ── BYOT Hero Card — Pale Grey Neumorphic (Blends with platform canvas) ── */
 .byot-hero-card {
-    background: linear-gradient(135deg, #18181b 0%, #27272a 45%, #c2410c 100%);
-    border-radius: 14px;
-    padding: 18px 22px;
-    margin-bottom: 16px;
-    color: #ffffff;
-    cursor: pointer;
-    box-shadow: 0 6px 20px rgba(194, 65, 12, 0.22);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
-    border: 1px solid rgba(249, 115, 22, 0.35);
+    background: #e8ecf1 !important;
+    border: 1px solid rgba(163, 177, 198, 0.6) !important;
+    border-radius: 14px !important;
+    padding: 18px 22px !important;
+    margin-bottom: 16px !important;
+    color: #1f2937 !important;
+    cursor: pointer !important;
+    box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.7), -4px -4px 10px rgba(255, 255, 255, 0.9) !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+.byot-hero-card:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 3px 3px 8px rgba(163, 177, 198, 0.8), -2px -2px 6px rgba(255, 255, 255, 0.95) !important;
+}
+.byot-hero-title {
+    margin: 0 0 4px !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+}
+.byot-hero-desc {
+    margin: 0 !important;
+    font-size: 0.8rem !important;
+    color: #475569 !important;
+    line-height: 1.45 !important;
+    max-width: 720px !important;
+}
+.byot-hero-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: #ffedd5 !important;
+    border: 1px solid #fed7aa !important;
+    color: #ea580c !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 0.05em !important;
+}
+.byot-hero-cta {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: #ea580c !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 10px 20px !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+    transition: transform 0.15s ease, background 0.18s ease !important;
+}
+.byot-hero-cta:hover {
+    background: #c2410c !important;
 }
 .byot-hero-card:hover {
     transform: translateY(-1px);
@@ -6962,12 +7013,12 @@ body.rail-expanded .rail-badge {
     width: 48px;
     height: 48px;
     border-radius: 10px;
-    background: rgba(56, 189, 248, 0.2);
+    background: rgba(249, 115, 22, 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
-    color: #38bdf8;
+    color: #ea580c;
     flex-shrink: 0;
 }
 .byot-header-title { margin: 0 0 6px; font-size: 1.1rem; font-weight: 800; color: #ffffff; }
@@ -6993,7 +7044,7 @@ body.rail-expanded .rail-badge {
 }
 .byot-card.featured {
     background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
-    border-color: #0284c7;
+    border-color: #ea580c;
     color: #ffffff;
     box-shadow: 0 8px 26px rgba(15, 23, 42, 0.2);
     transform: scale(1.02);
@@ -7009,7 +7060,7 @@ body.rail-expanded .rail-badge {
     top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(90deg, #0284c7, #2563eb);
+    background: linear-gradient(90deg, #f97316, #ea580c);
     color: #ffffff;
     font-size: 0.68rem;
     font-weight: 800;
@@ -7068,13 +7119,13 @@ body.rail-expanded .rail-badge {
 }
 .byot-btn:hover { background: #f1f5f9; }
 .byot-card.featured .byot-btn.btn-primary {
-    background: #0284c7;
-    border-color: #0284c7;
+    background: #ea580c;
+    border-color: #ea580c;
     color: #ffffff;
 }
 .byot-card.featured .byot-btn.btn-primary:hover {
-    background: #0369a1;
-    border-color: #0369a1;
+    background: #c2410c;
+    border-color: #c2410c;
 }
 
 .byot-setup-guide {
@@ -7090,7 +7141,7 @@ body.rail-expanded .rail-badge {
     gap: 12px;
     margin-bottom: 14px;
 }
-.byot-setup-header i { font-size: 1.4rem; color: #0284c7; }
+.byot-setup-header i { font-size: 1.4rem; color: #ea580c; }
 .byot-sms-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -7115,12 +7166,12 @@ body.rail-expanded .rail-badge {
     gap: 6px;
     margin-bottom: 4px;
 }
-.byot-sms-model i { color: #0284c7; font-size: 0.75rem; }
+.byot-sms-model i { color: #ea580c; font-size: 0.75rem; }
 .byot-sms-text { font-size: 0.72rem; color: #64748b; margin: 0 0 6px; }
 .byot-sms-code {
     display: block;
     background: #0f172a;
-    color: #38bdf8;
+    color: #ea580c;
     padding: 6px 10px;
     border-radius: 6px;
     font-family: monospace;
@@ -7384,7 +7435,7 @@ body.rail-expanded .rail-item {
     border: 1px solid #e2e8f0;
 }
 .chip-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.dot-total { background: #0284c7; }
+.dot-total { background: #ea580c; }
 .dot-alerts { background: #ef4444; }
 .dash-stat-chip .chip-label { color: #64748b; font-size: 0.68rem; font-weight: 600; }
 .dash-stat-chip .chip-val { color: #0f172a; font-size: 0.76rem; font-weight: 800; }
@@ -9326,10 +9377,67 @@ textarea::placeholder,
 }
 
 /* Billing Theme Overrides — Inferth Orange Guarantee */
+/* ── BYOT Hero Card — Pale Grey Neumorphic (Blends with platform canvas) ── */
 .byot-hero-card {
-    background: linear-gradient(135deg, #18181b 0%, #27272a 45%, #c2410c 100%) !important;
-    border: 1px solid rgba(249, 115, 22, 0.4) !important;
-    box-shadow: 0 8px 24px rgba(194, 65, 12, 0.25) !important;
+    background: #e8ecf1 !important;
+    border: 1px solid rgba(163, 177, 198, 0.6) !important;
+    border-radius: 14px !important;
+    padding: 18px 22px !important;
+    margin-bottom: 16px !important;
+    color: #1f2937 !important;
+    cursor: pointer !important;
+    box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.7), -4px -4px 10px rgba(255, 255, 255, 0.9) !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+.byot-hero-card:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 3px 3px 8px rgba(163, 177, 198, 0.8), -2px -2px 6px rgba(255, 255, 255, 0.95) !important;
+}
+.byot-hero-title {
+    margin: 0 0 4px !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+}
+.byot-hero-desc {
+    margin: 0 !important;
+    font-size: 0.8rem !important;
+    color: #475569 !important;
+    line-height: 1.45 !important;
+    max-width: 720px !important;
+}
+.byot-hero-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: #ffedd5 !important;
+    border: 1px solid #fed7aa !important;
+    color: #ea580c !important;
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 0.05em !important;
+}
+.byot-hero-cta {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: #ea580c !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 10px 20px !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+    transition: transform 0.15s ease, background 0.18s ease !important;
+}
+.byot-hero-cta:hover {
+    background: #c2410c !important;
 }
 .byot-hero-badge {
     background: rgba(249, 115, 22, 0.25) !important;
@@ -9373,4 +9481,44 @@ textarea::placeholder,
 .ot-plan-card.popular .ot-features li i,
 .byot-card.featured .byot-features li i {
     color: #f97316 !important;
+}
+
+
+/* ── ENFORCE PALE GREY HERO CARD & NEAT INFERTH ORANGE THEME ── */
+.byot-hero-card {
+    background: #e8ecf1 !important;
+    background-color: #e8ecf1 !important;
+    border: 1px solid rgba(163, 177, 198, 0.6) !important;
+    border-radius: 14px !important;
+    padding: 18px 22px !important;
+    color: #1f2937 !important;
+    box-shadow: 6px 6px 14px rgba(163, 177, 198, 0.7), -4px -4px 10px rgba(255, 255, 255, 0.9) !important;
+}
+.byot-hero-card .byot-hero-title {
+    color: #0f172a !important;
+}
+.byot-hero-card .byot-hero-desc {
+    color: #475569 !important;
+}
+.byot-hero-card .byot-hero-badge {
+    background: #ffedd5 !important;
+    border: 1px solid #fed7aa !important;
+    color: #ea580c !important;
+}
+.byot-hero-card .byot-hero-cta {
+    background: #ea580c !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+}
+.byot-hero-card .byot-hero-cta:hover {
+    background: #c2410c !important;
+}
+
+/* Prepaid wallet badge neat styling */
+#billing-prepaid-view .badge,
+.prepaid-badge {
+    background: #ea580c !important;
+    color: #ffffff !important;
+    border-radius: 50px !important;
+    box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3) !important;
 }
