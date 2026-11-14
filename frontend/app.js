@@ -623,12 +623,34 @@ function syncWorkspaceLayout() {
         button.setAttribute('aria-expanded', String(!collapsed));
         button.setAttribute('aria-label', collapsed ? 'Show workspace panel' : 'Hide workspace panel');
     });
+
+    // Sync mobile floating toggle state
+    const mobBtn = document.getElementById('mobile-view-toggle');
+    const mobText = document.getElementById('mobile-toggle-text');
+    const mobIcon = document.getElementById('mobile-toggle-icon');
+    if (mobBtn && mobText && mobIcon) {
+        if (collapsed) {
+            mobIcon.className = 'fas fa-list-ul';
+            mobText.textContent = 'View Vehicles';
+        } else {
+            mobIcon.className = 'fas fa-map';
+            mobText.textContent = 'View Map';
+        }
+    }
     document.querySelectorAll('.rail-item').forEach(item => {
         if (item.classList.contains('active')) item.setAttribute('aria-current', 'page');
         else item.removeAttribute('aria-current');
     });
     setTimeout(() => { if (map) map.invalidateSize(); }, 250);
 }
+
+window.toggleMobileWorkspace = function() {
+    const sidebar = document.querySelector('.sidebar-container');
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+        syncWorkspaceLayout();
+    }
+};
 
 
 // ── Help & FAQ tab: search, section jumps and deep links from other views ──

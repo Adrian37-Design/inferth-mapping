@@ -9899,3 +9899,164 @@ input:checked + .slider:before {
     .tab-nav-btn span { display: none; }
     .tab-nav-btn { padding: 8px 10px !important; min-width: 36px !important; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE PREVIEW & RESPONSIVE POLISH (Takudzwa Phone & PC Replica)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Desktop Navbar Mobile Preview Pill ── */
+.nav-mobile-sim-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 13px;
+    border-radius: 50px;
+    background: #e8ecf1;
+    border: 1px solid rgba(234, 88, 12, 0.45);
+    box-shadow: 3px 3px 6px #cbd5e1, -3px -3px 6px #ffffff;
+    color: #ea580c;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.nav-mobile-sim-btn:hover {
+    background: #ea580c;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+    transform: translateY(-1px);
+}
+.nav-mobile-sim-btn i {
+    font-size: 0.88rem;
+}
+
+/* ── Mobile Floating Map/Fleet Toggle Button ── */
+.mobile-floating-toggle {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Hide desktop mobile preview pill on mobile screens */
+    .nav-mobile-sim-btn { display: none !important; }
+
+    /* ── Floating Map/List Switcher Button ── */
+    .mobile-floating-toggle {
+        display: inline-flex !important;
+        position: fixed !important;
+        bottom: 22px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 8000 !important;
+        background: #ea580c !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 50px !important;
+        padding: 10px 22px !important;
+        font-size: 0.86rem !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 20px rgba(234, 88, 12, 0.5), 0 2px 6px rgba(0,0,0,0.15) !important;
+        cursor: pointer !important;
+        align-items: center !important;
+        gap: 8px !important;
+        letter-spacing: 0.02em !important;
+        transition: transform 0.15s ease, background 0.18s ease !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+    .mobile-floating-toggle:active {
+        transform: translateX(-50%) scale(0.96) !important;
+        background: #c2410c !important;
+    }
+    .mobile-floating-toggle i {
+        font-size: 0.95rem !important;
+    }
+
+    /* ── Sidebar Rail: Pin to 50px, disable hover-expansion completely ── */
+    .sidebar-rail,
+    .sidebar-rail:hover,
+    .sidebar-rail.rail-hover-expanded,
+    body.rail-hovering .sidebar-rail,
+    body.rail-expanded .sidebar-rail {
+        width: 50px !important;
+        min-width: 50px !important;
+        max-width: 50px !important;
+        flex: 0 0 50px !important;
+        flex-basis: 50px !important;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.06) !important;
+        padding: 10px 4px !important;
+        overflow-x: hidden !important;
+        background: #ffffff !important;
+    }
+    .sidebar-rail:hover .rail-label,
+    .sidebar-rail.rail-hover-expanded .rail-label,
+    body.rail-hovering .sidebar-rail .rail-label,
+    body.rail-expanded .sidebar-rail .rail-label,
+    .sidebar-rail:hover .rail-brand #nav-brand-name {
+        display: none !important;
+    }
+    .rail-item {
+        width: 42px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+        border-radius: 10px !important;
+        margin: 2px auto !important;
+    }
+
+    /* ── Navbar compact layout ── */
+    .navbar {
+        padding: 6px 10px !important;
+        height: 52px !important;
+        gap: 8px !important;
+    }
+    .nav-search {
+        max-width: 170px !important;
+        min-width: 110px !important;
+        height: 36px !important;
+    }
+    .spot-kbd { display: none !important; }
+    .spot-input { font-size: 0.78rem !important; }
+    .nav-stats { gap: 6px !important; }
+    .logout-btn {
+        padding: 6px 10px !important;
+        min-height: 34px !important;
+        font-size: 0.76rem !important;
+    }
+    .logout-btn span { display: none !important; }
+
+    /* ── Workspace Panel & Map Overlay ── */
+    .main-container.panel-collapsed .sidebar-panel {
+        display: none !important;
+        width: 0 !important;
+    }
+    .main-container.panel-collapsed #map {
+        width: calc(100vw - 50px) !important;
+        left: 50px !important;
+    }
+
+    .main-container:not(.panel-collapsed) .sidebar-panel {
+        width: calc(100vw - 50px) !important;
+        left: 50px !important;
+        position: absolute !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        z-index: 4000 !important;
+        background: #e8ecf1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* ── Leaflet Controls & Dock on Mobile ── */
+    .map-status-dock {
+        bottom: 74px !important; /* Above floating toggle */
+        right: 12px !important;
+        padding: 6px 12px !important;
+        font-size: 0.72rem !important;
+    }
+    .leaflet-top.leaflet-right {
+        top: 60px !important;
+        right: 12px !important;
+    }
+}

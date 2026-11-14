@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=181">
+    <link rel="stylesheet" href="/static/app.css?v=182">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -28,6 +28,10 @@
             <kbd class="spot-kbd" id="global-search-kbd">Ctrl K</kbd>
         </div>
         <div class="nav-stats">
+            <a href="/static/mobile-preview.html" target="_blank" class="nav-mobile-sim-btn" id="nav-mobile-sim-btn" title="Open Mobile Phone Replica on PC screen">
+                <i class="fas fa-mobile-screen-button"></i>
+                <span>Mobile Preview</span>
+            </a>
             <div class="stat-item" role="status">
                 <i class="fas fa-circle" id="status-dot"></i>
                 <span id="status-text">Connecting...</span>
@@ -2611,12 +2615,18 @@
         </div>
     </div>
 
+    <!-- Mobile Floating Map/List Switcher (Only visible on screens <= 768px) -->
+    <button type="button" id="mobile-view-toggle" class="mobile-floating-toggle" aria-label="Toggle Map or List View" onclick="window.toggleMobileWorkspace && window.toggleMobileWorkspace()">
+        <i class="fas fa-map" id="mobile-toggle-icon"></i>
+        <span id="mobile-toggle-text">View Map</span>
+    </button>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="/static/auth.js?v=68"></script>
+    <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=173"></script>
+    <script src="/static/app.js?v=174"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

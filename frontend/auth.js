@@ -1,4 +1,17 @@
 // Authentication Manager
+function escapeHTML(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[m];
+    });
+}
+
 window.API_BASE = window.API_BASE || '';
 if (window.location.hostname.includes('vercel.app')) {
     window.API_BASE = 'https://inferth-mapping.up.railway.app';
@@ -435,11 +448,13 @@ class AuthManager {
     }
 
     showError(element, message) {
-        element.textContent = message;
+        if (!element) return;
+        element.innerHTML = `<i class="fas fa-circle-exclamation" style="margin-right: 6px;"></i> ${escapeHTML(message)}`;
         element.classList.add('show');
-        setTimeout(() => {
+        if (element._errorTimer) clearTimeout(element._errorTimer);
+        element._errorTimer = setTimeout(() => {
             element.classList.remove('show');
-        }, 5000);
+        }, 6000);
     }
 
     checkAuth() {
@@ -567,11 +582,11 @@ class AuthManager {
         // OTP box wiring
         const _getOtpValue = () => otpBoxes.map(b => b.value).join('');
 
-        const _checkOtpComplete = () => {
-            const complete = otpBoxes.every(b => b.value.match(/^\d$/));
+        const _checkOtpComplete = (autoSubmit = false) => {
+            const complete = otpBoxes.every(b => b.value && b.value.match(/^\d$/));
             verifyBtn.disabled = !complete;
-            if (complete) {
-                // Auto trigger verification when 6th digit entered
+            if (complete && autoSubmit) {
+                // Auto trigger verification only when user enters the final digit
                 verifyBtn.click();
             }
         };
@@ -614,7 +629,7 @@ class AuthManager {
             const targetFocus = nextEmpty === -1 ? otpBoxes[otpBoxes.length - 1] : otpBoxes[nextEmpty];
             if (targetFocus) targetFocus.focus();
 
-            _checkOtpComplete();
+            _checkOtpComplete(true);
             return true;
         };
 
@@ -636,7 +651,7 @@ class AuthManager {
                 if (box.value && idx < otpBoxes.length - 1) {
                     otpBoxes[idx + 1].focus();
                 }
-                _checkOtpComplete();
+                _checkOtpComplete(true);
             });
 
             box.addEventListener('keydown', (e) => {
@@ -645,11 +660,11 @@ class AuthManager {
                         otpBoxes[idx - 1].value = '';
                         otpBoxes[idx - 1].classList.remove('filled');
                         otpBoxes[idx - 1].focus();
-                        _checkOtpComplete();
+                        _checkOtpComplete(false);
                     } else {
                         box.value = '';
                         box.classList.remove('filled');
-                        _checkOtpComplete();
+                        _checkOtpComplete(false);
                     }
                 }
                 if (e.key === 'Enter' && !verifyBtn.disabled) {
@@ -825,10 +840,19 @@ class AuthManager {
                     });
                 } catch (err) {
                     _shakeBoxes();
-                    if (otpError) this.showError(otpError, err.message);
-                    verifyBtn.disabled = false;
+                    // Mark boxes with error state, clear them and focus first box for easy re-entry
+                    otpBoxes.forEach(b => {
+                        b.value = '';
+                        b.classList.remove('filled');
+                        b.classList.add('error');
+                    });
+                    if (otpBoxes[0]) otpBoxes[0].focus();
+
+                    const msg = err.message || 'Incorrect verification code. Please try again.';
+                    if (otpError) this.showError(otpError, msg);
+
+                    verifyBtn.disabled = true;
                     verifyBtn.innerHTML = '<span>Verify Code</span> <i class="fas fa-arrow-right" style="font-size: 0.8rem;"></i><span class="shimmer"></span>';
-                    _checkOtpComplete();
                 }
             });
         }

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferth Mapping — Mobile View Simulator</title>
+    <link rel="icon" type="image/png" href="/static/inferth_mapping_mark.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-canvas: #0f172a;
+            --bg-panel: #1e293b;
+            --border-panel: rgba(255, 255, 255, 0.1);
+            --primary-orange: #ea580c;
+            --primary-orange-hover: #c2410c;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --phone-width: 393px;
+            --phone-height: 852px;
+            --phone-radius: 54px;
+            --phone-scale: 0.92;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 70%, #020617 100%);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ── Top Simulator Toolbar ── */
+        header.simulator-toolbar {
+            height: 62px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-panel);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            box-shadow: 0 0 16px rgba(234, 88, 12, 0.4);
+        }
+
+        .brand-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .simulator-badge {
+            background: rgba(234, 88, 12, 0.2);
+            color: #fb923c;
+            border: 1px solid rgba(234, 88, 12, 0.4);
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Controls Section */
+        .controls-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid var(--border-panel);
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        select.sim-select {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            padding: 4px 6px;
+            font-family: inherit;
+        }
+
+        select.sim-select option {
+            background: #1e293b;
+            color: #ffffff;
+        }
+
+        .sim-btn {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid var(--border-panel);
+            color: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+
+        .sim-btn:hover {
+            background: rgba(51, 65, 85, 0.9);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .sim-btn.active {
+            background: var(--primary-orange);
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 14px rgba(234, 88, 12, 0.4);
+        }
+
+        .sim-btn-primary {
+            background: var(--primary-orange);
+            border-color: var(--primary-orange);
+        }
+
+        .sim-btn-primary:hover {
+            background: var(--primary-orange-hover);
+            box-shadow: 0 0 16px rgba(234, 88, 12, 0.5);
+        }
+
+        /* ── Canvas Area ── */
+        main.simulator-stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: auto;
+            padding: 30px;
+        }
+
+        /* ── Realistic Phone Chassis ── */
+        .phone-wrapper {
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .phone-frame {
+            position: relative;
+            width: var(--phone-width);
+            height: var(--phone-height);
+            border-radius: var(--phone-radius);
+            background: #000000;
+            padding: 12px;
+            box-shadow:
+                0 0 0 4px #2b303c,
+                0 0 0 8px #151821,
+                0 25px 60px -10px rgba(0, 0, 0, 0.85),
+                0 0 80px rgba(234, 88, 12, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-sizing: content-box;
+            transition: width 0.3s ease, height 0.3s ease, border-radius 0.3s ease;
+        }
+
+        /* Metallic Frame Accents / Buttons */
+        .phone-frame::before {
+            content: '';
+            position: absolute;
+            left: -11px;
+            top: 110px;
+            width: 3px;
+            height: 28px; /* Mute/Action button */
+            background: #475569;
+            border-radius: 2px 0 0 2px;
+            box-shadow: 0 45px 0 0 #475569, 0 100px 0 0 #475569; /* Volume Up & Down */
+        }
+
+        .phone-frame::after {
+            content: '';
+            position: absolute;
+            right: -11px;
+            top: 170px;
+            width: 3px;
+            height: 70px; /* Power button */
+            background: #475569;
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* Screen Glass Container */
+        .phone-screen {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: calc(var(--phone-radius) - 12px);
+            background: #ffffff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Status Bar & Dynamic Island ── */
+        .phone-status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 44px;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0f172a;
+            pointer-events: none;
+        }
+
+        .status-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            letter-spacing: -0.02em;
+        }
+
+        .dynamic-island {
+            width: 120px;
+            height: 30px;
+            background: #000000;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 10px;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .camera-lens {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #1e293b 20%, #050810 80%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .privacy-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #16a34a;
+            opacity: 0.85;
+        }
+
+        .status-icons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+        }
+
+        /* ── Live Iframe Viewport ── */
+        .phone-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #e8ecf1;
+            padding-top: 44px; /* Space for status bar */
+            padding-bottom: 20px; /* Space for home bar */
+            box-sizing: border-box;
+        }
+
+        /* ── Bottom Home Swipe Bar ── */
+        .phone-home-indicator {
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 135px;
+            height: 4px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 999px;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        /* ── Live Viewport Specs Pill ── */
+        .viewport-badge {
+            position: absolute;
+            bottom: 20px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-panel);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 90;
+        }
+
+        .viewport-badge i {
+            color: var(--primary-orange);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Simulator Top Toolbar -->
+    <header class="simulator-toolbar">
+        <div class="brand-section">
+            <img src="/static/inferth_mapping_mark.png" alt="Inferth" class="brand-logo">
+            <div class="brand-title">
+                Inferth Mapping
+                <span class="simulator-badge">Mobile Phone Replica</span>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <!-- Target Page Switcher -->
+            <div class="control-group">
+                <span class="control-label"><i class="fas fa-layer-group"></i> Screen:</span>
+                <select id="sim-page-select" class="sim-select" onchange="changeSimPage(this.value)">
+                    <option value="/static/index.html" selected>🗺️ Platform & Fleet Map</option>
+                    <option value="/static/login.html">🔐 Login & WhatsApp OTP</option>
+                    <option value="/static/byot-marketing.html">🚀 BYOT Marketing Page</option>
+                    <option value="/static/roadmap.html">📋 Product Roadmap</option>
+                </select>
+            </div>
+
+            <!-- Device Switcher -->
+            <div class="control-group">
+                <span class="control-label"><i class="fas fa-mobile-screen"></i> Device:</span>
+                <select id="sim-device-select" class="sim-select" onchange="changeDevice(this.value)">
+                    <option value="iphone15pro" selected>Apple iPhone 15 Pro (393 × 852)</option>
+                    <option value="galaxys24">Samsung Galaxy S24 (360 × 780)</option>
+                    <option value="iphonese">Apple iPhone SE (375 × 667)</option>
+                    <option value="pixel8">Google Pixel 8 (412 × 915)</option>
+                    <option value="ipadmini">Apple iPad Mini (768 × 1024)</option>
+                </select>
+            </div>
+
+            <!-- Orientation Switch -->
+            <button class="sim-btn" id="btn-orientation" onclick="toggleOrientation()" title="Rotate Screen">
+                <i class="fas fa-rotate"></i>
+                <span id="orientation-label">Portrait</span>
+            </button>
+
+            <!-- Zoom / Scale -->
+            <div class="control-group">
+                <span class="control-label"><i class="fas fa-magnifying-glass"></i> Zoom:</span>
+                <select id="sim-scale-select" class="sim-select" onchange="changeScale(this.value)">
+                    <option value="0.80">80%</option>
+                    <option value="0.90" selected>90% (Recommended)</option>
+                    <option value="1.0">100% (Pixel Native)</option>
+                </select>
+            </div>
+
+            <!-- Reload Button -->
+            <button class="sim-btn" onclick="reloadIframe()" title="Reload Mobile Screen">
+                <i class="fas fa-arrow-rotate-right"></i> Reload
+            </button>
+
+            <!-- External Open -->
+            <a id="btn-external-open" href="/static/index.html" target="_blank" class="sim-btn sim-btn-primary" title="Open Clean Mobile View in New Tab">
+                <i class="fas fa-arrow-up-right-from-square"></i> Open Full
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Canvas -->
+    <main class="simulator-stage">
+        <div class="phone-wrapper" id="phone-wrapper">
+            <div class="phone-frame" id="phone-frame">
+                <div class="phone-screen">
+                    <!-- Realistic iOS Status Bar -->
+                    <div class="phone-status-bar">
+                        <span class="status-time" id="live-time">09:41</span>
+                        <div class="dynamic-island">
+                            <span class="privacy-dot"></span>
+                            <span class="camera-lens"></span>
+                        </div>
+                        <div class="status-icons">
+                            <i class="fas fa-signal" style="font-size: 0.72rem;"></i>
+                            <span style="font-size: 0.65rem; font-weight: 800;">5G</span>
+                            <i class="fas fa-wifi" style="font-size: 0.72rem;"></i>
+                            <i class="fas fa-battery-full" style="font-size: 0.85rem; color: #16a34a;"></i>
+                        </div>
+                    </div>
+
+                    <!-- Live Mobile App Iframe -->
+                    <iframe id="mobile-iframe" class="phone-iframe" src="/static/index.html"></iframe>
+
+                    <!-- Home Swipe Indicator -->
+                    <div class="phone-home-indicator"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Viewport Spec Pill -->
+        <div class="viewport-badge">
+            <i class="fas fa-circle-info"></i>
+            <span id="viewport-specs">393 × 852 px · DPR 3.0 · Touch Enabled</span>
+        </div>
+    </main>
+
+    <script>
+        const DEVICES = {
+            iphone15pro: { name: 'iPhone 15 Pro', width: 393, height: 852, radius: 54 },
+            galaxys24: { name: 'Galaxy S24', width: 360, height: 780, radius: 46 },
+            iphonese: { name: 'iPhone SE', width: 375, height: 667, radius: 36 },
+            pixel8: { name: 'Pixel 8', width: 412, height: 915, radius: 48 },
+            ipadmini: { name: 'iPad Mini', width: 768, height: 1024, radius: 32 }
+        };
+
+        let currentDeviceKey = 'iphone15pro';
+        let isLandscape = false;
+        let currentScale = 0.90;
+
+        function updatePhoneLayout() {
+            const dev = DEVICES[currentDeviceKey];
+            const frame = document.getElementById('phone-frame');
+            const wrapper = document.getElementById('phone-wrapper');
+            const specs = document.getElementById('viewport-specs');
+
+            const width = isLandscape ? dev.height : dev.width;
+            const height = isLandscape ? dev.width : dev.height;
+
+            frame.style.width = width + 'px';
+            frame.style.height = height + 'px';
+            frame.style.borderRadius = dev.radius + 'px';
+            wrapper.style.transform = `scale(${currentScale})`;
+
+            specs.textContent = `${width} × ${height} px · ${dev.name} · ${isLandscape ? 'Landscape' : 'Portrait'} (${Math.round(currentScale * 100)}%)`;
+        }
+
+        function changeDevice(key) {
+            currentDeviceKey = key;
+            updatePhoneLayout();
+        }
+
+        function changeScale(val) {
+            currentScale = parseFloat(val);
+            updatePhoneLayout();
+        }
+
+        function toggleOrientation() {
+            isLandscape = !isLandscape;
+            const btn = document.getElementById('btn-orientation');
+            const label = document.getElementById('orientation-label');
+
+            if (isLandscape) {
+                btn.classList.add('active');
+                label.textContent = 'Landscape';
+            } else {
+                btn.classList.remove('active');
+                label.textContent = 'Portrait';
+            }
+            updatePhoneLayout();
+        }
+
+        function changeSimPage(url) {
+            const iframe = document.getElementById('mobile-iframe');
+            const extBtn = document.getElementById('btn-external-open');
+            iframe.src = url;
+            extBtn.href = url;
+        }
+
+        function reloadIframe() {
+            const iframe = document.getElementById('mobile-iframe');
+            iframe.src = iframe.src;
+        }
+
+        // Live Clock in Status Bar
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            let minutes = now.getMinutes();
+            if (hours < 10) hours = '0' + hours;
+            if (minutes < 10) minutes = '0' + minutes;
+            const el = document.getElementById('live-time');
+            if (el) el.textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Initial setup
+        updatePhoneLayout();
+    </script>
+</body>
+</html>
