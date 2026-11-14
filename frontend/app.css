@@ -6532,15 +6532,15 @@ select.dd-select:disabled {
 .navbar {
     position: fixed;
     top: 0;
-    left: var(--rail-width);
+    left: var(--rail-width, 60px);
     right: 0;
-    height: var(--header-height);
+    height: var(--header-height, 58px);
     padding: 0 20px;
     background: transparent;
     border: 0;
     box-shadow: none;
     backdrop-filter: none;
-    z-index: 3000;
+    z-index: 9500 !important;
     pointer-events: none;
     transition: left 0.22s ease;
 }
@@ -6561,7 +6561,7 @@ select.dd-select:disabled {
 }
 
 .sidebar-panel {
-    padding-top: var(--header-height);
+    padding-top: calc(var(--header-height, 58px) + 12px) !important;
 }
 
 /* Rail spans the full height and carries the brand */
@@ -7231,7 +7231,7 @@ body.rail-expanded .rail-badge {
         left: 0 !important;
         bottom: 0 !important;
         height: 100% !important;
-        z-index: 5000 !important;
+        z-index: 4000 !important;
         pointer-events: none !important;
         overflow: visible !important;
         display: flex !important;
@@ -7252,7 +7252,7 @@ body.rail-expanded .rail-badge {
         border-right: 1px solid var(--border-color, #e2e8f0) !important;
         box-shadow: 2px 0 8px rgba(15, 23, 42, 0.05) !important;
         pointer-events: auto !important;
-        z-index: 5100 !important;
+        z-index: 4500 !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
         /* Cubic-bezier(0.22, 1, 0.36, 1) decelerates smoothly to an elegant landing when pulling out or in */
@@ -7273,15 +7273,16 @@ body.rail-expanded .rail-badge {
         padding: 14px 10px !important;
         background: #ffffff !important;
         border-right: 1px solid var(--border-color, #e2e8f0) !important;
-        z-index: 5100 !important;
+        z-index: 9600 !important;
     }
 
-    /* Docked workspace panel starts precisely at 60px without shifting */
+    /* Docked workspace panel starts precisely at 60px without shifting, below navbar */
     .sidebar-panel {
         position: relative !important;
         margin-left: 60px !important;
         pointer-events: auto !important;
-        z-index: 4900 !important;
+        z-index: 4100 !important;
+        padding-top: calc(var(--header-height, 58px) + 12px) !important;
     }
 
     /* When collapsed, panel takes up zero space (eliminates the grey vertical gap) */
@@ -9920,8 +9921,9 @@ input:checked + .slider:before {
         display: none;
         position: fixed !important;
         inset: 0 !important;
-        background: rgba(15, 23, 42, 0.55) !important;
-        backdrop-filter: blur(3px) !important;
+        background: rgba(15, 23, 42, 0.35) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         z-index: 9400 !important;
     }
     body.mobile-drawer-open .mobile-drawer-backdrop {

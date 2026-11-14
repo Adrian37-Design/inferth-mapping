@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
@@ -38,18 +38,30 @@ def _upload_extension(data: bytes):
     return None
 
 @router.post("/paynow/initiate")
-async def initiate_paynow(plan_name: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def initiate_paynow(
+    plan_name: str, 
+    amount: float = None,
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Initiates standard Paynow Web Checkout using the official Paynow Python SDK.
+    Supports Visa, Mastercard, Zimswitch, EcoCash, and OneMoney via redirect.
+    """
     if not PAYNOW_ID or not PAYNOW_KEY:
         raise HTTPException(status_code=503, detail="Online payments are not configured")
-    # Calculate Price
-    # Calculate Price
-    price_map = {"Basic": 12, "Professional": 17, "Enterprise": 100} # Enterprise placeholder
-    amount = price_map.get(plan_name, 12)
     
-    # Create Local Transaction
+    # Determine billing price
+    price_map = {"Basic": 12.0, "Professional": 17.0, "Enterprise": 100.0, "Fleet": 17.0}
+    if amount is not None and float(amount) > 0:
+        charge_amount = round(float(amount), 2)
+    else:
+        charge_amount = price_map.get(plan_name, 12.0)
+    
+    # Create Local Transaction record
     txn = Transaction(
         tenant_id=current_user.tenant_id,
-        amount_usd=amount,
+        amount_usd=charge_amount,
         payment_method="paynow",
         status="pending"
     )
@@ -57,20 +69,132 @@ async def initiate_paynow(plan_name: str, db: AsyncSession = Depends(get_db), cu
     await db.commit()
     await db.refresh(txn)
 
-    # Initiate Paynow
-    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email)
-    payment.add(f"Inferth {plan_name} Subscription", amount)
+    # Initiate Paynow via official SDK
+    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or "billing@inferthmapping.co.zw")
+    payment.add(f"Inferth {plan_name} Subscription", charge_amount)
     
     response = paynow.send(payment)
     
     if response.success:
         txn.paynow_reference = response.poll_url
         await db.commit()
-        return {"redirect_url": response.redirect_url, "txn_id": txn.id}
+        return {
+            "redirect_url": response.redirect_url, 
+            "poll_url": response.poll_url,
+            "txn_id": txn.id,
+            "amount": charge_amount
+        }
     else:
         txn.status = "failed"
         await db.commit()
-        raise HTTPException(status_code=500, detail="Failed to initiate Paynow")
+        raise HTTPException(status_code=500, detail="Failed to initiate Paynow payment session")
+
+
+@router.post("/paynow/mobile")
+async def initiate_paynow_mobile(
+    plan_name: str,
+    phone: str,
+    method: str = "ecocash",
+    amount: float = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Initiates express mobile checkout via EcoCash or OneMoney USSD push
+    using Paynow Python SDK's send_mobile() method.
+    """
+    if not PAYNOW_ID or not PAYNOW_KEY:
+        raise HTTPException(status_code=503, detail="Online payments are not configured")
+    
+    method_clean = method.lower().strip()
+    if method_clean not in ["ecocash", "onemoney"]:
+        raise HTTPException(status_code=400, detail="Supported mobile money methods: 'ecocash' or 'onemoney'")
+    
+    clean_phone = phone.strip().replace(" ", "").replace("-", "")
+    if clean_phone.startswith("+263"):
+        clean_phone = "0" + clean_phone[4:]
+    elif clean_phone.startswith("263"):
+        clean_phone = "0" + clean_phone[3:]
+    
+    price_map = {"Basic": 12.0, "Professional": 17.0, "Enterprise": 100.0, "Fleet": 17.0}
+    if amount is not None and float(amount) > 0:
+        charge_amount = round(float(amount), 2)
+    else:
+        charge_amount = price_map.get(plan_name, 12.0)
+    
+    txn = Transaction(
+        tenant_id=current_user.tenant_id,
+        amount_usd=charge_amount,
+        payment_method=method_clean,
+        status="pending"
+    )
+    db.add(txn)
+    await db.commit()
+    await db.refresh(txn)
+
+    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or f"{clean_phone}@inferthmapping.co.zw")
+    payment.add(f"Inferth {plan_name}", charge_amount)
+    
+    response = paynow.send_mobile(payment, clean_phone, method_clean)
+    
+    if response.success:
+        txn.paynow_reference = response.poll_url
+        await db.commit()
+        return {
+            "success": True,
+            "instructions": getattr(response, 'instructions', f"Please check your {method_clean.title()} phone prompt to enter PIN and authorize ${charge_amount} USD."),
+            "poll_url": response.poll_url,
+            "txn_id": txn.id
+        }
+    else:
+        txn.status = "failed"
+        await db.commit()
+        error_msg = getattr(response, 'error', "Failed to initiate mobile money payment")
+        raise HTTPException(status_code=400, detail=str(error_msg))
+
+
+@router.post("/paynow/webhook")
+async def paynow_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """
+    Paynow IPN (Instant Payment Notification) Webhook.
+    Called automatically by Paynow when transaction status changes.
+    """
+    form_data = await request.form()
+    poll_url = form_data.get("pollurl")
+    reference = form_data.get("reference")
+    
+    if not poll_url and not reference:
+        return {"status": "ignored"}
+    
+    # Query Transaction by reference or poll_url
+    txn = None
+    if poll_url:
+        result = await db.execute(select(Transaction).where(Transaction.paynow_reference == str(poll_url)))
+        txn = result.scalars().first()
+    
+    if not txn and reference and reference.startswith("INV-"):
+        try:
+            t_id = int(reference.replace("INV-", ""))
+            result = await db.execute(select(Transaction).where(Transaction.id == t_id))
+            txn = result.scalars().first()
+        except Exception:
+            pass
+            
+    if txn and txn.paynow_reference:
+        try:
+            status = paynow.check_transaction_status(txn.paynow_reference)
+            if status.paid:
+                txn.status = "paid"
+                # Activate Tenant Subscription
+                tenant_res = await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
+                tenant = tenant_res.scalars().first()
+                if tenant:
+                    tenant.subscription_status = "active"
+                await db.commit()
+        except Exception as e:
+            pass
+            
+    return {"status": "ok"}
 
 @router.post("/manual/upload-pop")
 async def upload_pop(
