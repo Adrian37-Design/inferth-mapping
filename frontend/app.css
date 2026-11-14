@@ -226,7 +226,7 @@
     /* Layout */
     --nav-width: 260px;
     --header-height: 58px;
-    --rail-width: 72px;
+    --rail-width: 60px;
     --fleet-panel-width: 340px;
 
     /* Theme Overrides */
@@ -5341,7 +5341,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 @media (min-width: 769px) and (max-width: 1100px) {
-    :root { --rail-width: 76px; --fleet-panel-width: 330px; }
+    :root { --rail-width: 60px; --fleet-panel-width: 330px; }
     .rail-item { flex-direction: column; justify-content: center; padding: 8px 0; gap: 5px; }
     .rail-label { font-size: 0.6rem; }
 }
@@ -6609,9 +6609,9 @@ body:not(.rail-expanded) .rail-item i {
     font-size: 1.02rem;
 }
 
-/* Expanded rail: icon + name, one row per tab */
+/* Expanded rail: icon + name, one row per tab (rail-width stays strictly 60px to prevent navbar & map shifting) */
 body.rail-expanded {
-    --rail-width: var(--rail-expanded-width);
+    --rail-width: 60px;
 }
 
 body.rail-expanded .sidebar-rail {
@@ -7214,74 +7214,155 @@ body.rail-expanded .rail-badge {
    FIXES: RAIL HOVER EXPANSION, CENTER FLEET BUTTON, RED LOGOUT GLOW
    ============================================================ */
 
-/* 1. Sidebar Rail Expansion (Flex-basis, width and label visibility) */
+/* 1. Sidebar Rail Expansion (Smooth Decelerating Overlay Drawer & Zero Grey Gap) */
 .sidebar-container {
     overflow: visible !important;
     position: relative !important;
 }
 @media (min-width: 769px) {
-    /* Fixed flex footprint inside container so adjacent panel NEVER shifts or jerks */
-    .sidebar-rail {
-        width: 56px !important;
-        min-width: 56px !important;
-        max-width: 56px !important;
-        flex: 0 0 56px !important;
-        flex-basis: 56px !important;
-        position: relative !important;
-        z-index: 5000 !important;
-        overflow-x: hidden !important;
-        transition: width 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.24s ease !important;
-        will-change: width, box-shadow;
+    :root {
+        --rail-width: 60px !important;
     }
-    /* Expands outward over panel as an overlay without shifting layout */
-    .sidebar-rail:hover,
-    .sidebar-rail.rail-hover-expanded,
-    body.rail-hovering .sidebar-rail,
-    body.rail-expanded .sidebar-rail {
+
+    /* Zero-gap container: rail sits at exact 0..60px, panel at 60px+, map touches rail at 60px */
+    .sidebar-container {
         position: absolute !important;
         top: 0 !important;
         left: 0 !important;
         bottom: 0 !important;
+        height: 100% !important;
+        z-index: 5000 !important;
+        pointer-events: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: row !important;
+    }
+
+    /* Fixed 60px base width, permanent absolute left overlay, silky slow-down deceleration */
+    .sidebar-rail {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+        height: 100% !important;
+        background: #ffffff !important;
+        border-right: 1px solid var(--border-color, #e2e8f0) !important;
+        box-shadow: 2px 0 8px rgba(15, 23, 42, 0.05) !important;
+        pointer-events: auto !important;
+        z-index: 5100 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        /* Cubic-bezier(0.22, 1, 0.36, 1) decelerates smoothly to an elegant landing when pulling out or in */
+        transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.38s cubic-bezier(0.22, 1, 0.36, 1) !important;
+        will-change: width, box-shadow;
+    }
+
+    /* Smooth pull-out expansion that glides out and decelerates smoothly */
+    .sidebar-rail:hover,
+    .sidebar-rail.rail-hover-expanded,
+    body.rail-hovering .sidebar-rail,
+    body.rail-expanded .sidebar-rail {
         width: 215px !important;
         min-width: 215px !important;
         max-width: 215px !important;
-        flex: 0 0 56px !important;
-        flex-basis: 56px !important;
+        box-shadow: 12px 0 32px rgba(15, 23, 42, 0.16) !important;
         align-items: stretch !important;
         padding: 14px 10px !important;
         background: #ffffff !important;
         border-right: 1px solid var(--border-color, #e2e8f0) !important;
-        box-shadow: 10px 0 32px rgba(15, 23, 42, 0.18) !important;
-        z-index: 5000 !important;
+        z-index: 5100 !important;
     }
+
+    /* Docked workspace panel starts precisely at 60px without shifting */
+    .sidebar-panel {
+        position: relative !important;
+        margin-left: 60px !important;
+        pointer-events: auto !important;
+        z-index: 4900 !important;
+    }
+
+    /* When collapsed, panel takes up zero space (eliminates the grey vertical gap) */
+    .sidebar-container.collapsed .sidebar-panel {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        visibility: hidden !important;
+    }
+
+    /* Map wrapper aligns directly to 60px (zero grey gap against rail) */
+    .map-wrapper {
+        margin-left: 60px !important;
+        transition: margin-left 0.28s ease !important;
+    }
+    .main-container[data-workspace="tab-fleet"]:not(.panel-collapsed) .map-wrapper,
+    .main-container[data-workspace="tab-geofence"]:not(.panel-collapsed) .map-wrapper,
+    .main-container[data-workspace="tab-history"]:not(.panel-collapsed) .map-wrapper,
+    .main-container[data-workspace="tab-asset-detail"]:not(.panel-collapsed) .map-wrapper {
+        margin-left: calc(60px + var(--fleet-panel-width, 340px)) !important;
+    }
+    .main-container.panel-collapsed .map-wrapper {
+        margin-left: 60px !important;
+    }
+
+    /* Navbar stays docked at 60px without jumping */
+    .navbar {
+        left: 60px !important;
+    }
+}
+
+/* Graceful text fade and slide when pulling out/in */
+.sidebar-rail .rail-label {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    white-space: nowrap !important;
+    pointer-events: none;
 }
 .sidebar-rail:hover .rail-label,
 .sidebar-rail.rail-hover-expanded .rail-label,
 body.rail-hovering .sidebar-rail .rail-label,
-body.rail-expanded .rail-label {
+body.rail-expanded .sidebar-rail .rail-label {
     display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
+    transform: translateX(0) !important;
     font-size: 0.84rem !important;
     font-weight: 600 !important;
     white-space: nowrap !important;
     color: var(--text-primary, #0f172a) !important;
+    transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s !important;
+}
+.sidebar-rail .rail-brand #nav-brand-name {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    white-space: nowrap !important;
 }
 .sidebar-rail:hover .rail-brand #nav-brand-name,
 .sidebar-rail.rail-hover-expanded .rail-brand #nav-brand-name,
 body.rail-hovering .sidebar-rail .rail-brand #nav-brand-name,
-body.rail-expanded .rail-brand #nav-brand-name {
+body.rail-expanded .sidebar-rail .rail-brand #nav-brand-name {
     display: block !important;
+    opacity: 1 !important;
     visibility: visible !important;
+    transform: translateX(0) !important;
     font-size: 0.85rem !important;
     font-weight: 800 !important;
     color: #ff8c00 !important;
     white-space: nowrap !important;
+    transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s !important;
 }
 .sidebar-rail:hover .rail-item,
 .sidebar-rail.rail-hover-expanded .rail-item,
 body.rail-hovering .sidebar-rail .rail-item,
-body.rail-expanded .rail-item {
+body.rail-expanded .sidebar-rail .rail-item {
     flex-direction: row !important;
     justify-content: flex-start !important;
     align-items: center !important;

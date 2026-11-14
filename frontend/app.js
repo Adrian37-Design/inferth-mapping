@@ -606,14 +606,14 @@ function setupTabs() {
                 railDebounceTimer = null;
             }
             rail.classList.add('rail-hover-expanded');
-            document.body.classList.add('rail-expanded', 'rail-hovering');
+            document.body.classList.add('rail-hovering');
         });
         rail.addEventListener('mouseleave', () => {
             if (railDebounceTimer) clearTimeout(railDebounceTimer);
             railDebounceTimer = setTimeout(() => {
                 rail.classList.remove('rail-hover-expanded');
-                document.body.classList.remove('rail-expanded', 'rail-hovering');
-            }, 140);
+                document.body.classList.remove('rail-hovering');
+            }, 160);
         });
     }
 }
