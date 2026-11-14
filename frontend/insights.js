@@ -387,7 +387,7 @@ function buildEnterpriseActions(card, roleMode) {
                         <i class="fas fa-route"></i> View trip replay
                     </button>
                     <button type="button" class="corp-btn corp-btn-secondary" onclick="openMessageDriverModal('${escapeHTML(driver)}', '${escapeHTML(vehicle)}')">
-                        <i class="fab fa-whatsapp"></i> Message driver
+                        <i class="fa-brands fa-whatsapp"></i> Message driver
                     </button>
                     <button type="button" class="corp-btn corp-btn-ghost" onclick="resolveInsightCard('${id}')">
                         <i class="fas fa-check"></i> Mark resolved
@@ -688,7 +688,7 @@ window.openMessageDriverModal = function(recipient, vehicle) {
             <textarea id="driver-message-text" style="width:100%; height:80px; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.8rem; font-family:inherit; color:#0f172a;">${escapeHTML(draft)}</textarea>
             <div style="display:flex; gap:8px; justify-content:flex-end;">
                 <button type="button" class="corp-btn corp-btn-secondary" onclick="copyDriverMessage()"><i class="fas fa-copy"></i> Copy text</button>
-                <button type="button" class="corp-btn corp-btn-whatsapp" onclick="shareDriverMessage()"><i class="fab fa-whatsapp"></i> Open WhatsApp</button>
+                <button type="button" class="corp-btn corp-btn-whatsapp" onclick="shareDriverMessage()"><i class="fa-brands fa-whatsapp"></i> Open WhatsApp</button>
             </div>
         </div>
         `

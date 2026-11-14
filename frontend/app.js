@@ -1497,7 +1497,7 @@ function renderReportOutput(type, data, container) {
                     <h4 style="margin:0; font-size:0.95rem; font-weight:800; color:#9a3412;">Executive Telematics Briefing &amp; Data Interpretation</h4>
                 </div>
                 <button type="button" class="btn-sm" onclick="window.sendCurrentReportToWhatsApp && window.sendCurrentReportToWhatsApp()" style="background:#25d366; color:#ffffff; border:none; border-radius:50px; padding:6px 14px; font-weight:700; font-size:0.75rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(37,211,102,0.3);">
-                    <i class="fab fa-whatsapp"></i> Send Analysis via WhatsApp
+                    <i class="fa-brands fa-whatsapp"></i> Send Analysis via WhatsApp
                 </button>
             </div>
             <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px; font-size:0.82rem; color:#431407; line-height:1.45;">
@@ -2676,7 +2676,7 @@ window.showInviteSuccessModal = function (link, email, phone) {
 
     const bodyHtml = phone ? `
                 <p>Invite created for <strong>${escapeHTML(email)}</strong>.</p>
-                <p style="margin-top:14px;"><i class="fab fa-whatsapp" style="color:#25D366; font-size:1.2em;"></i>
+                <p style="margin-top:14px;"><i class="fa-brands fa-whatsapp" style="color:#25D366; font-size:1.2em;"></i>
                     The setup link was sent to <strong>${escapeHTML(phone)}</strong> on WhatsApp.</p>
                 <p style="font-size:0.85em; color:var(--text-muted);">Ask them to open the link and set their password.</p>`
         : `
@@ -2692,7 +2692,7 @@ window.showInviteSuccessModal = function (link, email, phone) {
 
                 <div style="margin-top: 20px;">
                     <a href="${waUrl}" target="_blank" class="btn" style="background-color: #25D366; color: white; text-decoration: none; display: inline-block; width: 100%; padding: 10px; border-radius: 4px; cursor: pointer;">
-                        <i class="fab fa-whatsapp"></i> Share via WhatsApp
+                        <i class="fa-brands fa-whatsapp"></i> Share via WhatsApp
                     </a>
                 </div>`;
 
@@ -9373,7 +9373,7 @@ window.sendTestWhatsAppReport = async function() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fab fa-whatsapp" style="color: #25d366;"></i> Send Instant Test';
+            btn.innerHTML = '<i class="fa-brands fa-whatsapp" style="color: #25d366;"></i> Send Instant Test';
         }
     }
 };
@@ -9496,7 +9496,7 @@ window.sendTestWhatsAppAlert = async function() {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fab fa-whatsapp" style="color: #25d366; margin-right: 5px;"></i> Send Test Alert';
+            btn.innerHTML = '<i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 5px;"></i> Send Test Alert';
         }
     }
 };

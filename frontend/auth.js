@@ -1059,7 +1059,7 @@ class AuthManager {
         } finally {
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<span>Send WhatsApp Code</span> <i class="fab fa-whatsapp" style="font-size:1rem;"></i>';
+                btn.innerHTML = '<span>Send WhatsApp Code</span> <i class="fa-brands fa-whatsapp" style="font-size:1rem;"></i>';
             }
         }
     }

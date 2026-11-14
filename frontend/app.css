@@ -1535,7 +1535,7 @@ body {
     width: 120px;
 }
 
-/* Floating Action Buttons */
+/* Floating Action Buttons (scoped so FontAwesome .fab icons are never affected) */
 .fab-container {
     position: absolute;
     right: 25px;
@@ -1546,7 +1546,8 @@ body {
     z-index: 400;
 }
 
-.fab {
+button.fab,
+.fab-btn {
     width: 56px;
     height: 56px;
     border-radius: 50%;
@@ -1562,22 +1563,46 @@ body {
     justify-content: center;
 }
 
-.fab:hover {
+button.fab:hover,
+.fab-btn:hover {
     transform: scale(1.15) rotate(5deg);
     box-shadow: 0 12px 35px rgba(45, 95, 109, 0.6);
 }
 
-.fab:active {
+button.fab:active,
+.fab-btn:active {
     transform: scale(1.05);
 }
 
-.fab-primary {
+button.fab.fab-primary,
+.fab-btn.fab-primary {
     background: linear-gradient(135deg, var(--secondary), var(--secondary-light)) !important;
     box-shadow: 0 8px 25px rgba(239, 72, 53, 0.4) !important;
 }
 
-.fab-primary:hover {
+button.fab.fab-primary:hover,
+.fab-btn.fab-primary:hover {
     box-shadow: 0 12px 35px rgba(239, 72, 53, 0.6) !important;
+}
+
+/* Global FontAwesome & WhatsApp icon guardrails: prevents icon inheritance of button wrappers */
+i.fab,
+i.fa-brands,
+.fa-brands,
+[class*="fa-whatsapp"] {
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: inline-block !important;
+    transform: none !important;
+    line-height: inherit !important;
+    position: static !important;
 }
 
 /* Modal */
@@ -2574,7 +2599,8 @@ body {
         bottom: 15px;
     }
 
-    .fab {
+    button.fab,
+    .fab-btn {
         width: 48px;
         height: 48px;
         font-size: 1.1em;
@@ -9521,4 +9547,285 @@ textarea::placeholder,
     color: #ffffff !important;
     border-radius: 50px !important;
     box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3) !important;
+}
+
+/* ── WHATSAPP SECTION, ICONS & BUTTONS MODERNIZATION ── */
+.alerts-automation-card {
+    background: var(--nm-bg, #e8ecf1) !important;
+    box-shadow: var(--nm-raised) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    padding: 20px 24px !important;
+    margin-bottom: 22px !important;
+}
+
+.alerts-automation-card .header-tile {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #25d366, #128c7e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+    flex-shrink: 0;
+}
+
+.alerts-automation-card .header-tile i {
+    color: #ffffff !important;
+    font-size: 1.35rem !important;
+}
+
+.alerts-automation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 18px;
+    align-items: flex-end;
+}
+
+@media (max-width: 900px) {
+    .alerts-automation-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.alerts-automation-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.alerts-automation-field label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--nm-text-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+.alerts-automation-field select.dd-select,
+.alerts-automation-field input[type="text"] {
+    width: 100% !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    box-sizing: border-box !important;
+    border-radius: 10px !important;
+    background: var(--nm-bg, #e8ecf1) !important;
+    box-shadow: var(--nm-pressed) !important;
+    border: none !important;
+    padding: 0 14px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: var(--nm-text, #0f172a) !important;
+    outline: none !important;
+    transition: box-shadow 0.18s ease !important;
+}
+
+.alerts-automation-field select.dd-select {
+    padding-right: 34px !important;
+}
+
+.alerts-automation-field input[type="text"]:focus,
+.alerts-automation-field select.dd-select:focus {
+    box-shadow: inset 3px 3px 8px var(--nm-inset-dark),
+                inset -2px -2px 6px var(--nm-inset-lite),
+                0 0 0 3px var(--nm-primary-glow) !important;
+}
+
+.alerts-automation-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: center;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 14px;
+}
+
+#btn-test-alert-whatsapp {
+    height: 40px !important;
+    padding: 0 20px !important;
+    border-radius: 50px !important;
+    background: var(--nm-bg, #e8ecf1) !important;
+    box-shadow: var(--nm-raised) !important;
+    border: 1px solid rgba(37, 211, 102, 0.4) !important;
+    color: #15803d !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+#btn-test-alert-whatsapp:hover {
+    box-shadow: var(--nm-flat), 0 0 10px rgba(37, 211, 102, 0.25) !important;
+    transform: translateY(-1px) !important;
+    background: #f0fdf4 !important;
+}
+
+#btn-test-alert-whatsapp:active {
+    box-shadow: var(--nm-pressed) !important;
+    transform: translateY(0) !important;
+}
+
+#btn-save-alert-automation {
+    height: 40px !important;
+    padding: 0 22px !important;
+    border-radius: 50px !important;
+    background: #ea580c !important;
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35) !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+#btn-save-alert-automation:hover {
+    background: #c2410c !important;
+    box-shadow: 0 6px 18px rgba(234, 88, 12, 0.45) !important;
+    transform: translateY(-1px) !important;
+}
+
+#btn-save-alert-automation:active {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+    transform: translateY(0) !important;
+}
+
+/* ── Reports Tab: Automate Delivery Button ── */
+#btn-report-automation {
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 16px !important;
+    border-radius: 50px !important;
+    background: var(--nm-bg, #e8ecf1) !important;
+    box-shadow: var(--nm-raised) !important;
+    border: 1px solid rgba(37, 211, 102, 0.4) !important;
+    color: var(--nm-text, #0f172a) !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    white-space: nowrap !important;
+    margin-bottom: 0 !important;
+    align-self: flex-end !important;
+}
+
+#btn-report-automation:hover {
+    box-shadow: var(--nm-flat), 0 0 12px rgba(37, 211, 102, 0.25) !important;
+    transform: translateY(-1px) !important;
+    color: #15803d !important;
+}
+
+#btn-report-automation:active {
+    box-shadow: var(--nm-pressed) !important;
+    transform: translateY(0) !important;
+}
+
+#btn-report-automation i {
+    color: #25d366 !important;
+    font-size: 1.15rem !important;
+}
+
+/* ── Report WhatsApp Automation Modal Clean Styling ── */
+#modal-report-automation .modal-content {
+    background: var(--nm-bg, #ffffff) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+#modal-report-automation .modal-icon-tile {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #25d366, #128c7e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+    flex-shrink: 0;
+}
+
+#modal-report-automation .modal-icon-tile i {
+    color: #ffffff !important;
+    font-size: 1.35rem !important;
+}
+
+#modal-report-automation input[type="text"],
+#modal-report-automation input[type="time"],
+#modal-report-automation select.dd-select {
+    width: 100% !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 10px !important;
+    background: var(--nm-bg, #f8fafc) !important;
+    box-shadow: var(--nm-pressed) !important;
+    border: none !important;
+    padding: 0 14px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+}
+
+#modal-report-automation select.dd-select {
+    padding-right: 32px !important;
+}
+
+#btn-test-report-whatsapp {
+    height: 38px !important;
+    padding: 0 16px !important;
+    border-radius: 50px !important;
+    background: var(--nm-bg, #e8ecf1) !important;
+    box-shadow: var(--nm-raised) !important;
+    border: 1px solid rgba(37, 211, 102, 0.4) !important;
+    color: #15803d !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+#btn-test-report-whatsapp:hover {
+    box-shadow: var(--nm-flat), 0 0 10px rgba(37, 211, 102, 0.25) !important;
+    transform: translateY(-1px) !important;
+}
+
+#btn-save-report-automation {
+    height: 38px !important;
+    padding: 0 20px !important;
+    border-radius: 50px !important;
+    background: #ea580c !important;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+#btn-save-report-automation:hover {
+    background: #c2410c !important;
+    transform: translateY(-1px) !important;
 }
