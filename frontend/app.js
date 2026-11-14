@@ -595,17 +595,25 @@ function setupTabs() {
         });
     });
 
-    // Expand sidebar rail on hover showing icon names
+    // Expand sidebar rail on hover showing icon names smoothly without piston jitter
     const rail = document.querySelector('.sidebar-rail');
     if (rail && !rail.dataset.hoverWired) {
         rail.dataset.hoverWired = 'true';
+        let railDebounceTimer = null;
         rail.addEventListener('mouseenter', () => {
+            if (railDebounceTimer) {
+                clearTimeout(railDebounceTimer);
+                railDebounceTimer = null;
+            }
             rail.classList.add('rail-hover-expanded');
             document.body.classList.add('rail-expanded', 'rail-hovering');
         });
         rail.addEventListener('mouseleave', () => {
-            rail.classList.remove('rail-hover-expanded');
-            document.body.classList.remove('rail-expanded', 'rail-hovering');
+            if (railDebounceTimer) clearTimeout(railDebounceTimer);
+            railDebounceTimer = setTimeout(() => {
+                rail.classList.remove('rail-hover-expanded');
+                document.body.classList.remove('rail-expanded', 'rail-hovering');
+            }, 140);
         });
     }
 }
@@ -1463,7 +1471,7 @@ function renderReportOutput(type, data, container) {
     if (_reportSpeedChart) { _reportSpeedChart.destroy(); _reportSpeedChart = null; }
     if (_reportChart)      { _reportChart.destroy();      _reportChart = null; }
 
-    // 1. Compute or extract executive analysis
+    // 1. Compute or extract executive analysis - 100% TRUTHFUL, ZERO FABRICATION
     const devName = data.device_name || 'Vehicle';
     const totalKm = Number(data.total_distance_km || 0);
     const totalTrips = Number(data.total_trips || (data.trips ? data.trips.length : 0));
@@ -1472,20 +1480,50 @@ function renderReportOutput(type, data, container) {
     const idleHours = (idleMin / 60);
     const idleFuelLiters = (idleHours * 2.2);
     const idleCostUsd = (idleFuelLiters * 2.04);
-    const maxSpd = Number(data.max_speed_kmh || (data.instances && data.instances.length ? Math.max(...data.instances.map(i=>i.speed_kmh||0)) : 75));
-    const avgSpd = Number(data.avg_speed_kmh || (totalKm > 0 ? 44.5 : 0));
-    const speedingCnt = Number(data.speeding_count || (data.speeding_instances ? data.speeding_instances.length : 0));
     
-    // Safety calculation
-    const safetyScore = Math.max(45, Math.min(100, Math.round(100 - (speedingCnt * 8) - (maxSpd > 120 ? 15 : maxSpd > 100 ? 5 : 0))));
+    // Max & Avg Speed strictly from real telemetry records (never default to 75 or 44.5)
+    let calculatedMaxSpd = 0;
+    if (data.max_speed_kmh != null && !isNaN(Number(data.max_speed_kmh))) {
+        calculatedMaxSpd = Number(data.max_speed_kmh);
+    } else if (data.trips && data.trips.length) {
+        calculatedMaxSpd = Math.max(...data.trips.map(t => Number(t.max_speed_kmh || t.avg_speed_kmh || 0)));
+    } else if (data.instances && data.instances.length) {
+        calculatedMaxSpd = Math.max(...data.instances.map(i => Number(i.speed_kmh || i.speed || 0)));
+    }
+    const maxSpd = Math.max(0, calculatedMaxSpd);
+
+    let calculatedAvgSpd = 0;
+    if (data.avg_speed_kmh != null && !isNaN(Number(data.avg_speed_kmh))) {
+        calculatedAvgSpd = Number(data.avg_speed_kmh);
+    } else if (data.trips && data.trips.length) {
+        const totalTripMins = data.trips.reduce((acc, t) => acc + Number(t.duration_minutes || 0), 0);
+        if (totalTripMins > 0 && totalKm > 0) {
+            calculatedAvgSpd = totalKm / (totalTripMins / 60);
+        }
+    }
+    const avgSpd = Math.max(0, calculatedAvgSpd);
+
+    const speedingCnt = Number(data.speeding_count || (data.speeding_instances ? data.speeding_instances.length : (data.instances ? data.instances.length : 0)));
+    
+    // Safety calculation: 100% when vehicle is stationary or safe, penalize only real violations
+    let safetyScore = 100;
+    if (speedingCnt > 0 || maxSpd > 100) {
+        safetyScore = Math.max(40, Math.min(100, Math.round(100 - (speedingCnt * 8) - (maxSpd > 120 ? 15 : maxSpd > 100 ? 5 : 0))));
+    }
     const safetyBadge = safetyScore >= 85 ? 'Optimal (Low Risk)' : (safetyScore >= 70 ? 'Moderate Attention' : 'High Risk');
 
-    // Analysis bullets
+    // Analysis bullets - strictly truthful telemetry interpretation
     const bullets = (data.analytics && data.analytics.brief_bullets) ? data.analytics.brief_bullets : [
-        `Fleet Activity: ${escapeHTML(devName)} logged ${totalKm.toFixed(1)} km across ${totalTrips || 'all'} operational trips, averaging ${avgSpd.toFixed(1)} km/h.`,
-        `Fuel Wastage Benchmark: Detected ${idleMin.toFixed(0)} min of stationary engine idling (~${idleFuelLiters.toFixed(1)} L diesel). At official ZERA $2.04/L diesel, this cost $${idleCostUsd.toFixed(2)} USD in avoidable fuel loss.`,
-        `Speed & Compliance: Peak velocity recorded at ${maxSpd.toFixed(1)} km/h with ${speedingCnt} speeding flag(s). Overall safety index: ${safetyScore}% (${safetyBadge}).`,
-        `Fleet Recommendation: ${idleCostUsd > 10 ? 'Enforce a strict 3-minute engine shutoff rule at loading bays to recover lost fuel budget.' : 'Operation is within optimal telemetry benchmarks. Continue standard route scheduling.'}`
+        totalKm > 0 
+            ? `Fleet Activity: ${escapeHTML(devName)} logged ${totalKm.toFixed(1)} km across ${totalTrips || 'all'} operational trips, averaging ${avgSpd.toFixed(1)} km/h.`
+            : `Fleet Activity: ${escapeHTML(devName)} recorded 0.0 km (no vehicle movement detected in selected period).`,
+        idleMin > 0
+            ? `Fuel Wastage Benchmark: Detected ${idleMin.toFixed(0)} min of stationary engine idling (~${idleFuelLiters.toFixed(1)} L diesel). At official ZERA $2.04/L diesel, this cost $${idleCostUsd.toFixed(2)} USD in avoidable fuel loss.`
+            : `Fuel Efficiency: No unnecessary engine idling recorded ($0.00 USD fuel loss).`,
+        `Speed & Compliance: Peak velocity recorded at ${maxSpd.toFixed(1)} km/h with ${speedingCnt} speeding event(s). Overall safety index: ${safetyScore}% (${safetyBadge}).`,
+        idleCostUsd > 10 
+            ? 'Fleet Recommendation: Enforce a strict 3-minute engine shutoff rule at loading bays to recover lost fuel budget.' 
+            : (speedingCnt > 0 ? 'Fleet Recommendation: Advise driver on posted speed limits to maintain fleet safety index.' : 'Fleet Recommendation: Operation is within optimal telemetry benchmarks. Continue standard route scheduling.')
     ];
 
     // 2. Render 4 Executive KPI Cards
@@ -1622,15 +1660,31 @@ function renderReportOutput(type, data, container) {
 }
 
 function _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours) {
-    // 1. Distance trend chart
+    // 1. Distance trend chart - 100% REAL telemetry records
     const trendCanvas = document.getElementById('report-chart-trend');
     if (trendCanvas && typeof Chart !== 'undefined') {
-        const labels = (data.trips && data.trips.length) ? data.trips.slice(0, 10).map((t, i) => `Leg ${i+1}`) :
-                       (data.entries && data.entries.length) ? data.entries.slice(0, 10).map(e => e.period || e.date) :
-                       ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        const values = (data.trips && data.trips.length) ? data.trips.slice(0, 10).map(t => Number(t.distance_km || 0)) :
-                       (data.entries && data.entries.length) ? data.entries.slice(0, 10).map(e => Number(e.distance_km || 0)) :
-                       [totalKm * 0.15, totalKm * 0.22, totalKm * 0.18, totalKm * 0.25, totalKm * 0.1, totalKm * 0.08, totalKm * 0.02];
+        let labels = [];
+        let values = [];
+
+        if (data.analytics && data.analytics.graphs && data.analytics.graphs.activity_trend) {
+            labels = data.analytics.graphs.activity_trend.labels || [];
+            values = data.analytics.graphs.activity_trend.values || [];
+        } else if (data.trips && data.trips.length) {
+            labels = data.trips.slice(0, 12).map((t, i) => `Trip ${i+1}`);
+            values = data.trips.slice(0, 12).map(t => Number(t.distance_km || 0));
+        } else if (data.entries && data.entries.length) {
+            labels = data.entries.slice(0, 14).map(e => e.period || e.date || 'Period');
+            values = data.entries.slice(0, 14).map(e => Number(e.distance_km || 0));
+        } else if (data.summaries && data.summaries.length) {
+            labels = data.summaries.slice(0, 14).map(s => s.period || s.date || 'Day');
+            values = data.summaries.slice(0, 14).map(s => Number(s.distance_km || 0));
+        } else if (totalKm > 0) {
+            labels = ['Total Logged'];
+            values = [totalKm];
+        } else {
+            labels = ['No Movement'];
+            values = [0];
+        }
 
         _reportTrendChart = new Chart(trendCanvas, {
             type: 'bar',
@@ -1657,12 +1711,22 @@ function _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours) 
         });
     }
 
-    // 2. Utilization Doughnut
+    // 2. Utilization Doughnut - 100% REAL drive vs idle vs parked
     const utilCanvas = document.getElementById('report-chart-utilization');
     if (utilCanvas && typeof Chart !== 'undefined') {
-        const driveHours = Math.max(0.5, totalKm > 0 ? (totalKm / Math.max(avgSpd, 35.0)) : 1.0);
-        const idleHrs = Math.max(0.2, idleHours);
-        const parkedHrs = Math.max(1.0, 24.0 - (driveHours + idleHrs));
+        let driveHours = 0;
+        if (data.trips && data.trips.length) {
+            const totalTripMins = data.trips.reduce((acc, t) => acc + Number(t.duration_minutes || 0), 0);
+            driveHours = totalTripMins / 60;
+        } else if (totalKm > 0 && avgSpd > 0) {
+            driveHours = totalKm / avgSpd;
+        }
+        const idleHrs = idleHours || 0;
+        const totalActive = driveHours + idleHrs;
+        let parkedHrs = totalActive <= 24.0 ? (24.0 - totalActive) : 0;
+        if (driveHours === 0 && idleHrs === 0) {
+            parkedHrs = 24.0;
+        }
 
         _reportUtilChart = new Chart(utilCanvas, {
             type: 'doughnut',
@@ -1686,18 +1750,28 @@ function _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours) 
         });
     }
 
-    // 3. Speed trend profile
+    // 3. Speed trend profile - 100% REAL telemetry records
     const speedCanvas = document.getElementById('report-chart-speed');
     if (speedCanvas && typeof Chart !== 'undefined') {
-        const labels = ['Leg 1', 'Leg 2', 'Leg 3', 'Leg 4', 'Leg 5', 'Leg 6'];
-        const speedVals = [
-            Math.min(maxSpd, Math.max(30, avgSpd * 0.9)),
-            Math.min(maxSpd, Math.max(45, avgSpd * 1.1)),
-            maxSpd,
-            Math.min(maxSpd, Math.max(25, avgSpd * 0.8)),
-            Math.min(maxSpd, Math.max(50, avgSpd * 1.05)),
-            Math.min(maxSpd, Math.max(20, avgSpd * 0.7))
-        ];
+        let labels = [];
+        let speedVals = [];
+
+        if (data.analytics && data.analytics.graphs && data.analytics.graphs.speed_trend) {
+            labels = data.analytics.graphs.speed_trend.labels || [];
+            speedVals = data.analytics.graphs.speed_trend.values || [];
+        } else if (data.trips && data.trips.length) {
+            labels = data.trips.slice(0, 12).map((t, i) => `Trip ${i+1}`);
+            speedVals = data.trips.slice(0, 12).map(t => Number(t.max_speed_kmh || t.avg_speed_kmh || 0));
+        } else if (data.instances && data.instances.length) {
+            labels = data.instances.slice(0, 12).map((inst, i) => `Event ${i+1}`);
+            speedVals = data.instances.slice(0, 12).map(inst => Number(inst.speed_kmh || inst.speed || 0));
+        } else if (maxSpd > 0 || avgSpd > 0) {
+            labels = ['Avg Speed', 'Max Speed'];
+            speedVals = [Number(avgSpd.toFixed(1)), Number(maxSpd.toFixed(1))];
+        } else {
+            labels = ['No Movement'];
+            speedVals = [0];
+        }
 
         _reportSpeedChart = new Chart(speedCanvas, {
             type: 'line',
@@ -1710,8 +1784,8 @@ function _initReportInteractiveGraphs(data, totalKm, avgSpd, maxSpd, idleHours) 
                     backgroundColor: 'rgba(239, 68, 68, 0.1)',
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.35,
-                    pointRadius: 3
+                    tension: 0.25,
+                    pointRadius: 4
                 }]
             },
             options: {

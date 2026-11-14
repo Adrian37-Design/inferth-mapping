@@ -680,38 +680,75 @@ def analyze_report_data(report_type: str, data: dict, device_name: str = "Vehicl
         recommendation = "Fleet performance is meeting optimal operational benchmarks. Continue routine monitoring."
     brief_bullets.append(f"Recommended Action: {recommendation}")
 
-    # Build Graph Data Packages for visual display
+    # Build Graph Data Packages for visual display - 100% Truthful Telemetry Data
     # 1. Activity Trend (Bar chart)
     trend_labels = []
     trend_distances = []
     if "trips" in data and data["trips"]:
         for i, t in enumerate(data["trips"][:12], 1):
             trend_labels.append(f"Trip {i}")
-            trend_distances.append(round(t.get("distance_km", 0.0), 1))
+            trend_distances.append(round(float(t.get("distance_km", 0.0) or 0.0), 1))
     elif "entries" in data and data["entries"]:
         for e in data["entries"][:14]:
             trend_labels.append(e.get("period", e.get("date", "Period")))
-            trend_distances.append(round(e.get("distance_km", 0.0), 1))
+            trend_distances.append(round(float(e.get("distance_km", 0.0) or 0.0), 1))
     elif "summaries" in data and data["summaries"]:
         for s in data["summaries"][:14]:
             trend_labels.append(s.get("period", s.get("date", "Day")))
-            trend_distances.append(round(s.get("distance_km", 0.0), 1))
+            trend_distances.append(round(float(s.get("distance_km", 0.0) or 0.0), 1))
+    elif "instances" in data and data["instances"]:
+        for i, inst in enumerate(data["instances"][:12], 1):
+            trend_labels.append(f"Event {i}")
+            trend_distances.append(round(float(inst.get("speed_kmh", inst.get("speed", 0.0)) or 0.0), 1))
+    elif total_km > 0:
+        trend_labels = ["Total Logged"]
+        trend_distances = [round(total_km, 1)]
     else:
-        trend_labels = ["Period 1", "Period 2", "Period 3", "Period 4"]
-        trend_distances = [round(total_km * 0.2, 1), round(total_km * 0.35, 1), round(total_km * 0.25, 1), round(total_km * 0.2, 1)]
+        trend_labels = ["No Movement"]
+        trend_distances = [0.0]
 
     # 2. Utilization Breakdown (Doughnut chart: Moving vs Idling vs Parked)
-    moving_hours = round(total_km / max(avg_speed, 35.0), 1) if total_km > 0 else 0.5
-    parked_hours = max(1.0, round(24.0 - (moving_hours + idle_hours), 1))
+    if "trips" in data and data["trips"]:
+        total_trip_mins = sum(float(t.get("duration_minutes", 0.0) or 0.0) for t in data["trips"])
+        moving_hours = round(total_trip_mins / 60.0, 1)
+    elif total_km > 0 and avg_speed > 0:
+        moving_hours = round(total_km / avg_speed, 1)
+    else:
+        moving_hours = 0.0
+
+    recorded_active_hours = moving_hours + idle_hours
+    parked_hours = max(0.0, round(24.0 - recorded_active_hours, 1)) if recorded_active_hours <= 24.0 else 0.0
+    if moving_hours == 0.0 and idle_hours == 0.0:
+        parked_hours = 24.0
+
     utilization_doughnut = {
         "labels": ["Moving Drive Time", "Stationary Idling", "Parked / Off"],
-        "values": [max(0.5, moving_hours), max(0.2, idle_hours), max(1.0, parked_hours)]
+        "values": [moving_hours, idle_hours, parked_hours]
     }
 
-    # 3. Speed Profile Trend
+    # 3. Speed Profile Trend - 100% Truthful from recorded trips, speeding events or telemetry
+    speed_labels = []
+    speed_values = []
+    if "trips" in data and data["trips"]:
+        for i, t in enumerate(data["trips"][:12], 1):
+            speed_labels.append(f"Trip {i}")
+            spd = float(t.get("max_speed_kmh", t.get("avg_speed_kmh", 0.0)) or 0.0)
+            speed_values.append(round(spd, 1))
+    elif "instances" in data and data["instances"]:
+        for i, inst in enumerate(data["instances"][:12], 1):
+            speed_labels.append(f"Event {i}")
+            spd = float(inst.get("speed_kmh", inst.get("speed", 0.0)) or 0.0)
+            speed_values.append(round(spd, 1))
+    elif max_speed > 0 or avg_speed > 0:
+        speed_labels = ["Avg Speed", "Max Speed"]
+        speed_values = [round(avg_speed, 1), round(max_speed, 1)]
+    else:
+        speed_labels = ["No Movement"]
+        speed_values = [0.0]
+
     speed_trend = {
-        "labels": trend_labels,
-        "values": [round(min(max_speed, max(avg_speed, d * 1.5)), 1) for d in trend_distances]
+        "labels": speed_labels,
+        "values": speed_values
     }
 
     return {
