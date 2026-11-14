@@ -7238,6 +7238,13 @@ body.rail-expanded .rail-badge {
         flex-direction: row !important;
     }
 
+    /* Elevate container and rail above navbar on hover so Inferth Mapping brand is never blocked */
+    .sidebar-container:has(.sidebar-rail:hover),
+    .sidebar-container:has(.rail-hover-expanded),
+    body.rail-hovering .sidebar-container {
+        z-index: 10000 !important;
+    }
+
     /* Fixed 60px base width, permanent absolute left overlay, silky slow-down deceleration */
     .sidebar-rail {
         position: absolute !important;
@@ -7260,20 +7267,20 @@ body.rail-expanded .rail-badge {
         will-change: width, box-shadow;
     }
 
-    /* Smooth pull-out expansion that glides out and decelerates smoothly */
+    /* Smooth pull-out expansion that glides out and decelerates smoothly, floating ABOVE navbar */
     .sidebar-rail:hover,
     .sidebar-rail.rail-hover-expanded,
     body.rail-hovering .sidebar-rail,
     body.rail-expanded .sidebar-rail {
-        width: 215px !important;
-        min-width: 215px !important;
-        max-width: 215px !important;
-        box-shadow: 12px 0 32px rgba(15, 23, 42, 0.16) !important;
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+        box-shadow: 14px 0 36px rgba(15, 23, 42, 0.18) !important;
         align-items: stretch !important;
         padding: 14px 10px !important;
         background: #ffffff !important;
         border-right: 1px solid var(--border-color, #e2e8f0) !important;
-        z-index: 9600 !important;
+        z-index: 10100 !important;
     }
 
     /* Docked workspace panel starts precisely at 60px without shifting, below navbar */
@@ -7346,18 +7353,33 @@ body.rail-expanded .sidebar-rail .rail-label {
     transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1) !important;
     white-space: nowrap !important;
 }
+.sidebar-rail:hover .rail-brand,
+.sidebar-rail.rail-hover-expanded .rail-brand,
+body.rail-hovering .sidebar-rail .rail-brand,
+body.rail-expanded .sidebar-rail .rail-brand {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 0 8px 14px !important;
+    border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
+    width: 100% !important;
+}
 .sidebar-rail:hover .rail-brand #nav-brand-name,
 .sidebar-rail.rail-hover-expanded .rail-brand #nav-brand-name,
 body.rail-hovering .sidebar-rail .rail-brand #nav-brand-name,
 body.rail-expanded .sidebar-rail .rail-brand #nav-brand-name {
-    display: block !important;
+    display: inline-block !important;
     opacity: 1 !important;
     visibility: visible !important;
     transform: translateX(0) !important;
-    font-size: 0.85rem !important;
+    font-size: 0.92rem !important;
     font-weight: 800 !important;
     color: #ff8c00 !important;
+    letter-spacing: 0.03em !important;
     white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
     transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.05s !important;
 }
 .sidebar-rail:hover .rail-item,
