@@ -3,497 +3,1332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Inferth Mapping — Bring Your Own Tracker &amp; Fleet Rental</title>
-<meta name="description" content="Connect your existing GPS tracker to Inferth Mapping from $7 per vehicle per month, or rent the full fleet console from $49 per month.">
+<title>Inferth Mapping — Beyond GPS Tracking. Intelligent Fleet Management.</title>
+<meta name="description" content="Manage, monitor and protect your vehicles through one centralised fleet-management platform. Bring your own tracker (GT06, SinoTrack, Teltonika, H02, GPS103).">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
-:root{
-  --bg:#e8ecf1;
-  --shadow-d:rgba(163,177,198,.8);
-  --shadow-l:rgba(255,255,255,.9);
-  --raised:6px 6px 14px var(--shadow-d),-4px -4px 10px var(--shadow-l);
-  --pressed:inset 4px 4px 10px rgba(163,177,198,.6),inset -3px -3px 8px rgba(255,255,255,.8);
-  --flat:3px 3px 8px var(--shadow-d),-2px -2px 6px var(--shadow-l);
-  --orange:#f97316;
-  --orange-dark:#ea6c0a;
-  --orange-glow:rgba(249,115,22,.22);
-  --text:#2d3748;
-  --muted:#5a6779;
-  --r:18px;--rs:12px;
+:root {
+  --bg: #e8ecf1;
+  --shadow-d: rgba(163, 177, 198, 0.8);
+  --shadow-l: rgba(255, 255, 255, 0.9);
+  --raised: 6px 6px 14px var(--shadow-d), -4px -4px 10px var(--shadow-l);
+  --raised-sm: 4px 4px 10px var(--shadow-d), -3px -3px 8px var(--shadow-l);
+  --pressed: inset 4px 4px 10px rgba(163, 177, 198, 0.6), inset -3px -3px 8px rgba(255, 255, 255, 0.8);
+  --pressed-sm: inset 2px 2px 6px rgba(163, 177, 198, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.7);
+  --flat: 3px 3px 8px var(--shadow-d), -2px -2px 6px var(--shadow-l);
+  --orange: #f97316;
+  --orange-dark: #ea6c0a;
+  --orange-glow: rgba(249, 115, 22, 0.22);
+  --text: #1e293b;
+  --text-dark: #0f172a;
+  --muted: #475569;
+  --border: rgba(148, 163, 184, 0.28);
+  --r: 18px;
+  --rs: 12px;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
-a{text-decoration:none;color:inherit}
-img{max-width:100%}
-.nm-card{background:var(--bg);border-radius:var(--r);box-shadow:var(--raised)}
-.nm-inset{background:var(--bg);border-radius:var(--rs);box-shadow:var(--pressed)}
-.orange{color:var(--orange)}
-.muted{color:var(--muted)}
-.upper{text-transform:uppercase;letter-spacing:.08em;font-size:.7rem;font-weight:800}
-.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { text-decoration: none; color: inherit; }
+img { max-width: 100%; display: block; }
 
-/* Nav */
-nav{display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:0 40px;height:70px;background:var(--bg);
-  box-shadow:0 4px 16px var(--shadow-d),0 -1px 0 var(--shadow-l);
-  position:sticky;top:0;z-index:100}
-.nav-logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.05rem}
-.nav-mark{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:#fff;font-size:.95rem;
-  box-shadow:3px 3px 8px rgba(249,115,22,.35),-2px -2px 6px var(--shadow-l)}
-.nav-links{display:flex;gap:6px}
-.nav-link{padding:8px 16px;border-radius:50px;font-weight:600;font-size:.84rem;color:var(--muted);transition:all .18s ease}
-.nav-link:hover{box-shadow:var(--flat);color:var(--text)}
-.nav-cta{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--orange),var(--orange-dark));
-  color:#fff;padding:10px 22px;border-radius:50px;font-weight:700;font-size:.84rem;
-  box-shadow:3px 3px 8px rgba(249,115,22,.35),-2px -2px 6px var(--shadow-l);transition:all .2s ease}
-.nav-cta:hover{transform:translateY(-1px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
+.nm-card { background: var(--bg); border-radius: var(--r); box-shadow: var(--raised); }
+.nm-inset { background: var(--bg); border-radius: var(--rs); box-shadow: var(--pressed); }
+.orange { color: var(--orange); }
+.muted { color: var(--muted); }
+.upper { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; font-weight: 800; color: var(--orange); }
+.wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+
+/* Navigation */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 40px;
+  height: 70px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px var(--shadow-d), 0 -1px 0 var(--shadow-l);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-logo { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 1.1rem; color: var(--text-dark); }
+.nav-mark { width: 34px; height: 34px; object-fit: contain; }
+.nav-links { display: flex; gap: 8px; }
+.nav-link { padding: 8px 16px; border-radius: 50px; font-weight: 600; font-size: 0.84rem; color: var(--muted); transition: all 0.18s ease; }
+.nav-link:hover { box-shadow: var(--flat); color: var(--text); }
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  box-shadow: 3px 3px 8px rgba(249, 115, 22, 0.35), -2px -2px 6px var(--shadow-l);
+  transition: all 0.2s ease;
+}
+.nav-cta:hover { transform: translateY(-1px); box-shadow: 2px 2px 6px rgba(249, 115, 22, 0.5); }
+
+/* Section Headers */
+.section { padding: 56px 0; }
+.section-alt { padding: 60px 0; background: rgba(232, 236, 241, 0.65); }
+.sec-head { margin-bottom: 32px; max-width: 820px; }
+.sec-head h2 { font-size: 2.1rem; font-weight: 900; color: var(--text-dark); margin: 8px 0 10px; line-height: 1.18; }
+.sec-head p { color: var(--muted); font-size: 0.98rem; line-height: 1.6; }
 
 /* Hero */
-.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center;padding:58px 0 20px}
-.hero h1{font-size:3rem;font-weight:900;line-height:1.08;margin:14px 0 18px}
-.hero h1 span{color:var(--orange)}
-.hero p{color:var(--muted);font-size:1.02rem;max-width:52ch}
-.hero-btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
-.btn-primary{display:inline-flex;align-items:center;gap:9px;background:linear-gradient(135deg,var(--orange),var(--orange-dark));
-  color:#fff;border:none;border-radius:50px;padding:14px 30px;font-size:.92rem;font-weight:800;cursor:pointer;
-  box-shadow:4px 4px 10px rgba(249,115,22,.35),-2px -2px 6px var(--shadow-l);transition:all .2s ease}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
-.btn-ghost{display:inline-flex;align-items:center;gap:9px;background:var(--bg);color:var(--orange);border:none;
-  border-radius:50px;padding:14px 30px;font-size:.92rem;font-weight:800;cursor:pointer;
-  box-shadow:var(--raised);transition:all .2s ease}
-.btn-ghost:hover{box-shadow:var(--flat);transform:translateY(-1px)}
+.hero { display: grid; grid-template-columns: 1.08fr 0.92fr; gap: 40px; align-items: center; padding: 60px 0 30px; }
+.hero-tagline { display: inline-block; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--orange); margin-bottom: 12px; }
+.hero h1 { font-size: 2.9rem; font-weight: 900; line-height: 1.1; color: var(--text-dark); margin-bottom: 14px; }
+.hero h1 span { color: var(--orange); }
+.hero-subhead { font-size: 1.25rem; font-weight: 700; color: #334155; margin-bottom: 14px; }
+.hero p { color: var(--muted); font-size: 1rem; line-height: 1.62; margin-bottom: 24px; }
+.hero-btns { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
 
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
-.chip{padding:6px 14px;border-radius:50px;font-size:.72rem;font-weight:700;color:var(--muted);
-  box-shadow:var(--raised);background:var(--bg)}
-.chip i{color:var(--orange);font-size:.65rem;margin-right:5px}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 13px 28px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 4px 4px 10px rgba(249, 115, 22, 0.35), -2px -2px 6px var(--shadow-l);
+  transition: all 0.2s ease;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 2px 2px 6px rgba(249, 115, 22, 0.5); }
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--bg);
+  color: var(--orange);
+  border: none;
+  border-radius: 50px;
+  padding: 13px 28px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--raised);
+  transition: all 0.2s ease;
+}
+.btn-ghost:hover { box-shadow: var(--flat); transform: translateY(-1px); }
 
-/* Map preview — deliberately drawn, never an empty coloured square */
-.map-card{padding:20px;display:flex;flex-direction:column;gap:14px}
-.map-top{display:flex;align-items:center;justify-content:space-between}
-.map-title{font-weight:800;font-size:.85rem}
-.live-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:50px;
-  box-shadow:var(--pressed);font-size:.68rem;font-weight:800;color:#15803d;background:var(--bg)}
-.live-pill .dot{width:7px;height:7px;border-radius:50%;background:#22c55e}
-.map-canvas{position:relative;height:240px;border-radius:14px;overflow:hidden;box-shadow:var(--pressed);
-  background:
-    linear-gradient(90deg,rgba(148,163,184,.16) 1px,transparent 1px) 0 0/48px 48px,
-    linear-gradient(0deg,rgba(148,163,184,.16) 1px,transparent 1px) 0 0/48px 48px,
-    radial-gradient(circle at 25% 30%,#dbeafe 0%,transparent 55%),
-    radial-gradient(circle at 78% 70%,#dcfce7 0%,transparent 55%),
-    #eef2f7}
-.road{position:absolute;background:rgba(148,163,184,.45);border-radius:6px}
-.r1{left:0;right:0;top:46%;height:10px;transform:rotate(-6deg)}
-.r2{top:0;bottom:0;left:38%;width:8px;transform:rotate(9deg)}
-.r3{left:8%;bottom:16%;width:70%;height:7px;transform:rotate(14deg)}
-.pin{position:absolute;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:#fff;font-size:.75rem;
-  box-shadow:3px 3px 8px rgba(249,115,22,.4);animation:pulse 2.4s ease-in-out infinite}
-.p1{top:24%;left:28%}.p2{top:54%;left:62%}.p3{top:66%;left:36%}
-@keyframes pulse{0%,100%{box-shadow:3px 3px 8px rgba(249,115,22,.4),0 0 0 0 rgba(249,115,22,.3)}
-  50%{box-shadow:3px 3px 8px rgba(249,115,22,.4),0 0 0 9px rgba(249,115,22,0)}}
-.map-dock{display:flex;flex-wrap:wrap;gap:12px;background:var(--bg);border-radius:50px;padding:8px 16px;
-  box-shadow:var(--raised);width:fit-content;font-size:.7rem;font-weight:700}
-.map-dock span{display:inline-flex;align-items:center;gap:6px}
-.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
-.dot-g{background:#22c55e}.dot-y{background:#f59e0b}.dot-r{background:#ef4444}
+/* Hero Interactive Mockup Card */
+.map-card { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.map-top { display: flex; align-items: center; justify-content: space-between; }
+.map-title { font-weight: 800; font-size: 0.9rem; color: var(--text-dark); display: flex; align-items: center; gap: 8px; }
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 50px;
+  box-shadow: var(--pressed-sm);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #16a34a;
+}
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; animation: pulse 1.8s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
 
-/* Section headings */
-.section{padding:64px 0 8px}
-.section-hdr{max-width:660px;margin:0 auto 34px;text-align:center}
-.section-hdr h2{font-size:2.1rem;font-weight:900;line-height:1.15;margin-bottom:10px}
-.section-hdr p{color:var(--muted);font-size:.95rem}
+.map-viewport {
+  height: 220px;
+  border-radius: var(--rs);
+  position: relative;
+  overflow: hidden;
+  background: #dfe5ec;
+  box-shadow: var(--pressed);
+}
+.map-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(100, 116, 139, 0.25) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.vehicle-marker {
+  position: absolute;
+  top: 48%;
+  left: 54%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.marker-pin {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--orange-dark));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.45);
+  font-size: 0.95rem;
+}
+.marker-bubble {
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  margin-top: 5px;
+  white-space: nowrap;
+}
 
-/* Feature grid */
-.features-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.feat-card{padding:24px 20px;text-align:center;transition:box-shadow .2s ease,transform .2s ease}
-.feat-card:hover{box-shadow:var(--flat);transform:translateY(-2px)}
-.feat-icon{width:52px;height:52px;border-radius:14px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
-  font-size:1.25rem;color:var(--orange);box-shadow:var(--pressed)}
-.feat-title{font-size:.9rem;font-weight:800;margin-bottom:6px}
-.feat-desc{font-size:.78rem;color:var(--muted);line-height:1.55}
+.map-stats-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.map-stat { padding: 10px; text-align: center; border-radius: var(--rs); }
+.map-stat-lbl { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; color: var(--muted); }
+.map-stat-val { font-size: 1.05rem; font-weight: 900; color: var(--text-dark); margin-top: 2px; }
 
-/* Pricing */
-.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch}
-.plan-card{padding:26px 24px;display:flex;flex-direction:column;gap:14px;position:relative;
-  transition:box-shadow .22s ease,transform .22s ease}
-.plan-card:hover{box-shadow:var(--flat);transform:translateY(-2px)}
-.plan-card.featured{box-shadow:8px 8px 22px var(--shadow-d),-6px -6px 18px var(--shadow-l)}
-.featured-label{position:absolute;top:-13px;left:50%;transform:translateX(-50%);
-  background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:#fff;border-radius:50px;
-  padding:5px 18px;font-size:.68rem;font-weight:800;white-space:nowrap;
-  box-shadow:2px 2px 8px rgba(249,115,22,.35)}
-.plan-name{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.plan-price{display:flex;align-items:baseline;gap:5px;line-height:1}
-.plan-price .cur{font-size:1.3rem;font-weight:800;color:var(--orange)}
-.plan-price .amt{font-size:2.5rem;font-weight:900;color:var(--orange);letter-spacing:-.02em}
-.plan-price .per{font-size:.78rem;font-weight:700;color:var(--muted)}
-.plan-desc{font-size:.82rem;color:var(--muted);line-height:1.55}
-.plan-features{list-style:none;display:flex;flex-direction:column;gap:9px;flex:1;margin-top:2px}
-.plan-features li{font-size:.8rem;display:flex;align-items:flex-start;gap:9px;color:var(--text)}
-.plan-features li i{color:#16a34a;font-size:.78rem;margin-top:4px;width:14px;flex:0 0 14px}
-.plan-btn{margin-top:6px;display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
-  background:linear-gradient(135deg,var(--orange),var(--orange-dark));color:#fff;border:none;border-radius:50px;
-  padding:12px 20px;font-size:.86rem;font-weight:800;cursor:pointer;
-  box-shadow:3px 3px 8px rgba(249,115,22,.3),-2px -2px 6px var(--shadow-l);transition:all .2s ease}
-.plan-btn:hover{transform:translateY(-1px);box-shadow:2px 2px 6px rgba(249,115,22,.5),-1px -1px 4px var(--shadow-l)}
-.plan-btn-ghost{background:var(--bg);color:var(--orange);box-shadow:var(--raised)}
-.plan-btn-ghost:hover{box-shadow:var(--flat)}
-.plan-note{font-size:.72rem;color:var(--muted);text-align:center}
+/* Protocols & BYOT Grid */
+.protocol-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.protocol-card { padding: 20px 18px; text-align: left; display: flex; flex-direction: column; justify-content: space-between; }
+.protocol-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: var(--pressed-sm); color: var(--orange); font-size: 1.1rem; margin-bottom: 12px; }
+.protocol-title { font-size: 0.98rem; font-weight: 800; color: var(--text-dark); margin-bottom: 4px; }
+.protocol-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+.port-tag { display: inline-block; align-self: flex-start; padding: 3px 9px; border-radius: 50px; font-size: 0.68rem; font-weight: 700; color: var(--muted); box-shadow: var(--pressed-sm); margin-top: 10px; }
 
-/* Rental band */
-.rental-band{margin-top:10px;padding:26px 24px;box-shadow:var(--pressed);border-radius:var(--r)}
-.rental-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:20px}
-.rental-head h3{font-size:1.35rem;font-weight:900}
-.rental-head p{color:var(--muted);font-size:.86rem;max-width:64ch;margin-top:6px}
-.rental-tag{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);
-  background:var(--bg);box-shadow:var(--raised);border-radius:50px;padding:6px 14px;white-space:nowrap}
+/* Assessment Callout Card */
+.assessment-card { padding: 28px; display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 24px; align-items: center; margin-top: 20px; }
+.assessment-info h3 { font-size: 1.25rem; font-weight: 800; color: var(--text-dark); margin-bottom: 8px; }
+.assessment-info p { font-size: 0.88rem; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+.assessment-checklist { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.assessment-checklist li { display: flex; align-items: center; gap: 7px; }
+.assessment-checklist i { color: var(--orange); font-size: 0.75rem; }
+.assessment-action { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.caveat-box { padding: 14px 18px; border-radius: var(--rs); font-size: 0.8rem; color: var(--muted); margin-top: 20px; line-height: 1.5; border-left: 3px solid var(--orange); }
 
-/* Compatibility */
-.compat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.compat-item{padding:18px 16px;text-align:center;transition:box-shadow .2s ease}
-.compat-item:hover{box-shadow:var(--flat)}
-.compat-item i{font-size:1.35rem;color:var(--orange);margin-bottom:10px}
-.compat-name{font-weight:800;font-size:.84rem;margin-bottom:4px}
-.compat-sub{font-size:.72rem;color:var(--muted)}
-.port{border-radius:50px;padding:3px 10px;font-size:.66rem;font-weight:700;color:var(--muted);
-  box-shadow:var(--pressed);display:inline-block;margin-top:8px}
+/* Features Grid */
+.features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.feature-card { padding: 22px 18px; display: flex; flex-direction: column; justify-content: flex-start; }
+.feature-icon-box { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: var(--pressed-sm); color: var(--orange); font-size: 1.15rem; margin-bottom: 14px; }
+.feature-title { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; }
+.feature-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
 
-/* Steps */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.step{padding:22px 20px}
-.step-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-size:.8rem;font-weight:900;color:var(--orange);box-shadow:var(--pressed);margin-bottom:12px}
-.step h4{font-size:.9rem;font-weight:800;margin-bottom:6px}
-.step p{font-size:.79rem;color:var(--muted)}
+/* Plans Grid (Progressive Pricing) */
+.plans-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+.plan-card { padding: 28px 22px; display: flex; flex-direction: column; position: relative; border-radius: var(--r); }
+.plan-card.featured { box-shadow: 8px 8px 24px var(--shadow-d), -6px -6px 18px var(--shadow-l); border: 2px solid rgba(249, 115, 22, 0.4); }
+.featured-label { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--orange), var(--orange-dark)); color: #fff; border-radius: 50px; padding: 4px 16px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap; box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4); }
+.plan-name { font-size: 1.15rem; font-weight: 900; color: var(--text-dark); margin-bottom: 4px; }
+.plan-tagline { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; min-height: 38px; }
+.plan-pricing-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; margin-bottom: 18px; border-radius: var(--rs); overflow: hidden; }
+.plan-pricing-table th, .plan-pricing-table td { padding: 7px 10px; text-align: left; }
+.plan-pricing-table th { background: rgba(148, 163, 184, 0.15); font-weight: 700; color: var(--text-dark); }
+.plan-pricing-table td { border-bottom: 1px solid rgba(148, 163, 184, 0.15); color: var(--text); }
+.plan-pricing-table tr:last-child td { border-bottom: none; }
+.plan-price-highlight { font-weight: 800; color: var(--orange); }
 
-/* CTA */
-.cta-card{margin:56px auto 64px;padding:36px;display:flex;align-items:center;justify-content:space-between;
-  gap:24px;flex-wrap:wrap}
-.cta-card h2{font-size:1.7rem;font-weight:900;line-height:1.15}
-.cta-card p{color:var(--muted);font-size:.88rem;margin-top:6px;max-width:52ch}
+.plan-features-list { list-style: none; display: flex; flex-direction: column; gap: 8px; flex: 1; margin-bottom: 22px; }
+.plan-features-list li { font-size: 0.8rem; display: flex; align-items: flex-start; gap: 8px; color: var(--text); line-height: 1.45; }
+.plan-features-list li i { color: #16a34a; font-size: 0.8rem; margin-top: 3px; flex-shrink: 0; }
+.plan-caveat { font-size: 0.72rem; color: var(--muted); margin-top: -12px; margin-bottom: 18px; line-height: 1.4; font-style: italic; }
+
+.pricing-calc-box { padding: 24px 26px; border-radius: var(--r); margin-bottom: 24px; }
+.pricing-calc-head { font-weight: 800; font-size: 1.05rem; color: var(--text-dark); margin-bottom: 8px; }
+.pricing-calc-desc { font-size: 0.88rem; color: var(--muted); margin-bottom: 14px; }
+.calc-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.calc-table th, .calc-table td { padding: 8px 12px; text-align: left; }
+.calc-table th { background: rgba(148, 163, 184, 0.15); font-weight: 700; color: var(--text-dark); }
+.calc-table td { border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
+
+/* Pay As You Drive (PAYD) */
+.payd-container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 16px; }
+.payd-card { padding: 28px; }
+.payd-price-banner { display: flex; align-items: baseline; gap: 6px; margin: 12px 0 16px; }
+.payd-price-banner .amt { font-size: 2.6rem; font-weight: 900; color: var(--orange); }
+.payd-price-banner .per { font-size: 0.88rem; font-weight: 700; color: var(--muted); }
+.fee-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
+.fee-table th, .fee-table td { padding: 8px 10px; text-align: left; }
+.fee-table th { background: rgba(148, 163, 184, 0.15); font-weight: 700; }
+.fee-table td { border-bottom: 1px solid rgba(148, 163, 184, 0.15); }
+
+/* Hardware & Services Table */
+.services-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 14px; }
+.services-table th, .services-table td { padding: 12px 16px; text-align: left; }
+.services-table th { background: rgba(148, 163, 184, 0.18); font-weight: 800; color: var(--text-dark); }
+.services-table td { border-bottom: 1px solid rgba(148, 163, 184, 0.18); color: var(--text); }
+
+/* Telemetry Grid */
+.telemetry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+.telemetry-card { padding: 22px; }
+.telemetry-card h4 { font-size: 0.98rem; font-weight: 800; color: var(--text-dark); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.telemetry-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+
+/* Demo & Action Strip */
+.demo-strip { padding: 36px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px; align-items: center; }
+.demo-content h3 { font-size: 1.5rem; font-weight: 900; color: var(--text-dark); margin-bottom: 8px; }
+.demo-content p { font-size: 0.92rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.demo-visual { border-radius: var(--rs); padding: 16px; }
+
+/* Console Rental (Section 8) */
+.console-rental-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 24px; margin-top: 20px; }
+.console-main { padding: 28px; }
+.console-sidebar { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Steps (Section 9) */
+.steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px; }
+.step-card { padding: 26px 22px; display: flex; flex-direction: column; }
+.step-badge { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 900; color: var(--orange); box-shadow: var(--pressed-sm); margin-bottom: 14px; }
+.step-card h4 { font-size: 1.05rem; font-weight: 800; color: var(--text-dark); margin-bottom: 8px; }
+.step-card p { font-size: 0.84rem; color: var(--muted); line-height: 1.55; }
+
+/* FAQs (Section 10) */
+.faq-list { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+.faq-item { border-radius: var(--rs); padding: 18px 22px; cursor: pointer; transition: all 0.2s ease; }
+.faq-question { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 0.95rem; color: var(--text-dark); }
+.faq-question i { font-size: 0.85rem; color: var(--orange); transition: transform 0.2s ease; }
+.faq-item.open .faq-question i { transform: rotate(180deg); }
+.faq-answer { display: none; margin-top: 10px; font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+.faq-item.open .faq-answer { display: block; }
+
+/* Final CTA (Section 11) */
+.final-cta { padding: 48px 36px; text-align: center; margin: 40px auto 60px; max-width: 900px; }
+.final-cta h2 { font-size: 2.2rem; font-weight: 900; color: var(--text-dark); margin-bottom: 10px; }
+.final-cta p { font-size: 1.02rem; color: var(--muted); max-width: 600px; margin: 0 auto 26px; }
+.final-btns { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+/* Compatibility Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-overlay.active { display: flex; }
+.modal-card { width: 100%; max-width: 520px; padding: 30px; position: relative; }
+.modal-close { position: absolute; top: 16px; right: 18px; border: none; background: none; font-size: 1.2rem; color: var(--muted); cursor: pointer; }
+.modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.form-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--rs);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: var(--bg);
+  box-shadow: var(--pressed-sm);
+  font-size: 0.86rem;
+  font-family: inherit;
+  color: var(--text-dark);
+}
+.form-input:focus { outline: none; border-color: var(--orange); }
 
 /* Footer */
-footer{background:var(--bg);box-shadow:0 -4px 16px var(--shadow-d);padding:30px 40px;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
-.footer-brand{display:flex;align-items:center;gap:10px;font-weight:800}
-.footer-links{display:flex;gap:8px;flex-wrap:wrap}
-.footer-link{padding:7px 14px;border-radius:50px;font-size:.77rem;color:var(--muted);font-weight:600;
-  box-shadow:var(--raised);transition:all .18s ease}
-.footer-link:hover{box-shadow:var(--flat);color:var(--text)}
-.footer-wa{display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;border-radius:50px;
-  padding:10px 18px;font-size:.8rem;font-weight:800}
-.footer-note{width:100%;font-size:.72rem;color:var(--muted);text-align:center;margin-top:6px}
+footer {
+  background: var(--bg);
+  box-shadow: 0 -4px 16px var(--shadow-d);
+  padding: 34px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.footer-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.footer-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--text-dark); }
+.footer-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.footer-link { padding: 6px 14px; border-radius: 50px; font-size: 0.78rem; color: var(--muted); font-weight: 600; box-shadow: var(--raised-sm); }
+.footer-link:hover { color: var(--text); box-shadow: var(--flat); }
+.footer-note { font-size: 0.74rem; color: var(--muted); text-align: center; border-top: 1px solid var(--border); padding-top: 14px; }
 
-@media(max-width:960px){
-  .hero{grid-template-columns:1fr;padding-top:40px}
-  .hero h1{font-size:2.3rem}
-  .plans-grid,.features-grid,.compat-grid,.steps{grid-template-columns:1fr}
-  .features-grid{grid-template-columns:repeat(2,1fr)}
-  nav{padding:0 18px}
-  .nav-links{display:none}
-  .cta-card{padding:26px}
-  footer{padding:26px 18px}
+/* Responsive adjustments */
+@media(max-width: 960px) {
+  .hero { grid-template-columns: 1fr; padding-top: 36px; }
+  .hero h1 { font-size: 2.2rem; }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .protocol-grid, .telemetry-grid, .steps-grid, .plans-grid, .payd-container, .console-rental-grid, .assessment-card, .demo-strip { grid-template-columns: 1fr; }
+  nav { padding: 0 18px; }
+  .nav-links { display: none; }
+  .assessment-checklist { grid-template-columns: 1fr; }
+}
+@media(max-width: 600px) {
+  .features-grid { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.85rem; }
+  .sec-head h2 { font-size: 1.6rem; }
+  nav { padding: 0 14px; }
 }
 </style>
 </head>
 <body>
 
+<!-- Navigation Bar -->
 <nav>
-  <div class="nav-logo">
-    <img class="nav-mark" src="inferth_mapping_mark.png" alt="Inferth Mapping" style="object-fit:contain;background:none">
-    Inferth Mapping
-  </div>
+  <a href="#" class="nav-logo">
+    <img src="inferth_mapping_mark.png" alt="Inferth Mapping" class="nav-mark">
+    <span>Inferth Mapping</span>
+  </a>
   <div class="nav-links">
-    <a href="#byot" class="nav-link">Use Your Tracker</a>
-    <a href="#rental" class="nav-link">Fleet Rental</a>
-    <a href="#compat" class="nav-link">Trackers</a>
+    <a href="#byot" class="nav-link">BYOT</a>
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#pricing" class="nav-link">Subscription Plans</a>
+    <a href="#payd" class="nav-link">PAYD</a>
+    <a href="#console-rental" class="nav-link">Console Rental</a>
+    <a href="#faq" class="nav-link">FAQ</a>
   </div>
-  <a href="https://wa.me/263783009275?text=Hi%20Inferth%2C%20I%20want%20to%20connect%20my%20tracker" target="_blank" rel="noopener" class="nav-cta">
-    <i class="fa-brands fa-whatsapp"></i> Talk to us
+  <a href="index.html" class="nav-cta">
+    <i class="fas fa-sign-in-alt"></i>
+    <span>Console Login</span>
   </a>
 </nav>
 
 <div class="wrap">
-  <section class="hero">
+
+  <!-- Header / Hero Section -->
+  <section class="hero" id="top">
     <div>
-      <div class="upper orange"><i class="fas fa-satellite-dish"></i>&nbsp; Use Your Tracker (BYOT)</div>
-      <h1>Your tracker.<br><span>Our platform.</span></h1>
-      <p>Already have a SinoTrack, GT06, Coban or Teltonika unit installed? Point it at Inferth Mapping and get the full live console — no new hardware, no wiring, from <strong>$7 per vehicle per month</strong>.</p>
-      <div class="chips">
-        <span class="chip"><i class="fas fa-check"></i>GT06 / Concox</span>
-        <span class="chip"><i class="fas fa-check"></i>SinoTrack</span>
-        <span class="chip"><i class="fas fa-check"></i>Coban / H02</span>
-        <span class="chip"><i class="fas fa-check"></i>Teltonika</span>
-      </div>
+      <span class="hero-tagline">INFERTH MAPPING</span>
+      <h1>Beyond GPS Tracking. <span>Intelligent Fleet Management.</span></h1>
+      <h3 class="hero-subhead">Your tracker. Our platform.</h3>
+      <p>
+        Manage, monitor and protect your vehicles through one centralised fleet-management platform.
+        Inferth Mapping connects compatible GPS tracking devices to a powerful telematics platform, giving businesses access to live vehicle locations, journey history, geofencing, fleet reports and available vehicle data.
+      </p>
+      <p style="margin-top: -12px;">
+        Whether you operate a small business fleet, manage a large transport operation or run your own GPS tracking business, Inferth Mapping gives you the tools to manage vehicles more effectively.
+      </p>
       <div class="hero-btns">
-        <a href="#byot" class="btn-primary"><i class="fas fa-bolt"></i> See BYOT pricing</a>
-        <a href="https://wa.me/263783009275?text=Please%20send%20me%20the%20SMS%20setup%20command%20for%20my%20tracker" target="_blank" rel="noopener" class="btn-ghost"><i class="fa-brands fa-whatsapp"></i> Get setup command</a>
+        <button type="button" class="btn-primary" onclick="openCompatModal()">
+          <i class="fas fa-satellite-dish"></i>
+          <span>Check Tracker Compatibility</span>
+        </button>
+        <a href="#pricing" class="btn-ghost">
+          <i class="fas fa-tags"></i>
+          <span>View Pricing</span>
+        </a>
       </div>
     </div>
 
+    <!-- Live Interactive Telematics Mockup Card -->
     <div class="nm-card map-card">
       <div class="map-top">
-        <span class="map-title"><i class="fas fa-map-location-dot orange"></i>&nbsp; Live fleet map</span>
-        <span class="live-pill"><span class="dot"></span> LIVE</span>
+        <div class="map-title">
+          <i class="fas fa-crosshairs orange"></i>
+          <span>Central Operations View — Harare Corridor</span>
+        </div>
+        <div class="live-pill">
+          <span class="live-dot"></span>
+          <span>Live Fleet Stream</span>
+        </div>
       </div>
-      <div class="map-canvas" aria-hidden="true">
-        <span class="road r1"></span><span class="road r2"></span><span class="road r3"></span>
-        <span class="pin p1"><i class="fas fa-car"></i></span>
-        <span class="pin p2"><i class="fas fa-truck"></i></span>
-        <span class="pin p3"><i class="fas fa-van-shuttle"></i></span>
+      <div class="map-viewport">
+        <div class="map-grid-bg"></div>
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+          <path d="M 40 180 Q 140 140, 220 110 T 320 80" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="6,4" opacity="0.8"/>
+        </svg>
+        <div class="vehicle-marker">
+          <div class="marker-pin"><i class="fas fa-truck"></i></div>
+          <div class="marker-bubble">Freightliner • 84 km/h • Ignition ON</div>
+        </div>
       </div>
-      <div class="map-dock">
-        <span><span class="dot dot-g"></span>Moving 2</span>
-        <span><span class="dot dot-y"></span>Stationary 1</span>
-        <span><span class="dot dot-r"></span>Offline 1</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="section-hdr">
-      <div class="upper orange"><i class="fas fa-star"></i>&nbsp; Included on every plan</div>
-      <h2>Full fleet intelligence, no paywalled extras</h2>
-      <p>The same console served across Zimbabwe and the region: live map, history, geofences, alerts and driver reporting.</p>
-    </div>
-    <div class="features-grid">
-      <div class="nm-card feat-card">
-        <div class="feat-icon"><i class="fas fa-map-pin"></i></div>
-        <div class="feat-title">Real-time tracking</div>
-        <div class="feat-desc">10-second position updates on the live map, with trip and stop detection.</div>
-      </div>
-      <div class="nm-card feat-card">
-        <div class="feat-icon"><i class="fas fa-bell"></i></div>
-        <div class="feat-title">Alerts &amp; geofences</div>
-        <div class="feat-desc">Speeding, ignition, offline, fuel drop and zone-entry alerts by WhatsApp and in-app.</div>
-      </div>
-      <div class="nm-card feat-card">
-        <div class="feat-icon"><i class="fas fa-power-off"></i></div>
-        <div class="feat-title">Remote immobilizer</div>
-        <div class="feat-desc">Engine cut-off where a relay is fitted, with an audit trail for every command.</div>
-      </div>
-      <div class="nm-card feat-card">
-        <div class="feat-icon"><i class="fas fa-chart-line"></i></div>
-        <div class="feat-title">Fuel &amp; reports</div>
-        <div class="feat-desc">Mileage, operating hours, fuel cost at the ZERA rate, and CSV/Excel/PDF exports.</div>
+      <div class="map-stats-strip">
+        <div class="nm-inset map-stat">
+          <div class="map-stat-lbl">Active Fleet</div>
+          <div class="map-stat-val orange">4 Units</div>
+        </div>
+        <div class="nm-inset map-stat">
+          <div class="map-stat-lbl">CAN Fuel Burn</div>
+          <div class="map-stat-val">31.4 L/100km</div>
+        </div>
+        <div class="nm-inset map-stat">
+          <div class="map-stat-lbl">Telemetry Fix</div>
+          <div class="map-stat-val" style="color:#16a34a;">100% Valid</div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- BYOT PRICING -->
+  <!-- 1. BRING YOUR OWN TRACKER (BYOT) -->
   <section class="section" id="byot">
-    <div class="section-hdr">
-      <div class="upper orange"><i class="fas fa-plug-circle-bolt"></i>&nbsp; Use Your Tracker (BYOT)</div>
-      <h2>Software only. Keep your hardware.</h2>
-      <p>One price per vehicle. Cancel anytime. Existing trackers only need the Inferth server address and port.</p>
-    </div>
-    <div class="plans-grid">
-      <div class="nm-card plan-card featured">
-        <div class="featured-label">BYOT Monthly</div>
-        <div class="plan-name">Per vehicle</div>
-        <div class="plan-price"><span class="cur">$</span><span class="amt">7</span><span class="per">/vehicle/month</span></div>
-        <p class="plan-desc">Or <strong>$65 per year</strong> — saves $19 per vehicle. The plan shown on the platform billing tab.</p>
-        <ul class="plan-features">
-          <li><i class="fas fa-check"></i> Connect any GT06, SinoTrack, Coban, H02 or Teltonika</li>
-          <li><i class="fas fa-check"></i> Real-time live GPS tracking (10s updates)</li>
-          <li><i class="fas fa-check"></i> WhatsApp OTP login and instant alerts</li>
-          <li><i class="fas fa-check"></i> 30-day route history and playback</li>
-          <li><i class="fas fa-check"></i> Up to 5 geofence zones</li>
-          <li><i class="fas fa-check"></i> Cancel or switch anytime</li>
-        </ul>
-        <a href="https://wa.me/263783009275?text=I%20want%20to%20start%20the%20%247%20BYOT%20monthly%20plan" target="_blank" rel="noopener" class="plan-btn"><i class="fa-brands fa-whatsapp"></i> Start at $7/mo</a>
-        <div class="plan-note">Billed per active vehicle. Setup verified by our technical desk.</div>
-      </div>
-
-      <div class="nm-card plan-card">
-        <div class="plan-name">Annual option</div>
-        <div class="plan-price"><span class="cur">$</span><span class="amt">65</span><span class="per">/vehicle/year</span></div>
-        <p class="plan-desc">Same BYOT features, paid yearly. Works out to about $5.42 per vehicle per month.</p>
-        <ul class="plan-features">
-          <li><i class="fas fa-check"></i> Everything in BYOT Monthly</li>
-          <li><i class="fas fa-check"></i> Save $19 per vehicle per year</li>
-          <li><i class="fas fa-check"></i> Price held for 12 months</li>
-          <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
-          <li><i class="fas fa-check"></i> Team manager and viewer accounts</li>
-        </ul>
-        <a href="https://wa.me/263783009275?text=I%20want%20the%20%2465%20BYOT%20annual%20plan" target="_blank" rel="noopener" class="plan-btn plan-btn-ghost">Choose annual</a>
-        <div class="plan-note">Switch between monthly and annual at any renewal.</div>
-      </div>
-
-      <div class="nm-card plan-card">
-        <div class="plan-name">Bring your own</div>
-        <div class="plan-price"><span class="amt" style="font-size:1.5rem">Any brand</span></div>
-        <p class="plan-desc">Not sure whether your unit is supported? Send the model and IMEI and we confirm the command set before you pay.</p>
-        <ul class="plan-features">
-          <li><i class="fas fa-check"></i> Model and IMEI checked before activation</li>
-          <li><i class="fas fa-check"></i> Exact SMS / IP / port command sent to you</li>
-          <li><i class="fas fa-check"></i> Live signal verified by the technical desk</li>
-          <li><i class="fas fa-check"></i> No hardware purchase required</li>
-        </ul>
-        <a href="https://wa.me/263783009275?text=Please%20check%20if%20my%20tracker%20is%20supported" target="_blank" rel="noopener" class="plan-btn plan-btn-ghost"><i class="fa-brands fa-whatsapp"></i> Check my tracker</a>
-        <div class="plan-note">Usually answered within minutes during working hours.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- PLATFORM FLEET RENTAL -->
-  <section class="section" id="rental">
-    <div class="section-hdr">
-      <div class="upper orange"><i class="fas fa-truck-fast"></i>&nbsp; Platform Fleet Rental</div>
-      <h2>Rent the whole console</h2>
-      <p>Software console rental for fleet managers and auto-electricians. The plan is matched to the number of vehicles running on the console, and you can move up a pack as the fleet grows.</p>
+    <div class="sec-head">
+      <span class="upper">1. BRING YOUR OWN TRACKER (BYOT)</span>
+      <h2>Already have a GPS tracker? Put it to better use.</h2>
+      <p>
+        You do not necessarily need to purchase new tracking hardware to use Inferth Mapping.
+        Our Bring Your Own Tracker model allows you to connect compatible GPS devices to our platform and monitor them through one centralised dashboard.
+      </p>
     </div>
 
-    <div class="nm-inset rental-band">
-      <div class="rental-head">
+    <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-dark); margin-bottom: 14px;">Supported tracker protocols and devices</h4>
+    <div class="protocol-grid">
+      <div class="nm-card protocol-card">
         <div>
-          <h3>Console rental packs</h3>
-          <p>No hardware purchase. Each pack includes the full Inferth console, WhatsApp OTP login and alerts, history and geofences, plus reporting for your team.</p>
+          <div class="protocol-icon"><i class="fas fa-microchip"></i></div>
+          <div class="protocol-title">GT06-Compatible</div>
+          <div class="protocol-desc">Standard binary protocol utilized by hundreds of Chinese and global trackers (Accurate, Concox, Jimi).</div>
         </div>
-        <span class="rental-tag">Matched to fleet size</span>
+        <span class="port-tag">Port 5023 / 5002</span>
+      </div>
+      <div class="nm-card protocol-card">
+        <div>
+          <div class="protocol-icon"><i class="fas fa-satellite"></i></div>
+          <div class="protocol-title">SinoTrack</div>
+          <div class="protocol-desc">Direct TCP binary & text protocol for ST-901, ST-902, ST-905 and related models.</div>
+        </div>
+        <span class="port-tag">Port 5013</span>
+      </div>
+      <div class="nm-card protocol-card">
+        <div>
+          <div class="protocol-icon"><i class="fas fa-network-wired"></i></div>
+          <div class="protocol-title">Teltonika AVL</div>
+          <div class="protocol-desc">Enterprise Codec 8/8E decoder supporting FMC130, FMB920, and full CAN/OBD telemetry parameters.</div>
+        </div>
+        <span class="port-tag">Port 5027</span>
+      </div>
+      <div class="nm-card protocol-card">
+        <div>
+          <div class="protocol-icon"><i class="fas fa-broadcast-tower"></i></div>
+          <div class="protocol-title">H02 Protocol</div>
+          <div class="protocol-desc">Widely deployed protocol for vehicle immobilizers, mini asset trackers and OBD dongles.</div>
+        </div>
+        <span class="port-tag">Port 5013 / 5090</span>
+      </div>
+      <div class="nm-card protocol-card">
+        <div>
+          <div class="protocol-icon"><i class="fas fa-location-arrow"></i></div>
+          <div class="protocol-title">GPS103 / TK103</div>
+          <div class="protocol-desc">Classic ASCII text command-based tracker format compatible with Coban and clones.</div>
+        </div>
+        <span class="port-tag">Port 5001</span>
+      </div>
+      <div class="nm-card protocol-card">
+        <div>
+          <div class="protocol-icon"><i class="fas fa-plus-circle"></i></div>
+          <div class="protocol-title">Other Compatible Devices</div>
+          <div class="protocol-desc">Custom TCP/UDP reporting trackers configurable to point to custom domain and port.</div>
+        </div>
+        <span class="port-tag">Custom Port Ingestion</span>
+      </div>
+    </div>
+
+    <p class="muted" style="font-size: 0.85rem; margin-bottom: 18px; line-height: 1.5;">
+      Specific tracker models must be assessed before connection. Compatibility depends on the device model, firmware, communication protocol and ability to configure its reporting server.
+    </p>
+
+    <!-- Technical Compatibility Assessment Callout -->
+    <div class="nm-card assessment-card">
+      <div class="assessment-info">
+        <span class="upper">Compatibility Assessment</span>
+        <h3>Don't see your tracker listed?</h3>
+        <p>Submit your tracker details for a technical compatibility assessment with our telematics engineering team.</p>
+        <ul class="assessment-checklist">
+          <li><i class="fas fa-check-circle"></i> Tracker manufacturer</li>
+          <li><i class="fas fa-check-circle"></i> Tracker model</li>
+          <li><i class="fas fa-check-circle"></i> Number of vehicles</li>
+          <li><i class="fas fa-check-circle"></i> Contact person</li>
+          <li><i class="fas fa-check-circle"></i> Phone or WhatsApp number</li>
+        </ul>
+      </div>
+      <div class="assessment-action">
+        <button type="button" class="btn-primary" onclick="openCompatModal()">
+          <i class="fas fa-clipboard-check"></i>
+          <span>Check My Tracker Compatibility</span>
+        </button>
+        <span style="font-size: 0.74rem; color: var(--muted);">Direct evaluation within 2 hours</span>
+      </div>
+    </div>
+
+    <div class="nm-inset caveat-box">
+      <strong>Engineering Notice:</strong> Not every tracker supports every platform feature. Compatibility with basic GPS tracking does not automatically mean compatibility with advanced vehicle diagnostics or remote controls.
+    </div>
+  </section>
+
+  <!-- 2. PLATFORM FEATURES -->
+  <section class="section-alt" id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="upper">2. PLATFORM FEATURES</span>
+        <h2>More than vehicle location tracking.</h2>
+        <p>A full-stack telematics workspace built for reliability in African fleet environments.</p>
       </div>
 
-      <div class="plans-grid">
-        <div class="nm-card plan-card">
-          <div class="plan-name">Console Rental</div>
-          <div class="plan-price"><span class="cur">$</span><span class="amt">49</span><span class="per">/month flat</span></div>
-          <p class="plan-desc">Up to 10 vehicles. About $4.90 per truck at full capacity.</p>
-          <ul class="plan-features">
-            <li><i class="fas fa-check"></i> Full Inferth console for up to 10 vehicles</li>
-            <li><i class="fas fa-check"></i> Live GPS tracking with 10-second updates</li>
-            <li><i class="fas fa-check"></i> WhatsApp OTP login, alerts and immobilizer cut</li>
-            <li><i class="fas fa-check"></i> 30-day route history, playback and geofences</li>
-            <li><i class="fas fa-check"></i> Automated weekly Excel/PDF fuel reports</li>
-            <li><i class="fas fa-check"></i> Manager and viewer accounts for your team</li>
-            <li><i class="fas fa-check"></i> Dedicated WhatsApp support SLA</li>
-          </ul>
-          <a href="https://wa.me/263783009275?text=I%20want%20the%20Fleet%20Rental%20Console%20plan%20(%2449)" target="_blank" rel="noopener" class="plan-btn">Rent 10 — $49/mo</a>
+      <div class="features-grid">
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-map-marked-alt"></i></div>
+          <div class="feature-title">Live GPS Tracking</div>
+          <div class="feature-desc">View the current reported location of your vehicles through an interactive fleet map. Monitor vehicle movement, speed and ignition status where supported.</div>
         </div>
-
-        <div class="nm-card plan-card featured">
-          <div class="featured-label">Fleet Pack</div>
-          <div class="plan-name">11 to 30 vehicles</div>
-          <div class="plan-price"><span class="cur">$</span><span class="amt">99</span><span class="per">/month flat</span></div>
-          <p class="plan-desc">About $3.30 per truck — 32% cheaper per vehicle.</p>
-          <ul class="plan-features">
-            <li><i class="fas fa-check"></i> Everything in Console Rental, for up to 30 vehicles</li>
-            <li><i class="fas fa-check"></i> Multi-depot vehicle grouping and filters</li>
-            <li><i class="fas fa-check"></i> Driver scorecards with harsh braking and speeding</li>
-            <li><i class="fas fa-check"></i> Fuel and cost benchmarks at the ZERA $2.04/L rate</li>
-            <li><i class="fas fa-check"></i> Automated weekly fuel and utilisation reports</li>
-            <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
-          </ul>
-          <a href="https://wa.me/263783009275?text=I%20want%20the%20Fleet%20Rental%20Fleet%20Pack%20(%2499)" target="_blank" rel="noopener" class="plan-btn">Upgrade — $99/mo</a>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-route"></i></div>
+          <div class="feature-title">Route History and Playback</div>
+          <div class="feature-desc">Review previous vehicle journeys, travel routes, trip distances, stops and movement history with animated route replays.</div>
         </div>
-
-        <div class="nm-card plan-card">
-          <div class="plan-name">Scale Pack</div>
-          <div class="plan-price"><span class="cur">$</span><span class="amt">199</span><span class="per">/month flat</span></div>
-          <p class="plan-desc">31 to 100 vehicles. About $1.99 per truck — 60% cheaper per vehicle.</p>
-          <ul class="plan-features">
-            <li><i class="fas fa-check"></i> Everything in Fleet Pack, for up to 100 vehicles</li>
-            <li><i class="fas fa-check"></i> Sub-accounts per depot with manager and viewer roles</li>
-            <li><i class="fas fa-check"></i> Branded PDF and Excel reports for clients</li>
-            <li><i class="fas fa-check"></i> API and webhook access for your own systems</li>
-            <li><i class="fas fa-check"></i> 4-hour WhatsApp support SLA</li>
-            <li><i class="fas fa-check"></i> Quarterly fleet profitability review</li>
-          </ul>
-          <a href="https://wa.me/263783009275?text=I%20want%20the%20Fleet%20Rental%20Scale%20Pack%20(%24199)" target="_blank" rel="noopener" class="plan-btn">Upgrade — $199/mo</a>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-draw-polygon"></i></div>
+          <div class="feature-title">Geofencing</div>
+          <div class="feature-desc">Create virtual geographical boundaries around important locations and receive notifications when vehicles enter or leave designated areas.</div>
+        </div>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-tachometer-alt"></i></div>
+          <div class="feature-title">Vehicle Monitoring</div>
+          <div class="feature-desc">Monitor available vehicle information, including vehicle location, speed, ignition status, movement status, last communication time and connection status.</div>
+        </div>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fab fa-whatsapp"></i></div>
+          <div class="feature-title">Automated WhatsApp Reports</div>
+          <div class="feature-desc">Receive fleet information directly through WhatsApp. Choose your preferred reporting interval and receive automated reports without constantly logging into the dashboard.</div>
+        </div>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-bell"></i></div>
+          <div class="feature-title">Priority WhatsApp Alerts</div>
+          <div class="feature-desc">Receive optional Medium and High priority notifications automatically on your registered WhatsApp number for panic triggers, geofence breaches, and power cuts.</div>
+        </div>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-file-invoice"></i></div>
+          <div class="feature-title">Fleet Reports</div>
+          <div class="feature-desc">Access vehicle activity, trip information, mileage records and operational reports through the platform in table, PDF or CSV format.</div>
+        </div>
+        <div class="nm-card feature-card">
+          <div class="feature-icon-box"><i class="fas fa-terminal"></i></div>
+          <div class="feature-title">Remote Tracker Commands</div>
+          <div class="feature-desc">Send supported commands to compatible tracking devices through the platform. Command availability depends on the tracker model and its supported functions.</div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section" id="compat">
-    <div class="section-hdr">
-      <div class="upper orange"><i class="fas fa-tower-broadcast"></i>&nbsp; Compatibility</div>
-      <h2>If it reports, it works</h2>
-      <p>These protocols are supported today. Other units can be onboarded by pointing their server address and port at ours.</p>
+  <!-- 3. SUBSCRIPTION PLANS -->
+  <section class="section" id="pricing">
+    <div class="sec-head">
+      <span class="upper">3. SUBSCRIPTION PLANS</span>
+      <h2>Choose the level of fleet management your business needs.</h2>
+      <p>
+        Our subscription plans are designed for vehicle owners and businesses managing their own fleets.
+        Prices are in USD and charged per active vehicle per month. Volume pricing is progressive: each rate applies only to vehicles within its stated band.
+      </p>
     </div>
-    <div class="compat-grid">
-      <div class="nm-card compat-item">
-        <i class="fas fa-satellite-dish"></i>
-        <div class="compat-name">GT06 / GT02</div>
-        <div class="compat-sub">Most Chinese clone trackers</div>
-        <span class="port">TCP 9005</span>
+
+    <div class="plans-grid">
+      <!-- BASIC -->
+      <div class="nm-card plan-card">
+        <div class="plan-name">BASIC</div>
+        <div class="plan-tagline">Essential GPS tracking and fleet management.</div>
+
+        <table class="plan-pricing-table">
+          <thead>
+            <tr><th>Vehicle band</th><th>Monthly</th><th>Annual</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>First 1–5 vehicles</td><td class="plan-price-highlight">$15</td><td>$150</td></tr>
+            <tr><td>Vehicles 6–20</td><td class="plan-price-highlight">$12</td><td>$120</td></tr>
+            <tr><td>Vehicles 21–50</td><td class="plan-price-highlight">$10</td><td>$100</td></tr>
+            <tr><td>Above 50</td><td colspan="2" class="plan-price-highlight">Custom quote</td></tr>
+          </tbody>
+        </table>
+
+        <ul class="plan-features-list">
+          <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
+          <li><i class="fas fa-check"></i> Live fleet map</li>
+          <li><i class="fas fa-check"></i> 30-day route history</li>
+          <li><i class="fas fa-check"></i> Trip and mileage reports</li>
+          <li><i class="fas fa-check"></i> Up to 5 geofences</li>
+          <li><i class="fas fa-check"></i> Speed and ignition alerts</li>
+          <li><i class="fas fa-check"></i> WhatsApp notifications</li>
+          <li><i class="fas fa-check"></i> Scheduled basic reports</li>
+          <li><i class="fas fa-check"></i> Fleet dashboard access</li>
+          <li><i class="fas fa-check"></i> Technical platform support</li>
+        </ul>
+
+        <button type="button" class="btn-primary" style="width:100%;justify-content:center;" onclick="openSubscribe('Basic')">
+          <span>Subscribe to Basic</span>
+        </button>
       </div>
-      <div class="nm-card compat-item">
-        <i class="fas fa-broadcast-tower"></i>
-        <div class="compat-name">SinoTrack</div>
-        <div class="compat-sub">ST-901, ST-906, ST-915</div>
-        <span class="port">TCP 9005</span>
+
+      <!-- PREMIUM (Featured) -->
+      <div class="nm-card plan-card featured">
+        <span class="featured-label">Recommended for Fleets</span>
+        <div class="plan-name orange">PREMIUM</div>
+        <div class="plan-tagline">Advanced fleet monitoring and vehicle intelligence.</div>
+
+        <table class="plan-pricing-table">
+          <thead>
+            <tr><th>Vehicle band</th><th>Monthly</th><th>Annual</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>First 1–5 vehicles</td><td class="plan-price-highlight">$25</td><td>$250</td></tr>
+            <tr><td>Vehicles 6–20</td><td class="plan-price-highlight">$22</td><td>$220</td></tr>
+            <tr><td>Vehicles 21–50</td><td class="plan-price-highlight">$18</td><td>$180</td></tr>
+            <tr><td>Above 50</td><td colspan="2" class="plan-price-highlight">Custom quote</td></tr>
+          </tbody>
+        </table>
+
+        <div style="font-size:0.75rem;font-weight:800;color:var(--text-dark);margin-bottom:6px;">Everything in Basic, plus:</div>
+        <ul class="plan-features-list">
+          <li><i class="fas fa-check orange"></i> Extended 90-day route history</li>
+          <li><i class="fas fa-check orange"></i> Advanced fleet reporting</li>
+          <li><i class="fas fa-check orange"></i> Automated WhatsApp fleet reports</li>
+          <li><i class="fas fa-check orange"></i> Medium and High priority WhatsApp alerts</li>
+          <li><i class="fas fa-check orange"></i> Available CAN Bus and OBD vehicle data*</li>
+          <li><i class="fas fa-check orange"></i> Engine RPM monitoring*</li>
+          <li><i class="fas fa-check orange"></i> Coolant temperature monitoring*</li>
+          <li><i class="fas fa-check orange"></i> Fuel-level information*</li>
+          <li><i class="fas fa-check orange"></i> Fuel consumption data*</li>
+          <li><i class="fas fa-check orange"></i> Odometer readings*</li>
+          <li><i class="fas fa-check orange"></i> Vehicle health monitoring*</li>
+          <li><i class="fas fa-check orange"></i> Maintenance reminders</li>
+        </ul>
+
+        <div class="plan-caveat">*Advanced telemetry features require a compatible tracker, vehicle and supported data integration.</div>
+
+        <button type="button" class="btn-primary" style="width:100%;justify-content:center;" onclick="openSubscribe('Premium')">
+          <span>Subscribe to Premium</span>
+        </button>
       </div>
-      <div class="nm-card compat-item">
-        <i class="fas fa-microchip"></i>
-        <div class="compat-name">Teltonika</div>
-        <div class="compat-sub">FMB series, Codec 8/8E</div>
-        <span class="port">TCP 9005</span>
+
+      <!-- ENTERPRISE -->
+      <div class="nm-card plan-card">
+        <div class="plan-name">ENTERPRISE</div>
+        <div class="plan-tagline">Fleet management for larger organisations with specialised operational requirements.</div>
+
+        <div class="nm-inset" style="padding:14px;text-align:center;margin-bottom:16px;">
+          <div style="font-size:1.35rem;font-weight:900;color:var(--text-dark);">Custom Pricing</div>
+          <div style="font-size:0.75rem;color:var(--muted);">Tailored fleet volume contracts</div>
+        </div>
+
+        <div style="font-size:0.75rem;font-weight:800;color:var(--text-dark);margin-bottom:6px;">Enterprise features may include:</div>
+        <ul class="plan-features-list">
+          <li><i class="fas fa-check"></i> Everything in Premium</li>
+          <li><i class="fas fa-check"></i> Multiple company and fleet accounts</li>
+          <li><i class="fas fa-check"></i> Multiple users and role-based permissions</li>
+          <li><i class="fas fa-check"></i> Advanced fleet analytics</li>
+          <li><i class="fas fa-check"></i> Customised reporting</li>
+          <li><i class="fas fa-check"></i> API and third-party integrations</li>
+          <li><i class="fas fa-check"></i> Extended data retention</li>
+          <li><i class="fas fa-check"></i> Priority technical support</li>
+          <li><i class="fas fa-check"></i> Advanced operational monitoring</li>
+          <li><i class="fas fa-check"></i> Custom integrations and configurations</li>
+          <li><i class="fas fa-check"></i> Remote immobilisation where supported and safely configured</li>
+        </ul>
+
+        <button type="button" class="btn-ghost" style="width:100%;justify-content:center;" onclick="openSubscribe('Enterprise')">
+          <span>Request an Enterprise Quotation</span>
+        </button>
       </div>
-      <div class="nm-card compat-item">
-        <i class="fas fa-wifi"></i>
-        <div class="compat-name">Coban / H02</div>
-        <div class="compat-sub">GPS103, TK103, Asian OEM units</div>
-        <span class="port">TCP 9005</span>
+    </div>
+
+    <!-- Explanatory Progressive Pricing Calculation Box -->
+    <div class="nm-inset pricing-calc-box">
+      <div class="pricing-calc-head">How subscription pricing works</div>
+      <div class="pricing-calc-desc">
+        The vehicle bands are cumulative. Each rate applies only to vehicles within that band.
+        For example, a business with 10 vehicles pays:
+      </div>
+
+      <table class="calc-table">
+        <thead>
+          <tr><th>Plan</th><th>Monthly calculation</th><th>Monthly total</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Basic</strong></td>
+            <td>(5 × $15) + (5 × $12)</td>
+            <td><strong class="orange">$135 / month</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Premium</strong></td>
+            <td>(5 × $25) + (5 × $22)</td>
+            <td><strong class="orange">$235 / month</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:12px;">
+        <i class="fas fa-tag orange"></i> <strong>Annual Discount:</strong> Annual subscriptions are priced at 10 months of the equivalent monthly rate, giving customers two months free.
       </div>
     </div>
   </section>
 
-  <section class="section">
-    <div class="section-hdr">
-      <div class="upper orange"><i class="fas fa-diagram-project"></i>&nbsp; How it works</div>
-      <h2>Connected in three steps</h2>
-    </div>
-    <div class="steps">
-      <div class="nm-card step">
-        <div class="step-num">1</div>
-        <h4>Send your model and IMEI</h4>
-        <p>WhatsApp us the tracker model and its 15-digit IMEI. We confirm the protocol and prepare the exact command.</p>
+  <!-- 4. PAY AS YOU DRIVE (PAYD) -->
+  <section class="section-alt" id="payd">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="upper">4. PAY AS YOU DRIVE (PAYD)</span>
+        <h2>Track when you need it. Pay for what you use.</h2>
+        <p>
+          PAYD is designed for businesses and vehicle owners who need tracking services occasionally rather than committing to a monthly or annual subscription.
+        </p>
       </div>
-      <div class="nm-card step">
-        <div class="step-num">2</div>
-        <h4>Point the tracker at Inferth</h4>
-        <p>We send the server address, port and SMS syntax for your brand. You apply it once, from the tracker's own SIM.</p>
-      </div>
-      <div class="nm-card step">
-        <div class="step-num">3</div>
-        <h4>Watch it go live</h4>
-        <p>The vehicle appears on the map as soon as the first packet arrives, usually within two minutes of a GPS fix.</p>
+
+      <div class="payd-container">
+        <div class="nm-card payd-card">
+          <div class="payd-price-banner">
+            <span class="amt">$0.40</span>
+            <span class="per">per vehicle per active day</span>
+          </div>
+          <div style="font-weight:700;font-size:0.88rem;color:var(--text-dark);margin-bottom:8px;">PAYD includes:</div>
+          <ul class="plan-features-list" style="margin-bottom:18px;">
+            <li><i class="fas fa-check"></i> Live vehicle tracking</li>
+            <li><i class="fas fa-check"></i> Live fleet map</li>
+            <li><i class="fas fa-check"></i> Basic vehicle location monitoring</li>
+          </ul>
+
+          <div style="font-weight:700;font-size:0.88rem;color:var(--text-dark);margin-bottom:6px;">Optional feature activation fees:</div>
+          <table class="fee-table">
+            <thead>
+              <tr><th>Optional feature</th><th>Activation fee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Route history and playback</td><td><strong>$1.00</strong></td></tr>
+              <tr><td>Geofencing and alerts</td><td><strong>$1.00</strong></td></tr>
+              <tr><td>WhatsApp reports</td><td><strong>$1.00</strong></td></tr>
+              <tr><td>CAN/OBD diagnostics</td><td><strong>$3.00</strong></td></tr>
+              <tr><td>Fuel monitoring</td><td><strong>$2.00</strong></td></tr>
+              <tr><td>Remote immobilisation</td><td><strong>$2.00</strong></td></tr>
+            </tbody>
+          </table>
+
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.45;">
+            Feature fees are charged per vehicle, per activation period. They remain active until the PAYD period ends. Advanced features are subject to compatibility and technical availability.
+          </div>
+        </div>
+
+        <div class="nm-card payd-card" style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <span class="upper">PAYD Example Calculation</span>
+            <h4 style="font-size:1.15rem;font-weight:800;color:var(--text-dark);margin:8px 0 10px;">7-Day Diagnostic Activation</h4>
+            <p style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:16px;">
+              A customer activates one vehicle for seven days and selects CAN/OBD diagnostics and WhatsApp reports.
+            </p>
+
+            <table class="calc-table" style="margin-bottom:16px;">
+              <thead>
+                <tr><th>Item</th><th>Cost</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Live tracking: 7 × $0.40</td><td>$2.80</td></tr>
+                <tr><td>CAN/OBD diagnostics</td><td>$3.00</td></tr>
+                <tr><td>WhatsApp reports</td><td>$1.00</td></tr>
+                <tr><td><strong>Total</strong></td><td><strong class="orange" style="font-size:1.05rem;">$6.80</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div>
+            <button type="button" class="btn-primary" style="width:100%;justify-content:center;" onclick="openSubscribe('PAYD')">
+              <i class="fas fa-play"></i>
+              <span>Activate PAYD</span>
+            </button>
+            <div style="font-size:0.72rem;color:var(--muted);text-align:center;margin-top:10px;">
+              PAYD prepaid billing and feature activation must be operational before this offer is presented as an available purchasing option.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <div class="nm-card cta-card">
-    <div>
-      <h2>Not sure which plan fits?</h2>
-      <p>Tell us how many vehicles you run and whether the trackers are already installed. We will point you to the cheaper option — BYOT per vehicle, or a flat console rental pack.</p>
+  <!-- 5. HARDWARE, SETUP AND CONNECTIVITY -->
+  <section class="section" id="hardware">
+    <div class="sec-head">
+      <span class="upper">5. HARDWARE, SETUP AND CONNECTIVITY</span>
+      <h2>Use your existing tracker or arrange a compatible device.</h2>
+      <p>
+        Inferth Mapping operates a software-first BYOT model. Customers can connect compatible existing GPS trackers or obtain suitable hardware separately.
+      </p>
     </div>
-    <a href="https://wa.me/263783009275?text=Hi%20Inferth%2C%20which%20plan%20fits%20my%20fleet%3F" target="_blank" rel="noopener" class="btn-primary"><i class="fa-brands fa-whatsapp"></i> Ask on WhatsApp</a>
+
+    <div class="nm-card" style="padding:24px;overflow-x:auto;">
+      <h4 style="font-size:0.98rem;font-weight:800;color:var(--text-dark);margin-bottom:8px;">Additional services</h4>
+      <table class="services-table">
+        <thead>
+          <tr><th>Service</th><th>Pricing</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>GPS tracker hardware</strong></td>
+            <td>Quoted separately</td>
+            <td>High-durability Teltonika or SinoTrack hardware sourced upon request.</td>
+          </tr>
+          <tr>
+            <td><strong>Physical installation</strong></td>
+            <td>Quoted separately, if required</td>
+            <td>Certified auto-electrician installation with relay cutoff switch.</td>
+          </tr>
+          <tr>
+            <td><strong>Tracker configuration</strong></td>
+            <td>Separate fee, if required</td>
+            <td>Remote or local server IP, APN, and reporting interval setup.</td>
+          </tr>
+          <tr>
+            <td><strong>Platform setup and onboarding</strong></td>
+            <td>Separate fee</td>
+            <td>Fleet import, geofence setup, alert profiles, and user role configuration.</td>
+          </tr>
+          <tr>
+            <td><strong>SIM card and mobile data</strong></td>
+            <td>Customer-supplied</td>
+            <td>Customer-supplied unless otherwise arranged (Econet / NetOne telematics SIM).</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:14px;">
+        <i class="fas fa-info-circle orange"></i> All additional costs are communicated before work begins.
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. ADVANCED VEHICLE TELEMETRY -->
+  <section class="section-alt" id="telemetry">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="upper">6. ADVANCED VEHICLE TELEMETRY</span>
+        <h2>Get more information from compatible vehicles.</h2>
+        <p>
+          GPS location is only one part of vehicle monitoring. With suitable tracking hardware and supported vehicle integrations, Inferth Mapping can also process additional vehicle information.
+        </p>
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="nm-card telemetry-card">
+          <h4><i class="fas fa-tachometer-alt orange"></i> Engine Monitoring</h4>
+          <p>Access supported engine parameters such as RPM, coolant temperature, battery voltage and engine run hours.</p>
+        </div>
+        <div class="nm-card telemetry-card">
+          <h4><i class="fas fa-gas-pump orange"></i> Fuel Monitoring</h4>
+          <p>Monitor fuel-level and consumption information from compatible vehicle data sources or installed capacitive fuel sensors.</p>
+        </div>
+        <div class="nm-card telemetry-card">
+          <h4><i class="fas fa-wrench orange"></i> Vehicle Diagnostics</h4>
+          <p>Access supported diagnostic information and fault codes (DTCs) where the tracker and vehicle integration provide the required data.</p>
+        </div>
+        <div class="nm-card telemetry-card">
+          <h4><i class="fas fa-chart-line orange"></i> Vehicle Performance</h4>
+          <p>Review available odometer, calibrated speed and acceleration telemetry.</p>
+        </div>
+        <div class="nm-card telemetry-card">
+          <h4><i class="fas fa-power-off orange"></i> Remote Immobilisation</h4>
+          <p>Send supported immobilisation commands through compatible hardware and appropriately installed control equipment.</p>
+        </div>
+        <div class="nm-card telemetry-card" style="background:rgba(234,88,12,0.06);">
+          <h4><i class="fas fa-shield-alt orange"></i> Hardware Guardrails</h4>
+          <p>Verified against Null Island coordinates, clock drifts and excessive telemetry teleportation.</p>
+        </div>
+      </div>
+
+      <div class="nm-inset caveat-box" style="margin-top:22px;">
+        <strong>Validation Note:</strong> These are hardware-dependent capabilities, not guaranteed features of every GPS tracker. Each tracker and vehicle combination must be validated. Remote immobilisation must have appropriate authorisation and safety controls and configuration before enablement.
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. SEE INFERTH MAPPING IN ACTION -->
+  <section class="section" id="action">
+    <div class="nm-card demo-strip">
+      <div class="demo-content">
+        <span class="upper">7. SEE INFERTH MAPPING IN ACTION</span>
+        <h3>Product demonstration</h3>
+        <p>
+          Explore the platform interface, live tracking and vehicle telemetry before connecting your fleet. Test geofencing, route history, automated reports and diagnostics in real time.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a href="index.html" class="btn-primary">
+            <i class="fas fa-desktop"></i>
+            <span>Launch Interactive Platform Demo</span>
+          </a>
+          <a href="index.html#reports" class="btn-ghost">
+            <i class="fas fa-file-alt"></i>
+            <span>View Sample Reports</span>
+          </a>
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:14px;line-height:1.45;">
+          Interactive demonstration displays simulated telematics data for illustrative purposes. Actual features depend on device compatibility and subscription plan.
+        </div>
+      </div>
+
+      <div class="nm-inset demo-visual">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <strong style="font-size:0.8rem;color:var(--text-dark);">Live Telemetry Feed (Teltonika FMC130)</strong>
+          <span style="font-size:0.7rem;color:#16a34a;font-weight:700;">● Online</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78rem;">
+          <div class="nm-card" style="padding:10px;">
+            <div class="muted">Speed</div>
+            <div style="font-size:1.1rem;font-weight:900;color:var(--text-dark);">72 km/h</div>
+          </div>
+          <div class="nm-card" style="padding:10px;">
+            <div class="muted">Coolant Temp</div>
+            <div style="font-size:1.1rem;font-weight:900;color:var(--text-dark);">89 °C</div>
+          </div>
+          <div class="nm-card" style="padding:10px;">
+            <div class="muted">Engine RPM</div>
+            <div style="font-size:1.1rem;font-weight:900;color:var(--text-dark);">1,840 RPM</div>
+          </div>
+          <div class="nm-card" style="padding:10px;">
+            <div class="muted">Fuel Remaining</div>
+            <div style="font-size:1.1rem;font-weight:900;color:var(--orange);">64.2 L</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. CONSOLE RENTAL -->
+  <section class="section-alt" id="console-rental">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="upper">8. CONSOLE RENTAL</span>
+        <h2>For tracking businesses and fleet service providers.</h2>
+        <p style="font-size:1.1rem;font-weight:700;color:#334155;">Run your own GPS tracking or fleet-management operation using Inferth Mapping's infrastructure.</p>
+        <p style="margin-top:6px;">
+          Console Rental allows tracking service providers, security companies and fleet managers to host their clients on our platform without building or maintaining software infrastructure.
+        </p>
+      </div>
+
+      <div class="console-rental-grid">
+        <div class="nm-card console-main">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+            <div>
+              <div class="muted upper">Base Console Fee</div>
+              <div style="font-size:2.2rem;font-weight:900;color:var(--orange);">$15 <span style="font-size:0.85rem;color:var(--muted);font-weight:600;">per month</span></div>
+            </div>
+            <span class="port-tag" style="font-size:0.75rem;padding:6px 14px;">Includes first 1–5 vehicles</span>
+          </div>
+
+          <h4 style="font-size:0.92rem;font-weight:800;color:var(--text-dark);margin-bottom:8px;">Progressive volume pricing (per additional vehicle per month):</h4>
+          <table class="plan-pricing-table">
+            <thead>
+              <tr><th>Vehicle tier</th><th>Price per vehicle</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Vehicles 1–5</td><td class="plan-price-highlight">Included in base fee ($15 total)</td></tr>
+              <tr><td>Vehicles 6–25</td><td class="plan-price-highlight">$1.70</td></tr>
+              <tr><td>Vehicles 26–75</td><td class="plan-price-highlight">$1.00</td></tr>
+              <tr><td>Vehicles 76–200</td><td class="plan-price-highlight">$0.80</td></tr>
+              <tr><td>Above 200</td><td class="plan-price-highlight">Custom volume rate</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.74rem;color:var(--muted);margin-top:-10px;margin-bottom:16px;">Pricing is cumulative: each rate applies only to vehicles within that tier.</p>
+
+          <h4 style="font-size:0.92rem;font-weight:800;color:var(--text-dark);margin-bottom:8px;">Monthly cost examples:</h4>
+          <table class="calc-table">
+            <thead>
+              <tr><th>Vehicles</th><th>Monthly fee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td>$15.00 (base fee)</td></tr>
+              <tr><td>5</td><td>$15.00 (base fee)</td></tr>
+              <tr><td>10</td><td>$23.50 ($15 base + 5 × $1.70)</td></tr>
+              <tr><td>25</td><td>$49.00 ($15 base + 20 × $1.70)</td></tr>
+              <tr><td>50</td><td>$74.00 ($49 + 25 × $1.00)</td></tr>
+              <tr><td>75</td><td>$99.00 ($49 + 50 × $1.00)</td></tr>
+              <tr><td>100</td><td>$119.00 ($99 + 25 × $0.80)</td></tr>
+              <tr><td>200</td><td>$199.00 ($99 + 125 × $0.80)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="nm-card console-sidebar">
+          <div>
+            <h4 style="font-size:1.05rem;font-weight:800;color:var(--text-dark);margin-bottom:10px;">Benefits:</h4>
+            <ul class="plan-features-list" style="margin-bottom:18px;">
+              <li><i class="fas fa-check orange"></i> Your own branded platform deployment</li>
+              <li><i class="fas fa-check orange"></i> Direct customer billing at your chosen rates</li>
+              <li><i class="fas fa-check orange"></i> No infrastructure maintenance or server administration</li>
+              <li><i class="fas fa-check orange"></i> Multi-tenant client isolation</li>
+              <li><i class="fas fa-check orange"></i> Reseller management console</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 style="font-size:1.05rem;font-weight:800;color:var(--text-dark);margin-bottom:10px;">Console Rental is suitable for:</h4>
+            <ul class="plan-features-list" style="margin-bottom:20px;">
+              <li><i class="fas fa-arrow-right orange"></i> Independent vehicle tracking companies</li>
+              <li><i class="fas fa-arrow-right orange"></i> Security and private investigation firms</li>
+              <li><i class="fas fa-arrow-right orange"></i> Transport coordinators managing external fleets</li>
+              <li><i class="fas fa-arrow-right orange"></i> IT service providers offering fleet telematics</li>
+            </ul>
+          </div>
+
+          <button type="button" class="btn-primary" style="width:100%;justify-content:center;" onclick="openSubscribe('Console Rental')">
+            <span>Apply for Console Rental</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. HOW IT WORKS -->
+  <section class="section" id="how-it-works">
+    <div class="sec-head">
+      <span class="upper">9. HOW IT WORKS</span>
+      <h2>Getting started with Inferth Mapping.</h2>
+      <p>Three straightforward steps to activate your fleet on the platform.</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="nm-card step-card">
+        <div class="step-badge">1</div>
+        <h4>Check Tracker Compatibility</h4>
+        <p>Submit your tracker details or select from supported protocols to confirm compatibility with the platform.</p>
+      </div>
+      <div class="nm-card step-card">
+        <div class="step-badge">2</div>
+        <h4>Connect Your Device</h4>
+        <p>Configure your GPS tracker's reporting IP address and port to send data to the Inferth Mapping ingestion servers.</p>
+      </div>
+      <div class="nm-card step-card">
+        <div class="step-badge">3</div>
+        <h4>Monitor Your Fleet</h4>
+        <p>Log in to your dashboard to view live vehicle positions, configure alerts and access reporting tools.</p>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:28px;">
+      <button type="button" class="btn-primary" onclick="openCompatModal()">
+        <i class="fas fa-rocket"></i>
+        <span>Start Tracker Onboarding</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 10. FREQUENTLY ASKED QUESTIONS -->
+  <section class="section-alt" id="faq">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="upper">10. FREQUENTLY ASKED QUESTIONS</span>
+        <h2>Frequently Asked Questions</h2>
+        <p>Everything you need to know about tracker compatibility, pricing, and infrastructure.</p>
+      </div>
+
+      <div class="faq-list">
+        <div class="nm-card faq-item open" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>1. Can I use my existing GPS tracker with Inferth Mapping?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Yes. If your tracker uses a supported communication protocol and allows its reporting IP and port to be configured, it can connect to our platform.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>2. What tracker protocols are supported?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Inferth Mapping currently supports GT06-compatible devices, SinoTrack, Teltonika AVL, H02, GPS103 and several others. Submit your tracker details for assessment.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>3. How does progressive volume pricing work?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Each vehicle rate applies only to vehicles within that specific band, rather than the entire fleet. For example, on the Basic plan, the first 5 vehicles are $15 each, and vehicles 6–20 are $12 each.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>4. What is the difference between Basic and Premium?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Basic covers essential GPS tracking, 30-day route history, basic alerts and fleet reports. Premium adds CAN/OBD telemetry (where supported), fuel monitoring, automated WhatsApp reports, priority alerts and 90-day history.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>5. What is Pay As You Drive (PAYD)?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            PAYD is a daily billing option ($0.40/vehicle/day) for vehicles that only need tracking occasionally. Optional features like route history or diagnostics can be activated for fixed fees per period.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>6. Can Inferth Mapping immobilise a vehicle remotely?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Yes, where the installed hardware and vehicle electrical configuration support relay control, and the feature has been verified, tested and safely enabled with appropriate permissions.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>7. What is Console Rental?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Console Rental is a reseller tier for tracking businesses that want to provide fleet management to their own clients using Inferth Mapping's software infrastructure.
+          </div>
+        </div>
+
+        <div class="nm-card faq-item" onclick="toggleFaq(this)">
+          <div class="faq-question">
+            <span>8. Does Inferth Mapping provide SIM cards and installation?</span>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            Customers typically provide their own SIM cards and arrange physical installation. Inferth Mapping can recommend or quote installation and hardware separately if required.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. FINAL CALL TO ACTION -->
+  <section class="section" id="cta">
+    <div class="nm-card final-cta">
+      <span class="upper">11. GET STARTED</span>
+      <h2>Ready to connect your fleet?</h2>
+      <p>
+        Start monitoring your vehicles with Inferth Mapping today. Compatible with your existing tracking devices.
+      </p>
+      <div class="final-btns">
+        <button type="button" class="btn-primary" onclick="openCompatModal()">
+          <i class="fas fa-satellite-dish"></i>
+          <span>Check Tracker Compatibility</span>
+        </button>
+        <a href="#pricing" class="btn-ghost">
+          <i class="fas fa-tags"></i>
+          <span>View Pricing Plans</span>
+        </a>
+        <a href="index.html" class="btn-ghost" style="border:1px solid rgba(249,115,22,0.3);">
+          <i class="fas fa-sign-in-alt"></i>
+          <span>Sign In to Console</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Tracker Compatibility Assessment Modal -->
+<div class="modal-overlay" id="compat-modal" onclick="if(event.target===this)closeCompatModal()">
+  <div class="nm-card modal-card">
+    <button type="button" class="modal-close" onclick="closeCompatModal()">&times;</button>
+    <span class="upper">Device Compatibility</span>
+    <h3 style="font-size:1.3rem;font-weight:900;color:var(--text-dark);margin:6px 0 10px;">Check My Tracker Compatibility</h3>
+    <p style="font-size:0.84rem;color:var(--muted);line-height:1.5;">
+      Submit your hardware specifications. Our engineering team assesses protocol compatibility within 2 business hours.
+    </p>
+
+    <form class="modal-form" onsubmit="submitCompatForm(event)">
+      <input type="text" id="m-mfg" class="form-input" placeholder="Tracker manufacturer (e.g. Teltonika, Coban, SinoTrack)" required>
+      <input type="text" id="m-model" class="form-input" placeholder="Tracker model (e.g. FMC130, ST-901, GT06N)" required>
+      <input type="number" id="m-count" class="form-input" placeholder="Number of vehicles (e.g. 5)" min="1" required>
+      <input type="text" id="m-contact" class="form-input" placeholder="Contact person name" required>
+      <input type="tel" id="m-phone" class="form-input" placeholder="Phone or WhatsApp number (+263...)" required>
+
+      <button type="submit" class="btn-primary" style="justify-content:center;margin-top:8px;">
+        <i class="fab fa-whatsapp"></i>
+        <span>Submit for Technical Assessment</span>
+      </button>
+    </form>
   </div>
 </div>
 
+<!-- Footer -->
 <footer>
-  <div class="footer-brand">
-    <img src="inferth_mapping_mark.png" alt="Inferth Mapping" style="width:28px;height:28px;object-fit:contain">
-    Inferth Mapping
+  <div class="wrap" style="padding:0;width:100%;">
+    <div class="footer-row">
+      <div class="footer-brand">
+        <img src="inferth_mapping_mark.png" alt="Inferth Mapping" style="width:26px;height:26px;object-fit:contain;">
+        <span>Inferth Mapping</span>
+      </div>
+      <div class="footer-links">
+        <a href="#byot" class="footer-link">BYOT</a>
+        <a href="#features" class="footer-link">Features</a>
+        <a href="#pricing" class="footer-link">Pricing</a>
+        <a href="#payd" class="footer-link">PAYD</a>
+        <a href="#console-rental" class="footer-link">Console Rental</a>
+        <a href="#faq" class="footer-link">FAQ</a>
+        <a href="https://wa.me/263777000000?text=Hello%20Inferth%20Mapping%20Team" target="_blank" class="footer-link" style="color:#16a34a;font-weight:800;">
+          <i class="fab fa-whatsapp"></i> WhatsApp Support
+        </a>
+      </div>
+    </div>
+    <div class="footer-note">
+      Inferth Mapping — Telematics Infrastructure for Southern Africa.<br>
+      A product of <strong>Inferth Projects</strong>.
+    </div>
   </div>
-  <div class="footer-links">
-    <a href="https://www.inferthmapping.co.zw/static/index.html" class="footer-link">Dashboard login</a>
-    <a href="#byot" class="footer-link">BYOT plans</a>
-    <a href="#rental" class="footer-link">Fleet rental</a>
-  </div>
-  <a href="https://wa.me/263783009275" target="_blank" rel="noopener" class="footer-wa"><i class="fa-brands fa-whatsapp"></i> +263 783 009 275</a>
-  <div class="footer-note">Prices in USD. Zimbabwe &amp; Southern Africa. Paynow, EcoCash, OneMoney and Zimswitch accepted.</div>
 </footer>
 
 <script>
+function toggleFaq(el) {
+  var isOpen = el.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(function(item) { item.classList.remove('open'); });
+  if (!isOpen) el.classList.add('open');
+}
+
+function openCompatModal() {
+  document.getElementById('compat-modal').classList.add('active');
+}
+
+function closeCompatModal() {
+  document.getElementById('compat-modal').classList.remove('active');
+}
+
+function openSubscribe(plan) {
+  var text = "Hello Inferth Mapping, I would like to subscribe to the " + plan + " plan.";
+  var url = "https://wa.me/263777000000?text=" + encodeURIComponent(text);
+  window.open(url, '_blank');
+}
+
+function submitCompatForm(e) {
+  e.preventDefault();
+  var mfg = document.getElementById('m-mfg').value.trim();
+  var model = document.getElementById('m-model').value.trim();
+  var count = document.getElementById('m-count').value.trim();
+  var contact = document.getElementById('m-contact').value.trim();
+  var phone = document.getElementById('m-phone').value.trim();
+
+  var text = "Compatibility Assessment Request:
+" +
+             "• Manufacturer: " + mfg + "
+" +
+             "• Model: " + model + "
+" +
+             "• Number of Vehicles: " + count + "
+" +
+             "• Contact Person: " + contact + "
+" +
+             "• Phone / WhatsApp: " + phone;
+
+  var waUrl = "https://wa.me/263777000000?text=" + encodeURIComponent(text);
+  window.open(waUrl, '_blank');
+  closeCompatModal();
+}
+
 document.querySelectorAll('a[href^="#"]').forEach(function (a) {
   a.addEventListener('click', function (e) {
-    var t = document.querySelector(a.getAttribute('href'));
-    if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    var target = document.querySelector(a.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 });
 </script>

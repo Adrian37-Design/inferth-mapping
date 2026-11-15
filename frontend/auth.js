@@ -152,8 +152,20 @@ class AuthManager {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Verification failed');
+            let errorMsg = 'Verification failed';
+            try {
+                const error = await response.json();
+                if (typeof error.detail === 'string') {
+                    errorMsg = error.detail;
+                } else if (Array.isArray(error.detail)) {
+                    errorMsg = error.detail.map(d => (d && d.msg) ? d.msg : String(d)).join(', ');
+                } else if (error && error.message) {
+                    errorMsg = error.message;
+                }
+            } catch (e) {
+                errorMsg = response.statusText || 'Verification failed. Please check the code and try again.';
+            }
+            throw new Error(errorMsg);
         }
 
         const data = await response.json();

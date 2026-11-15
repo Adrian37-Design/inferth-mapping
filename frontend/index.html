@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=187">
+    <link rel="stylesheet" href="/static/app.css?v=188">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1200,6 +1200,50 @@
                         <p class="faq-empty hidden" id="faq-empty">No topic matches that search. Try a shorter word.</p>
 
                         <div class="faq-sections" id="faq-sections">
+                            <section class="faq-section" id="faq-section-official">
+                                <h5 class="faq-section-title"><i class="fas fa-certificate orange" style="color:#f97316;"></i> Platform &amp; BYOT FAQ (Official Guidelines)</h5>
+
+                                <details class="faq-item" data-faq-id="faq-off-1" open>
+                                    <summary>1. Can I use my existing GPS tracker with Inferth Mapping?</summary>
+                                    <div class="faq-answer"><p>Yes. If your tracker uses a supported communication protocol and allows its reporting IP and port to be configured, it can connect to our platform.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-2">
+                                    <summary>2. What tracker protocols are supported?</summary>
+                                    <div class="faq-answer"><p>Inferth Mapping currently supports GT06-compatible devices, SinoTrack, Teltonika AVL, H02, GPS103 and several others. Submit your tracker details for assessment.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-3">
+                                    <summary>3. How does progressive volume pricing work?</summary>
+                                    <div class="faq-answer"><p>Each vehicle rate applies only to vehicles within that specific band, rather than the entire fleet. For example, on the Basic plan, the first 5 vehicles are $15 each, and vehicles 6–20 are $12 each.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-4">
+                                    <summary>4. What is the difference between Basic and Premium?</summary>
+                                    <div class="faq-answer"><p>Basic covers essential GPS tracking, 30-day route history, basic alerts and fleet reports. Premium adds CAN/OBD telemetry (where supported), fuel monitoring, automated WhatsApp reports, priority alerts and 90-day history.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-5">
+                                    <summary>5. What is Pay As You Drive (PAYD)?</summary>
+                                    <div class="faq-answer"><p>PAYD is a daily billing option ($0.40/vehicle/day) for vehicles that only need tracking occasionally. Optional features like route history or diagnostics can be activated for fixed fees per period.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-6">
+                                    <summary>6. Can Inferth Mapping immobilise a vehicle remotely?</summary>
+                                    <div class="faq-answer"><p>Yes, where the installed hardware and vehicle electrical configuration support relay control, and the feature has been verified, tested and safely enabled with appropriate permissions.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-7">
+                                    <summary>7. What is Console Rental?</summary>
+                                    <div class="faq-answer"><p>Console Rental is a reseller tier for tracking businesses that want to provide fleet management to their own clients using Inferth Mapping's software infrastructure.</p></div>
+                                </details>
+
+                                <details class="faq-item" data-faq-id="faq-off-8">
+                                    <summary>8. Does Inferth Mapping provide SIM cards and installation?</summary>
+                                    <div class="faq-answer"><p>Customers typically provide their own SIM cards and arrange physical installation. Inferth Mapping can recommend or quote installation and hardware separately if required.</p></div>
+                                </details>
+                            </section>
+
 
                             <section class="faq-section" id="faq-section-start">
                                 <h5 class="faq-section-title"><i class="fas fa-rocket"></i> Getting started</h5>
@@ -2629,7 +2673,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=179"></script>
+    <script src="/static/app.js?v=180"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
