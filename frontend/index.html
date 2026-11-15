@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=190">
+    <link rel="stylesheet" href="/static/app.css?v=191">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -2725,7 +2725,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=182"></script>
+    <script src="/static/app.js?v=183"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
@@ -2736,20 +2736,45 @@
                 <button class="close-modal" onclick="closeModal('payment-modal')">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="payment-options">
-                    <div class="payment-method-card" id="pay-paynow">
-                        <i class="fas fa-bolt"></i>
-                        <div class="method-text">
-                            <strong>Pay via Paynow</strong>
-                            <small>Instant activation (USD)</small>
+                <div class="payment-options" style="display:flex; flex-direction:column; gap:10px;">
+                    <!-- EcoCash Express Mobile Money -->
+                    <div class="payment-method-card" id="pay-ecocash" onclick="document.getElementById('pay-paynow').click()" style="cursor:pointer; display:flex; align-items:center; gap:14px; padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px; transition:all 0.18s ease;">
+                        <i class="fas fa-mobile-screen-button" style="color:#0284c7; font-size:1.6rem; width:28px; text-align:center;"></i>
+                        <div class="method-text" style="flex:1;">
+                            <strong style="font-size:0.92rem; color:#0f172a; display:block;">EcoCash (USD &amp; ZiG)</strong>
+                            <small style="color:#64748b; font-size:0.75rem;">Instant USSD prompt directly on your mobile device</small>
                         </div>
+                        <span style="font-size:0.7rem; font-weight:800; color:#0284c7; background:#f0f9ff; padding:3px 8px; border-radius:4px;">INSTANT</span>
                     </div>
-                    <div class="payment-method-card" id="pay-manual">
-                        <i class="fas fa-university"></i>
-                        <div class="method-text">
-                            <strong>Bank / Mobile Transfer</strong>
-                            <small>Manual approval required (USD)</small>
+
+                    <!-- OneMoney Express -->
+                    <div class="payment-method-card" id="pay-onemoney" onclick="document.getElementById('pay-paynow').click()" style="cursor:pointer; display:flex; align-items:center; gap:14px; padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px; transition:all 0.18s ease;">
+                        <i class="fas fa-phone" style="color:#ea580c; font-size:1.4rem; width:28px; text-align:center;"></i>
+                        <div class="method-text" style="flex:1;">
+                            <strong style="font-size:0.92rem; color:#0f172a; display:block;">OneMoney (NetOne)</strong>
+                            <small style="color:#64748b; font-size:0.75rem;">Instant mobile money debit</small>
                         </div>
+                        <span style="font-size:0.7rem; font-weight:800; color:#ea580c; background:#fff7ed; padding:3px 8px; border-radius:4px;">INSTANT</span>
+                    </div>
+
+                    <!-- Visa, Mastercard, Zimswitch & InnBucks -->
+                    <div class="payment-method-card" id="pay-paynow" style="cursor:pointer; display:flex; align-items:center; gap:14px; padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px; transition:all 0.18s ease;">
+                        <i class="far fa-credit-card" style="color:#16a34a; font-size:1.5rem; width:28px; text-align:center;"></i>
+                        <div class="method-text" style="flex:1;">
+                            <strong style="font-size:0.92rem; color:#0f172a; display:block;">Visa &middot; Mastercard &middot; Zimswitch &middot; InnBucks</strong>
+                            <small style="color:#64748b; font-size:0.75rem;">Secure online card &amp; QR checkout via Paynow Gateway</small>
+                        </div>
+                        <span style="font-size:0.7rem; font-weight:800; color:#16a34a; background:#f0fdf4; padding:3px 8px; border-radius:4px;">ONLINE</span>
+                    </div>
+
+                    <!-- Bank Transfer / Manual POP -->
+                    <div class="payment-method-card" id="pay-manual" style="cursor:pointer; display:flex; align-items:center; gap:14px; padding:14px 16px; border:1.5px solid #e2e8f0; border-radius:10px; transition:all 0.18s ease;">
+                        <i class="fas fa-university" style="color:#64748b; font-size:1.4rem; width:28px; text-align:center;"></i>
+                        <div class="method-text" style="flex:1;">
+                            <strong style="font-size:0.92rem; color:#0f172a; display:block;">Bank Transfer / Cash Deposit</strong>
+                            <small style="color:#64748b; font-size:0.75rem;">Upload receipt or proof of payment for manual activation</small>
+                        </div>
+                        <span style="font-size:0.7rem; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 8px; border-radius:4px;">MANUAL</span>
                     </div>
                 </div>
 
