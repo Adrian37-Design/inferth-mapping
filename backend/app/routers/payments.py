@@ -52,7 +52,7 @@ async def initiate_paynow(
         raise HTTPException(status_code=503, detail="Online payments are not configured")
     
     # Determine billing price
-    price_map = {"Basic": 12.0, "Professional": 17.0, "Enterprise": 100.0, "Fleet": 17.0}
+    price_map = {"Basic": 15.0, "Premium": 25.0, "Professional": 25.0, "Enterprise": 100.0, "Fleet": 25.0, "Console_Rental": 15.0}
     if amount is not None and float(amount) > 0:
         charge_amount = round(float(amount), 2)
     else:
@@ -116,7 +116,7 @@ async def initiate_paynow_mobile(
     elif clean_phone.startswith("263"):
         clean_phone = "0" + clean_phone[3:]
     
-    price_map = {"Basic": 12.0, "Professional": 17.0, "Enterprise": 100.0, "Fleet": 17.0}
+    price_map = {"Basic": 15.0, "Premium": 25.0, "Professional": 25.0, "Enterprise": 100.0, "Fleet": 25.0, "Console_Rental": 15.0}
     if amount is not None and float(amount) > 0:
         charge_amount = round(float(amount), 2)
     else:

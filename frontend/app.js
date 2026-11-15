@@ -866,7 +866,7 @@ function loadBillingData() {
 
     const sub = user.subscription;
     // Normalize plan naming (support both "Pro" and "Professional")
-    const normalizedPlan = (sub.plan === 'Pro' || sub.plan === 'Professional') ? 'Professional' : sub.plan;
+    const normalizedPlan = (sub.plan === 'Pro' || sub.plan === 'Professional' || sub.plan === 'Premium') ? 'Premium' : sub.plan;
 
     // 1. Populate Plan Details
     const planName = document.getElementById('billing-plan-name');
@@ -892,15 +892,15 @@ function loadBillingData() {
 
     // Dynamic Pricing Update
     if (pricingDisplay) {
-        if (normalizedPlan === 'Basic') {
+        if (normalizedPlan === 'Basic' || normalizedPlan === 'Starter') {
             pricingDisplay.innerHTML = `
-                <span class="price">$12</span>
+                <span class="price">$15</span>
                 <span class="period">/vehicle/mo</span>
             `;
             pricingDisplay.classList.remove('hidden');
-        } else if (normalizedPlan === 'Professional') {
+        } else if (normalizedPlan === 'Premium' || normalizedPlan === 'Professional') {
             pricingDisplay.innerHTML = `
-                <span class="price">$17</span>
+                <span class="price">$25</span>
                 <span class="period">/vehicle/mo</span>
             `;
             pricingDisplay.classList.remove('hidden');
@@ -918,7 +918,7 @@ function loadBillingData() {
     // 2. Populate Usage (Active Assets)
     const activeCount = Object.keys(vehiclePositions).length;
     let limit = 5;
-    if (normalizedPlan === 'Professional') limit = 50;
+    if (normalizedPlan === 'Premium' || normalizedPlan === 'Professional') limit = 50;
     else if (normalizedPlan === 'Enterprise') limit = 1000; // Scope cap
 
     const usageText = document.getElementById('billing-usage-text');
@@ -994,7 +994,7 @@ function renderFeatureAccess(features, plan) {
     list.innerHTML = featureDefinitions.map(f => {
         // Feature is enabled if hardcoded 'alwaysOn', matched in 'features' JSON, 
         // or explicitly included in the Professional/Enterprise tiers
-        const isProfessionalTier = (plan === 'Professional' || plan === 'Enterprise');
+        const isProfessionalTier = (plan === 'Premium' || plan === 'Professional' || plan === 'Enterprise');
         let isEnabled = f.alwaysOn || features[f.key];
 
         // Explicit Tier Overrides
@@ -1019,7 +1019,7 @@ function renderFeatureAccess(features, plan) {
 }
 
 function applyPremiumLocks(features, plan) {
-    const isProfessionalTier = (plan === 'Professional' || plan === 'Enterprise');
+    const isProfessionalTier = (plan === 'Premium' || plan === 'Professional' || plan === 'Enterprise');
 
     // Feature enablement with tier overrides
     const hasReports = features.reports || isProfessionalTier;
@@ -8876,8 +8876,10 @@ function setupPaymentListeners() {
 // ============================================================
 
 const BILLING_PLANS = {
-    starter:      { monthly: 12,   yearly: 8,    yearlyTotal: 101, yearlyLabel: '$101/vehicle/yr — save $43' },
-    professional: { monthly: 17,   yearly: 12,   yearlyTotal: 143, yearlyLabel: '$143/vehicle/yr — save $61' },
+    basic:        { monthly: 15,   yearly: 12.5, yearlyTotal: 150, yearlyLabel: 'Billed as $150/vehicle/yr — 2 months free' },
+    premium:      { monthly: 25,   yearly: 20.8, yearlyTotal: 250, yearlyLabel: 'Billed as $250/vehicle/yr — 2 months free' },
+    starter:      { monthly: 15,   yearly: 12.5, yearlyTotal: 150, yearlyLabel: 'Billed as $150/vehicle/yr — 2 months free' },
+    professional: { monthly: 25,   yearly: 20.8, yearlyTotal: 250, yearlyLabel: 'Billed as $250/vehicle/yr — 2 months free' },
     enterprise:   { monthly: null, yearly: null }
 };
 
@@ -8894,7 +8896,7 @@ window.setBillingPeriod = function(period) {
     if (btnY) btnY.classList.toggle('active', isYearly);
 
     // Update prices with fade animation
-    const plans = ['starter', 'professional'];
+    const plans = ['basic', 'premium', 'starter', 'professional'];
     plans.forEach(key => {
         const amountEl  = document.getElementById(`price-${key}`);
         const noteEl    = document.getElementById(`yearly-note-${key}`);

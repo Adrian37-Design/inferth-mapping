@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=188">
+    <link rel="stylesheet" href="/static/app.css?v=189">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1813,59 +1813,85 @@
                             <!-- 3-Tier Plan Cards Grid -->
                             <div class="billing-plans-grid">
 
-                                <!-- STARTER -->
-                                <div class="bplan-card starter">
+                                <!-- BASIC -->
+                                <div class="bplan-card starter basic-plan-card">
                                     <div class="bplan-top">
-                                        <div class="bplan-icon"><i class="fas fa-seedling"></i></div>
-                                        <h3 class="bplan-name">Starter</h3>
-                                        <p class="bplan-desc">Perfect for small operators running 1&ndash;5 trucks in the field.</p>
+                                        <div class="bplan-icon"><i class="fas fa-satellite-dish"></i></div>
+                                        <h3 class="bplan-name">Basic</h3>
+                                        <p class="bplan-desc">Essential GPS tracking and fleet management.</p>
                                     </div>
                                     <div class="bplan-price-row">
                                         <span class="bplan-currency">$</span>
-                                        <span class="bplan-amount" id="price-starter">12</span>
+                                        <span class="bplan-amount" id="price-starter">15</span>
                                         <span class="bplan-period">/vehicle/mo</span>
                                     </div>
-                                    <div class="bplan-yearly-note hidden" id="yearly-note-starter">Billed as $101/vehicle/yr &mdash; save $43</div>
+                                    <div class="bplan-yearly-note hidden" id="yearly-note-starter">Billed as $150/vehicle/yr &mdash; 2 months free</div>
+
+                                    <!-- Progressive Volume Band Table -->
+                                    <div style="margin: 10px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 0.75rem;">
+                                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Progressive Volume Rates:</div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>First 1&ndash;5 vehicles:</span><strong style="color: #ea580c;">$15/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 6&ndash;20:</span><strong style="color: #ea580c;">$12/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 21&ndash;50:</span><strong style="color: #ea580c;">$10/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Above 50:</span><strong>Custom quote</strong></div>
+                                    </div>
+
                                     <ul class="bplan-features">
-                                        <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
-                                        <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
-                                        <li><i class="fas fa-check"></i> WhatsApp OTP auth</li>
-                                        <li><i class="fas fa-check"></i> Basic alerts &amp; 30-day history</li>
-                                        <li><i class="fas fa-check"></i> Up to 5 vehicles</li>
+                                        <li><i class="fas fa-check"></i> Real-time GPS tracking &amp; live map</li>
+                                        <li><i class="fas fa-check"></i> 30-day route history &amp; playback</li>
+                                        <li><i class="fas fa-check"></i> Trip &amp; mileage reports</li>
+                                        <li><i class="fas fa-check"></i> Up to 5 geofences</li>
+                                        <li><i class="fas fa-check"></i> Speed and ignition alerts</li>
+                                        <li><i class="fas fa-check"></i> WhatsApp notifications</li>
+                                        <li><i class="fas fa-check"></i> Scheduled basic reports</li>
+                                        <li><i class="fas fa-check"></i> Technical platform support</li>
                                     </ul>
-                                    <button class="bplan-btn btn-outline" id="pay-now-btn" onclick="triggerPlanPayment('Starter')">
-                                        <i class="fas fa-credit-card"></i> Get Started
+                                    <button class="bplan-btn btn-outline" id="pay-now-btn" onclick="triggerPlanPayment('Basic')">
+                                        <i class="fas fa-credit-card"></i> Subscribe to Basic ($15/mo)
                                     </button>
-                                    <button class="bplan-btn btn-outline hidden" id="upgrade-tier-btn" style="margin-top:8px;" onclick="alert('Contact sales@inferth.com to upgrade your plan.')">
-                                        <i class="fas fa-arrow-circle-up"></i> Upgrade Plan
+                                    <button class="bplan-btn btn-outline hidden" id="upgrade-tier-btn" style="margin-top:8px;" onclick="window.open('https://wa.me/263783009275?text=Upgrade%20to%20Premium','_blank')">
+                                        <i class="fas fa-arrow-circle-up"></i> Upgrade to Premium
                                     </button>
                                     <div class="feature-access-list hidden" id="billing-features-list"></div>
                                 </div>
 
-                                <!-- PROFESSIONAL (popular) -->
-                                <div class="bplan-card professional popular">
-                                    <div class="bplan-popular-badge"><i class="fas fa-star"></i> Most Popular</div>
+                                <!-- PREMIUM (popular) -->
+                                <div class="bplan-card professional popular premium-plan-card">
+                                    <div class="bplan-popular-badge"><i class="fas fa-star"></i> Recommended for Fleets</div>
                                     <div class="bplan-top">
                                         <div class="bplan-icon"><i class="fas fa-bolt"></i></div>
-                                        <h3 class="bplan-name">Professional</h3>
-                                        <p class="bplan-desc">For growing fleets that need advanced telematics &amp; compliance tools.</p>
+                                        <h3 class="bplan-name">Premium</h3>
+                                        <p class="bplan-desc">Advanced fleet monitoring and vehicle intelligence.</p>
                                     </div>
                                     <div class="bplan-price-row">
                                         <span class="bplan-currency">$</span>
-                                        <span class="bplan-amount" id="price-professional">17</span>
+                                        <span class="bplan-amount" id="price-professional">25</span>
                                         <span class="bplan-period">/vehicle/mo</span>
                                     </div>
-                                    <div class="bplan-yearly-note hidden" id="yearly-note-professional">Billed as $143/vehicle/yr &mdash; save $61</div>
+                                    <div class="bplan-yearly-note hidden" id="yearly-note-professional">Billed as $250/vehicle/yr &mdash; 2 months free</div>
+
+                                    <!-- Progressive Volume Band Table -->
+                                    <div style="margin: 10px 0; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 8px 10px; font-size: 0.75rem;">
+                                        <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Progressive Volume Rates:</div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #fed7aa; padding: 2px 0;"><span>First 1&ndash;5 vehicles:</span><strong style="color: #ea580c;">$25/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #fed7aa; padding: 2px 0;"><span>Vehicles 6&ndash;20:</span><strong style="color: #ea580c;">$22/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #fed7aa; padding: 2px 0;"><span>Vehicles 21&ndash;50:</span><strong style="color: #ea580c;">$18/mo</strong></div>
+                                        <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Above 50:</span><strong>Custom quote</strong></div>
+                                    </div>
+
                                     <ul class="bplan-features">
-                                        <li><i class="fas fa-check"></i> Everything in Starter</li>
-                                        <li><i class="fas fa-check"></i> Remote engine immobilizer</li>
-                                        <li><i class="fas fa-check"></i> Fuel siphoning detection</li>
-                                        <li><i class="fas fa-check"></i> Driver insights &amp; scorecards</li>
-                                        <li><i class="fas fa-check"></i> Audit log &amp; compliance exports</li>
-                                        <li><i class="fas fa-check"></i> Up to 50 vehicles</li>
+                                        <li><i class="fas fa-check"></i> <strong>Everything in Basic, plus:</strong></li>
+                                        <li><i class="fas fa-check"></i> Extended 90-day route history</li>
+                                        <li><i class="fas fa-check"></i> Advanced fleet reporting &amp; analytics</li>
+                                        <li><i class="fas fa-check"></i> Automated WhatsApp fleet reports</li>
+                                        <li><i class="fas fa-check"></i> Medium &amp; High priority WhatsApp alerts</li>
+                                        <li><i class="fas fa-check"></i> CAN Bus &amp; OBD data (RPM, coolant temp)</li>
+                                        <li><i class="fas fa-check"></i> Fuel-level &amp; consumption data</li>
+                                        <li><i class="fas fa-check"></i> Odometer &amp; vehicle health monitoring</li>
+                                        <li><i class="fas fa-check"></i> Maintenance reminders</li>
                                     </ul>
-                                    <button class="bplan-btn btn-primary" onclick="triggerPlanPayment('Professional')">
-                                        <i class="fas fa-credit-card"></i> Get Started
+                                    <button class="bplan-btn btn-primary" onclick="triggerPlanPayment('Premium')">
+                                        <i class="fas fa-credit-card"></i> Subscribe to Premium ($25/mo)
                                     </button>
                                 </div>
 
@@ -1874,23 +1900,45 @@
                                     <div class="bplan-top">
                                         <div class="bplan-icon"><i class="fas fa-building"></i></div>
                                         <h3 class="bplan-name">Enterprise</h3>
-                                        <p class="bplan-desc">Unlimited scale, multi-company management &amp; API access for large fleets.</p>
+                                        <p class="bplan-desc">Fleet management for larger organisations with specialised operational requirements.</p>
                                     </div>
                                     <div class="bplan-price-row">
-                                        <span class="bplan-custom-label">Custom Pricing</span>
+                                        <span class="bplan-custom-label">Custom Quote</span>
                                     </div>
+                                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px; text-align:center;">Tailored enterprise volume contracts</div>
                                     <ul class="bplan-features">
-                                        <li><i class="fas fa-check"></i> Everything in Professional</li>
-                                        <li><i class="fas fa-check"></i> Multi-company (tenant) management</li>
-                                        <li><i class="fas fa-check"></i> REST API access</li>
-                                        <li><i class="fas fa-check"></i> Priority WhatsApp OTP dispatch</li>
-                                        <li><i class="fas fa-check"></i> Unlimited vehicles</li>
-                                        <li><i class="fas fa-check"></i> Dedicated support SLA</li>
+                                        <li><i class="fas fa-check"></i> Everything in Premium</li>
+                                        <li><i class="fas fa-check"></i> Multiple company and fleet accounts</li>
+                                        <li><i class="fas fa-check"></i> Role-based permissions &amp; users</li>
+                                        <li><i class="fas fa-check"></i> Advanced fleet analytics &amp; custom reports</li>
+                                        <li><i class="fas fa-check"></i> API &amp; third-party integrations</li>
+                                        <li><i class="fas fa-check"></i> Extended data retention</li>
+                                        <li><i class="fas fa-check"></i> Priority 24/7 technical support</li>
+                                        <li><i class="fas fa-check"></i> Remote immobilisation (where supported)</li>
                                     </ul>
-                                    <button class="bplan-btn btn-outline" onclick="window.open('mailto:sales@inferth.com?subject=Enterprise%20Pricing%20Inquiry','_blank')">
-                                        <i class="fas fa-envelope"></i> Contact Sales
+                                    <button class="bplan-btn btn-outline" onclick="window.open('https://wa.me/263783009275?text=Enterprise%20Quotation%20Request','_blank')">
+                                        <i class="fab fa-whatsapp"></i> Request Enterprise Quotation
                                     </button>
                                 </div>
+                            <!-- Progressive Pricing Explanation -->
+                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-top: 20px;">
+                                <h4 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;"><i class="fas fa-calculator" style="color:#ea580c;"></i> How progressive volume pricing works</h4>
+                                <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 10px;">The vehicle bands are cumulative. Each rate applies only to vehicles within that band rather than the entire fleet.</p>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; font-size: 0.8rem;">
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
+                                        <strong>Basic Plan (10 vehicles):</strong><br>
+                                        (5 × $15) + (5 × $12) = <strong style="color:#ea580c;">$135 / month</strong>
+                                    </div>
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px;">
+                                        <strong>Premium Plan (10 vehicles):</strong><br>
+                                        (5 × $25) + (5 × $22) = <strong style="color:#ea580c;">$235 / month</strong>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.74rem; color: #64748b; margin-top: 8px;">
+                                    <i class="fas fa-tag" style="color:#ea580c;"></i> Annual subscriptions are priced at 10 months of the equivalent monthly rate, giving customers two months free.
+                                </div>
+                            </div>
+
 
                             </div><!-- /billing-plans-grid -->
 
@@ -1993,8 +2041,32 @@
                             <!-- Platform Fleet Rental Plans -->
                             <div class="rental-plans-section">
                                 <div class="rental-plans-head">
-                                    <h3>Platform Fleet Rental Plans</h3>
-                                    <p>Software console rental for fleet managers and auto-electricians. Your plan is matched to the number of vehicles running on the console &mdash; no hardware purchase, and you can move up a pack as the fleet grows.</p>
+                                    <span class="badge" style="background:#ea580c; color:#fff; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:50px;">CONSOLE RENTAL</span>
+                                    <h3 style="margin-top:6px;">For Tracking Businesses &amp; Service Providers</h3>
+                                    <p>Run your own GPS tracking or fleet-management operation using Inferth Mapping's infrastructure. Base console fee: <strong>$15 per month</strong> (includes first 1&ndash;5 vehicles).</p>
+                                </div>
+
+                                <!-- Progressive Reseller Fee Structure -->
+                                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; margin-bottom:18px;">
+                                    <h4 style="font-size:0.88rem; font-weight:800; color:#0f172a; margin-bottom:6px;">Progressive Reseller Volume Rates:</h4>
+                                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; font-size:0.78rem; margin-bottom:12px;">
+                                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">Vehicles 1&ndash;5:<br><strong style="color:#ea580c;">Included ($15 base)</strong></div>
+                                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">Vehicles 6&ndash;25:<br><strong style="color:#ea580c;">$1.70 / vehicle</strong></div>
+                                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">Vehicles 26&ndash;75:<br><strong style="color:#ea580c;">$1.00 / vehicle</strong></div>
+                                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px;">Vehicles 76&ndash;200:<br><strong style="color:#ea580c;">$0.80 / vehicle</strong></div>
+                                    </div>
+
+                                    <h5 style="font-size:0.82rem; font-weight:700; color:#0f172a; margin-bottom:4px;">Monthly cost examples:</h5>
+                                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; font-size:0.75rem;">
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">5 trucks: <strong>$15.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">10 trucks: <strong>$23.50</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">25 trucks: <strong>$49.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">50 trucks: <strong>$74.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">75 trucks: <strong>$99.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">100 trucks: <strong>$119.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">200 trucks: <strong>$199.00</strong></div>
+                                        <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">Above 200: <strong>Custom</strong></div>
+                                    </div>
                                 </div>
                                 <div class="rental-plans-grid">
                                     <div class="rental-plan-card" data-rental-min="1" data-rental-max="10">
@@ -2017,7 +2089,7 @@
                                             <li><i class="fas fa-check"></i> Manager and viewer accounts for your team</li>
                                             <li><i class="fas fa-check"></i> Dedicated WhatsApp support SLA</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Fleet_Rental_10', 49)">Rent 10 &mdash; $49/mo</button>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Console_Rental', 15)">Start Console &mdash; $15/mo</button>
                                     </div>
 
                                     <div class="rental-plan-card" data-rental-min="11" data-rental-max="30">
@@ -2141,7 +2213,7 @@
                                         <small style="color:#16a34a; font-weight:600;"><i class="fas fa-circle-check"></i> Wallet active — estimated 70 vehicle-days remaining</small>
                                     </div>
                                     <div style="text-align:right;">
-                                        <div style="font-size:1.3rem; font-weight:800; color:#0f172a;">$0.50</div>
+                                        <div style="font-size:1.5rem; font-weight:900; color:#ea580c;">$0.40</div>
                                         <span style="font-size:0.75rem; color:#64748b; display:block;">/ active vehicle / day</span>
                                     </div>
                                 </div>
@@ -2149,10 +2221,24 @@
                                     <strong style="color:#0f172a;"><i class="fas fa-lightbulb" style="color:#f59e0b;"></i> Pay-As-You-Drive Guarantee:</strong> Credits are only deducted on calendar days when a vehicle is active on the road. If a truck is parked for maintenance or awaiting parts, simply toggle it inactive to pause all deductions.
                                 </div>
                                 <label style="font-size:0.8rem; font-weight:700; color:#0f172a; display:block; margin-bottom:8px;">Instant EcoCash / Paynow Wallet Top-up:</label>
+                                <!-- Optional Feature Activation Fees Table -->
+                                <div style="margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                                    <div style="font-weight: 800; font-size: 0.82rem; color: #0f172a; margin-bottom: 6px;">Optional feature activation fees (per vehicle / activation period):</div>
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 0.78rem;">
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Route history &amp; playback: <strong>$1.00</strong></div>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Geofencing &amp; alerts: <strong>$1.00</strong></div>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">WhatsApp reports: <strong>$1.00</strong></div>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">CAN/OBD diagnostics: <strong>$3.00</strong></div>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Fuel monitoring: <strong>$2.00</strong></div>
+                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Remote immobilisation: <strong>$2.00</strong></div>
+                                    </div>
+                                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 6px;">Example: 7 days tracking ($2.80) + CAN/OBD ($3.00) + WhatsApp ($1.00) = <strong>$6.80</strong>.</div>
+                                </div>
+
                                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
-                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(15)" style="padding:8px 16px; font-weight:700;">+$15 USD (30 Days)</button>
-                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(30)" style="padding:8px 16px; font-weight:700;">+$30 USD (60 Days)</button>
-                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(50)" style="padding:8px 16px; font-weight:700;">+$50 USD (100 Days)</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(12)" style="padding:8px 16px; font-weight:700;">+$12 USD (30 Days)</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(24)" style="padding:8px 16px; font-weight:700;">+$24 USD (60 Days)</button>
+                                    <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(40)" style="padding:8px 16px; font-weight:700;">+$40 USD (100 Days)</button>
                                     <button type="button" class="btn-primary btn-sm" onclick="topUpPrepaidWallet(100)" style="padding:8px 18px; font-weight:700;"><i class="fas fa-bolt"></i> +$100 USD Fleet Top-Up</button>
                                 </div>
                                 <div style="font-size:0.75rem; color:#64748b; border-top:1px solid #f1f5f9; padding-top:10px;">
@@ -2673,7 +2759,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=180"></script>
+    <script src="/static/app.js?v=181"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
