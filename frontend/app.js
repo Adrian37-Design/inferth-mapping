@@ -8803,6 +8803,142 @@ function applyBillingView(mode) {
     }
 }
 
+function _subscriptionMode(sub) {
+    const cycle = (sub && sub.cycle) || 'Monthly';
+    let mode = window.billingModeFromCycle(cycle);
+    const company = (window.AuthManager && window.AuthManager.user && window.AuthManager.user.company_name) || '';
+    if (/console\s*telematics/i.test(company)) mode = 'rental';
+    return mode;
+}
+
+// While a subscription is active only that plan is shown; cancelling it reveals
+// the plan chooser again. Applies to monthly, once-off, prepaid and rental.
+window.applySubscriptionGate = function () {
+    const user = window.AuthManager && window.AuthManager.user;
+    const sub = user && user.subscription;
+    if (!sub) return;
+
+    const active = String(sub.status || '').toLowerCase() === 'active';
+    const card = document.getElementById('active-plan-card');
+    const hint = document.getElementById('subscription-chooser-hint');
+    const panel = document.getElementById('billing-change-panel');
+    const bar = document.getElementById('billing-change-bar');
+    const head = panel && panel.querySelector('.bcp-head');
+    const views = {
+        monthly: document.getElementById('billing-monthly-view'),
+        onceoff: document.getElementById('billing-onceoff-view'),
+        prepaid: document.getElementById('billing-prepaid-view'),
+        rental: document.getElementById('billing-rental-view')
+    };
+
+    if (active) {
+        const mode = _subscriptionMode(sub);
+        const rawPlan = sub.plan || 'Basic';
+        const planLabel = (rawPlan === 'Pro' || rawPlan === 'Professional' || rawPlan === 'Premium') ? 'Premium'
+            : mode === 'prepaid' ? 'Prepaid Fleet Wallet'
+            : mode === 'rental' ? 'Platform Fleet Rental'
+            : mode === 'onceoff' ? 'Starter Pass'
+            : rawPlan;
+        const nameEl = document.getElementById('active-plan-name');
+        if (nameEl) nameEl.textContent = (mode === 'prepaid' || mode === 'rental') ? planLabel : planLabel + ' Plan';
+        const cycleEl = document.getElementById('active-plan-cycle');
+        if (cycleEl) cycleEl.textContent = sub.cycle || '\u2014';
+        const nextEl = document.getElementById('active-plan-next');
+        if (nextEl) {
+            nextEl.textContent = sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'Not scheduled';
+        }
+
+        if (card) card.classList.toggle('hidden', _billingOptionsOpen);
+        if (hint) hint.classList.add('hidden');
+        if (!_billingOptionsOpen) {
+            if (panel) panel.classList.add('hidden');
+            if (bar) bar.classList.add('hidden');
+        }
+        // Hide the other plans (and the duplicated status bar) while subscribed.
+        const hidePurchases = !_billingOptionsOpen;
+        document.querySelectorAll('[data-plan-purchase]').forEach(function (el) {
+            el.style.display = hidePurchases ? 'none' : '';
+        });
+        const statusBar = document.getElementById('billing-current-plan-bar');
+        if (statusBar) statusBar.style.display = hidePurchases ? 'none' : '';
+        Object.keys(views).forEach(function (m) {
+            if (views[m]) views[m].classList.toggle('hidden', m !== mode);
+        });
+        window.loadWalletBalance();
+        return;
+    }
+
+    // No active plan: show the chooser so a new plan (or top-up) can be bought.
+    _billingOptionsOpen = false;
+    if (card) card.classList.add('hidden');
+    if (hint) hint.classList.remove('hidden');
+    document.querySelectorAll('[data-plan-purchase]').forEach(function (el) {
+        el.style.display = '';
+    });
+    const statusBar = document.getElementById('billing-current-plan-bar');
+    if (statusBar) statusBar.style.display = '';
+    Object.keys(views).forEach(function (m) {
+        if (views[m]) views[m].classList.toggle('hidden', m !== (_billingCurrentMode || 'monthly'));
+    });
+    if (panel) panel.classList.remove('hidden');
+    if (bar) bar.classList.add('hidden');
+    if (head) head.classList.remove('hidden');
+    _billingModes.forEach(function (m) {
+        const b = document.getElementById('btn-billing-' + m);
+        if (b) b.classList.remove('hidden');
+    });
+    window.loadWalletBalance();
+};
+
+window.showPlanChooser = function () {
+    _billingOptionsOpen = true;
+    const panel = document.getElementById('billing-change-panel');
+    const bar = document.getElementById('billing-change-bar');
+    const head = panel && panel.querySelector('.bcp-head');
+    const card = document.getElementById('active-plan-card');
+    const hint = document.getElementById('subscription-chooser-hint');
+    if (panel) panel.classList.remove('hidden');
+    if (bar) bar.classList.add('hidden');
+    if (head) head.classList.remove('hidden');
+    if (card) card.classList.add('hidden');
+    if (hint) hint.classList.add('hidden');
+    document.querySelectorAll('[data-plan-purchase]').forEach(function (el) {
+        el.style.display = '';
+    });
+    const statusBar = document.getElementById('billing-current-plan-bar');
+    if (statusBar) statusBar.style.display = '';
+    _billingModes.forEach(function (m) {
+        const b = document.getElementById('btn-billing-' + m);
+        if (b) b.classList.remove('hidden');
+    });
+    applyBillingView(_billingCurrentMode || 'monthly');
+};
+
+window.cancelSubscription = async function () {
+    if (!confirm('Cancel your subscription? You can pick another plan right afterwards.')) return;
+    const btn = document.getElementById('cancel-subscription-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Cancelling\u2026';
+    }
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/subscription/cancel', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Could not cancel the subscription');
+        if (window.AuthManager.user && window.AuthManager.user.subscription) {
+            window.AuthManager.user.subscription.status = 'cancelled';
+        }
+        window.applySubscriptionGate();
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Cancel subscription';
+        }
+    }
+};
+
 // Real Prepaid Fleet Wallet balance (was hard-coded in the markup).
 window.loadWalletBalance = async function () {
     const el = document.getElementById('prepaid-wallet-balance');
@@ -8854,6 +8990,7 @@ window.initBillingAccess = function() {
         });
         applyBillingView(_billingCurrentMode);
         window.loadWalletBalance();
+        window.applySubscriptionGate();
         return;
     }
 
@@ -8866,6 +9003,7 @@ window.initBillingAccess = function() {
     });
     applyBillingView(_billingCurrentMode);
     window.loadWalletBalance();
+    window.applySubscriptionGate();
 };
 
 window.openBillingChangeOptions = function(preferredMode) {
@@ -8901,6 +9039,7 @@ window.closeBillingChangeOptions = function() {
         if (b) b.classList.remove('hidden');
     });
     applyBillingView(_billingCurrentMode);
+    window.applySubscriptionGate();
 };
 
 window.switchBillingPlanMode = function(mode) {

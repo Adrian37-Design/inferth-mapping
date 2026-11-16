@@ -320,6 +320,30 @@ async def latest_paynow_payment(
     return _payment_payload(txn)
 
 
+@router.post("/subscription/cancel")
+async def cancel_subscription(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cancel the tenant's subscription so a different plan can be chosen."""
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    ).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if (tenant.subscription_status or "").lower() != "cancelled":
+        tenant.subscription_status = "cancelled"
+        tenant.next_billing_date = None
+        await db.commit()
+
+    return {
+        "status": "cancelled",
+        "plan": tenant.plan,
+        "wallet_balance_usd": round(float(tenant.wallet_balance_usd or 0), 2),
+    }
+
+
 @router.get("/wallet")
 async def prepaid_wallet(
     db: AsyncSession = Depends(get_db),

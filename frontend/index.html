@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=198">
+    <link rel="stylesheet" href="/static/app.css?v=199">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1726,6 +1726,28 @@
                     <div class="billing-container">
                         <!-- Paynow checkout outcome (shown when the customer returns from payment) -->
                         <div id="payment-result-banner" class="payment-result hidden" role="status" aria-live="polite"></div>
+
+                        <!-- Active plan: only the subscribed plan is shown until it is cancelled -->
+                        <div id="active-plan-card" class="active-plan-card hidden">
+                            <div class="apc-head">
+                                <div class="apc-title">
+                                    <span class="apc-eyebrow">YOUR ACTIVE PLAN</span>
+                                    <h3 id="active-plan-name">&mdash;</h3>
+                                    <span class="apc-status" id="active-plan-status">Active</span>
+                                </div>
+                                <div class="apc-meta">
+                                    <span>Billing cycle <strong id="active-plan-cycle">&mdash;</strong></span>
+                                    <span>Next payment <strong id="active-plan-next">&mdash;</strong></span>
+                                </div>
+                            </div>
+                            <div class="apc-actions">
+                                <button type="button" class="apc-btn" onclick="window.showPlanChooser()">Change plan</button>
+                                <button type="button" class="apc-btn apc-btn-danger" id="cancel-subscription-btn" onclick="window.cancelSubscription()">Cancel subscription</button>
+                            </div>
+                        </div>
+                        <div id="subscription-chooser-hint" class="subscription-chooser-hint hidden">
+                            <i class="fas fa-circle-info"></i> No active plan. Choose a plan below to keep tracking.
+                        </div>
                         <!-- Change-billing control (hidden for admins) -->
                         <div class="billing-change-bar hidden" id="billing-change-bar">
                             <button type="button" class="billing-change-btn" id="billing-change-btn" onclick="window.openBillingChangeOptions()">
@@ -1786,7 +1808,7 @@
                             </div>
 
                             <!-- Monthly / Yearly Period Toggle -->
-                            <div class="billing-period-toggle-wrap">
+                            <div class="billing-period-toggle-wrap" data-plan-purchase>
                                 <div class="billing-period-toggle">
                                     <button type="button" id="btn-period-monthly" class="period-btn active" onclick="setBillingPeriod('monthly')">Monthly</button>
                                     <button type="button" id="btn-period-yearly" class="period-btn" onclick="setBillingPeriod('yearly')">
@@ -1796,7 +1818,7 @@
                             </div>
 
                             <!-- 3-Tier Plan Cards Grid -->
-                            <div class="billing-plans-grid">
+                            <div class="billing-plans-grid" data-plan-purchase>
 
                                 <!-- BASIC -->
                                 <div class="bplan-card starter basic-plan-card">
@@ -1914,7 +1936,7 @@
                         <div id="billing-onceoff-view" class="hidden">
 
                             <!-- SINGLE ONCE-OFF OPTION — Starter Pass, lifetime -->
-                            <div class="ot-plans-grid single">
+                            <div class="ot-plans-grid single" data-plan-purchase>
 
                                 <div class="ot-plan-card">
                                     <div class="ot-plan-top">
@@ -1990,7 +2012,7 @@
                                         <div style="padding:4px 6px; border:1px solid #f1f5f9; border-radius:4px;">Above 200: <strong>Custom</strong></div>
                                     </div>
                                 </div>
-                                <div class="rental-plans-grid">
+                                <div class="rental-plans-grid" data-plan-purchase>
                                     <!-- Container 1: Base Console Tier (1–5 Vehicles) -->
                                     <div class="rental-plan-card" data-rental-min="1" data-rental-max="5">
                                         <div class="rental-plan-badge" style="background:#ea580c; color:#fff;">Starter Reseller Tier</div>
@@ -2717,7 +2739,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=189"></script>
+    <script src="/static/app.js?v=190"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
