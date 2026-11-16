@@ -5,7 +5,7 @@ import os
 from sqlalchemy.future import select
 from app.db import get_db
 from app.models import Tenant, Transaction, User
-from app.auth_middleware import get_current_user, require_admin
+from app.auth_middleware import get_current_user, require_admin, require_super_admin
 import datetime
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -148,4 +148,59 @@ async def prune_heartbeats(
         "message": f"Successfully pruned {deleted_count} empty heartbeat records older than {days} days.",
         "deleted_count": deleted_count
     }
+
+
+# --- TENANT-AWARE GPS RETENTION (READ-ONLY) ---
+from app.services.retention import dry_run_report, resolve_policy
+
+@router.get("/retention/policies")
+async def list_retention_policies(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """Resolved retention entitlement for every tenant. Reads only."""
+    rows = (
+        await db.execute(
+            select(Tenant.id, Tenant.name, Tenant.plan, Tenant.billing_cycle, Tenant.retention_days).order_by(Tenant.id)
+        )
+    ).mappings().all()
+    policies = [resolve_policy(row).as_dict() for row in rows]
+    return {
+        "tenants": policies,
+        "summary": {
+            "total": len(policies),
+            "eligible": sum(1 for p in policies if p["eligible"]),
+            "needs_configuration": [p["tenant_name"] for p in policies if not p["eligible"]],
+        },
+    }
+
+
+@router.get("/retention/dry-run")
+async def retention_dry_run(
+    tenant_id: int = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """
+    Reports how many position rows each tenant WOULD lose under its retention
+    policy. Issues SELECT statements only — no rows are deleted or modified.
+    """
+    report = await dry_run_report(db, tenant_id=tenant_id)
+    try:
+        audit = AuditLog(
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            action="RETENTION_DRY_RUN",
+            details={
+                "tenant_id": tenant_id,
+                "would_delete_rows": report["summary"]["would_delete_rows"],
+                "eligible_tenants": report["summary"]["eligible_tenants"],
+            },
+            ip_address="127.0.0.1",
+        )
+        db.add(audit)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return report
 

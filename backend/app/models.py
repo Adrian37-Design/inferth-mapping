@@ -36,6 +36,9 @@ class Tenant(Base):
     billing_cycle = Column(String, default="Monthly")
     next_billing_date = Column(DateTime(timezone=True), nullable=True)
     features = Column(JSON, default={"reports": False, "advanced_rules": False, "geofencing": True})
+    # GPS history retention. NULL = derive from plan (Basic 30 / Premium 90 /
+    # Starter 30 / Prepaid 30 / Reseller 90). Set explicitly for Enterprise.
+    retention_days = Column(Integer, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -93,6 +93,8 @@ async def run_migrations_and_branding():
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR DEFAULT 'Monthly'",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS features JSON DEFAULT '{\"reports\": false, \"advanced_rules\": false, \"geofencing\": true}'",
+                    # Tenant-aware GPS retention: NULL derives from plan, set explicitly for Enterprise
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS retention_days INTEGER DEFAULT NULL",
                     "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     "CREATE TABLE IF NOT EXISTS rules (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), event_type VARCHAR, threshold FLOAT, channel VARCHAR DEFAULT 'system', contact VARCHAR, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
