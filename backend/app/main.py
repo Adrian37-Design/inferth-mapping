@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights
 from app.services.mqtt_client import start_mqtt
 import asyncio
+import datetime
 from app.config import settings
 from app.services.tcp_server import TCPTrackerProtocol
 from app.realtime import ws_listener
@@ -269,6 +270,30 @@ async def run_migrations_and_branding():
 
 
 
+async def _retention_daily_loop():
+    """
+    Daily GPS retention run at 02:00 UTC. Does nothing unless
+    RETENTION_ENABLED=true; still respects RETENTION_DRY_RUN.
+    """
+    from app.services.retention_worker import run_cleanup
+
+    await asyncio.sleep(120)
+    while True:
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            target = now.replace(hour=2, minute=0, second=0, microsecond=0)
+            if target <= now:
+                target += datetime.timedelta(days=1)
+            await asyncio.sleep((target - now).total_seconds())
+            from app.db import AsyncSessionLocal
+            async with AsyncSessionLocal() as db:
+                result = await run_cleanup(db)
+            print(f"[Retention] run complete: {result.get('skipped') or result.get('report') or result.get('tenants')}")
+        except Exception as exc:
+            print(f"[Retention] run failed: {exc}")
+            await asyncio.sleep(3600)
+
+
 async def _whatsapp_keepalive_loop():
     """
     WhatsApp keepalive loop (every 2 minutes):
@@ -355,6 +380,8 @@ async def startup_event():
     # 1. Start Heavy Logic in Background to avoid 502 Gateway Timeouts during boot
     asyncio.create_task(run_migrations_and_branding())
     asyncio.create_task(_whatsapp_keepalive_loop())
+    if os.getenv("RETENTION_ENABLED", "false").strip().lower() == "true" and os.getenv("RETENTION_SCHEDULER", "true").strip().lower() == "true":
+        asyncio.create_task(_retention_daily_loop())
 
     # 2. Start Immediate Services
     print("Starting background services...")

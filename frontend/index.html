@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=194">
+    <link rel="stylesheet" href="/static/app.css?v=195">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1201,7 +1201,7 @@
 
                         <div class="faq-sections" id="faq-sections">
                             <section class="faq-section" id="faq-section-official">
-                                <h5 class="faq-section-title"><i class="fas fa-certificate orange" style="color:#f97316;"></i> Platform &amp; BYOT FAQ (Official Guidelines)</h5>
+                                <h5 class="faq-section-title"><i class="fas fa-certificate orange" style="color:#f97316;"></i> Platform FAQ (Official Guidelines)</h5>
 
                                 <details class="faq-item" data-faq-id="faq-off-1" open>
                                     <summary>1. Can I use my existing GPS tracker with Inferth Mapping?</summary>
@@ -1737,7 +1737,7 @@
                                 <h4>Choose a billing option</h4>
                                 <button type="button" class="bcp-cancel" onclick="window.closeBillingChangeOptions()">Cancel</button>
                             </div>
-                            <!-- Founder Billing Model Switcher (Monthly vs Once-Off vs BYOT vs Prepaid) -->
+                            <!-- Billing model switcher (Monthly vs Once-Off vs Fleet Rental vs Prepaid) -->
                             <div class="billing-model-toggle" id="billing-model-toggle" style="display:flex; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="billing-pill active" id="btn-billing-monthly" onclick="switchBillingPlanMode('monthly')" style="flex:1; min-width:110px; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
                                 <i class="fas fa-calendar-alt"></i> Monthly
@@ -1956,51 +1956,9 @@
 
                         </div><!-- /billing-onceoff-view -->
 
-                        <!-- 2c. Bring Your Own Tracker (BYOT) & Platform Rental View -->
-                        <div id="billing-byot-view" class="hidden">
-                            <!-- Hero intro for BYOT -->
-                            <div class="byot-header-banner">
-                                <button type="button" class="byot-dismiss-btn" onclick="window.dismissByotPromo(); return false;" title="Hide for 30 days" aria-label="Hide for 30 days">&times;</button>
-                                <div class="byot-header-icon"><i class="fas fa-plug-circle-bolt"></i></div>
-                                <div>
-                                    <h3 class="byot-header-title">Bring Your Own Tracker &mdash; Software-Only Plans</h3>
-                                    <p class="byot-header-desc">
-                                        Don&rsquo;t buy expensive new hardware. If your car or truck already has a <strong>SinoTrack, GT06, Coban, Concox, or Teltonika</strong> GPS unit installed, you can switch to Inferth Mapping in under 2 minutes. Keep your tracker, wire nothing &mdash; just enjoy our real-time map, fuel telemetry, and WhatsApp alerts.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- BYOT Plans Grid -->
-                            <div class="byot-plans-grid">
-                                <!-- PLAN 1: BYOT Monthly -->
-                                <div class="byot-card">
-                                    <div class="byot-card-top">
-                                        <div class="byot-card-icon"><i class="fas fa-mobile-screen"></i></div>
-                                        <h4 class="byot-card-title">BYOT Monthly</h4>
-                                        <p class="byot-card-subtitle">Connect your existing tracker on a flexible monthly pay-as-you-go software plan.</p>
-                                    </div>
-                                    <div class="byot-price-box">
-                                        <span class="byot-currency">$</span>
-                                        <span class="byot-price">7</span>
-                                        <span class="byot-unit">/vehicle/month</span>
-                                    </div>
-                                    <div class="byot-subnote">Or $65/year &mdash; saves $19</div>
-                                    <ul class="byot-features">
-                                        <li><i class="fas fa-check"></i> Connect any GT06, SinoTrack, Coban, Teltonika</li>
-                                        <li><i class="fas fa-check"></i> Real-time live GPS tracking (10s updates)</li>
-                                        <li><i class="fas fa-check"></i> Instant WhatsApp OTP login &amp; alerts</li>
-                                        <li><i class="fas fa-check"></i> 30-day route history &amp; playback</li>
-                                        <li><i class="fas fa-check"></i> Up to 5 geofence zones</li>
-                                        <li><i class="fas fa-check"></i> Cancel or switch anytime</li>
-                                    </ul>
-                                    <button type="button" class="byot-btn btn-outline" onclick="triggerByotPayment('Monthly', 7)">
-                                        <i class="fas fa-credit-card"></i> Start at $7/mo
-                                    </button>
-                                </div>
-
-                                                            </div>
-
-                            <!-- Platform Fleet Rental Plans -->
+                        <!-- 2c. Platform Fleet Rental View -->
+                        <div id="billing-rental-view" class="hidden">
+<!-- Platform Fleet Rental Plans -->
                             <div class="rental-plans-section">
                                 <div class="rental-plans-head">
                                     <span class="badge" style="background:#ea580c; color:#fff; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:50px;">CONSOLE RENTAL</span>
@@ -2052,7 +2010,7 @@
                                             <li><i class="fas fa-check"></i> Automated weekly PDF activity reports</li>
                                             <li><i class="fas fa-check"></i> Direct technical platform support</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Console_Base_5', 15)">Start Base Console &mdash; $15/mo</button>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Base_5', 15)">Start Base Console &mdash; $15/mo</button>
                                     </div>
 
                                     <!-- Container 2: Growth Fleet Tier (6–25 Vehicles) -->
@@ -2076,7 +2034,7 @@
                                             <li><i class="fas fa-check"></i> Driver performance &amp; speed violation tracking</li>
                                             <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Console_Growth_25', 49)">Subscribe Growth Tier (25 trucks &mdash; $49/mo)</button>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Growth_25', 49)">Subscribe Growth Tier (25 trucks &mdash; $49/mo)</button>
                                     </div>
 
                                     <!-- Container 3: Scaled Fleet Tier (26–100+ Vehicles) -->
@@ -2099,75 +2057,11 @@
                                             <li><i class="fas fa-check"></i> Dedicated engineering WhatsApp SLA</li>
                                             <li><i class="fas fa-check"></i> Full REST API integration for your billing software</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerByotPayment('Console_Scale_100', 119)">Subscribe Scale Tier (100 trucks &mdash; $119/mo)</button>
+                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Scale_100', 119)">Subscribe Scale Tier (100 trucks &mdash; $119/mo)</button>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- 2-Minute SMS Setup Guide (How to connect your tracker) -->
-                            <div class="byot-setup-guide">
-                                <div class="byot-setup-header">
-                                    <i class="fas fa-screwdriver-wrench"></i>
-                                    <div>
-                                        <h4 style="margin:0 0 4px; font-size:1.02rem; color:#0f172a; font-weight:800;">How to Connect Your Tracker to Inferth</h4>
-                                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Every tracker brand has its own specific SMS syntax, numeric IP, and dedicated TCP port. Our technical desk sends you the exact command for your device:</p>
-                                    </div>
-                                </div>
-
-                                <div class="byot-sms-grid">
-                                    <!-- SinoTrack -->
-                                    <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-satellite"></i> SinoTrack (ST-901, ST-906, ST-915)</div>
-                                        <p class="byot-sms-text">SinoTrack TCP Protocol &middot; Configured via 1 SMS</p>
-                                        <div class="byot-sms-action">
-                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20SinoTrack%20SMS%20setup%20command%20for%20my%20tracker" target="_blank" class="byot-wa-link">
-                                                <i class="fa-brands fa-whatsapp"></i> Get SinoTrack SMS Setup
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <!-- GT06 / Generic Chinese -->
-                                    <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-microchip"></i> GT06 / Concox / Generic Clone</div>
-                                        <p class="byot-sms-text">GT06 Binary Protocol &middot; Configured via 1 SMS</p>
-                                        <div class="byot-sms-action">
-                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20GT06%20SMS%20setup%20command%20for%20my%20tracker" target="_blank" class="byot-wa-link">
-                                                <i class="fa-brands fa-whatsapp"></i> Get GT06 SMS Setup
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <!-- Coban GPS103 -->
-                                    <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-car-side"></i> Coban / GPS103 / TK103 / H02</div>
-                                        <p class="byot-sms-text">H02 / Coban ASCII Protocol &middot; Configured via 1 SMS</p>
-                                        <div class="byot-sms-action">
-                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20Coban%20GPS103%20SMS%20setup%20command" target="_blank" class="byot-wa-link">
-                                                <i class="fa-brands fa-whatsapp"></i> Get Coban SMS Setup
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <!-- Teltonika -->
-                                    <div class="byot-sms-card">
-                                        <div class="byot-sms-model"><i class="fas fa-server"></i> Teltonika (FMB920, FMB120, etc.)</div>
-                                        <p class="byot-sms-text">Codec 8/8E TCP &middot; Configured via Configurator or SMS</p>
-                                        <div class="byot-sms-action">
-                                            <a href="https://wa.me/263783009275?text=Hi%20Inferth,%20please%20send%20me%20the%20Teltonika%20server%20IP%20and%20port" target="_blank" class="byot-wa-link">
-                                                <i class="fa-brands fa-whatsapp"></i> Get Teltonika Server IP &amp; Port
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="byot-setup-foot">
-                                    <i class="fa-brands fa-whatsapp" style="color:#25d366; font-size:1.2rem; flex-shrink:0;"></i>
-                                    <div>
-                                        <strong>Direct Tech Support (24/7):</strong> WhatsApp us at <a href="https://wa.me/263783009275" target="_blank" style="color:#ea580c; font-weight:800; text-decoration:none;">+263 783 009 275</a> with your tracker model. We send you the exact IP &amp; port command and verify your tracker's live signal in 2 minutes.
-                                    </div>
-                                </div>
-                            </div>
-                        </div><!-- /billing-byot-view -->
+                        </div><!-- /billing-rental-view -->
 
                         <!-- 2. Prepaid EcoCash Fleet Wallet View -->
                         <div id="billing-prepaid-view" class="hidden">
@@ -2362,14 +2256,29 @@
                             </h4>
                             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:0.82rem;">
                                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
-                                    <span style="color:#64748b; display:block; font-size:0.75rem;">GPS Positions Retention</span>
-                                    <strong style="color:#0f172a;">30-Day Basic / 90-Day Pro</strong>
-                                    <div style="font-size:0.72rem; color:#10b981; margin-top:4px;"><i class="fas fa-check-circle"></i> Active Pruning Policy</div>
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">GPS positions retention</span>
+                                    <strong style="color:#0f172a;">Basic 30d &middot; Premium 90d &middot; Enterprise set per customer</strong>
+                                    <div style="font-size:0.72rem; color:#b45309; margin-top:4px;"><i class="fas fa-clock"></i> Cleanup waits for review</div>
                                 </div>
                                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
                                     <span style="color:#64748b; display:block; font-size:0.75rem;">Data Hygiene Guardrails</span>
                                     <strong style="color:#0f172a;">Anti-Teleport &amp; Null Island</strong>
                                     <div style="font-size:0.72rem; color:#10b981; margin-top:4px;"><i class="fas fa-check-circle"></i> Active on Ingestion</div>
+                                </div>
+                            </div>
+                            <p id="retention-limited" style="margin:12px 0 0; font-size:0.78rem; color:#64748b;">
+                                Only a platform administrator can edit per-customer retention.
+                            </p>
+                            <div id="retention-admin" hidden>
+                                <p style="margin:12px 0 10px; font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                    Set an explicit retention window for Enterprise accounts and individual reseller end-customers. Leave blank to use the plan default. This only affects future cleanup runs &mdash; existing history is not deleted.
+                                </p>
+                                <div id="retention-tenant-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                                    <button type="button" onclick="runRetentionDryRun()" style="background:#0f172a; color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:0.78rem; font-weight:700; cursor:pointer;">
+                                        <i class="fas fa-calculator"></i> Preview deletions (dry run)
+                                    </button>
+                                    <span id="retention-dryrun-result" style="font-size:0.78rem; color:#475569;"></span>
                                 </div>
                             </div>
                         </div>
@@ -2803,7 +2712,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=185"></script>
+    <script src="/static/app.js?v=186"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

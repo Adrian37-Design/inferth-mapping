@@ -8247,7 +8247,83 @@ function loadSettingsTab() {
     if (autoPlayEl && typeof historyAutoPlayTrips === 'function') {
         autoPlayEl.checked = historyAutoPlayTrips();
     }
+    if (typeof window.loadRetentionSettings === 'function') window.loadRetentionSettings();
 }
+
+
+// --- GPS retention management (platform admin) ---
+window.loadRetentionSettings = async function () {
+    const wrap = document.getElementById('retention-admin');
+    const list = document.getElementById('retention-tenant-list');
+    const limited = document.getElementById('retention-limited');
+    if (!wrap || !list || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/retention/policies');
+        if (!res.ok) {
+            wrap.hidden = true;
+            if (limited) limited.hidden = false;
+            return;
+        }
+        const data = await res.json();
+        wrap.hidden = false;
+        if (limited) limited.hidden = true;
+        list.innerHTML = (data.tenants || []).map(function (t) {
+            var value = t.retention_days == null ? '' : t.retention_days;
+            var warn = t.eligible ? '' : '<span style="color:#b91c1c;font-size:0.72rem;">needs configuration</span>';
+            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">' +
+                '<strong style="font-size:0.8rem;color:#0f172a;min-width:140px;">' + (t.tenant_name || ('Tenant ' + t.tenant_id)) + '</strong>' +
+                '<span style="font-size:0.72rem;color:#64748b;">' + (t.tier || 'unknown') + ' &middot; ' + (t.plan || 'unset') + '</span>' +
+                warn +
+                '<input type="number" min="1" max="3650" placeholder="auto" value="' + value + '" id="retention-days-' + t.tenant_id + '" style="width:90px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;">' +
+                '<span style="font-size:0.72rem;color:#64748b;">days</span>' +
+                '<button type="button" onclick="saveTenantRetention(' + t.tenant_id + ')" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:5px 10px;font-size:0.74rem;font-weight:700;cursor:pointer;">Save</button>' +
+                '</div>';
+        }).join('') || '<p style="font-size:0.78rem;color:#64748b;">No tenants.</p>';
+    } catch (e) {
+        wrap.hidden = true;
+        if (limited) limited.hidden = false;
+    }
+};
+
+window.saveTenantRetention = async function (tenantId) {
+    const input = document.getElementById('retention-days-' + tenantId);
+    if (!input || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    const raw = String(input.value || '').trim();
+    const days = raw === '' ? null : Number(raw);
+    if (days !== null && (!Number.isFinite(days) || days < 1 || days > 3650)) {
+        alert('Enter a number of days between 1 and 3650, or leave blank for the plan default.');
+        return;
+    }
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/retention/' + tenantId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ retention_days: days })
+        });
+        if (!res.ok) throw new Error('save failed');
+        loadRetentionSettings();
+    } catch (e) {
+        alert('Could not save retention for this tenant.');
+    }
+};
+
+window.runRetentionDryRun = async function () {
+    const out = document.getElementById('retention-dryrun-result');
+    if (out) out.textContent = 'Calculating...';
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/retention/dry-run');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'dry run failed');
+        const s = data.summary || {};
+        if (out) {
+            out.textContent = 'Would delete ' + Number(s.would_delete_rows || 0).toLocaleString() +
+                ' of ' + Number(s.expired_rows || 0).toLocaleString() + ' expired rows across ' +
+                (s.eligible_tenants || 0) + ' tenants. Nothing was deleted.';
+        }
+    } catch (e) {
+        if (out) out.textContent = 'Dry run unavailable: ' + e.message;
+    }
+};
 
 window.toggleSettingsAutoPlay = function(checked) {
     try {
@@ -8659,17 +8735,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
-// Founder Billing Mode (Monthly | Once-Off | BYOT | Prepaid Pay-As-You-Drive)
+// Billing Mode (Monthly | Once-Off | Platform Fleet Rental | Prepaid)
 var _billingIsAdmin = false;
 var _billingOptionsOpen = false;
 var _billingCurrentMode = 'monthly';
-var _billingModes = ['monthly', 'onceoff', 'byot', 'rental', 'prepaid'];
+var _billingModes = ['monthly', 'onceoff', 'rental', 'prepaid'];
 
 window.billingModeFromCycle = function(cycle) {
     const c = String(cycle || 'monthly').toLowerCase();
     if (c.indexOf('once') !== -1) return 'onceoff';
     if (c.indexOf('rent') !== -1) return 'rental';
-    if (c.indexOf('byot') !== -1 || c.indexOf('tracker') !== -1) return 'byot';
     if (c.indexOf('prepaid') !== -1 || c.indexOf('wallet') !== -1) return 'prepaid';
     return 'monthly';
 };
@@ -8678,14 +8753,12 @@ function applyBillingView(mode) {
     const viewMap = {
         monthly: document.getElementById('billing-monthly-view'),
         onceoff: document.getElementById('billing-onceoff-view'),
-        byot: document.getElementById('billing-byot-view'),
-        rental: document.getElementById('billing-byot-view'),
+        rental: document.getElementById('billing-rental-view'),
         prepaid: document.getElementById('billing-prepaid-view')
     };
     const btnMap = {
         monthly: document.getElementById('btn-billing-monthly'),
         onceoff: document.getElementById('btn-billing-onceoff'),
-        byot: document.getElementById('btn-billing-byot'),
         rental: document.getElementById('btn-billing-rental'),
         prepaid: document.getElementById('btn-billing-prepaid')
     };
@@ -8701,10 +8774,6 @@ function applyBillingView(mode) {
         }
     });
 
-    const byotView = viewMap.byot;
-    if (byotView) byotView.classList.toggle('rental-only', mode === 'rental');
-    const setupGuide = document.querySelector('.byot-setup-guide');
-    if (setupGuide) setupGuide.classList.toggle('hidden', _billingCurrentMode !== 'byot');
     if (window.markActiveRentalPlan) window.markActiveRentalPlan();
 
     const targetView = viewMap[mode] || viewMap.monthly;
@@ -8802,12 +8871,12 @@ window.switchBillingPlanMode = function(mode) {
     applyBillingView(mode);
 };
 
-// BYOT (Bring Your Own Tracker) Payment handler
-window.triggerByotPayment = async function(planName, amountUsd) {
+// Plan / rental payment handler
+window.triggerPlanPayment = async function(planName, amountUsd) {
     if (!confirm(`Subscribe to "${planName}" ($${amountUsd} USD) via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
     try {
         const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=${encodeURIComponent('BYOT_' + planName)}&amount=${amountUsd}`,
+            `/payments/paynow/initiate?plan_name=${encodeURIComponent('PLAN_' + planName)}&amount=${amountUsd}`,
             { method: 'POST' }
         );
         if (!response.ok) throw new Error('Payment initiation failed');
@@ -8818,7 +8887,7 @@ window.triggerByotPayment = async function(planName, amountUsd) {
             alert(`Payment session initiated for ${planName}. Please check your EcoCash prompt for $${amountUsd} USD.`);
         }
     } catch (err) {
-        alert(`Initiated BYOT payment of $${amountUsd} USD for ${planName}.\nOur team will dispatch an EcoCash prompt to your registered number.`);
+        alert(`Initiated payment of ${amountUsd} USD for ${planName}.\nOur team will dispatch an EcoCash prompt to your registered number.`);
     }
 };
 
@@ -9400,33 +9469,14 @@ function _setEl(id, text) {
 // ===== END DASHBOARD SUB-TABS =====
 
 
-/* ---------- BYOT promo banner: dismiss for 30 days ---------- */
-(function initByotPromoDismiss() {
-    var KEY = 'inferth.byotBannerHiddenUntil';
-    function readUntil() {
-        try { return parseInt(localStorage.getItem(KEY) || '0', 10) || 0; } catch (e) { return 0; }
-    }
-    function apply() {
-        var banner = document.querySelector('.byot-header-banner');
-        if (!banner) return;
-        banner.style.display = (Date.now() < readUntil()) ? 'none' : '';
-    }
-    window.dismissByotPromo = function () {
-        try { localStorage.setItem(KEY, String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch (e) { /* storage unavailable */ }
-        apply();
-    };
-    apply();
-})();
-
-
 /* ---------- Platform Fleet Rental: mark the plan matching the fleet size ---------- */
 window.markActiveRentalPlan = function() {
     var cards = document.querySelectorAll('.rental-plan-card');
     if (!cards.length) return;
     var count = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length)
         ? allVehicles.length : 2; // Console Telematics currently runs 2 vehicles
-    var byotView = document.getElementById('billing-byot-view');
-    var isRental = !!(byotView && byotView.classList.contains('rental-only'));
+    var rentalView = document.getElementById('billing-rental-view');
+    var isRental = !!(rentalView && !rentalView.classList.contains('hidden'));
     cards.forEach(function(card) {
         var min = parseInt(card.getAttribute('data-rental-min') || '1', 10);
         var max = parseInt(card.getAttribute('data-rental-max') || '10', 10);

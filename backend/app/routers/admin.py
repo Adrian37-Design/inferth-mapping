@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 from sqlalchemy.future import select
+from typing import Optional
 from app.db import get_db
 from app.models import Tenant, Transaction, User
 from app.auth_middleware import get_current_user, require_admin, require_super_admin
@@ -173,6 +174,33 @@ async def list_retention_policies(
             "needs_configuration": [p["tenant_name"] for p in policies if not p["eligible"]],
         },
     }
+
+
+@router.patch("/retention/{tenant_id}")
+async def set_tenant_retention(
+    tenant_id: int,
+    retention_days: Optional[int] = Body(None, embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """Set or clear a tenant's explicit retention override (Enterprise)."""
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if retention_days is not None and not (1 <= int(retention_days) <= 3650):
+        raise HTTPException(status_code=400, detail="retention_days must be between 1 and 3650, or null")
+
+    before = tenant.retention_days
+    tenant.retention_days = int(retention_days) if retention_days is not None else None
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="RETENTION_POLICY_UPDATE",
+        details={"target_tenant": tenant_id, "before": before, "after": tenant.retention_days},
+        ip_address="127.0.0.1",
+    ))
+    await db.commit()
+    return {"tenant_id": tenant_id, "retention_days": tenant.retention_days}
 
 
 @router.get("/retention/dry-run")

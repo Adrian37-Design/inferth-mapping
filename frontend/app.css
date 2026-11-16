@@ -9351,9 +9351,8 @@ textarea::placeholder,
     font-weight: 700 !important;
 }
 
-/* Rental plans are a Platform Fleet Rental surface — hidden while browsing BYOT */
-.rental-plans-section { display: none !important; }
-#billing-byot-view.rental-only .rental-plans-section { display: block !important; }
+/* Rental plans live in the dedicated Platform Fleet Rental view */
+#billing-rental-view .rental-plans-section { display: block !important; }
 
 /* Keep the fleet status colour cue on the rebuilt vehicle cards */
 .vehicle-card.status-moving { border-left: 4px solid #16a34a !important; }

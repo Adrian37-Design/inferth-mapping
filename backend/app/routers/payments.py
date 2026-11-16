@@ -14,14 +14,23 @@ router = APIRouter(prefix="/payments", tags=["payments"])
 # Paynow credentials come from the environment only — never a code default.
 # (The integration key previously committed here must be considered leaked:
 # rotate it in the Paynow merchant portal.)
-PAYNOW_ID = os.getenv("PAYNOW_ID", "")
-PAYNOW_KEY = os.getenv("PAYNOW_KEY", "")
+# Accept both naming conventions used across docs and deployments.
+PAYNOW_ID = os.getenv("PAYNOW_ID", "") or os.getenv("PAYNOW_INTEGRATION_ID", "")
+PAYNOW_KEY = os.getenv("PAYNOW_KEY", "") or os.getenv("PAYNOW_INTEGRATION_KEY", "")
+PAYNOW_RESULT_URL = os.getenv(
+    "PAYNOW_RESULT_URL",
+    "https://inferth-mapping.up.railway.app/payments/paynow/webhook",
+)
+PAYNOW_RETURN_URL = os.getenv(
+    "PAYNOW_RETURN_URL",
+    "https://inferth-mapping.up.railway.app/",
+)
 
 paynow = Paynow(
     PAYNOW_ID,
     PAYNOW_KEY,
-    "https://inferth-mapping.up.railway.app/payments/paynow/webhook",
-    "https://inferth-mapping.up.railway.app/"
+    PAYNOW_RESULT_URL,
+    PAYNOW_RETURN_URL,
 )
 
 ALLOWED_UPLOAD_TYPES = {
