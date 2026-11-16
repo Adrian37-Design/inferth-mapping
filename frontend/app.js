@@ -812,6 +812,10 @@ window.switchTab = function(targetId) {
             loadCompanies();
         }
 
+        if (targetId === 'tab-settings') {
+            loadSettingsTab();
+        }
+
         if (targetId === 'tab-billing') {
             loadBillingData();
             window.initBillingAccess();
@@ -8221,6 +8225,37 @@ async function loadCompanies() {
         tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
+
+// --- Platform Settings Tab Logic ---
+function loadSettingsTab() {
+    const user = window.AuthManager && window.AuthManager.user;
+    if (user) {
+        const emailEl = document.getElementById('settings-user-email');
+        const roleEl = document.getElementById('settings-user-role');
+        const tenantEl = document.getElementById('settings-user-tenant');
+        if (emailEl) emailEl.textContent = user.email || '--';
+        if (roleEl) {
+            const role = (user.role || 'user').toUpperCase();
+            roleEl.textContent = role;
+            roleEl.className = 'badge badge-' + role.toLowerCase();
+        }
+        if (tenantEl) {
+            tenantEl.textContent = user.company_name || user.tenant_name || (user.tenant_id === 1 ? 'Inferth Superadmin' : 'Tenant #' + user.tenant_id);
+        }
+    }
+    const autoPlayEl = document.getElementById('settings-autoplay-trips');
+    if (autoPlayEl && typeof historyAutoPlayTrips === 'function') {
+        autoPlayEl.checked = historyAutoPlayTrips();
+    }
+}
+
+window.toggleSettingsAutoPlay = function(checked) {
+    try {
+        localStorage.setItem('historyAutoPlayTrips', checked ? '1' : '0');
+        const histToggle = document.getElementById('history-autoplay-trips');
+        if (histToggle) histToggle.checked = checked;
+    } catch (e) {}
+};
 
 // Function to update the live mini preview inside Edit Company modal
 function updateEditThemePreview() {

@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=192">
+    <link rel="stylesheet" href="/static/app.css?v=193">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -113,8 +113,8 @@
                     <i class="fas fa-shield-alt"></i>
                     <span class="rail-label">Audit</span>
                 </button>
-                <!-- Route history settings (opens popover, not a tab) -->
-                <button type="button" class="rail-item" id="history-settings-btn" title="Route history settings" aria-haspopup="true" aria-expanded="false" aria-controls="history-settings-pop">
+                <!-- Platform Settings Tab -->
+                <button type="button" class="rail-item" data-tab="tab-settings" id="rail-settings-btn" title="Platform Settings" aria-controls="tab-settings">
                     <i class="fas fa-gear"></i>
                     <span class="rail-label">Settings</span>
                 </button>
@@ -2297,6 +2297,88 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tab: Platform Settings -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="panel-header">
+                        <h2><i class="fas fa-cog"></i> Platform Settings</h2>
+                    </div>
+                    
+                    <div class="settings-container" style="display:flex; flex-direction:column; gap:20px; padding:10px 0;">
+                        <!-- 1. Profile & Account Info -->
+                        <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+                            <h4 style="margin:0 0 12px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-user-circle" style="color:#ea580c;"></i> Account &amp; Profile
+                            </h4>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; font-size:0.85rem;">
+                                <div>
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">Signed in as:</span>
+                                    <strong id="settings-user-email">--</strong>
+                                </div>
+                                <div>
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">Role:</span>
+                                    <span id="settings-user-role" class="badge badge-admin">ADMIN</span>
+                                </div>
+                                <div>
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">Organization:</span>
+                                    <strong id="settings-user-tenant">--</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Telematics & Map Preferences -->
+                        <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+                            <h4 style="margin:0 0 12px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-sliders-h" style="color:#ea580c;"></i> Map &amp; Telematics Preferences
+                            </h4>
+                            <div style="display:flex; flex-direction:column; gap:14px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.85rem; color:#0f172a;">Auto-play trip animation</div>
+                                        <small style="color:#64748b;">Automatically animate vehicle trail when clicking a journey trip</small>
+                                    </div>
+                                    <label class="switch" style="margin:0;">
+                                        <input type="checkbox" id="settings-autoplay-trips" onchange="toggleSettingsAutoPlay(this.checked)">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.85rem; color:#0f172a;">Speed Measurement Units</div>
+                                        <small style="color:#64748b;">Telemetry speed calculations and display</small>
+                                    </div>
+                                    <span style="font-size:0.82rem; font-weight:700; color:#0f172a; background:#f1f5f9; padding:4px 10px; border-radius:6px;">km/h</span>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <div style="font-weight:600; font-size:0.85rem; color:#0f172a;">Operational Timezone</div>
+                                        <small style="color:#64748b;">Southern Africa Standard Time</small>
+                                    </div>
+                                    <span style="font-size:0.82rem; font-weight:700; color:#0f172a; background:#f1f5f9; padding:4px 10px; border-radius:6px;">CAT (UTC+2 / Harare)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Hardware Guardrails & Database Retention -->
+                        <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+                            <h4 style="margin:0 0 12px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-shield-alt" style="color:#ea580c;"></i> Guardrails &amp; Data Retention
+                            </h4>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:0.82rem;">
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">GPS Positions Retention</span>
+                                    <strong style="color:#0f172a;">30-Day Basic / 90-Day Pro</strong>
+                                    <div style="font-size:0.72rem; color:#10b981; margin-top:4px;"><i class="fas fa-check-circle"></i> Active Pruning Policy</div>
+                                </div>
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+                                    <span style="color:#64748b; display:block; font-size:0.75rem;">Data Hygiene Guardrails</span>
+                                    <strong style="color:#0f172a;">Anti-Teleport &amp; Null Island</strong>
+                                    <div style="font-size:0.72rem; color:#10b981; margin-top:4px;"><i class="fas fa-check-circle"></i> Active on Ingestion</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </aside>
 
@@ -2725,7 +2807,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=184"></script>
+    <script src="/static/app.js?v=185"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
