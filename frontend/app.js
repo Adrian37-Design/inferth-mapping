@@ -4841,14 +4841,43 @@ async function showRoute() {
     }
 }
 
-// Close modal helper function
-function closeModal() {
-    document.getElementById('add-vehicle-modal').classList.add('hidden');
-    editingVehicleId = null;
-    document.getElementById('vehicle-imei').value = '';
-    document.getElementById('vehicle-name').value = '';
-    const fType = document.getElementById('vehicle-fuel-type');
-    if (fType) fType.value = 'diesel';
+// Modal helper functions
+window.openModal = function(modalId) {
+    if (!modalId) return;
+    const el = document.getElementById(modalId);
+    if (el) {
+        el.classList.remove('hidden');
+        el.style.display = 'flex';
+    }
+};
+function openModal(modalId) {
+    window.openModal(modalId);
+}
+
+window.closeModal = function(modalId) {
+    if (!modalId || modalId === 'add-vehicle-modal') {
+        const addModal = document.getElementById('add-vehicle-modal');
+        if (addModal) {
+            addModal.classList.add('hidden');
+            addModal.style.display = 'none';
+        }
+        editingVehicleId = null;
+        const imeiInput = document.getElementById('vehicle-imei');
+        if (imeiInput) imeiInput.value = '';
+        const nameInput = document.getElementById('vehicle-name');
+        if (nameInput) nameInput.value = '';
+        const fType = document.getElementById('vehicle-fuel-type');
+        if (fType) fType.value = 'diesel';
+        if (!modalId) return;
+    }
+    const el = document.getElementById(modalId);
+    if (el) {
+        el.classList.add('hidden');
+        el.style.display = 'none';
+    }
+};
+function closeModal(modalId) {
+    window.closeModal(modalId);
 }
 
 function fuelReadingLabel(t) {
