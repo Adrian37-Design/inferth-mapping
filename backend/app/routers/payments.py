@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
@@ -160,6 +161,14 @@ async def initiate_paynow_mobile(
         await db.commit()
         error_msg = getattr(response, 'error', "Failed to initiate mobile money payment")
         raise HTTPException(status_code=400, detail=str(error_msg))
+
+
+@router.get("/paynow/webhook")
+async def paynow_webhook_browser():
+    """Paynow only POSTs to the webhook; a browser that lands here (because the
+    integration's return URL points at it) is sent back to the app instead of a
+    bare 405."""
+    return RedirectResponse(PAYNOW_RETURN_URL, status_code=303)
 
 
 @router.post("/paynow/webhook")
