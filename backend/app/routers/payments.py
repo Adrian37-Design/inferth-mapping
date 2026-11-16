@@ -3,8 +3,9 @@ from fastapi.responses import RedirectResponse
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func, or_, update
 from app.db import get_db
-from app.models import Tenant, Transaction, User
+from app.models import Device, Tenant, Transaction, User
 from app.auth_middleware import get_current_user
 from paynow import Paynow
 import os
@@ -65,27 +66,63 @@ async def initiate_paynow(
     if not PAYNOW_ID or not PAYNOW_KEY:
         raise HTTPException(status_code=503, detail="Online payments are not configured")
     
-    # Determine billing price
-    price_map = {"Basic": 15.0, "Premium": 25.0, "Professional": 25.0, "Enterprise": 100.0, "Fleet": 25.0, "Console_Rental": 15.0}
-    if amount is not None and float(amount) > 0:
+    # Server-side prices. The browser may pass an amount, but it is only accepted
+    # when it matches what the product costs — a dropped query parameter can no
+    # longer silently charge a different price.
+    price_map = {
+        "Basic": 15.0,
+        "Premium": 25.0,
+        "Professional": 25.0,
+        "Enterprise": 100.0,
+        "Fleet": 25.0,
+        "Fleet_Starter": 12.0,
+        "Console_Rental": 15.0,
+        "Console_Base_5": 15.0,
+        "Console_Growth_25": 49.0,
+        "Console_Scale_100": 119.0,
+    }
+    TOPUP_PLAN = "Prepaid_Wallet_Topup"
+    TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
+
+    is_topup = plan_name == TOPUP_PLAN
+    if is_topup:
+        if amount is None or round(float(amount), 2) not in TOPUP_AMOUNTS:
+            raise HTTPException(
+                status_code=400,
+                detail="Choose a valid wallet top-up amount (12, 24, 40 or 100 USD)",
+            )
         charge_amount = round(float(amount), 2)
+    elif amount is not None and float(amount) > 0:
+        charge_amount = round(float(amount), 2)
+        expected = price_map.get(plan_name)
+        if expected is not None and abs(charge_amount - expected) > 0.001:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Amount ${charge_amount:.2f} does not match the price of {plan_name} (${expected:.2f})",
+            )
     else:
         charge_amount = price_map.get(plan_name, 12.0)
-    
+
     # Create Local Transaction record
     txn = Transaction(
         tenant_id=current_user.tenant_id,
         amount_usd=charge_amount,
+        plan_name=plan_name,
         payment_method="paynow",
-        status="pending"
+        status="pending",
     )
     db.add(txn)
     await db.commit()
     await db.refresh(txn)
 
     # Initiate Paynow via official SDK
+    item_label = (
+        f"Inferth Prepaid Wallet Top-up ${charge_amount:.2f}"
+        if is_topup
+        else f"Inferth {plan_name} Subscription"
+    )
     payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or "billing@inferthmapping.co.zw")
-    payment.add(f"Inferth {plan_name} Subscription", charge_amount)
+    payment.add(item_label, charge_amount)
     
     response = paynow.send(payment)
     
@@ -139,6 +176,7 @@ async def initiate_paynow_mobile(
     txn = Transaction(
         tenant_id=current_user.tenant_id,
         amount_usd=charge_amount,
+        plan_name=plan_name,
         payment_method=method_clean,
         status="pending"
     )
@@ -210,7 +248,26 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
             await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
         ).scalars().first()
         if tenant:
-            tenant.subscription_status = "active"
+            if txn.plan_name == "Prepaid_Wallet_Topup":
+                # Credit the wallet exactly once, even if the webhook and the
+                # browser's status poll race each other.
+                claim = await db.execute(
+                    update(Transaction)
+                    .where(
+                        Transaction.id == txn.id,
+                        or_(
+                            Transaction.wallet_credited.is_(None),
+                            Transaction.wallet_credited.is_(False),
+                        ),
+                    )
+                    .values(wallet_credited=True)
+                )
+                if claim.rowcount:
+                    tenant.wallet_balance_usd = round(
+                        float(tenant.wallet_balance_usd or 0) + float(txn.amount_usd or 0), 2
+                    )
+            else:
+                tenant.subscription_status = "active"
     else:
         low = raw.lower()
         if "cancel" in low:
@@ -233,6 +290,9 @@ def _payment_payload(txn: Transaction) -> dict:
         "paynow_status": txn.paynow_status,
         "amount": txn.amount_usd,
         "reference": f"INV-{txn.id}",
+        "product": (
+            "Prepaid Wallet top-up" if txn.plan_name == "Prepaid_Wallet_Topup" else (txn.plan_name or "Subscription")
+        ),
         "reason": None if txn.status == "paid" else _paynow_failure_reason(txn),
         "created_at": txn.created_at.isoformat() if txn.created_at else None,
     }
@@ -258,6 +318,35 @@ async def latest_paynow_payment(
     if txn.status == "pending":
         txn = await _refresh_paynow_status(db, txn)
     return _payment_payload(txn)
+
+
+@router.get("/wallet")
+async def prepaid_wallet(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Prepaid Fleet Wallet balance, billed at $0.40 per active vehicle per day."""
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    ).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    vehicles = (
+        await db.execute(
+            select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
+        )
+    ).scalar() or 0
+    balance = round(float(tenant.wallet_balance_usd or 0), 2)
+    daily_rate = 0.40
+    per_day = round(daily_rate * max(int(vehicles), 1), 2)
+    return {
+        "balance_usd": balance,
+        "daily_rate_per_vehicle": daily_rate,
+        "tracked_vehicles": int(vehicles),
+        "estimated_days": int(balance // per_day) if balance > 0 else 0,
+        "daily_burn_usd": per_day,
+    }
 
 
 @router.get("/paynow/status/{txn_id}")

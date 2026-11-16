@@ -39,6 +39,8 @@ class Tenant(Base):
     # GPS history retention. NULL = derive from plan (Basic 30 / Premium 90 /
     # Starter 30 / Prepaid 30 / Reseller 90). Set explicitly for Enterprise.
     retention_days = Column(Integer, nullable=True)
+    # Prepaid Fleet Wallet balance in USD, credited by successful top-ups.
+    wallet_balance_usd = Column(Float, default=0.0)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -199,8 +201,10 @@ class Transaction(Base):
     status = Column(String, default="pending") # pending, paid, failed, approval_pending, rejected
     
     # Paynow specific
+    plan_name = Column(String, nullable=True) # What was bought (plan, rental tier or wallet top-up)
     paynow_reference = Column(String, nullable=True) # Poll URL or merchant reference
     paynow_status = Column(String, nullable=True) # RAW status from Paynow
+    wallet_credited = Column(Boolean, default=False) # A top-up is credited to the wallet exactly once
     
     # Manual Fallback
     proof_url = Column(String, nullable=True) # Path to uploaded screnshot

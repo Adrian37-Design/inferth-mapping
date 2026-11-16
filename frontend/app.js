@@ -8797,7 +8797,34 @@ function applyBillingView(mode) {
         targetBtn.style.color = '#0f172a';
         targetBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
     }
+
+    if (mode === 'prepaid' && typeof window.loadWalletBalance === 'function') {
+        window.loadWalletBalance();
+    }
 }
+
+// Real Prepaid Fleet Wallet balance (was hard-coded in the markup).
+window.loadWalletBalance = async function () {
+    const el = document.getElementById('prepaid-wallet-balance');
+    if (!el || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/wallet');
+        if (!res.ok) return;
+        const data = await res.json();
+        const balance = Number(data.balance_usd || 0);
+        const burn = Number(data.daily_burn_usd || 0);
+        el.innerHTML = '$' + balance.toFixed(2) +
+            ' <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span>';
+        const note = document.getElementById('prepaid-wallet-note');
+        if (note) {
+            note.innerHTML = balance > 0
+                ? '<i class="fas fa-circle-check"></i> Wallet active &mdash; about ' + Number(data.estimated_days || 0) +
+                  ' active vehicle-days left ($' + balance.toFixed(2) + ' &divide; $' + burn.toFixed(2) + '/day)'
+                : '<i class="fas fa-circle-exclamation"></i> Wallet empty &mdash; top up to keep tracking';
+            note.style.color = balance > 0 ? '#16a34a' : '#b45309';
+        }
+    } catch (e) { /* leave the last known balance on screen */ }
+};
 
 window.initBillingAccess = function() {
     const user = window.AuthManager && window.AuthManager.user;
@@ -8826,6 +8853,7 @@ window.initBillingAccess = function() {
             if (b) b.classList.remove('hidden');
         });
         applyBillingView(_billingCurrentMode);
+        window.loadWalletBalance();
         return;
     }
 
@@ -8837,6 +8865,7 @@ window.initBillingAccess = function() {
         if (b) b.classList.remove('hidden');
     });
     applyBillingView(_billingCurrentMode);
+    window.loadWalletBalance();
 };
 
 window.openBillingChangeOptions = function(preferredMode) {
@@ -8884,23 +8913,30 @@ window.switchBillingPlanMode = function(mode) {
     applyBillingView(mode);
 };
 
-// Plan / rental payment handler
+// Plan / rental payment handler — the single definition used by every pay button.
+// The amount is always sent when the button knows it, so the server never has to
+// guess which product (and price) the customer clicked.
 window.triggerPlanPayment = async function(planName, amountUsd) {
-    if (!confirm(`Subscribe to "${planName}" ($${amountUsd} USD) via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
+    const amount = Number(amountUsd);
+    const hasAmount = Number.isFinite(amount) && amount > 0;
+    const amountParam = hasAmount ? `&amount=${amount}` : '';
+    const priceLabel = hasAmount ? ` ($${amount.toFixed(2)} USD)` : '';
+
+    if (!confirm(`Subscribe to "${planName}"${priceLabel} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
     try {
         const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=${encodeURIComponent('PLAN_' + planName)}&amount=${amountUsd}`,
+            `/payments/paynow/initiate?plan_name=${encodeURIComponent(planName)}${amountParam}`,
             { method: 'POST' }
         );
-        if (!response.ok) throw new Error('Payment initiation failed');
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || 'Payment initiation failed');
         if (result.redirect_url) {
             window.location.href = result.redirect_url;
         } else {
-            alert(`Payment session initiated for ${planName}. Please check your EcoCash prompt for $${amountUsd} USD.`);
+            alert('Paynow did not return a checkout page. Please try again or use the bank transfer option.');
         }
     } catch (err) {
-        alert(`Initiated payment of ${amountUsd} USD for ${planName}.\nOur team will dispatch an EcoCash prompt to your registered number.`);
+        alert('Could not start the Paynow checkout: ' + err.message);
     }
 };
 
@@ -8927,22 +8963,25 @@ window.triggerOnceOffTracking = async function(tier, priceUsd) {
 };
 
 window.topUpPrepaidWallet = async function(amountUsd) {
-    if (!confirm(`Proceed to top up $${amountUsd}.00 USD into your Prepaid Fleet Wallet via Paynow (EcoCash / OneMoney / Card)?`)) {
+    const amount = Number(amountUsd);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (!confirm(`Proceed to top up $${amount.toFixed(2)} USD into your Prepaid Fleet Wallet via Paynow (EcoCash / OneMoney / Card)?`)) {
         return;
     }
     try {
-        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=Basic`, {
-            method: 'POST'
-        });
-        if (!response.ok) throw new Error('Failed to initiate Paynow top-up');
-        const result = await response.json();
+        const response = await window.AuthManager.fetchAPI(
+            `/payments/paynow/initiate?plan_name=Prepaid_Wallet_Topup&amount=${amount}`,
+            { method: 'POST' }
+        );
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.detail || 'Failed to initiate Paynow top-up');
         if (result.redirect_url) {
             window.location.href = result.redirect_url;
         } else {
-            alert(`Paynow session initiated. Check your EcoCash prompt.`);
+            alert('Paynow did not return a checkout page. Please try again.');
         }
     } catch (err) {
-        alert("Top-up request: " + err.message);
+        alert('Top-up could not be started: ' + err.message);
     }
 };
 
@@ -9067,21 +9106,6 @@ window.setBillingPeriod = function(period) {
     });
 };
 
-window.triggerPlanPayment = async function(planName) {
-    if (!confirm(`Proceed to subscribe to the ${planName} plan via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
-    try {
-        const response = await window.AuthManager.fetchAPI(`/payments/paynow/initiate?plan_name=${planName}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to initiate Paynow');
-        const result = await response.json();
-        if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-        } else {
-            openModal('payment-modal');
-        }
-    } catch (err) {
-        openModal('payment-modal');
-    }
-};
 
 // --- Paynow checkout outcome: shown on the billing page after payment ---
 var _paynowPollTimer = null;
@@ -9110,7 +9134,9 @@ window.renderPaymentResult = function (data) {
         tone = 'success';
         icon = 'fa-circle-check';
         title = 'Payment successful';
-        body = 'We received ' + _money(data.amount) + ' and your subscription is now active.' + ref;
+        const topup = /top-?up/i.test(data.product || '');
+        body = 'We received ' + _money(data.amount) + (data.product ? ' for ' + data.product : '') +
+            (topup ? ' and your wallet has been credited.' : ' and your subscription is now active.') + ref;
     } else if (status === 'failed' || status === 'cancelled' || status === 'rejected') {
         tone = 'failed';
         icon = 'fa-circle-xmark';

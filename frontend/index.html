@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=197">
+    <link rel="stylesheet" href="/static/app.css?v=198">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -2071,8 +2071,8 @@
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
                                     <div>
                                         <span class="badge" style="background:#ea580c; color:#ffffff; font-size:0.68rem; font-weight:800; padding:4px 12px; border-radius:50px; box-shadow:0 2px 6px rgba(234,88,12,0.3);">PREPAID FLEET WALLET</span>
-                                        <h3 style="margin:8px 0 2px; font-size:1.6rem; color:#0f172a; font-weight:800;" id="prepaid-wallet-balance">$35.00 <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span></h3>
-                                        <small style="color:#16a34a; font-weight:600;"><i class="fas fa-circle-check"></i> Wallet active &mdash; estimated 87 active vehicle-days remaining ($35.00 &divide; $0.40/day)</small>
+                                        <h3 style="margin:8px 0 2px; font-size:1.6rem; color:#0f172a; font-weight:800;" id="prepaid-wallet-balance">$0.00 <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span></h3>
+                                        <small id="prepaid-wallet-note" style="color:#64748b; font-weight:600;"><i class="fas fa-spinner fa-spin"></i> Loading wallet balance&hellip;</small>
                                     </div>
                                     <div style="text-align:right;">
                                         <div style="font-size:1.5rem; font-weight:900; color:#ea580c;">$0.40</div>
@@ -2717,7 +2717,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=188"></script>
+    <script src="/static/app.js?v=189"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->
