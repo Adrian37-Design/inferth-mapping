@@ -9083,6 +9083,139 @@ window.triggerPlanPayment = async function(planName) {
     }
 };
 
+// --- Paynow checkout outcome: shown on the billing page after payment ---
+var _paynowPollTimer = null;
+var _paynowPollCount = 0;
+
+function _money(n) {
+    return '$' + Number(n || 0).toFixed(2);
+}
+
+window.renderPaymentResult = function (data) {
+    const box = document.getElementById('payment-result-banner');
+    if (!box) return;
+    if (!data || data.found === false) {
+        box.className = 'payment-result hidden';
+        box.innerHTML = '';
+        return;
+    }
+    const status = data.status || 'pending';
+    const ref = data.reference ? ' <em>(' + data.reference + ')</em>' : '';
+    let tone = 'pending';
+    let icon = 'fa-clock';
+    let title = 'Waiting for Paynow';
+    let body = 'Paynow has not confirmed this payment yet. It usually takes a few seconds.';
+
+    if (status === 'paid') {
+        tone = 'success';
+        icon = 'fa-circle-check';
+        title = 'Payment successful';
+        body = 'We received ' + _money(data.amount) + ' and your subscription is now active.' + ref;
+    } else if (status === 'failed' || status === 'cancelled' || status === 'rejected') {
+        tone = 'failed';
+        icon = 'fa-circle-xmark';
+        title = 'Payment unsuccessful';
+        body = (data.reason || 'Paynow could not complete this payment.') + ' Nothing was charged to activate a plan.' + ref;
+    }
+
+    const actions = [];
+    if (tone === 'failed') actions.push('<button type="button" class="payment-result-btn" onclick="window.retryPlanPayment()">Try again</button>');
+    if (tone === 'pending') actions.push('<button type="button" class="payment-result-btn" onclick="window.checkPaynowReturn(true)">Check again</button>');
+    if (tone === 'success' && data.amount) actions.push('<button type="button" class="payment-result-btn" onclick="window.dismissPaymentResult()">Done</button>');
+
+    box.className = 'payment-result is-' + tone;
+    box.innerHTML =
+        '<i class="fas ' + icon + ' payment-result-icon"></i>' +
+        '<div class="payment-result-text"><strong>' + title + '</strong><span>' + body + '</span></div>' +
+        '<div class="payment-result-actions">' + actions.join('') +
+        '<button type="button" class="payment-result-dismiss" aria-label="Dismiss" onclick="window.dismissPaymentResult()">&times;</button></div>';
+};
+
+window.dismissPaymentResult = function () {
+    const box = document.getElementById('payment-result-banner');
+    if (box) {
+        box.className = 'payment-result hidden';
+        box.innerHTML = '';
+    }
+    if (_paynowPollTimer) {
+        clearInterval(_paynowPollTimer);
+        _paynowPollTimer = null;
+    }
+};
+
+window.retryPlanPayment = function () {
+    window.dismissPaymentResult();
+    if (typeof window.openBillingChangeOptions === 'function') window.openBillingChangeOptions();
+};
+
+window.checkPaynowReturn = async function (manual) {
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (manual) _paynowPollCount = 0;
+    let data = null;
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/paynow/latest');
+        if (res.ok) data = await res.json();
+    } catch (e) {
+        data = null;
+    }
+
+    if (!data || data.found === false) {
+        window.renderPaymentResult({ found: false });
+        return;
+    }
+
+    window.renderPaymentResult(data);
+
+    if (data.status === 'pending' && _paynowPollCount < 12) {
+        if (_paynowPollTimer) return;
+        _paynowPollTimer = setInterval(function () {
+            _paynowPollCount += 1;
+            if (_paynowPollCount >= 12) {
+                clearInterval(_paynowPollTimer);
+                _paynowPollTimer = null;
+            }
+            window.checkPaynowReturn(false);
+        }, 5000);
+    } else if (_paynowPollTimer && data.status !== 'pending') {
+        clearInterval(_paynowPollTimer);
+        _paynowPollTimer = null;
+    }
+};
+
+// Returning from Paynow: open Billing and report the outcome.
+document.addEventListener('DOMContentLoaded', () => {
+    let params;
+    try {
+        params = new URLSearchParams(window.location.search);
+    } catch (e) {
+        return;
+    }
+    if (params.get('payment') !== 'return') return;
+
+    params.delete('payment');
+    const query = params.toString();
+    try {
+        window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+    } catch (e) { /* ignore */ }
+
+    let tries = 0;
+    const openBilling = () => {
+        tries += 1;
+        const authed = window.AuthManager && typeof window.AuthManager.isAuthenticated === 'function' && window.AuthManager.isAuthenticated();
+        if (!authed && tries < 10) {
+            setTimeout(openBilling, 500);
+            return;
+        }
+        window.checkPaynowReturn();
+        if (typeof window.switchTab === 'function') {
+            try {
+                window.switchTab('tab-billing');
+            } catch (e) { /* the banner still renders even if the tab paint fails */ }
+        }
+    };
+    setTimeout(openBilling, 600);
+});
+
 const Dropdown = (() => {
     let active = null;
     const isOpen = select => active !== null && active.select === select;

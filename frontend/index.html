@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=196">
+    <link rel="stylesheet" href="/static/app.css?v=197">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1724,6 +1724,8 @@
                 <!-- Tab: Billing & Subscription (Step 10) -->
                 <div id="tab-billing" class="tab-content">
                     <div class="billing-container">
+                        <!-- Paynow checkout outcome (shown when the customer returns from payment) -->
+                        <div id="payment-result-banner" class="payment-result hidden" role="status" aria-live="polite"></div>
                         <!-- Change-billing control (hidden for admins) -->
                         <div class="billing-change-bar hidden" id="billing-change-bar">
                             <button type="button" class="billing-change-btn" id="billing-change-btn" onclick="window.openBillingChangeOptions()">
@@ -2715,7 +2717,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=187"></script>
+    <script src="/static/app.js?v=188"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

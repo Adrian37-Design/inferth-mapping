@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import RedirectResponse
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.db import get_db
@@ -22,9 +23,12 @@ PAYNOW_RESULT_URL = os.getenv(
     "PAYNOW_RESULT_URL",
     "https://inferth-mapping.up.railway.app/payments/paynow/webhook",
 )
+# Where Paynow sends the customer's browser after checkout. It must be the
+# app's own page (not the webhook), so the customer lands on Billing and sees
+# whether their payment succeeded.
 PAYNOW_RETURN_URL = os.getenv(
     "PAYNOW_RETURN_URL",
-    "https://inferth-mapping.up.railway.app/",
+    "https://www.inferthmapping.co.zw/static/index.html?payment=return",
 )
 
 paynow = Paynow(
@@ -171,6 +175,110 @@ async def paynow_webhook_browser():
     return RedirectResponse(PAYNOW_RETURN_URL, status_code=303)
 
 
+def _paynow_failure_reason(txn: Transaction) -> Optional[str]:
+    """Customer-facing explanation for a payment that did not succeed."""
+    raw = (txn.paynow_status or "").strip()
+    low = raw.lower()
+    if "cancel" in low:
+        return "The payment was cancelled on Paynow. No money was taken and no subscription was activated."
+    if "insufficient" in low:
+        return "Paynow declined the payment because there were insufficient funds. Top up and try again."
+    if any(key in low for key in ("fail", "declin", "error", "disallow", "invalid")):
+        label = raw or "failed"
+        return f"Paynow reported this payment as {label}. No subscription was activated."
+    if txn.status in ("failed", "cancelled", "rejected"):
+        return "Paynow could not complete the payment. Try another method (EcoCash, OneMoney or card) or contact support with your invoice reference."
+    return None
+
+
+async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -> Optional[Transaction]:
+    """Ask Paynow for the current status and persist it. Safe to call repeatedly."""
+    if not txn or not txn.paynow_reference:
+        return txn
+    try:
+        status = paynow.check_transaction_status(txn.paynow_reference)
+    except Exception:
+        return txn
+
+    raw = str(getattr(status, "status", "") or "")
+    if raw:
+        txn.paynow_status = raw
+
+    if bool(getattr(status, "paid", False)):
+        txn.status = "paid"
+        tenant = (
+            await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
+        ).scalars().first()
+        if tenant:
+            tenant.subscription_status = "active"
+    else:
+        low = raw.lower()
+        if "cancel" in low:
+            txn.status = "cancelled"
+        elif any(key in low for key in ("fail", "declin", "insufficient", "error", "invalid")):
+            txn.status = "failed"
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return txn
+
+
+def _payment_payload(txn: Transaction) -> dict:
+    return {
+        "found": True,
+        "transaction_id": txn.id,
+        "status": txn.status or "pending",
+        "paynow_status": txn.paynow_status,
+        "amount": txn.amount_usd,
+        "reference": f"INV-{txn.id}",
+        "reason": None if txn.status == "paid" else _paynow_failure_reason(txn),
+        "created_at": txn.created_at.isoformat() if txn.created_at else None,
+    }
+
+
+@router.get("/paynow/latest")
+async def latest_paynow_payment(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The customer's most recent Paynow attempt, used by the return-to-billing banner."""
+    txn = (
+        await db.execute(
+            select(Transaction)
+            .where(Transaction.tenant_id == current_user.tenant_id)
+            .where(Transaction.payment_method == "paynow")
+            .order_by(Transaction.id.desc())
+            .limit(1)
+        )
+    ).scalars().first()
+    if not txn:
+        return {"found": False}
+    if txn.status == "pending":
+        txn = await _refresh_paynow_status(db, txn)
+    return _payment_payload(txn)
+
+
+@router.get("/paynow/status/{txn_id}")
+async def paynow_transaction_status(
+    txn_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-check one transaction (used to poll while Paynow confirms)."""
+    txn = (
+        await db.execute(select(Transaction).where(Transaction.id == txn_id))
+    ).scalars().first()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if current_user.tenant_id != 1 and txn.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.status == "pending":
+        txn = await _refresh_paynow_status(db, txn)
+    return _payment_payload(txn)
+
+
 @router.post("/paynow/webhook")
 async def paynow_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """
@@ -180,16 +288,16 @@ async def paynow_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     poll_url = form_data.get("pollurl")
     reference = form_data.get("reference")
-    
+
     if not poll_url and not reference:
         return {"status": "ignored"}
-    
+
     # Query Transaction by reference or poll_url
     txn = None
     if poll_url:
         result = await db.execute(select(Transaction).where(Transaction.paynow_reference == str(poll_url)))
         txn = result.scalars().first()
-    
+
     if not txn and reference and reference.startswith("INV-"):
         try:
             t_id = int(reference.replace("INV-", ""))
@@ -197,21 +305,8 @@ async def paynow_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             txn = result.scalars().first()
         except Exception:
             pass
-            
-    if txn and txn.paynow_reference:
-        try:
-            status = paynow.check_transaction_status(txn.paynow_reference)
-            if status.paid:
-                txn.status = "paid"
-                # Activate Tenant Subscription
-                tenant_res = await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
-                tenant = tenant_res.scalars().first()
-                if tenant:
-                    tenant.subscription_status = "active"
-                await db.commit()
-        except Exception as e:
-            pass
-            
+
+    await _refresh_paynow_status(db, txn)
     return {"status": "ok"}
 
 @router.post("/manual/upload-pop")

@@ -9903,6 +9903,56 @@ input:checked + .slider:before {
 }
 
 
+/* ══════════════════════════════════════════════════════════════
+   PAYNOW RETURN BANNER — payment outcome on the billing page
+   ══════════════════════════════════════════════════════════════ */
+.payment-result {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #0f172a;
+}
+.payment-result-icon { font-size: 1.15rem; margin-top: 2px; }
+.payment-result-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.payment-result-text strong { font-size: 0.9rem; }
+.payment-result-text span { font-size: 0.8rem; color: #475569; line-height: 1.45; }
+.payment-result-text em { font-style: normal; color: #64748b; }
+.payment-result-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.payment-result-btn {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.payment-result-dismiss {
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+.payment-result.is-success { background: #ecfdf5; border-color: #a7f3d0; }
+.payment-result.is-success .payment-result-icon { color: #059669; }
+.payment-result.is-failed { background: #fef2f2; border-color: #fecaca; }
+.payment-result.is-failed .payment-result-icon { color: #dc2626; }
+.payment-result.is-pending { background: #fffbeb; border-color: #fde68a; }
+.payment-result.is-pending .payment-result-icon { color: #b45309; }
+@media (max-width: 560px) {
+    .payment-result { flex-wrap: wrap; }
+    .payment-result-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
+}
+
 /* Touch devices (tablets) cannot hover the rail open, so keep the tab names
    visible under the icons instead of leaving a column of unlabelled icons. */
 @media (hover: none) and (min-width: 769px) {
