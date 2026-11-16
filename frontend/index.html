@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=195">
+    <link rel="stylesheet" href="/static/app.css?v=196">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -2270,8 +2270,11 @@
                                 Only a platform administrator can edit per-customer retention.
                             </p>
                             <div id="retention-admin" hidden>
-                                <p style="margin:12px 0 10px; font-size:0.78rem; color:#64748b; line-height:1.5;">
-                                    Set an explicit retention window for Enterprise accounts and individual reseller end-customers. Leave blank to use the plan default. This only affects future cleanup runs &mdash; existing history is not deleted.
+                                <p style="margin:12px 0 6px; font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                    Each row is one company on the platform. Its plan decides the automatic window &mdash; Basic 30 days, Premium 90 days, Starter Pass 30 days, Prepaid wallet 30 days, Reseller 90 days per end-customer. Enterprise has no automatic window, so type one below. A value typed here overrides that company only; leave it blank to keep the plan default.
+                                </p>
+                                <p style="margin:0 0 10px; font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                    <strong style="color:#0f172a;">Dry run:</strong> a preview that only counts. It reads how many GPS points are older than each company's window (always keeping the newest 3 fixes per tracker) and reports what a cleanup would remove. Nothing is deleted, and scheduled cleanup stays off until it is explicitly switched on.
                                 </p>
                                 <div id="retention-tenant-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                                 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px;">
@@ -2712,7 +2715,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=186"></script>
+    <script src="/static/app.js?v=187"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

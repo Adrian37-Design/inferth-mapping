@@ -9903,6 +9903,24 @@ input:checked + .slider:before {
 }
 
 
+/* Touch devices (tablets) cannot hover the rail open, so keep the tab names
+   visible under the icons instead of leaving a column of unlabelled icons. */
+@media (hover: none) and (min-width: 769px) {
+    body:not(.rail-expanded) .rail-label {
+        display: block !important;
+        font-size: 0.52rem !important;
+        line-height: 1.1 !important;
+        max-width: 100% !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    body:not(.rail-expanded) .rail-item {
+        min-height: 52px !important;
+        gap: 3px !important;
+    }
+}
+
 /* ══════════════════════════════════════════════════════════════
    MOBILE RESPONSIVENESS — Overhaul (No vertical rail distraction, 100% width, compact scale)
    ══════════════════════════════════════════════════════════════ */
@@ -9961,6 +9979,10 @@ input:checked + .slider:before {
     }
     body.mobile-drawer-open .mobile-drawer-backdrop {
         display: block !important;
+        /* Stop the transparent backdrop from stacking over (and swallowing taps on)
+           the 250px drawer itself. */
+        left: 250px !important;
+        right: 0 !important;
     }
 
     /* ── Sidebar Rail: Transform into Slide-Over Drawer (Never stays on screen disturbing elements) ── */
@@ -9995,6 +10017,17 @@ input:checked + .slider:before {
 
     body.mobile-drawer-open .sidebar-rail {
         transform: translateX(0) !important;
+    }
+
+    /* The rail labels are faded out globally for the collapsed desktop rail;
+       inside the mobile drawer they must be fully readable. */
+    .sidebar-rail .rail-item .rail-label {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        pointer-events: auto !important;
+        font-size: 0.88rem !important;
     }
 
     /* Drawer contents */

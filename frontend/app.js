@@ -8268,13 +8268,25 @@ window.loadRetentionSettings = async function () {
         wrap.hidden = false;
         if (limited) limited.hidden = true;
         list.innerHTML = (data.tenants || []).map(function (t) {
-            var value = t.retention_days == null ? '' : t.retention_days;
-            var warn = t.eligible ? '' : '<span style="color:#b91c1c;font-size:0.72rem;">needs configuration</span>';
-            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">' +
+            var tierNames = { basic: 'Basic', premium: 'Premium', starter: 'Starter Pass', prepaid: 'Prepaid wallet', reseller: 'Reseller', enterprise: 'Enterprise' };
+            var tier = tierNames[t.tier] || 'Unassigned';
+            var isOverride = t.source === 'override';
+            var value = isOverride && t.retention_days != null ? t.retention_days : '';
+            var placeholder = t.retention_days ? (t.retention_days + ' · plan default') : 'set days';
+            var base = isOverride
+                ? 'custom override (' + t.retention_days + ' days)'
+                : (t.retention_days ? tier + ' plan &middot; ' + t.retention_days + '-day window' : 'no automatic window');
+            var badge = isOverride
+                ? '<span style="font-size:0.68rem;font-weight:700;color:#1d4ed8;background:#dbeafe;border-radius:20px;padding:2px 8px;">override</span>'
+                : '';
+            var warn = t.eligible
+                ? ''
+                : '<span style="font-size:0.72rem;color:#b91c1c;flex-basis:100%;">Needs a value: ' + (t.reason || 'no retention resolved') + '</span>';
+            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">' +
                 '<strong style="font-size:0.8rem;color:#0f172a;min-width:140px;">' + (t.tenant_name || ('Tenant ' + t.tenant_id)) + '</strong>' +
-                '<span style="font-size:0.72rem;color:#64748b;">' + (t.tier || 'unknown') + ' &middot; ' + (t.plan || 'unset') + '</span>' +
-                warn +
-                '<input type="number" min="1" max="3650" placeholder="auto" value="' + value + '" id="retention-days-' + t.tenant_id + '" style="width:90px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;">' +
+                '<span style="font-size:0.72rem;color:#64748b;">' + tier + ' &middot; ' + base + '</span>' + badge + warn +
+                '<span style="flex:1 1 auto;"></span>' +
+                '<input type="number" min="1" max="3650" placeholder="' + placeholder + '" value="' + value + '" id="retention-days-' + t.tenant_id + '" aria-label="Retention days for ' + (t.tenant_name || t.tenant_id) + '" style="width:130px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;">' +
                 '<span style="font-size:0.72rem;color:#64748b;">days</span>' +
                 '<button type="button" onclick="saveTenantRetention(' + t.tenant_id + ')" style="background:#fff;border:1px solid #cbd5e1;border-radius:6px;padding:5px 10px;font-size:0.74rem;font-weight:700;cursor:pointer;">Save</button>' +
                 '</div>';
@@ -8316,9 +8328,10 @@ window.runRetentionDryRun = async function () {
         if (!res.ok) throw new Error(data.detail || 'dry run failed');
         const s = data.summary || {};
         if (out) {
-            out.textContent = 'Would delete ' + Number(s.would_delete_rows || 0).toLocaleString() +
-                ' of ' + Number(s.expired_rows || 0).toLocaleString() + ' expired rows across ' +
-                (s.eligible_tenants || 0) + ' tenants. Nothing was deleted.';
+            out.textContent = 'Dry run: ' + Number(s.would_delete_rows || 0).toLocaleString() +
+                ' GPS points would be removed out of ' + Number(s.expired_rows || 0).toLocaleString() + ' older than the window, across ' +
+                (s.eligible_tenants || 0) + ' of ' + (s.tenants_reported || 0) + ' companies ' +
+                '(' + (data.positions_table_size || 'size unknown') + ' total). Nothing was deleted.';
         }
     } catch (e) {
         if (out) out.textContent = 'Dry run unavailable: ' + e.message;
