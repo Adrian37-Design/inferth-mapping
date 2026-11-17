@@ -8819,7 +8819,7 @@ function applyBillingView(mode) {
         window.loadWalletBalance();
         window.loadFeatureCatalog();
         window.loadPrepaidUsage();
-        window.loadActiveFeatures();
+        window.loadPrepaidTrackingList();
     }
 }
 
@@ -9027,6 +9027,7 @@ window.toggleTracking = async function (deviceId, btn) {
         window.refreshTrackingButtons();
         window.loadWalletBalance();
         window.loadPrepaidUsage();
+        if (window.loadPrepaidTrackingList) window.loadPrepaidTrackingList();
     } catch (err) {
         alert(err.message);
     } finally {
@@ -9054,6 +9055,22 @@ window.loadFeatureDevices = async function () {
     }).join('') || '<option value="">No vehicles yet</option>';
 };
 
+window._featureActive = {};
+
+window.loadDeviceFeatureState = async function () {
+    const sel = document.getElementById('feature-device-select');
+    window._featureActive = {};
+    if (!sel || !sel.value || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/billing/devices/' + sel.value + '/features');
+        if (!res.ok) return;
+        const data = await res.json();
+        (data.features || []).forEach(function (f) {
+            if (f.status === 'active') window._featureActive[f.feature] = f;
+        });
+    } catch (e) { /* leave the purchase buttons available */ }
+};
+
 window.loadFeatureCatalog = async function () {
     const box = document.getElementById('feature-catalog-list');
     const block = document.getElementById('feature-catalog-block');
@@ -9063,19 +9080,36 @@ window.loadFeatureCatalog = async function () {
     }
     if (block) block.style.display = '';
     if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
-    window.loadFeatureDevices();
+    await window.loadFeatureDevices();
+    const sel = document.getElementById('feature-device-select');
+    if (sel && !sel.dataset.bound) {
+        sel.dataset.bound = '1';
+        sel.addEventListener('change', function () { window.loadFeatureCatalog(); });
+    }
     try {
         if (!window._featureCatalog) {
             const res = await window.AuthManager.fetchAPI('/billing/features');
             if (!res.ok) throw new Error('catalog failed');
             window._featureCatalog = await res.json();
         }
+        await window.loadDeviceFeatureState();
         const features = (window._featureCatalog && window._featureCatalog.features) || [];
         if (!features.length) { box.innerHTML = '<div style="color:#64748b;">No optional features configured.</div>'; return; }
         box.innerHTML = features.map(function (f) {
-            const days = f.days ? ' · ' + f.days + '-day period' : ' · while wallet funded';
+            const active = window._featureActive[f.key];
+            const period = f.days ? (f.days + '-day period') : 'while wallet funded';
+            const head = '<span style="flex:1 1 180px;">' + f.label + ' &mdash; <strong>$' + Number(f.price).toFixed(2) +
+                '</strong><span style="color:#94a3b8; font-size:0.7rem;"> &middot; ' + period + '</span></span>';
+            if (active) {
+                const until = active.ends_at ? ('until ' + new Date(active.ends_at).toLocaleDateString()) : 'while wallet funded';
+                const via = active.source === 'wallet' ? 'Wallet' : 'Paynow';
+                return '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:6px; padding:6px 8px;">' +
+                    head +
+                    '<span style="display:inline-flex; align-items:center; gap:6px; color:#047857; font-weight:700; font-size:0.72rem;">' +
+                    '<i class="fas fa-circle-check"></i> Active &middot; ' + until + ' &middot; ' + via + '</span></div>';
+            }
             return '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">' +
-                '<span style="flex:1 1 180px;">' + f.label + ' &mdash; <strong>$' + Number(f.price).toFixed(2) + '</strong><span style="color:#94a3b8; font-size:0.7rem;">' + days + '</span></span>' +
+                head +
                 '<button type="button" onclick="window.buyFeature(\'' + f.key + '\', \'wallet\')" style="border:1px solid #cbd5e1; background:#ffffff; border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;">Use wallet</button>' +
                 '<button type="button" onclick="window.buyFeature(\'' + f.key + '\', \'paynow\')" style="border:1px solid #ea580c; background:#fff7ed; color:#c2410c; border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;">Buy with Paynow</button>' +
                 '</div>';
@@ -9085,29 +9119,55 @@ window.loadFeatureCatalog = async function () {
     }
 };
 
-window.loadActiveFeatures = async function () {
-    const box = document.getElementById('active-features-list');
+// Per-vehicle Start/Stop on the Prepaid page itself.
+window.loadPrepaidTrackingList = async function () {
+    const box = document.getElementById('prepaid-tracking-list');
+    const card = document.getElementById('prepaid-tracking-card');
     if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (!window.isPrepaidTenant()) {
+        if (card) card.classList.add('hidden');
+        return;
+    }
+    if (card) card.classList.remove('hidden');
     try {
-        const res = await window.AuthManager.fetchAPI('/billing/active-features');
-        if (!res.ok) throw new Error('active features unavailable');
-        const data = await res.json();
-        const rows = data.features || [];
-        if (!rows.length) {
-            box.innerHTML = '<div style="color:#64748b; font-size:0.76rem;">No active add-ons yet. Features you buy appear here for the vehicle they were purchased for.</div>';
+        let vehicles = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
+        if (!vehicles.length) {
+            const vr = await window.AuthManager.fetchAPI('/devices');
+            if (vr.ok) vehicles = await vr.json();
+        }
+        const list = Array.isArray(vehicles) ? vehicles : [];
+        if (!list.length) {
+            box.innerHTML = '<div style="color:#64748b; font-size:0.76rem;">No vehicles yet. Add a tracker to start pay-as-you-drive tracking.</div>';
             return;
         }
-        box.innerHTML = rows.map(function (f) {
-            const ends = f.ends_at ? ('until ' + new Date(f.ends_at).toLocaleDateString()) : 'while wallet funded';
-            const source = f.source === 'wallet' ? 'Wallet' : 'Paynow';
-            return '<div style="display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">' +
-                '<span style="color:#0f172a; font-weight:600;">' + f.label +
-                '<span style="color:#64748b; font-weight:400;"> &middot; ' + (f.device_name || ('Vehicle ' + f.device_id)) + '</span></span>' +
-                '<span style="color:#047857; text-align:right; white-space:nowrap;">Active <span style="color:#94a3b8;">&middot; ' + ends + ' &middot; $' + Number(f.amount_usd || 0).toFixed(2) + ' ' + source + '</span></span>' +
-                '</div>';
+        const usageRes = await window.AuthManager.fetchAPI('/billing/usage');
+        const daily = {};
+        if (usageRes.ok) {
+            const u = await usageRes.json();
+            window._trackingState = {};
+            (u.open_sessions || []).forEach(function (s) { window._trackingState[s.device_id] = s.status; });
+            const today = new Date().toISOString().slice(0, 10);
+            (u.daily || []).forEach(function (d) { if (d.day === today) daily[d.device_id] = d; });
+        }
+        box.innerHTML = list.map(function (v) {
+            const state = window._trackingState[v.id];
+            const active = state === 'active';
+            const d = daily[v.id];
+            const usage = d
+                ? (Number(d.minutes || 0).toFixed(1) + ' min &middot; $' + Number(d.usd_billed || 0).toFixed(4))
+                : 'No usage today';
+            return '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">' +
+                '<span style="flex:1 1 160px; color:#0f172a; font-weight:600;">' + (v.name || ('Vehicle ' + v.id)) +
+                '<span style="color:#64748b; font-weight:400; font-size:0.7rem;"> &middot; ' + usage +
+                (state === 'paused' ? ' &middot; paused (wallet)' : '') + '</span></span>' +
+                '<button type="button" class="tracking-toggle-btn' + (active ? ' is-tracking' : '') + '" data-id="' + v.id + '" data-active="' + (active ? '1' : '0') + '" style="width:auto; margin-top:0; padding:5px 10px;">' +
+                '<i class="fas fa-' + (active ? 'stop' : 'play') + '"></i> <span>' + (active ? 'Stop tracking' : 'Start tracking') + '</span></button></div>';
         }).join('');
+        box.querySelectorAll('.tracking-toggle-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () { window.toggleTracking(Number(btn.dataset.id), btn); });
+        });
     } catch (e) {
-        box.innerHTML = '<div style="color:#b91c1c; font-size:0.76rem;">Could not load active features.</div>';
+        box.innerHTML = '<div style="color:#b91c1c; font-size:0.76rem;">Could not load vehicles.</div>';
     }
 };
 
@@ -9132,7 +9192,9 @@ window.buyFeature = async function (key, source) {
         }
         alert('Feature activated. Wallet balance: $' + Number(data.wallet_balance_usd || 0).toFixed(2));
         window.loadWalletBalance();
-        window.loadActiveFeatures();
+        window.loadPrepaidUsage();
+        if (window.loadPrepaidTrackingList) window.loadPrepaidTrackingList();
+        window.loadFeatureCatalog();
     } catch (err) {
         alert(err.message);
     }

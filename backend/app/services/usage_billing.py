@@ -13,17 +13,13 @@ Rate model (per vehicle):
 
 from __future__ import annotations
 
-import asyncio
 import datetime as dt
-import json
 import logging
 import time
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.config import settings
 
 from app.models import (
     Device,
@@ -55,11 +51,11 @@ ALL_HEALTH_KEYS: tuple = tuple(k for keys in TELEMETRY_FEATURES.values() for k i
 
 # Packet ingestion asks the gate for every packet; cache the tenant plan check,
 # the open-session lookup and the telemetry entitlements per device.
+# Start/stop and feature purchases invalidate the entry in-process, so the app
+# (one uvicorn process) switches instantly without Redis. The TTL only bounds
+# staleness if the service is ever run with multiple worker processes.
 GATE_CACHE_SECONDS = 15.0
-GATE_CHANNEL = "inferth:tracking-gate"
 _gate_cache: Dict[int, tuple[float, bool, frozenset]] = {}
-_gate_redis = None
-_gate_redis_down = False
 
 
 def invalidate_tracking_gate(device_id: Optional[int] = None) -> None:
@@ -69,69 +65,6 @@ def invalidate_tracking_gate(device_id: Optional[int] = None) -> None:
     else:
         _gate_cache.pop(int(device_id), None)
 
-
-async def _gate_redis_client():
-    """Shared Redis client for cross-worker cache invalidation (best effort)."""
-    global _gate_redis, _gate_redis_down
-    if _gate_redis is not None or _gate_redis_down:
-        return _gate_redis
-    try:
-        try:
-            from redis import asyncio as redis_asyncio  # redis>=4.2
-
-            _gate_redis = redis_asyncio.from_url(settings.REDIS_URL, decode_responses=True)
-        except ImportError:
-            import aioredis
-
-            _gate_redis = aioredis.from_url(
-                settings.REDIS_URL, encoding="utf-8", decode_responses=True
-            )
-    except Exception as exc:  # no Redis configured: the 15 s TTL still applies
-        _gate_redis_down = True
-        logger.warning("tracking gate: Redis unavailable (%s); using TTL only", exc)
-    return _gate_redis
-
-
-async def publish_gate_invalidation(device_id: Optional[int] = None) -> None:
-    """Tell every worker to drop its gate cache for one device (or all)."""
-    client = await _gate_redis_client()
-    if not client:
-        return
-    try:
-        await client.publish(GATE_CHANNEL, json.dumps({"device_id": device_id}))
-    except Exception as exc:
-        logger.debug("tracking gate publish failed: %s", exc)
-
-
-async def tracking_gate_listener() -> None:
-    """Subscribe to cross-worker invalidation messages; reconnect on failure."""
-    global _gate_redis
-    backoff = 5.0
-    while True:
-        try:
-            client = await _gate_redis_client()
-            if not client:
-                await asyncio.sleep(30)
-                continue
-            pubsub = client.pubsub()
-            await pubsub.subscribe(GATE_CHANNEL)
-            backoff = 5.0
-            logger.info("tracking gate: subscribed to %s", GATE_CHANNEL)
-            async for message in pubsub.listen():
-                if message.get("type") != "message":
-                    continue
-                try:
-                    payload = json.loads(message.get("data") or "{}")
-                except Exception:
-                    payload = {}
-                invalidate_tracking_gate(payload.get("device_id"))
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.warning("tracking gate listener retry in %.0fs: %s", backoff, exc)
-            _gate_redis = None
-            await asyncio.sleep(backoff)
-            backoff = min(backoff * 2, 60.0)
 
 # Optional features: key -> (label, price in USD, activation period in days)
 FEATURE_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -219,7 +152,6 @@ async def start_session(db: AsyncSession, tenant: Tenant, device: Device) -> Tra
     await db.commit()
     await db.refresh(session)
     invalidate_tracking_gate(device.id)
-    await publish_gate_invalidation(device.id)
     return session
 
 
@@ -232,7 +164,6 @@ async def stop_session(db: AsyncSession, device_id: int, reason: str = "deactiva
     )
     await db.commit()
     invalidate_tracking_gate(device_id)
-    await publish_gate_invalidation(device_id)
     return result.rowcount or 0
 
 
@@ -277,6 +208,8 @@ async def tracking_state(db: AsyncSession, device: Device) -> tuple[bool, frozen
                 DeviceFeature.device_id == device.id,
                 DeviceFeature.status == "active",
                 DeviceFeature.feature.in_(tuple(TELEMETRY_FEATURES.keys())),
+                (DeviceFeature.ends_at.is_(None))
+                | (DeviceFeature.ends_at > dt.datetime.now(dt.timezone.utc)),
             )
         )
     ).scalars().all()
@@ -395,7 +328,6 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
     await db.commit()
     if paused:
         invalidate_tracking_gate()
-        await publish_gate_invalidation(None)
     if charged_total or paused:
         logger.info("usage settlement: charged $%.6f, paused %s sessions", charged_total, paused)
     return {"settled": settled, "charged_usd": money(charged_total), "paused": paused}
@@ -422,21 +354,25 @@ async def activate_feature_from_wallet(
         raise ValueError("wallet_floor")
 
     tenant.wallet_balance_usd = money(balance - price)
+    days = int(meta.get("days") or 0)
+    ends_at = (
+        dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days) if days else None
+    )
     feature = DeviceFeature(
         tenant_id=tenant.id, device_id=device.id, feature=key, source="wallet",
-        amount_usd=price, status="active", ends_at=None,
+        amount_usd=price, status="active", ends_at=ends_at,
     )
     db.add(feature)
     _log(db, tenant.id, device.id, "feature", -price, balance_of(tenant), key)
     await db.commit()
     await db.refresh(feature)
     invalidate_tracking_gate(device.id)
-    await publish_gate_invalidation(device.id)
     return {
         "feature": key,
         "status": "active",
         "source": "wallet",
         "charged_usd": price,
+        "ends_at": ends_at.isoformat() if ends_at else None,
         "wallet_balance_usd": balance_of(tenant),
     }
 
@@ -460,5 +396,4 @@ async def activate_feature_from_payment(
     await db.commit()
     await db.refresh(feature)
     invalidate_tracking_gate(device_id)
-    await publish_gate_invalidation(device_id)
     return feature

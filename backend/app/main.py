@@ -409,9 +409,6 @@ async def startup_event():
     asyncio.create_task(_whatsapp_keepalive_loop())
     if os.getenv("USAGE_BILLING", "true").strip().lower() != "false":
         asyncio.create_task(_usage_settlement_loop())
-        # Cross-worker invalidation of the per-packet tracking gate cache.
-        from app.services.usage_billing import tracking_gate_listener
-        asyncio.create_task(tracking_gate_listener())
     if os.getenv("RETENTION_ENABLED", "false").strip().lower() == "true" and os.getenv("RETENTION_SCHEDULER", "true").strip().lower() == "true":
         asyncio.create_task(_retention_daily_loop())
 

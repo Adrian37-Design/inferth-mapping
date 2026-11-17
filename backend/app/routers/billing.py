@@ -48,41 +48,6 @@ async def feature_catalog():
     }
 
 
-@router.get("/active-features")
-async def active_features(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Every active paid add-on for the tenant, across vehicles."""
-    rows = (
-        await db.execute(
-            select(DeviceFeature, Device.name)
-            .join(Device, Device.id == DeviceFeature.device_id)
-            .where(
-                DeviceFeature.tenant_id == current_user.tenant_id,
-                DeviceFeature.status == "active",
-            )
-            .order_by(DeviceFeature.id.desc())
-        )
-    ).all()
-    return {
-        "features": [
-            {
-                "id": f.id,
-                "device_id": f.device_id,
-                "device_name": name,
-                "feature": f.feature,
-                "label": (ub.FEATURE_CATALOG.get(f.feature) or {}).get("label", f.feature),
-                "source": f.source,
-                "amount_usd": float(f.amount_usd or 0),
-                "activated_at": f.activated_at.isoformat() if f.activated_at else None,
-                "ends_at": f.ends_at.isoformat() if f.ends_at else None,
-            }
-            for f, name in rows
-        ]
-    }
-
-
 @router.get("/devices/{device_id}/features")
 async def device_features(
     device_id: int,
