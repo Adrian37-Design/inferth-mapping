@@ -3093,6 +3093,7 @@ async function loadVehicles() {
 
         // Load positions for all vehicles
         await loadAllPositions(vehicles); // Wait for positions to load stats
+        if (typeof window.applyTrackingDimming === 'function') window.applyTrackingDimming();
 
         // Update Dashboard Summary (Now KPIs)
         updateDashboardKPIs(vehicles);
@@ -3823,7 +3824,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // Update marker content without recreating or dirtying unchanged DOM
         const markerEl = document.getElementById(`marker-${imei}`);
         if (markerEl) {
-            const nextMarkerClass = `vehicle-marker ${assetStatus.toLowerCase()}-marker`;
+            const wasPaused = markerEl.classList.contains('tracking-paused');
+            const nextMarkerClass = `vehicle-marker ${assetStatus.toLowerCase()}-marker` + (wasPaused ? ' tracking-paused' : '');
             if (markerEl.className !== nextMarkerClass) markerEl.className = nextMarkerClass;
             const speedLabel = markerEl.querySelector('.speed-label');
             const nextSpeedText = `${Math.round(speed || 0)} km/h`;
@@ -8994,6 +8996,20 @@ window.refreshTrackingButtons = function () {
             ? 'Paused: wallet balance cannot cover more usage'
             : active ? 'Billing $0.02 per tracked hour, capped at $0.40/day' : 'Start pay-as-you-drive tracking';
     });
+    window.applyTrackingDimming();
+};
+
+// Stopped prepaid vehicles stay on the map but fade to a shadow so a fleet
+// manager can see at a glance which assets are not being tracked/billed.
+window.applyTrackingDimming = function () {
+    const prepaid = window.isPrepaidTenant && window.isPrepaidTenant();
+    const vehicles = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
+    vehicles.forEach(function (v) {
+        const el = document.getElementById('marker-' + v.imei);
+        if (!el) return;
+        const dim = prepaid && window._trackingState[v.id] !== 'active';
+        el.classList.toggle('tracking-paused', dim);
+    });
 };
 
 window.toggleTracking = async function (deviceId, btn) {
@@ -9100,6 +9116,13 @@ window.loadPrepaidUsage = async function () {
     const ledgerList = document.getElementById('wallet-ledger-list');
     const totalEl = document.getElementById('usage-panel-total');
     if (!todayList || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (!window.isPrepaidTenant()) {
+        const card = document.getElementById('prepaid-usage-card');
+        if (card) card.classList.add('hidden');
+        return;
+    }
+    const usageCard = document.getElementById('prepaid-usage-card');
+    if (usageCard) usageCard.classList.remove('hidden');
     try {
         const res = await window.AuthManager.fetchAPI('/billing/usage');
         if (!res.ok) throw new Error('usage failed');
@@ -9164,17 +9187,68 @@ window.loadWalletBalance = async function () {
         const res = await window.AuthManager.fetchAPI('/payments/wallet');
         if (!res.ok) return;
         const data = await res.json();
-        const balance = Number(data.balance_usd || 0);
+
+        // The stored balance only counts while Prepaid is the active plan.
+        // On Monthly/Once-off/Rental the page must not advertise wallet credit.
+        const prepaidActive = data.is_prepaid !== false;
+        const balance = prepaidActive ? Number(data.balance_usd || 0) : 0;
         const burn = Number(data.daily_burn_usd || 0);
         el.innerHTML = '$' + balance.toFixed(2) +
             ' <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span>';
         const note = document.getElementById('prepaid-wallet-note');
         if (note) {
-            note.innerHTML = balance > 0
-                ? '<i class="fas fa-circle-check"></i> Wallet active &mdash; about ' + Number(data.estimated_days || 0) +
-                  ' active vehicle-days left ($' + balance.toFixed(2) + ' &divide; $' + burn.toFixed(2) + '/day)'
-                : '<i class="fas fa-circle-exclamation"></i> Wallet empty &mdash; top up to keep tracking';
-            note.style.color = balance > 0 ? '#16a34a' : '#b45309';
+            if (!prepaidActive) {
+                note.innerHTML = '<i class="fas fa-circle-exclamation"></i> Prepaid Wallet is not your active plan &mdash; a wallet top-up switches you to pay-as-you-drive.' +
+                    (Number(data.balance_usd || 0) > 0
+                        ? ' <button type="button" id="activate-prepaid-btn" style="margin-left:6px; border:1px solid #fdba74; background:#fff7ed; color:#c2410c; border-radius:6px; padding:3px 8px; font-size:0.72rem; font-weight:700; cursor:pointer;">Activate Prepaid</button>'
+                        : '');
+                note.style.color = '#b45309';
+            } else if (balance > 0) {
+                note.innerHTML = '<i class="fas fa-circle-check"></i> Wallet active &mdash; about ' + Number(data.estimated_days || 0) +
+                  ' active vehicle-days left ($' + balance.toFixed(2) + ' &divide; $' + burn.toFixed(2) + '/day)';
+                note.style.color = '#16a34a';
+            } else {
+                note.innerHTML = '<i class="fas fa-circle-exclamation"></i> Wallet empty &mdash; top up to keep tracking';
+                note.style.color = '#b45309';
+            }
+        }
+        const usageCard = document.getElementById('prepaid-usage-card');
+        if (usageCard) usageCard.classList.toggle('hidden', !prepaidActive);
+
+        const activateBtn = document.getElementById('activate-prepaid-btn');
+        if (activateBtn) {
+            activateBtn.addEventListener('click', async function () {
+                activateBtn.disabled = true;
+                activateBtn.textContent = 'Activating\u2026';
+                try {
+                    const activateRes = await window.AuthManager.fetchAPI('/payments/subscription/activate-prepaid', { method: 'POST' });
+                    const activateData = await activateRes.json().catch(() => ({}));
+                    if (!activateRes.ok) throw new Error(activateData.detail || 'Could not activate Prepaid');
+                    if (window.AuthManager.user) {
+                        window.AuthManager.user.subscription = Object.assign({}, window.AuthManager.user.subscription, {
+                            plan: activateData.plan, cycle: activateData.cycle, status: 'active', next_billing: null
+                        });
+                    }
+                    window.applySubscriptionGate();
+                } catch (err) {
+                    alert(err.message);
+                    activateBtn.disabled = false;
+                    activateBtn.textContent = 'Activate Prepaid';
+                }
+            });
+        }
+
+        // Keep the cached session's plan in sync after a top-up switches the plan.
+        const sub = data.subscription;
+        if (sub && window.AuthManager.user) {
+            const current = window.AuthManager.user.subscription || {};
+            if (current.plan !== sub.plan || current.cycle !== sub.cycle || current.status !== sub.status) {
+                window.AuthManager.user.subscription = Object.assign({}, current, sub);
+                if (!window._syncingWalletSubscription) {
+                    window._syncingWalletSubscription = true;
+                    try { window.applySubscriptionGate(); } finally { window._syncingWalletSubscription = false; }
+                }
+            }
         }
     } catch (e) { /* leave the last known balance on screen */ }
 };

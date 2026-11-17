@@ -277,6 +277,12 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
                         balance_after=float(tenant.wallet_balance_usd or 0),
                         reference=f"INV-{txn.id}",
                     ))
+                    # A wallet top-up is a purchase of the Prepaid plan: make it the
+                    # active plan so the account is not left on Monthly while topped up.
+                    tenant.plan = "Prepaid Wallet"
+                    tenant.billing_cycle = "Prepaid"
+                    tenant.subscription_status = "active"
+                    tenant.next_billing_date = None
             elif plan.startswith("Feature_"):
                 # A feature bought separately: record the entitlement once.
                 from app.services import usage_billing as ub
@@ -378,6 +384,37 @@ async def cancel_subscription(
     }
 
 
+@router.post("/subscription/activate-prepaid")
+async def activate_prepaid_plan(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Switch an already-funded wallet to the Prepaid plan without a new payment.
+
+    Covers accounts that topped up before top-ups auto-activated Prepaid.
+    """
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+    ).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if float(tenant.wallet_balance_usd or 0) <= 0:
+        raise HTTPException(status_code=400, detail="Top up the wallet before activating Prepaid.")
+
+    tenant.plan = "Prepaid Wallet"
+    tenant.billing_cycle = "Prepaid"
+    tenant.subscription_status = "active"
+    tenant.next_billing_date = None
+    await db.commit()
+
+    return {
+        "status": "active",
+        "plan": tenant.plan,
+        "cycle": tenant.billing_cycle,
+        "wallet_balance_usd": round(float(tenant.wallet_balance_usd or 0), 2),
+    }
+
+
 @router.get("/wallet")
 async def prepaid_wallet(
     db: AsyncSession = Depends(get_db),
@@ -395,10 +432,20 @@ async def prepaid_wallet(
             select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
         )
     ).scalar() or 0
+    from app.services.usage_billing import is_prepaid as _is_prepaid
+
+    prepaid = _is_prepaid(tenant)
     balance = round(float(tenant.wallet_balance_usd or 0), 2)
     daily_rate = 0.40
     per_day = round(daily_rate * max(int(vehicles), 1), 2)
     return {
+        "is_prepaid": prepaid,
+        "subscription": {
+            "plan": tenant.plan,
+            "cycle": tenant.billing_cycle,
+            "status": tenant.subscription_status,
+            "next_billing": tenant.next_billing_date.isoformat() if tenant.next_billing_date else None,
+        },
         "balance_usd": balance,
         "daily_rate_per_vehicle": daily_rate,
         "tracked_vehicles": int(vehicles),
@@ -516,14 +563,6 @@ async def get_payment_status(txn_id: int, db: AsyncSession = Depends(get_db), cu
     
     # Optional: Poll Paynow if pending
     if txn.payment_method == "paynow" and txn.status == "pending" and txn.paynow_reference:
-        status = paynow.check_transaction_status(txn.paynow_reference)
-        if status.paid:
-            txn.status = "paid"
-            # Unlock Plan Logic
-            result = await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
-            tenant = result.scalars().first()
-            if tenant:
-                tenant.subscription_status = "active"
-            await db.commit()
+        txn = await _refresh_paynow_status(db, txn)
             
     return {"status": txn.status, "method": txn.payment_method, "created_at": txn.created_at}

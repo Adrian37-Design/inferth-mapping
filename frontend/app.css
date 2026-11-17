@@ -10478,3 +10478,13 @@ input:checked + .slider:before {
         width: 100% !important;
     }
 }
+
+/* Prepaid vehicle with tracking stopped: marker stays on the map as a shadow. */
+.vehicle-marker.tracking-paused {
+    opacity: 0.3 !important;
+    filter: grayscale(1) !important;
+    transition: opacity 0.25s ease, filter 0.25s ease !important;
+}
+.vehicle-marker.tracking-paused .speed-label {
+    display: none !important;
+}
