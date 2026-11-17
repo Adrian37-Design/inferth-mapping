@@ -2949,6 +2949,7 @@ async function loadVehicles() {
     document.getElementById('fleet-empty-state').classList.add('hidden');
     vehicleList.setAttribute('aria-busy', 'true');
     try {
+        if (typeof window.ensurePrepaidState === 'function') await window.ensurePrepaidState();
         const response = await window.AuthManager.fetchAPI('/devices/');
         if (!response.ok) throw new Error('Failed to load vehicles');
 
@@ -8960,7 +8961,30 @@ window.cancelSubscription = async function () {
 };
 
 // --- Pay-as-you-drive tracking control (prepaid wallet tenants only) ---
+window._serverPrepaid = null;
+
+// Ask the server once per page load. A stale login payload (or another device
+// activating Prepaid) must not hide Start/Stop or marker dimming on desktop.
+window.ensurePrepaidState = async function () {
+    if (window._serverPrepaid !== null) return window._serverPrepaid;
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return false;
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/wallet');
+        if (res.ok) {
+            const data = await res.json();
+            window._serverPrepaid = data.is_prepaid !== false;
+            if (data.subscription && window.AuthManager.user) {
+                window.AuthManager.user.subscription = Object.assign(
+                    {}, window.AuthManager.user.subscription || {}, data.subscription
+                );
+            }
+        }
+    } catch (e) { /* fall back to the cached subscription below */ }
+    return window._serverPrepaid === null ? false : window._serverPrepaid;
+};
+
 window.isPrepaidTenant = function () {
+    if (window._serverPrepaid !== null) return window._serverPrepaid;
     const sub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
     if (!sub) return false;
     const descriptor = ((sub.plan || '') + ' ' + (sub.cycle || '')).toLowerCase();
@@ -9282,6 +9306,7 @@ window.loadWalletBalance = async function () {
         // the money is held in escrow server-side (wallet purchases are refused)
         // and shown separately rather than silently disappearing.
         const prepaidActive = data.is_prepaid !== false;
+        window._serverPrepaid = prepaidActive;
         const available = prepaidActive
             ? Number(data.available_usd != null ? data.available_usd : (data.balance_usd || 0))
             : 0;

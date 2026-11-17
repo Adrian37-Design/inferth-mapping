@@ -354,10 +354,9 @@ async def activate_feature_from_wallet(
         raise ValueError("wallet_floor")
 
     tenant.wallet_balance_usd = money(balance - price)
-    days = int(meta.get("days") or 0)
-    ends_at = (
-        dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=days) if days else None
-    )
+    # Rule: every wallet-funded feature runs while the wallet is funded and ends
+    # when the balance reaches $0. Only Paynow purchases get a calendar period.
+    ends_at = None
     feature = DeviceFeature(
         tenant_id=tenant.id, device_id=device.id, feature=key, source="wallet",
         amount_usd=price, status="active", ends_at=ends_at,

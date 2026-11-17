@@ -10429,8 +10429,10 @@ input:checked + .slider:before {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   MOBILE DRAWER v2 — the whole panel is the scroll container, so the
-   tab list always scrolls on touch screens regardless of viewport height.
+   MOBILE DRAWER v3 — the drawer CONTAINER scrolls (not the rail).
+   A fixed block with overflow-y:auto is the most reliable scroller across
+   iOS Safari, Android Chrome and in-app WebViews; the rail becomes plain
+   static content so nothing clips or double-scrolls.
    ══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
     body.mobile-drawer-open .sidebar-container {
@@ -10438,53 +10440,44 @@ input:checked + .slider:before {
         top: 0 !important;
         left: 0 !important;
         bottom: 0 !important;
+        right: auto !important;
         width: 250px !important;
+        height: 100vh !important;
         height: 100dvh !important;
+        max-height: 100vh !important;
         max-height: 100dvh !important;
-        display: flex !important;
-        flex-direction: row !important;
-        pointer-events: auto !important;
-        overflow: visible !important;
-        z-index: 9500 !important;
-    }
-
-    body.mobile-drawer-open .sidebar-rail,
-    body.mobile-drawer-open .sidebar-rail:hover,
-    body.mobile-drawer-open .sidebar-rail.rail-hover-expanded {
-        position: relative !important;
-        inset: auto !important;
-        left: auto !important;
-        top: auto !important;
-        bottom: auto !important;
-        transform: none !important;
-        width: 250px !important;
-        min-width: 250px !important;
-        max-width: 250px !important;
-        height: 100% !important;
-        max-height: 100% !important;
-        padding: 18px 12px calc(28px + env(safe-area-inset-bottom, 0px)) !important;
+        display: block !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
         overscroll-behavior: contain;
         touch-action: pan-y;
+        pointer-events: auto !important;
+        z-index: 9500 !important;
+    }
+
+    body.mobile-drawer-open .sidebar-rail,
+    body.mobile-drawer-open .sidebar-rail:hover,
+    body.mobile-drawer-open .sidebar-rail.rail-hover-expanded,
+    body.mobile-drawer-open.rail-hovering .sidebar-rail {
+        position: static !important;
+        inset: auto !important;
+        transform: none !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
         display: flex !important;
         flex-direction: column !important;
         gap: 6px !important;
+        padding: 18px 12px calc(28px + env(safe-area-inset-bottom, 0px)) !important;
+        box-shadow: none !important;
     }
 
     body.mobile-drawer-open .sidebar-rail .rail-item {
         flex: 0 0 auto !important;
         width: 100% !important;
     }
-}
-
-/* Prepaid vehicle with tracking stopped: marker stays on the map as a shadow. */
-.vehicle-marker.tracking-paused {
-    opacity: 0.3 !important;
-    filter: grayscale(1) !important;
-    transition: opacity 0.25s ease, filter 0.25s ease !important;
-}
-.vehicle-marker.tracking-paused .speed-label {
-    display: none !important;
 }
