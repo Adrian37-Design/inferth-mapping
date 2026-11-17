@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select, update
@@ -36,6 +37,19 @@ DAILY_CAP_USD = 0.40
 WALLET_MIN_USD = 10.00
 SETTLE_SECONDS = 300
 FRACTIONAL_DAY_MINUTES = 24 * 60
+
+# Packet ingestion asks the gate for every packet; cache the tenant plan check
+# and the open-session lookup so two queries per packet become two per TTL.
+GATE_CACHE_SECONDS = 15.0
+_gate_cache: Dict[int, tuple[float, bool]] = {}
+
+
+def invalidate_tracking_gate(device_id: Optional[int] = None) -> None:
+    """Drop the cached gate decision after start/stop or a plan change."""
+    if device_id is None:
+        _gate_cache.clear()
+    else:
+        _gate_cache.pop(int(device_id), None)
 
 # Optional features: key -> (label, price in USD, activation period in days)
 FEATURE_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -122,6 +136,7 @@ async def start_session(db: AsyncSession, tenant: Tenant, device: Device) -> Tra
     db.add(session)
     await db.commit()
     await db.refresh(session)
+    invalidate_tracking_gate(device.id)
     return session
 
 
@@ -133,6 +148,7 @@ async def stop_session(db: AsyncSession, device_id: int, reason: str = "deactiva
         .values(status="ended", ended_at=now, ended_reason=reason)
     )
     await db.commit()
+    invalidate_tracking_gate(device_id)
     return result.rowcount or 0
 
 
@@ -170,6 +186,23 @@ async def tracking_allowed(db: AsyncSession, device: Device) -> bool:
         )
     ).scalars().first()
     return session is not None
+
+
+async def tracking_allowed_cached(db: AsyncSession, device: Device) -> bool:
+    """Cached form of tracking_allowed for the per-packet ingestion path.
+
+    A deliberate 15 s TTL: start/stop invalidate in-process instantly, and the
+    TTL bounds staleness across worker processes.
+    """
+    if not device:
+        return True
+    now = time.monotonic()
+    hit = _gate_cache.get(device.id)
+    if hit is not None and now - hit[0] < GATE_CACHE_SECONDS:
+        return hit[1]
+    allowed = await tracking_allowed(db, device)
+    _gate_cache[device.id] = (now, allowed)
+    return allowed
 
 
 async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
@@ -257,6 +290,8 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
             paused += 1
 
     await db.commit()
+    if paused:
+        invalidate_tracking_gate()
     if charged_total or paused:
         logger.info("usage settlement: charged $%.6f, paused %s sessions", charged_total, paused)
     return {"settled": settled, "charged_usd": money(charged_total), "paused": paused}
@@ -272,6 +307,9 @@ async def activate_feature_from_wallet(
     meta = get_feature(key)
     if not meta:
         raise ValueError("unknown_feature")
+
+    if not is_prepaid(tenant):
+        raise ValueError("not_prepaid")
 
     price = money(meta["price"])
     balance = balance_of(tenant)

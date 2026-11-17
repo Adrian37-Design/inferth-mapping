@@ -105,6 +105,11 @@ async def buy_feature(
         try:
             return await ub.activate_feature_from_wallet(db, tenant, device, key)
         except ValueError as exc:
+            if str(exc) == "not_prepaid":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Wallet spending needs the Prepaid plan. Activate Prepaid to use your credit.",
+                )
             if str(exc) == "wallet_floor":
                 raise HTTPException(
                     status_code=400,
@@ -236,6 +241,8 @@ async def usage_summary(
     return {
         "is_prepaid": ub.is_prepaid(tenant),
         "wallet_balance_usd": ub.balance_of(tenant),
+        "available_usd": ub.balance_of(tenant) if ub.is_prepaid(tenant) else 0.0,
+        "held_usd": 0.0 if ub.is_prepaid(tenant) else ub.balance_of(tenant),
         "rate_per_hour_usd": ub.RATE_PER_HOUR_USD,
         "daily_cap_usd": ub.DAILY_CAP_USD,
         "wallet_min_usd": ub.WALLET_MIN_USD,

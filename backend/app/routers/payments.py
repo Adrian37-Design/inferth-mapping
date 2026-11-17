@@ -440,6 +440,8 @@ async def prepaid_wallet(
     per_day = round(daily_rate * max(int(vehicles), 1), 2)
     return {
         "is_prepaid": prepaid,
+        "available_usd": balance if prepaid else 0.0,
+        "held_usd": 0.0 if prepaid else balance,
         "subscription": {
             "plan": tenant.plan,
             "cycle": tenant.billing_cycle,

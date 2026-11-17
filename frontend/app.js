@@ -9188,18 +9188,26 @@ window.loadWalletBalance = async function () {
         if (!res.ok) return;
         const data = await res.json();
 
-        // The stored balance only counts while Prepaid is the active plan.
-        // On Monthly/Once-off/Rental the page must not advertise wallet credit.
+        // Only Prepaid makes wallet credit spendable. On Monthly/Once-off/Rental
+        // the money is held in escrow server-side (wallet purchases are refused)
+        // and shown separately rather than silently disappearing.
         const prepaidActive = data.is_prepaid !== false;
-        const balance = prepaidActive ? Number(data.balance_usd || 0) : 0;
+        const available = prepaidActive
+            ? Number(data.available_usd != null ? data.available_usd : (data.balance_usd || 0))
+            : 0;
+        const held = Number(data.held_usd != null ? data.held_usd : (prepaidActive ? 0 : (data.balance_usd || 0)));
+        const balance = available;
         const burn = Number(data.daily_burn_usd || 0);
         el.innerHTML = '$' + balance.toFixed(2) +
             ' <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span>';
         const note = document.getElementById('prepaid-wallet-note');
         if (note) {
             if (!prepaidActive) {
-                note.innerHTML = '<i class="fas fa-circle-exclamation"></i> Prepaid Wallet is not your active plan &mdash; a wallet top-up switches you to pay-as-you-drive.' +
-                    (Number(data.balance_usd || 0) > 0
+                note.innerHTML = '<i class="fas fa-circle-exclamation"></i> Prepaid Wallet is not your active plan' +
+                    (held > 0
+                        ? ' &mdash; $' + held.toFixed(2) + ' is held and not spendable until you activate Prepaid.'
+                        : ' &mdash; top up or activate to start pay-as-you-drive.') +
+                    (held > 0
                         ? ' <button type="button" id="activate-prepaid-btn" style="margin-left:6px; border:1px solid #fdba74; background:#fff7ed; color:#c2410c; border-radius:6px; padding:3px 8px; font-size:0.72rem; font-weight:700; cursor:pointer;">Activate Prepaid</button>'
                         : '');
                 note.style.color = '#b45309';

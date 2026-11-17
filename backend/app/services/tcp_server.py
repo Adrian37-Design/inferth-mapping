@@ -284,11 +284,24 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         ign_val = decoded.get("ignition") if "ignition" in decoded else (clean_speed > 3.0 if clean_speed is not None else None)
                         dtc_val = decoded.get("dtc_fault_codes") or decoded.get("dtc")
                         
-                        # Prepaid hardware gate: only store while tracking is active.
-                        from app.services.usage_billing import tracking_allowed
-                        if not await tracking_allowed(db, device):
-                            print(f"[{datetime.now()}] BILLING: tracking paused for {device.imei} — packet ignored")
-                            return
+                        # Prepaid hardware gate: with tracking stopped we keep
+                        # health/telemetry (battery, engine, fuel, odometer, faults,
+                        # heartbeats) but discard the location so the map stays still.
+                        from app.services.usage_billing import tracking_allowed_cached
+                        if not await tracking_allowed_cached(db, device):
+                            health_keys = (
+                                "fuel_level", "fuel_consumption", "fuel", "rpm",
+                                "engine_temp", "coolant", "battery_voltage", "battery",
+                                "voltage", "odometer", "mileage", "dtc", "dtc_fault_codes",
+                            )
+                            has_health = any(decoded.get(k) is not None for k in health_keys)
+                            is_status = decoded.get("type") in ("heartbeat", "obd", "login")
+                            if not has_health and not is_status:
+                                # Pure position ping for a stopped vehicle: nothing to keep.
+                                return
+                            decoded["tracking_paused"] = True
+                            clean_lat, clean_lon, has_valid_coords = None, None, False
+                            sanitized_decoded = sanitize_for_json(decoded)
 
                         position = Position(
                             device_id=device.id,
