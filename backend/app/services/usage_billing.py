@@ -13,13 +13,17 @@ Rate model (per vehicle):
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
+import json
 import logging
 import time
 from typing import Any, Dict, Optional
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
 
 from app.models import (
     Device,
@@ -38,10 +42,24 @@ WALLET_MIN_USD = 10.00
 SETTLE_SECONDS = 300
 FRACTIONAL_DAY_MINUTES = 24 * 60
 
-# Packet ingestion asks the gate for every packet; cache the tenant plan check
-# and the open-session lookup so two queries per packet become two per TTL.
+# Which paid feature each telemetry field belongs to. Health rows are stored
+# for stopped prepaid vehicles only for features the customer actually bought.
+TELEMETRY_FEATURES: Dict[str, tuple] = {
+    "fuel_monitoring": ("fuel_level", "fuel_consumption", "fuel"),
+    "can_obd": (
+        "rpm", "engine_temp", "coolant", "battery_voltage", "battery", "voltage",
+        "odometer", "mileage", "dtc", "dtc_fault_codes",
+    ),
+}
+ALL_HEALTH_KEYS: tuple = tuple(k for keys in TELEMETRY_FEATURES.values() for k in keys)
+
+# Packet ingestion asks the gate for every packet; cache the tenant plan check,
+# the open-session lookup and the telemetry entitlements per device.
 GATE_CACHE_SECONDS = 15.0
-_gate_cache: Dict[int, tuple[float, bool]] = {}
+GATE_CHANNEL = "inferth:tracking-gate"
+_gate_cache: Dict[int, tuple[float, bool, frozenset]] = {}
+_gate_redis = None
+_gate_redis_down = False
 
 
 def invalidate_tracking_gate(device_id: Optional[int] = None) -> None:
@@ -50,6 +68,70 @@ def invalidate_tracking_gate(device_id: Optional[int] = None) -> None:
         _gate_cache.clear()
     else:
         _gate_cache.pop(int(device_id), None)
+
+
+async def _gate_redis_client():
+    """Shared Redis client for cross-worker cache invalidation (best effort)."""
+    global _gate_redis, _gate_redis_down
+    if _gate_redis is not None or _gate_redis_down:
+        return _gate_redis
+    try:
+        try:
+            from redis import asyncio as redis_asyncio  # redis>=4.2
+
+            _gate_redis = redis_asyncio.from_url(settings.REDIS_URL, decode_responses=True)
+        except ImportError:
+            import aioredis
+
+            _gate_redis = aioredis.from_url(
+                settings.REDIS_URL, encoding="utf-8", decode_responses=True
+            )
+    except Exception as exc:  # no Redis configured: the 15 s TTL still applies
+        _gate_redis_down = True
+        logger.warning("tracking gate: Redis unavailable (%s); using TTL only", exc)
+    return _gate_redis
+
+
+async def publish_gate_invalidation(device_id: Optional[int] = None) -> None:
+    """Tell every worker to drop its gate cache for one device (or all)."""
+    client = await _gate_redis_client()
+    if not client:
+        return
+    try:
+        await client.publish(GATE_CHANNEL, json.dumps({"device_id": device_id}))
+    except Exception as exc:
+        logger.debug("tracking gate publish failed: %s", exc)
+
+
+async def tracking_gate_listener() -> None:
+    """Subscribe to cross-worker invalidation messages; reconnect on failure."""
+    global _gate_redis
+    backoff = 5.0
+    while True:
+        try:
+            client = await _gate_redis_client()
+            if not client:
+                await asyncio.sleep(30)
+                continue
+            pubsub = client.pubsub()
+            await pubsub.subscribe(GATE_CHANNEL)
+            backoff = 5.0
+            logger.info("tracking gate: subscribed to %s", GATE_CHANNEL)
+            async for message in pubsub.listen():
+                if message.get("type") != "message":
+                    continue
+                try:
+                    payload = json.loads(message.get("data") or "{}")
+                except Exception:
+                    payload = {}
+                invalidate_tracking_gate(payload.get("device_id"))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("tracking gate listener retry in %.0fs: %s", backoff, exc)
+            _gate_redis = None
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60.0)
 
 # Optional features: key -> (label, price in USD, activation period in days)
 FEATURE_CATALOG: Dict[str, Dict[str, Any]] = {
@@ -137,6 +219,7 @@ async def start_session(db: AsyncSession, tenant: Tenant, device: Device) -> Tra
     await db.commit()
     await db.refresh(session)
     invalidate_tracking_gate(device.id)
+    await publish_gate_invalidation(device.id)
     return session
 
 
@@ -149,6 +232,7 @@ async def stop_session(db: AsyncSession, device_id: int, reason: str = "deactiva
     )
     await db.commit()
     invalidate_tracking_gate(device_id)
+    await publish_gate_invalidation(device_id)
     return result.rowcount or 0
 
 
@@ -165,18 +249,20 @@ async def end_wallet_features(db: AsyncSession, tenant_id: int, reason: str = "w
     return result.rowcount or 0
 
 
-async def tracking_allowed(db: AsyncSession, device: Device) -> bool:
-    """Hardware gate: a prepaid vehicle only reports while its session is active.
+async def tracking_state(db: AsyncSession, device: Device) -> tuple[bool, frozenset]:
+    """Gate + paid telemetry entitlements for one device.
 
-    Monthly, once-off and rental plans are unaffected (always allowed).
+    Prepaid vehicles only report locations while a tracking session is active;
+    Monthly/once-off/rental plans are always allowed. The second element lists
+    the paid telemetry features (can_obd, fuel_monitoring) active for the device.
     """
     if not device or not device.tenant_id:
-        return True
+        return True, frozenset()
     tenant = (
         await db.execute(select(Tenant).where(Tenant.id == device.tenant_id))
     ).scalars().first()
     if not is_prepaid(tenant):
-        return True
+        return True, frozenset()
     session = (
         await db.execute(
             select(TrackingSession.id).where(
@@ -185,24 +271,41 @@ async def tracking_allowed(db: AsyncSession, device: Device) -> bool:
             )
         )
     ).scalars().first()
-    return session is not None
+    features = (
+        await db.execute(
+            select(DeviceFeature.feature).where(
+                DeviceFeature.device_id == device.id,
+                DeviceFeature.status == "active",
+                DeviceFeature.feature.in_(tuple(TELEMETRY_FEATURES.keys())),
+            )
+        )
+    ).scalars().all()
+    return session is not None, frozenset(features)
 
 
-async def tracking_allowed_cached(db: AsyncSession, device: Device) -> bool:
-    """Cached form of tracking_allowed for the per-packet ingestion path.
+async def tracking_state_cached(db: AsyncSession, device: Device) -> tuple[bool, frozenset]:
+    """TTL cache in front of tracking_state for the per-packet ingestion path.
 
-    A deliberate 15 s TTL: start/stop invalidate in-process instantly, and the
-    TTL bounds staleness across worker processes.
+    Start/stop publishes an invalidation to every worker over Redis, so the
+    cache is only a fallback when Redis is down (bounded by GATE_CACHE_SECONDS).
     """
     if not device:
-        return True
+        return True, frozenset()
     now = time.monotonic()
     hit = _gate_cache.get(device.id)
     if hit is not None and now - hit[0] < GATE_CACHE_SECONDS:
-        return hit[1]
-    allowed = await tracking_allowed(db, device)
-    _gate_cache[device.id] = (now, allowed)
-    return allowed
+        return hit[1], hit[2]
+    allowed, features = await tracking_state(db, device)
+    _gate_cache[device.id] = (now, allowed, features)
+    return allowed, features
+
+
+async def tracking_allowed(db: AsyncSession, device: Device) -> bool:
+    return (await tracking_state(db, device))[0]
+
+
+async def tracking_allowed_cached(db: AsyncSession, device: Device) -> bool:
+    return (await tracking_state_cached(db, device))[0]
 
 
 async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
@@ -292,6 +395,7 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
     await db.commit()
     if paused:
         invalidate_tracking_gate()
+        await publish_gate_invalidation(None)
     if charged_total or paused:
         logger.info("usage settlement: charged $%.6f, paused %s sessions", charged_total, paused)
     return {"settled": settled, "charged_usd": money(charged_total), "paused": paused}
@@ -326,6 +430,8 @@ async def activate_feature_from_wallet(
     _log(db, tenant.id, device.id, "feature", -price, balance_of(tenant), key)
     await db.commit()
     await db.refresh(feature)
+    invalidate_tracking_gate(device.id)
+    await publish_gate_invalidation(device.id)
     return {
         "feature": key,
         "status": "active",
@@ -353,4 +459,6 @@ async def activate_feature_from_payment(
     db.add(feature)
     await db.commit()
     await db.refresh(feature)
+    invalidate_tracking_gate(device_id)
+    await publish_gate_invalidation(device_id)
     return feature

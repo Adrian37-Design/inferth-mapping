@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=204">
+    <link rel="stylesheet" href="/static/app.css?v=205">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -2124,6 +2124,14 @@
                                     </div>
                                 </div>
 
+                                <!-- Purchased add-ons: the customer must be able to see what they own -->
+                                <div id="active-features-card" style="margin: 0 0 16px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;">
+                                    <h4 style="margin:0 0 8px; font-size:0.9rem; font-weight:800; color:#0f172a;">Active features</h4>
+                                    <div id="active-features-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.78rem;">
+                                        <div style="color:#64748b; font-size:0.76rem;"><i class="fas fa-spinner fa-spin"></i> Loading&hellip;</div>
+                                    </div>
+                                </div>
+
                                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
                                     <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(12)" style="padding:8px 16px; font-weight:700;">+$12 USD (30 Days)</button>
                                     <button type="button" class="btn-secondary btn-sm" onclick="topUpPrepaidWallet(24)" style="padding:8px 16px; font-weight:700;">+$24 USD (60 Days)</button>
@@ -2763,7 +2771,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=195"></script>
+    <script src="/static/app.js?v=196"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

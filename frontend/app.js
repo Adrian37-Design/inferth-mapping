@@ -8819,6 +8819,7 @@ function applyBillingView(mode) {
         window.loadWalletBalance();
         window.loadFeatureCatalog();
         window.loadPrepaidUsage();
+        window.loadActiveFeatures();
     }
 }
 
@@ -9084,6 +9085,32 @@ window.loadFeatureCatalog = async function () {
     }
 };
 
+window.loadActiveFeatures = async function () {
+    const box = document.getElementById('active-features-list');
+    if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/billing/active-features');
+        if (!res.ok) throw new Error('active features unavailable');
+        const data = await res.json();
+        const rows = data.features || [];
+        if (!rows.length) {
+            box.innerHTML = '<div style="color:#64748b; font-size:0.76rem;">No active add-ons yet. Features you buy appear here for the vehicle they were purchased for.</div>';
+            return;
+        }
+        box.innerHTML = rows.map(function (f) {
+            const ends = f.ends_at ? ('until ' + new Date(f.ends_at).toLocaleDateString()) : 'while wallet funded';
+            const source = f.source === 'wallet' ? 'Wallet' : 'Paynow';
+            return '<div style="display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">' +
+                '<span style="color:#0f172a; font-weight:600;">' + f.label +
+                '<span style="color:#64748b; font-weight:400;"> &middot; ' + (f.device_name || ('Vehicle ' + f.device_id)) + '</span></span>' +
+                '<span style="color:#047857; text-align:right; white-space:nowrap;">Active <span style="color:#94a3b8;">&middot; ' + ends + ' &middot; $' + Number(f.amount_usd || 0).toFixed(2) + ' ' + source + '</span></span>' +
+                '</div>';
+        }).join('');
+    } catch (e) {
+        box.innerHTML = '<div style="color:#b91c1c; font-size:0.76rem;">Could not load active features.</div>';
+    }
+};
+
 window.buyFeature = async function (key, source) {
     const sel = document.getElementById('feature-device-select');
     const deviceId = sel && sel.value;
@@ -9105,6 +9132,7 @@ window.buyFeature = async function (key, source) {
         }
         alert('Feature activated. Wallet balance: $' + Number(data.wallet_balance_usd || 0).toFixed(2));
         window.loadWalletBalance();
+        window.loadActiveFeatures();
     } catch (err) {
         alert(err.message);
     }

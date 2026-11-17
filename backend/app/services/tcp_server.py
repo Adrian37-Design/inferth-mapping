@@ -272,6 +272,28 @@ class TCPTrackerProtocol(asyncio.Protocol):
                             ):
                                 return
 
+                        # Prepaid hardware gate: with tracking stopped we discard the
+                        # location and keep only telemetry the customer actually bought
+                        # (CAN/OBD diagnostics, fuel monitoring).
+                        from app.services.usage_billing import (
+                            tracking_state_cached, ALL_HEALTH_KEYS, TELEMETRY_FEATURES,
+                        )
+                        gate_active, gate_features = await tracking_state_cached(db, device)
+                        if not gate_active:
+                            entitled = set()
+                            for feature_key in gate_features:
+                                entitled.update(TELEMETRY_FEATURES.get(feature_key, ()))
+                            has_entitled = any(decoded.get(k) is not None for k in entitled)
+                            is_status = decoded.get("type") in ("heartbeat", "obd", "login")
+                            if not has_entitled and not (is_status and gate_features):
+                                # Nothing here the customer is entitled to keep.
+                                return
+                            for key in ALL_HEALTH_KEYS:
+                                if key not in entitled:
+                                    decoded.pop(key, None)
+                            decoded["tracking_paused"] = True
+                            clean_lat, clean_lon, has_valid_coords = None, None, False
+
                         # Sanitize decoded dict for JSON storage
                         sanitized_decoded = sanitize_for_json(decoded)
 
@@ -283,25 +305,6 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         odo_val = decoded.get("odometer") or decoded.get("mileage")
                         ign_val = decoded.get("ignition") if "ignition" in decoded else (clean_speed > 3.0 if clean_speed is not None else None)
                         dtc_val = decoded.get("dtc_fault_codes") or decoded.get("dtc")
-                        
-                        # Prepaid hardware gate: with tracking stopped we keep
-                        # health/telemetry (battery, engine, fuel, odometer, faults,
-                        # heartbeats) but discard the location so the map stays still.
-                        from app.services.usage_billing import tracking_allowed_cached
-                        if not await tracking_allowed_cached(db, device):
-                            health_keys = (
-                                "fuel_level", "fuel_consumption", "fuel", "rpm",
-                                "engine_temp", "coolant", "battery_voltage", "battery",
-                                "voltage", "odometer", "mileage", "dtc", "dtc_fault_codes",
-                            )
-                            has_health = any(decoded.get(k) is not None for k in health_keys)
-                            is_status = decoded.get("type") in ("heartbeat", "obd", "login")
-                            if not has_health and not is_status:
-                                # Pure position ping for a stopped vehicle: nothing to keep.
-                                return
-                            decoded["tracking_paused"] = True
-                            clean_lat, clean_lon, has_valid_coords = None, None, False
-                            sanitized_decoded = sanitize_for_json(decoded)
 
                         position = Position(
                             device_id=device.id,
