@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights
+from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights
 from app.services.mqtt_client import start_mqtt
 import asyncio
 import datetime
@@ -97,7 +97,9 @@ async def run_migrations_and_branding():
                     # Tenant-aware GPS retention: NULL derives from plan, set explicitly for Enterprise
                     "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS retention_days INTEGER DEFAULT NULL",
                     # Prepaid Fleet Wallet balance, credited by successful top-ups
-                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS wallet_balance_usd FLOAT DEFAULT 0",
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS wallet_balance_usd NUMERIC(14, 6) DEFAULT 0",
+                    # Wallets and ledgers keep 6 dp internally (2 dp shown to customers).
+                    "ALTER TABLE tenants ALTER COLUMN wallet_balance_usd TYPE NUMERIC(14, 6) USING wallet_balance_usd::numeric(14, 6)",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS plan_name VARCHAR DEFAULT NULL",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS wallet_credited BOOLEAN DEFAULT FALSE",
                     "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
@@ -274,6 +276,27 @@ async def run_migrations_and_branding():
 
 
 
+async def _usage_settlement_loop():
+    """Settle pay-as-you-drive tracking sessions every 5 minutes.
+
+    The interval is a settlement tick, not a minimum charge: a 2-minute
+    session is billed for 2 minutes of elapsed time.
+    """
+    from app.db import AsyncSessionLocal
+    from app.services.usage_billing import SETTLE_SECONDS, settle_sessions
+
+    await asyncio.sleep(45)
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                result = await settle_sessions(db)
+            if result.get("charged_usd") or result.get("paused"):
+                print(f"[Usage] settled={result.get('settled')} charged=${result.get('charged_usd')} paused={result.get('paused')}")
+        except Exception as exc:
+            print(f"[Usage] settlement failed: {exc}")
+        await asyncio.sleep(SETTLE_SECONDS)
+
+
 async def _retention_daily_loop():
     """
     Daily GPS retention run at 02:00 UTC. Does nothing unless
@@ -384,6 +407,8 @@ async def startup_event():
     # 1. Start Heavy Logic in Background to avoid 502 Gateway Timeouts during boot
     asyncio.create_task(run_migrations_and_branding())
     asyncio.create_task(_whatsapp_keepalive_loop())
+    if os.getenv("USAGE_BILLING", "true").strip().lower() != "false":
+        asyncio.create_task(_usage_settlement_loop())
     if os.getenv("RETENTION_ENABLED", "false").strip().lower() == "true" and os.getenv("RETENTION_SCHEDULER", "true").strip().lower() == "true":
         asyncio.create_task(_retention_daily_loop())
 
@@ -1132,6 +1157,7 @@ app.include_router(users.router)
 app.include_router(audit.router)
 app.include_router(geofences.router)
 app.include_router(payments.router)
+app.include_router(billing.router)
 app.include_router(admin.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)

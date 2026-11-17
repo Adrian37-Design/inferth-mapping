@@ -248,9 +248,12 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
             await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
         ).scalars().first()
         if tenant:
-            if txn.plan_name == "Prepaid_Wallet_Topup":
+            plan = txn.plan_name or ""
+            if plan == "Prepaid_Wallet_Topup":
                 # Credit the wallet exactly once, even if the webhook and the
                 # browser's status poll race each other.
+                from app.models import WalletLedger
+
                 claim = await db.execute(
                     update(Transaction)
                     .where(
@@ -264,8 +267,39 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
                 )
                 if claim.rowcount:
                     tenant.wallet_balance_usd = round(
-                        float(tenant.wallet_balance_usd or 0) + float(txn.amount_usd or 0), 2
+                        float(tenant.wallet_balance_usd or 0) + float(txn.amount_usd or 0), 6
                     )
+                    db.add(WalletLedger(
+                        tenant_id=tenant.id,
+                        device_id=None,
+                        kind="topup",
+                        amount_usd=round(float(txn.amount_usd or 0), 6),
+                        balance_after=float(tenant.wallet_balance_usd or 0),
+                        reference=f"INV-{txn.id}",
+                    ))
+            elif plan.startswith("Feature_"):
+                # A feature bought separately: record the entitlement once.
+                from app.services import usage_billing as ub
+
+                try:
+                    key, device_part = plan[len("Feature_"):].rsplit("_DEV_", 1)
+                    claimed = await db.execute(
+                        update(Transaction)
+                        .where(
+                            Transaction.id == txn.id,
+                            or_(
+                                Transaction.wallet_credited.is_(None),
+                                Transaction.wallet_credited.is_(False),
+                            ),
+                        )
+                        .values(wallet_credited=True)
+                    )
+                    if claimed.rowcount:
+                        await ub.activate_feature_from_payment(
+                            db, tenant.id, int(device_part), key, txn.id
+                        )
+                except Exception:
+                    pass
             else:
                 tenant.subscription_status = "active"
     else:

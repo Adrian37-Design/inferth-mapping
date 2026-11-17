@@ -8800,6 +8800,7 @@ function applyBillingView(mode) {
 
     if (mode === 'prepaid' && typeof window.loadWalletBalance === 'function') {
         window.loadWalletBalance();
+        window.loadFeatureCatalog();
     }
 }
 
@@ -8936,6 +8937,77 @@ window.cancelSubscription = async function () {
             btn.disabled = false;
             btn.textContent = 'Cancel subscription';
         }
+    }
+};
+
+// Optional feature purchases: per vehicle, from the wallet or via Paynow.
+window._featureCatalog = null;
+
+window.loadFeatureDevices = async function () {
+    const sel = document.getElementById('feature-device-select');
+    if (!sel || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    let vehicles = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
+    if (!vehicles.length) {
+        try {
+            const res = await window.AuthManager.fetchAPI('/devices');
+            if (res.ok) vehicles = await res.json();
+        } catch (e) { vehicles = []; }
+    }
+    const list = Array.isArray(vehicles) ? vehicles : [];
+    sel.innerHTML = list.map(function (v) {
+        const label = [v.name, v.imei].filter(Boolean).join(' · ') || ('Vehicle ' + v.id);
+        return '<option value="' + v.id + '">' + label + '</option>';
+    }).join('') || '<option value="">No vehicles yet</option>';
+};
+
+window.loadFeatureCatalog = async function () {
+    const box = document.getElementById('feature-catalog-list');
+    if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    window.loadFeatureDevices();
+    try {
+        if (!window._featureCatalog) {
+            const res = await window.AuthManager.fetchAPI('/billing/features');
+            if (!res.ok) throw new Error('catalog failed');
+            window._featureCatalog = await res.json();
+        }
+        const features = (window._featureCatalog && window._featureCatalog.features) || [];
+        if (!features.length) { box.innerHTML = '<div style="color:#64748b;">No optional features configured.</div>'; return; }
+        box.innerHTML = features.map(function (f) {
+            const days = f.days ? ' · ' + f.days + '-day period' : ' · while wallet funded';
+            return '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">' +
+                '<span style="flex:1 1 180px;">' + f.label + ' &mdash; <strong>$' + Number(f.price).toFixed(2) + '</strong><span style="color:#94a3b8; font-size:0.7rem;">' + days + '</span></span>' +
+                '<button type="button" onclick="window.buyFeature(\'' + f.key + '\', \'wallet\')" style="border:1px solid #cbd5e1; background:#ffffff; border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;">Use wallet</button>' +
+                '<button type="button" onclick="window.buyFeature(\'' + f.key + '\', \'paynow\')" style="border:1px solid #ea580c; background:#fff7ed; color:#c2410c; border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:700; cursor:pointer;">Buy with Paynow</button>' +
+                '</div>';
+        }).join('');
+    } catch (e) {
+        box.innerHTML = '<div style="color:#b91c1c;">Could not load optional features.</div>';
+    }
+};
+
+window.buyFeature = async function (key, source) {
+    const sel = document.getElementById('feature-device-select');
+    const deviceId = sel && sel.value;
+    if (!deviceId) { alert('Add a vehicle first.'); return; }
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (!confirm(source === 'wallet'
+        ? 'Pay for this feature from your Prepaid Wallet? Your balance must stay at or above $10.00.'
+        : 'Buy this feature separately with Paynow (EcoCash / OneMoney / card)?')) return;
+    try {
+        const res = await window.AuthManager.fetchAPI(
+            '/billing/devices/' + deviceId + '/features/' + encodeURIComponent(key) + '?source=' + source,
+            { method: 'POST' }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Purchase failed');
+        if (data.redirect_url) {
+            window.location.href = data.redirect_url;
+            return;
+        }
+        alert('Feature activated. Wallet balance: $' + Number(data.wallet_balance_usd || 0).toFixed(2));
+        window.loadWalletBalance();
+    } catch (err) {
+        alert(err.message);
     }
 };
 

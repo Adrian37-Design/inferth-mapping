@@ -10003,6 +10003,25 @@ input:checked + .slider:before {
     .payment-result-actions { margin-left: 0; width: 100%; justify-content: flex-end; }
 }
 
+/* Mobile drawer: make the tab list reliably scrollable on touch screens */
+@media (max-width: 768px) {
+    body.mobile-drawer-open .sidebar-rail {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+        padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    body.mobile-drawer-open .sidebar-rail .rail-item {
+        flex: 0 0 auto !important;
+    }
+    body.mobile-drawer-open {
+        overflow: hidden;
+    }
+}
+
 /* Touch devices (tablets) cannot hover the rail open, so keep the tab names
    visible under the icons instead of leaving a column of unlabelled icons. */
 @media (hover: none) and (min-width: 769px) {

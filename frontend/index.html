@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=199">
+    <link rel="stylesheet" href="/static/app.css?v=200">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -1499,17 +1499,17 @@
 
                                 <details class="faq-item" data-faq-id="plans-overview">
                                     <summary>Which plans are available?</summary>
-                                    <div class="faq-answer"><p><strong>Monthly:</strong> Starter at $12 and Professional at $17 per vehicle per month, with roughly 30% saved on yearly billing, and Enterprise priced per fleet. <strong>Once-off:</strong> a Starter Pass at $89 per vehicle for lifetime access. <strong>Prepaid:</strong> a wallet charged at $0.50 per active vehicle per day.</p></div>
+                                    <div class="faq-answer"><p><strong>Monthly:</strong> Starter at $12 and Professional at $17 per vehicle per month, with roughly 30% saved on yearly billing, and Enterprise priced per fleet. <strong>Once-off:</strong> a Starter Pass at $60 per vehicle for lifetime access. <strong>Prepaid:</strong> a wallet charged at $0.02 per tracked hour, capped at $0.40 per vehicle per day.</p></div>
                                 </details>
 
                                 <details class="faq-item" data-faq-id="lifetime-pass">
                                     <summary>What exactly does the once-off lifetime pass include?</summary>
                                     <div class="faq-answer">
-                                        <p><strong>One payment of $89 per vehicle, made once.</strong> No renewal date, no debit order and no top-up prompt. It covers:</p>
+                                        <p><strong>One payment of $60 per vehicle, made once.</strong> No renewal date, no debit order and no top-up prompt. It covers:</p>
                                         <p>&bull; Platform access for that vehicle with no end date: live map, trip history, geofences, alerts and the Starter feature set, for as long as the platform operates.<br>
                                         &bull; Every future update, report and fix, delivered automatically at no extra cost.<br>
                                         &bull; Hosting, database storage and backups.<br>
-                                        &bull; WhatsApp and SMS alert delivery within fair use.<br>
+                                        &bull; Standard tracking alerts. WhatsApp usage is charged separately, and extended history retention is sold separately.<br>
                                         &bull; Transfer with the vehicle, because the pass is keyed to the tracker IMEI.</p>
                                         <p><strong>Paid separately:</strong> the tracker unit, installation and wiring, the tracker&rsquo;s SIM airtime (about $1&ndash;$3 per month, paid to Econet or NetOne), replacement hardware after theft or damage, and any custom integration, on-site training or consulting.</p>
                                         <p><strong>How lifetime is measured:</strong> the operating life of the platform for one vehicle, not the life of the truck and not a fixed number of years. The pass does not tick down while a vehicle is parked, offline or in the workshop, and it never comes up for renewal.</p>
@@ -1946,23 +1946,24 @@
                                     </div>
                                     <div class="ot-price-row">
                                         <span class="ot-currency">$</span>
-                                        <span class="ot-amount">89</span>
+                                        <span class="ot-amount">60</span>
                                         <span class="ot-unit">/vehicle, once</span>
                                     </div>
                                     <div class="ot-saving"><i class="fas fa-infinity"></i> No renewal, no expiry, no monthly fee</div>
                                     <ul class="ot-features">
-                                        <li><i class="fas fa-check"></i> Real-time GPS tracking</li>
-                                        <li><i class="fas fa-check"></i> Geofencing (up to 5 zones)</li>
-                                        <li><i class="fas fa-check"></i> WhatsApp OTP auth &amp; alerts</li>
-                                        <li><i class="fas fa-check"></i> 30-day history &amp; reports</li>
-                                        <li><i class="fas fa-check"></i> Access to every platform update</li>
-                                        <li><i class="fas fa-check"></i> <strong>Lifetime access</strong> &mdash; never renew</li>
+                                        <li><i class="fas fa-check"></i> Live GPS tracking</li>
+                                        <li><i class="fas fa-check"></i> Live map</li>
+                                        <li><i class="fas fa-check"></i> 30-day route history</li>
+                                        <li><i class="fas fa-check"></i> Basic trip reports</li>
+                                        <li><i class="fas fa-check"></i> Geofencing</li>
+                                        <li><i class="fas fa-check"></i> Standard tracking alerts</li>
                                     </ul>
-                                    <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('starter', 89)">
-                                        <i class="fas fa-mobile-alt"></i> Pay $89 via EcoCash
+                                    <button class="ot-btn btn-primary" onclick="triggerOnceOffTracking('starter', 60)">
+                                        <i class="fas fa-mobile-alt"></i> Pay $60 via EcoCash
                                     </button>
                                     <p class="ot-plan-fineprint">
-                                        Covers platform access for one vehicle only. Tracker hardware, installation and the
+                                        One payment per vehicle. WhatsApp usage is charged separately, and extended
+                                        history retention is sold separately. Tracker hardware, installation and the
                                         tracker&rsquo;s own SIM airtime are quoted separately.
                                     </p>
                                 </div>
@@ -2097,26 +2098,30 @@
                                         <small id="prepaid-wallet-note" style="color:#64748b; font-weight:600;"><i class="fas fa-spinner fa-spin"></i> Loading wallet balance&hellip;</small>
                                     </div>
                                     <div style="text-align:right;">
-                                        <div style="font-size:1.5rem; font-weight:900; color:#ea580c;">$0.40</div>
-                                        <span style="font-size:0.75rem; color:#64748b; display:block;">/ active vehicle / day</span>
+                                        <div style="font-size:1.5rem; font-weight:900; color:#ea580c;">$0.02</div>
+                                        <span style="font-size:0.75rem; color:#64748b; display:block;">/ tracked hour</span>
+                                        <span style="font-size:0.7rem; color:#94a3b8; display:block;">max $0.40 / vehicle / day</span>
                                     </div>
                                 </div>
                                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:16px; font-size:0.82rem; color:#334155; line-height:1.5;">
                                     <strong style="color:#0f172a;"><i class="fas fa-lightbulb" style="color:#f59e0b;"></i> Pay-As-You-Drive Guarantee:</strong> Credits are only deducted on calendar days when a vehicle is active on the road. If a truck is parked for maintenance or awaiting parts, simply toggle it inactive to pause all deductions.
                                 </div>
                                 <label style="font-size:0.8rem; font-weight:700; color:#0f172a; display:block; margin-bottom:8px;">Instant EcoCash / Paynow Wallet Top-up:</label>
-                                <!-- Optional Feature Activation Fees Table -->
+                                <!-- Optional features: buy per vehicle, from the wallet or with Paynow -->
                                 <div style="margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
-                                    <div style="font-weight: 800; font-size: 0.82rem; color: #0f172a; margin-bottom: 6px;">Optional feature activation fees (per vehicle / activation period):</div>
-                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 0.78rem;">
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Route history &amp; playback: <strong>$1.00</strong></div>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Geofencing &amp; alerts: <strong>$1.00</strong></div>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">WhatsApp reports: <strong>$1.00</strong></div>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">CAN/OBD diagnostics: <strong>$3.00</strong></div>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Fuel monitoring: <strong>$2.00</strong></div>
-                                        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px;">Remote immobilisation: <strong>$2.00</strong></div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                                        <div style="font-weight: 800; font-size: 0.82rem; color: #0f172a;">Optional features (per vehicle)</div>
+                                        <label style="font-size:0.75rem; color:#475569;">
+                                            Vehicle
+                                            <select id="feature-device-select" style="margin-left:6px; padding:5px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.76rem;"></select>
+                                        </label>
                                     </div>
-                                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 6px;">Example: 7 days tracking ($2.80) + CAN/OBD ($3.00) + WhatsApp ($1.00) = <strong>$6.80</strong>.</div>
+                                    <div id="feature-catalog-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.78rem;">
+                                        <div style="color:#64748b; font-size:0.76rem;"><i class="fas fa-spinner fa-spin"></i> Loading features&hellip;</div>
+                                    </div>
+                                    <div style="font-size: 0.72rem; color: #64748b; margin-top: 8px;">
+                                        Pay from the wallet (the balance must stay at or above <strong>$10.00</strong>) or buy the feature separately with Paynow. Wallet-funded features end when the wallet reaches $0.00.
+                                    </div>
                                 </div>
 
                                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
@@ -2739,7 +2744,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=190"></script>
+    <script src="/static/app.js?v=191"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

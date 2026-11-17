@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON, Numeric, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import datetime
@@ -39,8 +39,8 @@ class Tenant(Base):
     # GPS history retention. NULL = derive from plan (Basic 30 / Premium 90 /
     # Starter 30 / Prepaid 30 / Reseller 90). Set explicitly for Enterprise.
     retention_days = Column(Integer, nullable=True)
-    # Prepaid Fleet Wallet balance in USD, credited by successful top-ups.
-    wallet_balance_usd = Column(Float, default=0.0)
+    # Prepaid Fleet Wallet balance in USD, stored to 6 dp (shown to 2 dp).
+    wallet_balance_usd = Column(Numeric(14, 6, asdecimal=False), default=0.0)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -348,3 +348,63 @@ class DriverScore(Base):
     driver = relationship("User", foreign_keys=[driver_id])
     device = relationship("Device")
 
+
+
+class WalletLedger(Base):
+    """Append-only record of every wallet movement (top-ups, usage charges)."""
+    __tablename__ = "wallet_ledger"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    kind = Column(String, nullable=False)          # topup | usage | feature | adjustment
+    amount_usd = Column(Numeric(14, 6, asdecimal=False), nullable=False)   # signed
+    balance_after = Column(Numeric(14, 6, asdecimal=False), nullable=False)
+    reference = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class DeviceFeature(Base):
+    """Optional feature entitlements bought per vehicle, from the wallet or Paynow."""
+    __tablename__ = "device_features"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    feature = Column(String, index=True, nullable=False)   # route_history | geofencing | ...
+    source = Column(String, nullable=False)                # wallet | paynow
+    amount_usd = Column(Numeric(14, 6, asdecimal=False), default=0.0)
+    status = Column(String, default="active", index=True)  # active | ended | expired
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+    activated_at = Column(DateTime(timezone=True), server_default=func.now())
+    ends_at = Column(DateTime(timezone=True), nullable=True)  # NULL = while the wallet stays funded
+    ended_reason = Column(String, nullable=True)
+
+
+class TrackingSession(Base):
+    """One period of paid tracking for a vehicle, settled in 5-minute ticks."""
+    __tablename__ = "tracking_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    status = Column(String, default="active", index=True)   # active | ended | paused
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_settled_at = Column(DateTime(timezone=True), server_default=func.now())
+    ended_at = Column(DateTime(timezone=True), nullable=True)
+    ended_reason = Column(String, nullable=True)
+    minutes_billed = Column(Float, default=0.0)
+    usd_billed = Column(Numeric(14, 6, asdecimal=False), default=0.0)
+
+
+class DeviceUsageDaily(Base):
+    """Per-vehicle daily usage, enforcing the $0.40 / 24h cap."""
+    __tablename__ = "device_usage_daily"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    day = Column(Date, index=True, nullable=False)
+    minutes = Column(Float, default=0.0)
+    usd_billed = Column(Numeric(14, 6, asdecimal=False), default=0.0)
+    capped = Column(Boolean, default=False)
