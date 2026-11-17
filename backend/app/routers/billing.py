@@ -159,7 +159,12 @@ async def start_tracking(
         raise HTTPException(status_code=404, detail="Tenant not found")
     try:
         session = await ub.start_session(db, tenant, device)
-    except ValueError:
+    except ValueError as exc:
+        if str(exc) == "not_prepaid":
+            raise HTTPException(
+                status_code=400,
+                detail="Pay-as-you-drive tracking applies to Prepaid Wallet accounts only.",
+            )
         raise HTTPException(
             status_code=402,
             detail="Wallet balance is empty. Top up before activating tracking.",
@@ -212,6 +217,7 @@ async def usage_summary(
     ).scalars().all()
 
     return {
+        "is_prepaid": ub.is_prepaid(tenant),
         "wallet_balance_usd": ub.balance_of(tenant),
         "rate_per_hour_usd": ub.RATE_PER_HOUR_USD,
         "daily_cap_usd": ub.DAILY_CAP_USD,

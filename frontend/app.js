@@ -2988,6 +2988,10 @@ async function loadVehicles() {
                         <div><i class="fas fa-tachometer-alt"></i> <span class="meta-speed">0 km/h</span></div>
                         <div style="grid-column: span 2;"><i class="fas fa-map-marker-alt"></i> <span class="meta-location">Waiting for data...</span></div>
                     </div>
+                    ${(window.isPrepaidTenant && window.isPrepaidTenant()) ? `
+                    <button type="button" class="tracking-toggle-btn" data-id="${vehicle.id}" data-active="0" title="Start pay-as-you-drive tracking">
+                        <i class="fas fa-play"></i> <span>Start tracking</span>
+                    </button>` : ''}
                 </div>
                 <div class="action-buttons">
                     <button class="locate-vehicle-btn" data-id="${escapeHTML(String(vehicle.id))}" title="Locate on Map">
@@ -3009,10 +3013,18 @@ async function loadVehicles() {
 
             card.addEventListener('click', (e) => {
                 // Don't select vehicle if action buttons were clicked
-                if (!e.target.closest('.action-buttons')) {
+                if (!e.target.closest('.action-buttons') && !e.target.closest('.tracking-toggle-btn')) {
                     selectVehicle(vehicle);
                 }
             });
+
+            const trackBtn = card.querySelector('.tracking-toggle-btn');
+            if (trackBtn) {
+                trackBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.toggleTracking(vehicle.id, trackBtn);
+                });
+            }
 
             // Locate on map button
             const locateBtn = card.querySelector('.locate-vehicle-btn');
@@ -3075,6 +3087,9 @@ async function loadVehicles() {
             vehicleList.appendChild(card);
         });
         applyFleetFilters();
+        if (window.isPrepaidTenant && window.isPrepaidTenant() && typeof window.loadTrackingState === 'function') {
+            window.loadTrackingState();
+        }
 
         // Load positions for all vehicles
         await loadAllPositions(vehicles); // Wait for positions to load stats
@@ -8937,6 +8952,66 @@ window.cancelSubscription = async function () {
             btn.disabled = false;
             btn.textContent = 'Cancel subscription';
         }
+    }
+};
+
+// --- Pay-as-you-drive tracking control (prepaid wallet tenants only) ---
+window.isPrepaidTenant = function () {
+    const sub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+    if (!sub) return false;
+    const descriptor = ((sub.plan || '') + ' ' + (sub.cycle || '')).toLowerCase();
+    return descriptor.includes('prepaid') || descriptor.includes('wallet');
+};
+
+window._trackingState = {};
+
+window.loadTrackingState = async function () {
+    if (!window.isPrepaidTenant() || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/billing/usage');
+        if (!res.ok) return;
+        const data = await res.json();
+        window._trackingState = {};
+        (data.open_sessions || []).forEach(function (s) {
+            window._trackingState[s.device_id] = s.status;
+        });
+        window.refreshTrackingButtons();
+    } catch (e) { /* leave the last known labels */ }
+};
+
+window.refreshTrackingButtons = function () {
+    document.querySelectorAll('.tracking-toggle-btn').forEach(function (btn) {
+        const id = Number(btn.dataset.id);
+        const state = window._trackingState[id];
+        const active = state === 'active';
+        btn.dataset.active = active ? '1' : '0';
+        btn.classList.toggle('is-tracking', active);
+        btn.innerHTML = active
+            ? '<i class="fas fa-stop"></i> <span>Stop tracking</span>'
+            : '<i class="fas fa-play"></i> <span>Start tracking</span>';
+        btn.title = state === 'paused'
+            ? 'Paused: wallet balance cannot cover more usage'
+            : active ? 'Billing $0.02 per tracked hour, capped at $0.40/day' : 'Start pay-as-you-drive tracking';
+    });
+};
+
+window.toggleTracking = async function (deviceId, btn) {
+    const active = btn && btn.dataset.active === '1';
+    if (btn) btn.disabled = true;
+    try {
+        const res = await window.AuthManager.fetchAPI(
+            '/billing/tracking/' + deviceId + (active ? '/stop' : '/start'),
+            { method: 'POST' }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Could not update tracking');
+        window._trackingState[deviceId] = active ? 'ended' : 'active';
+        window.refreshTrackingButtons();
+        if (!active) window.loadWalletBalance();
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        if (btn) btn.disabled = false;
     }
 };
 

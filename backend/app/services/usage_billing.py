@@ -57,6 +57,15 @@ def balance_of(tenant: Tenant) -> float:
     return money(tenant.wallet_balance_usd or 0.0)
 
 
+def is_prepaid(tenant: Tenant) -> bool:
+    """Usage billing only applies to Prepaid Wallet accounts."""
+    if not tenant:
+        return False
+    plan = (tenant.plan or "").strip().lower()
+    cycle = (tenant.billing_cycle or "").strip().lower()
+    return "prepaid" in plan or "wallet" in plan or "prepaid" in cycle or "wallet" in cycle
+
+
 def _log(db: AsyncSession, tenant_id: int, device_id: Optional[int], kind: str,
          amount: float, balance_after: float, reference: str = "") -> None:
     db.add(WalletLedger(
@@ -100,6 +109,8 @@ async def start_session(db: AsyncSession, tenant: Tenant, device: Device) -> Tra
     if existing:
         return existing
 
+    if not is_prepaid(tenant):
+        raise ValueError("not_prepaid")
     if balance_of(tenant) <= 0:
         raise ValueError("wallet_empty")
 
@@ -165,6 +176,12 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
             await db.execute(select(Tenant).where(Tenant.id == session.tenant_id))
         ).scalars().first()
         if not tenant:
+            continue
+        if not is_prepaid(tenant):
+            # Defensive: usage billing never charges a monthly/once-off/rental plan.
+            session.status = "ended"
+            session.ended_at = now
+            session.ended_reason = "plan_not_prepaid"
             continue
 
         daily = await _daily_row(db, session.device_id, session.tenant_id, now.date())

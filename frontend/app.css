@@ -9903,6 +9903,31 @@ input:checked + .slider:before {
 }
 
 
+/* Pay-as-you-drive start/stop control on each vehicle card */
+.tracking-toggle-btn {
+    margin-top: 8px;
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 10px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    border-radius: 7px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    cursor: pointer;
+}
+.tracking-toggle-btn:hover { background: #f8fafc; }
+.tracking-toggle-btn:disabled { opacity: 0.6; cursor: progress; }
+.tracking-toggle-btn.is-tracking {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #c2410c;
+}
+
 /* ══════════════════════════════════════════════════════════════
    ACTIVE PLAN CARD — one plan at a time on the billing page
    ══════════════════════════════════════════════════════════════ */
