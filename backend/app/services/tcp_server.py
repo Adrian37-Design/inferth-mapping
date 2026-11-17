@@ -284,6 +284,12 @@ class TCPTrackerProtocol(asyncio.Protocol):
                         ign_val = decoded.get("ignition") if "ignition" in decoded else (clean_speed > 3.0 if clean_speed is not None else None)
                         dtc_val = decoded.get("dtc_fault_codes") or decoded.get("dtc")
                         
+                        # Prepaid hardware gate: only store while tracking is active.
+                        from app.services.usage_billing import tracking_allowed
+                        if not await tracking_allowed(db, device):
+                            print(f"[{datetime.now()}] BILLING: tracking paused for {device.imei} — packet ignored")
+                            return
+
                         position = Position(
                             device_id=device.id,
                             latitude=clean_lat,

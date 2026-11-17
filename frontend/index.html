@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="/static/app.css?v=201">
+    <link rel="stylesheet" href="/static/app.css?v=202">
     <link rel="stylesheet" href="/static/spotlight.css?v=6">
     <link rel="stylesheet" href="/static/geofence.css?v=8">
     <link rel="stylesheet" href="/static/users.css?v=63">
@@ -2108,7 +2108,7 @@
                                 </div>
                                 <label style="font-size:0.8rem; font-weight:700; color:#0f172a; display:block; margin-bottom:8px;">Instant EcoCash / Paynow Wallet Top-up:</label>
                                 <!-- Optional features: buy per vehicle, from the wallet or with Paynow -->
-                                <div style="margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                                <div id="feature-catalog-block" style="margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
                                         <div style="font-weight: 800; font-size: 0.82rem; color: #0f172a;">Optional features (per vehicle)</div>
                                         <label style="font-size:0.75rem; color:#475569;">
@@ -2132,6 +2132,25 @@
                                 </div>
                                 <div style="font-size:0.75rem; color:#64748b; border-top:1px solid #f1f5f9; padding-top:10px;">
                                     <i class="fas fa-shield-alt"></i> Native EcoCash, OneMoney & Zimswitch checkout via Paynow. You can switch between Monthly and Prepaid at any time.
+                                </div>
+                            </div>
+
+                            <!-- Today's usage and recent wallet movements -->
+                            <div class="billing-card" style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:20px; margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                                    <h4 style="margin:0; font-size:0.92rem; font-weight:800; color:#0f172a;">Today&rsquo;s tracking</h4>
+                                    <span id="usage-panel-total" style="font-size:0.78rem; color:#64748b;"></span>
+                                </div>
+                                <div id="usage-today-list" style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem;">
+                                    <div style="color:#64748b; font-size:0.76rem;"><i class="fas fa-spinner fa-spin"></i> Loading usage&hellip;</div>
+                                </div>
+                                <p style="font-size:0.72rem; color:#64748b; margin:10px 0 0;">
+                                    $0.02 per tracked hour, settled every 5 minutes and capped at $0.40 per vehicle per day.
+                                </p>
+
+                                <h4 style="margin:18px 0 8px; font-size:0.92rem; font-weight:800; color:#0f172a;">Recent wallet activity</h4>
+                                <div id="wallet-ledger-list" style="display:flex; flex-direction:column; gap:5px; font-size:0.8rem;">
+                                    <div style="color:#64748b; font-size:0.76rem;"><i class="fas fa-spinner fa-spin"></i> Loading activity&hellip;</div>
                                 </div>
                             </div>
                         </div>
@@ -2744,7 +2763,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=192"></script>
+    <script src="/static/app.js?v=193"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

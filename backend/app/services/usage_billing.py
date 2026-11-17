@@ -149,6 +149,29 @@ async def end_wallet_features(db: AsyncSession, tenant_id: int, reason: str = "w
     return result.rowcount or 0
 
 
+async def tracking_allowed(db: AsyncSession, device: Device) -> bool:
+    """Hardware gate: a prepaid vehicle only reports while its session is active.
+
+    Monthly, once-off and rental plans are unaffected (always allowed).
+    """
+    if not device or not device.tenant_id:
+        return True
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == device.tenant_id))
+    ).scalars().first()
+    if not is_prepaid(tenant):
+        return True
+    session = (
+        await db.execute(
+            select(TrackingSession.id).where(
+                TrackingSession.device_id == device.id,
+                TrackingSession.status == "active",
+            )
+        )
+    ).scalars().first()
+    return session is not None
+
+
 async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
     """Charge every open tracking session for the time elapsed since its last tick."""
     now = dt.datetime.now(dt.timezone.utc)

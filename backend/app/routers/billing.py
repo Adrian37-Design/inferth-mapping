@@ -8,7 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_middleware import get_current_user
 from app.db import get_db
-from app.models import Device, DeviceFeature, DeviceUsageDaily, Tenant, TrackingSession, Transaction, User
+from app.models import (
+    Device,
+    DeviceFeature,
+    DeviceUsageDaily,
+    Tenant,
+    TrackingSession,
+    Transaction,
+    User,
+    WalletLedger,
+)
 from app.routers.payments import PAYNOW_ID, PAYNOW_KEY, paynow
 from app.services import usage_billing as ub
 
@@ -215,6 +224,14 @@ async def usage_summary(
             .limit(60)
         )
     ).scalars().all()
+    ledger = (
+        await db.execute(
+            select(WalletLedger)
+            .where(WalletLedger.tenant_id == tenant.id)
+            .order_by(WalletLedger.id.desc())
+            .limit(12)
+        )
+    ).scalars().all()
 
     return {
         "is_prepaid": ub.is_prepaid(tenant),
@@ -242,5 +259,17 @@ async def usage_summary(
                 "capped": bool(d.capped),
             }
             for d in daily
+        ],
+        "recent_ledger": [
+            {
+                "id": entry.id,
+                "device_id": entry.device_id,
+                "kind": entry.kind,
+                "amount_usd": float(entry.amount_usd or 0),
+                "balance_after_usd": float(entry.balance_after or 0),
+                "reference": entry.reference,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+            }
+            for entry in ledger
         ],
     }

@@ -8816,6 +8816,7 @@ function applyBillingView(mode) {
     if (mode === 'prepaid' && typeof window.loadWalletBalance === 'function') {
         window.loadWalletBalance();
         window.loadFeatureCatalog();
+        window.loadPrepaidUsage();
     }
 }
 
@@ -9007,7 +9008,8 @@ window.toggleTracking = async function (deviceId, btn) {
         if (!res.ok) throw new Error(data.detail || 'Could not update tracking');
         window._trackingState[deviceId] = active ? 'ended' : 'active';
         window.refreshTrackingButtons();
-        if (!active) window.loadWalletBalance();
+        window.loadWalletBalance();
+        window.loadPrepaidUsage();
     } catch (err) {
         alert(err.message);
     } finally {
@@ -9037,6 +9039,12 @@ window.loadFeatureDevices = async function () {
 
 window.loadFeatureCatalog = async function () {
     const box = document.getElementById('feature-catalog-list');
+    const block = document.getElementById('feature-catalog-block');
+    if (!window.isPrepaidTenant()) {
+        if (block) block.style.display = 'none';
+        return;
+    }
+    if (block) block.style.display = '';
     if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
     window.loadFeatureDevices();
     try {
@@ -9083,6 +9091,68 @@ window.buyFeature = async function (key, source) {
         window.loadWalletBalance();
     } catch (err) {
         alert(err.message);
+    }
+};
+
+// Today's per-vehicle usage and the recent wallet ledger.
+window.loadPrepaidUsage = async function () {
+    const todayList = document.getElementById('usage-today-list');
+    const ledgerList = document.getElementById('wallet-ledger-list');
+    const totalEl = document.getElementById('usage-panel-total');
+    if (!todayList || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/billing/usage');
+        if (!res.ok) throw new Error('usage failed');
+        const data = await res.json();
+
+        const names = {};
+        (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) ? allVehicles : []).forEach(function (v) {
+            names[v.id] = v.name || ('Vehicle ' + v.id);
+        });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const rows = (data.daily || []).filter(function (d) { return d.day === today; });
+        const todayTotal = rows.reduce(function (sum, d) { return sum + Number(d.usd_billed || 0); }, 0);
+        if (totalEl) totalEl.textContent = '$' + todayTotal.toFixed(4) + ' today';
+
+        if (!rows.length) {
+            todayList.innerHTML = '<div style="color:#64748b; font-size:0.76rem;">No tracked minutes yet today.</div>';
+        } else {
+            todayList.innerHTML = rows.map(function (d) {
+                const mins = Number(d.minutes || 0);
+                const usd = Number(d.usd_billed || 0);
+                return '<div style="display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">' +
+                    '<span style="color:#0f172a; font-weight:600;">' + (names[d.device_id] || ('Vehicle ' + d.device_id)) + '</span>' +
+                    '<span style="color:#475569;">' + mins.toFixed(1) + ' min &middot; $' + usd.toFixed(4) +
+                    (d.capped ? ' <em style="color:#b45309; font-style:normal;">(daily cap)</em>' : '') + '</span>' +
+                    '</div>';
+            }).join('');
+        }
+
+        if (ledgerList) {
+            const ledger = data.recent_ledger || [];
+            if (!ledger.length) {
+                ledgerList.innerHTML = '<div style="color:#64748b; font-size:0.76rem;">No wallet activity yet.</div>';
+            } else {
+                ledgerList.innerHTML = ledger.map(function (e) {
+                    const kind = e.kind === 'topup' ? 'Wallet top-up'
+                        : e.kind === 'usage' ? 'Tracking usage'
+                        : e.kind === 'feature' ? ('Feature: ' + (e.reference || 'add-on'))
+                        : e.kind;
+                    const amount = Number(e.amount_usd || 0);
+                    const color = amount >= 0 ? '#047857' : '#b91c1c';
+                    const when = e.created_at ? new Date(e.created_at).toLocaleString() : '';
+                    return '<div style="display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:4px;">' +
+                        '<span style="color:#334155;">' + kind + '<span style="color:#94a3b8; font-size:0.7rem;"> &middot; ' + when + '</span></span>' +
+                        '<span style="color:' + color + '; font-weight:700; white-space:nowrap;">' + (amount >= 0 ? '+' : '\u2212') + '$' + Math.abs(amount).toFixed(4) +
+                        ' <span style="color:#94a3b8; font-weight:400;">\u00b7 $' + Number(e.balance_after_usd || 0).toFixed(2) + '</span></span>' +
+                        '</div>';
+                }).join('');
+            }
+        }
+    } catch (e) {
+        if (todayList) todayList.innerHTML = '<div style="color:#b91c1c; font-size:0.76rem;">Could not load usage.</div>';
+        if (ledgerList) ledgerList.innerHTML = '';
     }
 };
 
