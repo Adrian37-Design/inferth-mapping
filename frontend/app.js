@@ -8949,7 +8949,10 @@ window.cancelSubscription = async function () {
         if (window.AuthManager.user && window.AuthManager.user.subscription) {
             window.AuthManager.user.subscription.status = 'cancelled';
         }
+        window._serverPrepaid = false;
         window.applySubscriptionGate();
+        window.loadWalletBalance();
+        if (typeof window.loadVehicles === 'function') window.loadVehicles();
     } catch (err) {
         alert(err.message);
     } finally {
@@ -10355,4 +10358,34 @@ window.sendCurrentReportToWhatsApp = function() {
     window.openReportAutomationModal();
 };
 
-
+// Mobile drawer: some phone WebViews refuse to native-scroll a fixed overlay,
+// so drive the drawer container from touch deltas as a guaranteed fallback.
+(function () {
+    function activeScroller() {
+        return document.querySelector('body.mobile-drawer-open .sidebar-container');
+    }
+    function install() {
+        const rail = document.querySelector('.sidebar-rail');
+        if (!rail || rail.dataset.touchScrollBound) return;
+        rail.dataset.touchScrollBound = '1';
+        let startY = 0, startTop = 0, scroller = null;
+        rail.addEventListener('touchstart', function (e) {
+            if (window.innerWidth > 768 || !e.touches.length) return;
+            scroller = activeScroller();
+            if (!scroller) return;
+            startY = e.touches[0].clientY;
+            startTop = scroller.scrollTop;
+        }, { passive: true });
+        rail.addEventListener('touchmove', function (e) {
+            if (!scroller || !e.touches.length) return;
+            const max = scroller.scrollHeight - scroller.clientHeight;
+            if (max <= 0) return;
+            const next = Math.max(0, Math.min(max, startTop + (startY - e.touches[0].clientY)));
+            scroller.scrollTop = next;
+            e.preventDefault();
+        }, { passive: false });
+        rail.addEventListener('touchend', function () { scroller = null; }, { passive: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
+    else install();
+})();

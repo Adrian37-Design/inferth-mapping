@@ -87,8 +87,15 @@ def balance_of(tenant: Tenant) -> float:
 
 
 def is_prepaid(tenant: Tenant) -> bool:
-    """Usage billing only applies to Prepaid Wallet accounts."""
+    """Usage billing only applies to a live Prepaid Wallet subscription.
+
+    A cancelled (or past-due) subscription keeps the plan name for history but
+    must never keep billing, so the status gates the plan/cycle check.
+    """
     if not tenant:
+        return False
+    status = (tenant.subscription_status or "active").strip().lower()
+    if status not in ("active", "trialing"):
         return False
     plan = (tenant.plan or "").strip().lower()
     cycle = (tenant.billing_cycle or "").strip().lower()
@@ -105,6 +112,41 @@ def _log(db: AsyncSession, tenant_id: int, device_id: Optional[int], kind: str,
         balance_after=money(balance_after),
         reference=reference,
     ))
+
+
+async def _upsert_usage_ledger(
+    db: AsyncSession, tenant_id: int, device_id: int, cost: float,
+    balance_after: float, day: dt.date,
+) -> None:
+    """Keep a single 'usage' ledger entry per vehicle per day.
+
+    Each 5-minute settlement folds into that row so customers see one running
+    figure per vehicle/day instead of a new line every tick. Legacy multiple
+    rows for today are merged on the next settlement.
+    """
+    day_start = dt.datetime.combine(day, dt.time.min, tzinfo=dt.timezone.utc)
+    rows = (
+        await db.execute(
+            select(WalletLedger)
+            .where(
+                WalletLedger.tenant_id == tenant_id,
+                WalletLedger.device_id == device_id,
+                WalletLedger.kind == "usage",
+                WalletLedger.created_at >= day_start,
+            )
+            .order_by(WalletLedger.id.asc())
+        )
+    ).scalars().all()
+    if not rows:
+        _log(db, tenant_id, device_id, "usage", -cost, balance_after, f"device {device_id}")
+        return
+    keep = rows[0]
+    total = sum(float(r.amount_usd or 0) for r in rows) - cost
+    keep.amount_usd = money(total)
+    keep.balance_after = money(balance_after)
+    keep.reference = f"device {device_id}"
+    for extra in rows[1:]:
+        await db.delete(extra)
 
 
 async def _daily_row(db: AsyncSession, device_id: int, tenant_id: int, day: dt.date) -> DeviceUsageDaily:
@@ -164,6 +206,25 @@ async def stop_session(db: AsyncSession, device_id: int, reason: str = "deactiva
     )
     await db.commit()
     invalidate_tracking_gate(device_id)
+    return result.rowcount or 0
+
+
+async def stop_tenant_sessions(
+    db: AsyncSession, tenant_id: int, reason: str = "subscription_cancelled"
+) -> int:
+    """Close all live tracking for a tenant (cancel / plan switch)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    result = await db.execute(
+        update(TrackingSession)
+        .where(
+            TrackingSession.tenant_id == tenant_id,
+            TrackingSession.status == "active",
+        )
+        .values(status="ended", ended_at=now, ended_reason=reason)
+    )
+    await end_wallet_features(db, tenant_id, reason)
+    await db.commit()
+    _gate_cache.clear()
     return result.rowcount or 0
 
 
@@ -309,8 +370,10 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
         if money(daily.usd_billed) >= DAILY_CAP_USD - 0.000001:
             daily.capped = True
 
-        _log(db, session.tenant_id, session.device_id, "usage", -cost,
-             balance_of(tenant), f"device {session.device_id}")
+        await _upsert_usage_ledger(
+            db, session.tenant_id, session.device_id, cost,
+            balance_of(tenant), now.date(),
+        )
         charged_total += cost
 
         if balance_of(tenant) <= 0:

@@ -10481,3 +10481,21 @@ input:checked + .slider:before {
         width: 100% !important;
     }
 }
+
+/* Billing option tabs: scroll horizontally on phones instead of squeezing or
+   wrapping the four plans out of reach. */
+@media (max-width: 768px) {
+    .billing-model-toggle {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x;
+        scrollbar-width: thin;
+    }
+    .billing-model-toggle .billing-pill {
+        flex: 0 0 auto !important;
+        min-width: 138px !important;
+        white-space: nowrap !important;
+    }
+}

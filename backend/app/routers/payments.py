@@ -376,6 +376,10 @@ async def cancel_subscription(
         tenant.subscription_status = "cancelled"
         tenant.next_billing_date = None
         await db.commit()
+        # Cancelling must stop the meter and the paid add-ons it funded.
+        from app.services import usage_billing as ub
+
+        await ub.stop_tenant_sessions(db, tenant.id, "subscription_cancelled")
 
     return {
         "status": "cancelled",
