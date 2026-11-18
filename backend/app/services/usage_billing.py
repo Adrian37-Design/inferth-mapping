@@ -38,6 +38,16 @@ WALLET_MIN_USD = 10.00
 SETTLE_SECONDS = 300
 FRACTIONAL_DAY_MINUTES = 24 * 60
 
+# A billing day is the customer's local day, not the UTC day. With a UTC day
+# the ledger opens a second "today" row at 02:00 in Harare (00:00 UTC), which
+# customers read as a duplicate charge for the same day.
+try:  # pragma: no cover - tzdata is present on Linux/Railway
+    from zoneinfo import ZoneInfo
+
+    BILLING_TZ = ZoneInfo("Africa/Harare")
+except Exception:  # Windows without tzdata
+    BILLING_TZ = dt.timezone(dt.timedelta(hours=2))
+
 # Which paid feature each telemetry field belongs to. Health rows are stored
 # for stopped prepaid vehicles only for features the customer actually bought.
 TELEMETRY_FEATURES: Dict[str, tuple] = {
@@ -86,6 +96,20 @@ def balance_of(tenant: Tenant) -> float:
     return money(tenant.wallet_balance_usd or 0.0)
 
 
+def billing_day(moment: Optional[dt.datetime] = None) -> dt.date:
+    """Calendar day in the billing timezone for a UTC (or naive-UTC) moment."""
+    moment = moment or dt.datetime.now(dt.timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=dt.timezone.utc)
+    return moment.astimezone(BILLING_TZ).date()
+
+
+def _day_bounds(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
+    """[start, end) of a billing day, expressed as aware datetimes."""
+    start = dt.datetime.combine(day, dt.time.min, tzinfo=BILLING_TZ)
+    return start, start + dt.timedelta(days=1)
+
+
 def is_prepaid(tenant: Tenant) -> bool:
     """Usage billing only applies to a live Prepaid Wallet subscription.
 
@@ -124,8 +148,7 @@ async def _upsert_usage_ledger(
     figure per vehicle/day instead of a new line every tick. Legacy multiple
     rows for today are merged on the next settlement.
     """
-    day_start = dt.datetime.combine(day, dt.time.min, tzinfo=dt.timezone.utc)
-    day_end = day_start + dt.timedelta(days=1)
+    day_start, day_end = _day_bounds(day)
     rows = (
         await db.execute(
             select(WalletLedger)
@@ -149,6 +172,43 @@ async def _upsert_usage_ledger(
     keep.reference = f"device {device_id}"
     for extra in rows[1:]:
         await db.delete(extra)
+
+
+async def merge_usage_ledger_rows(db: AsyncSession, days: int = 45) -> int:
+    """Collapse legacy per-tick / per-UTC-day usage rows into one row per vehicle-day.
+
+    Settlement keeps a single row, but rows written before that change (and rows
+    split at the old UTC midnight) are never revisited once a session stops, so
+    the customer keeps seeing two "Tracking usage" lines for the same day.
+    """
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
+    rows = (
+        await db.execute(
+            select(WalletLedger)
+            .where(WalletLedger.kind == "usage", WalletLedger.created_at >= since)
+            .order_by(WalletLedger.id.asc())
+        )
+    ).scalars().all()
+    groups: Dict[tuple, list] = {}
+    for row in rows:
+        key = (row.tenant_id, row.device_id, billing_day(row.created_at))
+        groups.setdefault(key, []).append(row)
+    merged = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        keep = group[0]
+        latest = max(group, key=lambda r: r.id)
+        keep.amount_usd = money(sum(float(r.amount_usd or 0) for r in group))
+        keep.balance_after = money(latest.balance_after)
+        keep.created_at = latest.created_at
+        for extra in group[1:]:
+            await db.delete(extra)
+        merged += 1
+    if merged:
+        await db.commit()
+        logger.info("merged %s duplicate usage ledger day(s)", merged)
+    return merged
 
 
 async def _daily_row(db: AsyncSession, device_id: int, tenant_id: int, day: dt.date) -> DeviceUsageDaily:
@@ -339,7 +399,8 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
             session.ended_reason = "plan_not_prepaid"
             continue
 
-        daily = await _daily_row(db, session.device_id, session.tenant_id, now.date())
+        today = billing_day(now)
+        daily = await _daily_row(db, session.device_id, session.tenant_id, today)
         remaining_cap = max(0.0, DAILY_CAP_USD - money(daily.usd_billed))
         if remaining_cap <= 0.000001:
             daily.capped = True
@@ -374,7 +435,7 @@ async def settle_sessions(db: AsyncSession) -> Dict[str, Any]:
 
         await _upsert_usage_ledger(
             db, session.tenant_id, session.device_id, cost,
-            balance_of(tenant), now.date(),
+            balance_of(tenant), today,
         )
         charged_total += cost
 

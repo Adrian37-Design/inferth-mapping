@@ -7,12 +7,30 @@ from app.db import AsyncSessionLocal
 from datetime import datetime, timedelta
 import asyncio
 import json
+import math
 
 _device_locks = {}
 
 
 def _device_lock(device_id):
     return _device_locks.setdefault(device_id, asyncio.Lock())
+
+
+def _naive_utc(moment):
+    if moment is None:
+        return datetime.utcnow()
+    return moment.replace(tzinfo=None) if moment.tzinfo else moment
+
+
+def _haversine_km(lat1, lon1, lat2, lon2) -> float:
+    if None in (lat1, lon1, lat2, lon2):
+        return 0.0
+    r = 6371.0
+    dlat = math.radians(float(lat2) - float(lat1))
+    dlon = math.radians(float(lon2) - float(lon1))
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon / 2) ** 2)
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1 - a)))
 
 
 class AlertService:
@@ -53,7 +71,7 @@ class AlertService:
         rules = rule_res.scalars().all()
         
         raw_data = position_data.get("raw", {})
-        speed = position_data.get("speed", 0)
+        speed = await AlertService._effective_speed(db, device, position_data)
         lat = position_data.get("latitude")
         lng = position_data.get("longitude")
         geofence_events = await AlertService._check_geofence(db, device, lat, lng, position_data.get("timestamp")) if lat and lng else []
@@ -138,6 +156,53 @@ class AlertService:
 
                 elif rule.channel == "whatsapp" and rule.contact:
                     asyncio.create_task(AlertService._send_whatsapp_async(rule.contact, message))
+
+    @staticmethod
+    async def _effective_speed(db: Session, device: Device, position_data: dict) -> float:
+        """Reported speed, repaired from the track when the fix reports 0 km/h.
+
+        These trackers frequently stamp 0 km/h while the vehicle is moving (the
+        history view already recovers the same way). Relying on the reported
+        value alone meant a vehicle passing 80 km/h never broke the rule.
+        """
+        try:
+            reported = float(position_data.get("speed") or 0.0)
+        except (TypeError, ValueError):
+            reported = 0.0
+        if reported > 3.0:
+            return reported
+
+        lat = position_data.get("latitude")
+        lng = position_data.get("longitude")
+        if lat is None or lng is None:
+            return reported
+
+        rows = (await db.execute(
+            select(Position.latitude, Position.longitude, Position.timestamp)
+            .where(Position.device_id == device.id, Position.latitude.is_not(None), Position.longitude.is_not(None))
+            .order_by(Position.timestamp.desc())
+            .limit(2)
+        )).all()
+        if len(rows) < 2:
+            return reported
+
+        prev = rows[1]
+        now_ref = rows[0].timestamp
+        if now_ref is None or prev.timestamp is None:
+            return reported
+        try:
+            dt_sec = abs((_naive_utc(now_ref) - _naive_utc(prev.timestamp)).total_seconds())
+        except Exception:
+            return reported
+        if dt_sec < 5 or dt_sec > 900:
+            return reported
+        dist_km = _haversine_km(prev.latitude, prev.longitude, lat, lng)
+        if dist_km < 0.01:
+            return reported
+        implied = dist_km / (dt_sec / 3600.0)
+        if 3.5 <= implied <= 200.0:
+            return round(implied, 1)
+        return reported
 
     @staticmethod
     async def _send_email_async(to, subject, html):

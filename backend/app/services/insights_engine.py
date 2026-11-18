@@ -26,6 +26,18 @@ def translate_dtc_plain(code: str) -> Dict[str, str]:
     clean = str(code).upper().strip()
     return DTC_PLAIN_LANGUAGE.get(clean, DTC_PLAIN_LANGUAGE["DEFAULT"])
 
+def _track_distance_km(a, b) -> float:
+    """Great-circle distance between two recorded positions, in km."""
+    if None in (a.latitude, a.longitude, b.latitude, b.longitude):
+        return 0.0
+    lat1, lon1, lat2, lon2 = float(a.latitude), float(a.longitude), float(b.latitude), float(b.longitude)
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    h = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+    return 6371.0 * 2 * math.atan2(math.sqrt(h), math.sqrt(max(0.0, 1 - h)))
+
+
 def compute_driver_score(harsh_braking: int, harsh_accel: int, idling_minutes: float, speeding: int, night_trips: int) -> int:
     """
     Driver score formula: Start at 100, minus 2 per harsh brake,
@@ -300,7 +312,10 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 end_p = night_positions[0]
                 dev = device_map.get(d_id)
                 pricing = get_fuel_price_info(dev, end_p.latitude, end_p.longitude)
-                dist_km = round(len(night_positions) * 1.8, 1)  # approx estimated
+                ordered_night = sorted(night_positions, key=lambda x: x.timestamp)
+                dist_km = round(sum(
+                    _track_distance_km(a, b) for a, b in zip(ordered_night, ordered_night[1:])
+                ), 1)
                 fuel_est = round(dist_km * 0.12, 1)
                 loss_usd = round(fuel_est * pricing["unit_price"], 2)
                 total_money_lost += loss_usd
@@ -339,25 +354,32 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
         fleet_fuel_rates = []
         driver_consumptions = {}
         for d_id, p_list in dev_positions.items():
-            consumptions = [
-                p.raw.get("fuel_consumption") or p.raw.get("fuel")
-                for p in p_list if p.raw and (p.raw.get("fuel_consumption") or p.raw.get("fuel"))
-            ]
-            valid_speeds = [p.speed for p in p_list if (p.speed or 0) > 5]
-            if len(valid_speeds) > 5:
-                # Approximate L/100km or average from telemetry
-                avg_l100 = 11.4 if d_id % 2 == 0 else 8.9
+            # Only telemetry-reported consumption is used. No bench value is
+            # invented when the vehicle does not report fuel economy.
+            rates = []
+            for p in p_list:
+                raw = p.raw or {}
+                value = raw.get("fuel_consumption") or raw.get("fuel_l100km")
+                try:
+                    rate = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if 0.0 < rate < 100.0:
+                    rates.append(rate)
+            if len(rates) >= 5:
+                avg_l100 = round(sum(rates) / len(rates), 1)
                 driver_consumptions[d_id] = avg_l100
                 fleet_fuel_rates.append(avg_l100)
 
-        fleet_avg_l100 = sum(fleet_fuel_rates) / max(1, len(fleet_fuel_rates)) if fleet_fuel_rates else 9.2
+        fleet_avg_l100 = (sum(fleet_fuel_rates) / len(fleet_fuel_rates)) if fleet_fuel_rates else None
 
         for d_id, rate in driver_consumptions.items():
             if ("driver_costing_fuel", d_id) in seen_categories_by_device:
                 continue
-            if rate > (fleet_avg_l100 * 1.20):  # 20% above fleet average
+            if fleet_avg_l100 and rate > (fleet_avg_l100 * 1.20):  # 20% above fleet average
                 dev = device_map.get(d_id)
-                latest_p = p_list[0] if p_list else None
+                dev_points = dev_positions.get(d_id) or []
+                latest_p = dev_points[0] if dev_points else None
                 pricing = get_fuel_price_info(dev, latest_p.latitude if latest_p else None, latest_p.longitude if latest_p else None)
                 excess_l = (rate - fleet_avg_l100) * 4.5  # scaled weekly impact
                 impact_usd = round(excess_l * pricing["unit_price"], 2)
@@ -450,7 +472,6 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
         if scored_drivers:
             best = max(scored_drivers, key=lambda x: (x["score"], -x["harsh_b"], -x["idling_m"]))
             if ("best_driver_week", best["device_id"]) not in seen_categories_by_device:
-                saved_liters = 28.5
                 cards.append({
                     "id": f"live-best-{best['device_id']}",
                     "category": "best_driver_week",
@@ -465,113 +486,12 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                     "created_at": now.isoformat(),
                     "extra_data": {
                         "score": best["score"],
-                        "fuel_saved_liters": saved_liters,
+                        "fuel_saved_liters": None,
                         "actions": ["send_bonus_praise"]
                     },
                     "actions": ["send_bonus_praise"]
                 })
                 seen_categories_by_device.add(("best_driver_week", best["device_id"]))
-
-    # If fleet had no activity yet, provide baseline showcase cards
-    if not cards:
-        demo_dev = devices[0] if devices else None
-        demo_pricing = get_fuel_price_info(demo_dev, -17.825, 31.05)
-        cards.extend([
-            {
-                "id": "showcase-siphon",
-                "category": "fuel_siphoning",
-                "severity": "red",
-                "title": "Possible Fuel Siphoning",
-                "description": "Fuel drop of 18.5L detected while engine OFF and stationary for 14 mins.",
-                "vehicle_name": demo_dev.name if demo_dev else "Primary Fleet Vehicle",
-                "device_id": demo_dev.id if demo_dev else 1,
-                "driver_name": demo_dev.driver_name if (demo_dev and demo_dev.driver_name) else "On Duty Driver",
-                "metric_value": "-18.5 L",
-                "money_impact": round(18.5 * demo_pricing["unit_price"], 2),
-                "created_at": (now - timedelta(hours=3)).isoformat(),
-                "extra_data": {
-                    "fuel_dropped": 18.5,
-                    "fuel_price": demo_pricing["unit_price"],
-                    "fuel_type": demo_pricing["fuel_type"],
-                    "country_name": demo_pricing["country_name"],
-                    "country_code": demo_pricing["country_code"],
-                    "time": "Today, 14:20",
-                    "lat": -17.825,
-                    "lng": 31.05
-                },
-                "actions": ["view_fuel_graph", "message_driver", "mark_resolved"]
-            },
-            {
-                "id": "showcase-night",
-                "category": "unauthorized_night_trip",
-                "severity": "red",
-                "title": "Unauthorized Night Trip",
-                "description": "Vehicle left depot geofence at 23:45 and travelled 42 km without a delivery schedule.",
-                "vehicle_name": demo_dev.name if demo_dev else "Primary Fleet Vehicle",
-                "device_id": demo_dev.id if demo_dev else 1,
-                "driver_name": demo_dev.driver_name if (demo_dev and demo_dev.driver_name) else "On Duty Driver",
-                "metric_value": "42 km (5.8 L)",
-                "money_impact": round(5.8 * demo_pricing["unit_price"], 2),
-                "created_at": (now - timedelta(hours=8)).isoformat(),
-                "extra_data": {
-                    "distance_km": 42,
-                    "fuel_used_l": 5.8,
-                    "fuel_price": demo_pricing["unit_price"],
-                    "fuel_type": demo_pricing["fuel_type"],
-                    "country_name": demo_pricing["country_name"],
-                    "start_time": "23:45",
-                    "end_time": "01:15"
-                },
-                "actions": ["view_trip_replay", "call_driver"]
-            },
-            {
-                "id": "showcase-cost",
-                "category": "driver_costing_fuel",
-                "severity": "orange",
-                "title": "Driver Costing Most Fuel",
-                "description": "Consumption is 24% above fleet average on the Harare-Bulawayo route.",
-                "vehicle_name": devices[0].name if devices else "Primary Fleet Vehicle",
-                "device_id": devices[0].id if devices else 1,
-                "driver_name": devices[0].driver_name if (devices and devices[0].driver_name) else "On Duty Driver",
-                "metric_value": "11.8 vs 9.5 L/100km",
-                "money_impact": 58.20,
-                "created_at": (now - timedelta(days=1)).isoformat(),
-                "extra_data": {"driver_l100km": 11.8, "fleet_avg_l100km": 9.5, "route": "Harare - Bulawayo Highway"},
-                "actions": ["coach_driver", "check_vehicle"]
-            },
-            {
-                "id": "showcase-service",
-                "category": "service_due_soon",
-                "severity": "orange",
-                "title": "Service Due Soon",
-                "description": "Vehicle reached 9,650 km since last full mechanical inspection.",
-                "vehicle_name": devices[0].name if devices else "Primary Fleet Vehicle",
-                "device_id": devices[0].id if devices else 1,
-                "driver_name": devices[0].driver_name if (devices and devices[0].driver_name) else "On Duty Driver",
-                "metric_value": "9,650 / 10,000 km",
-                "money_impact": 350.0,
-                "created_at": (now - timedelta(days=2)).isoformat(),
-                "extra_data": {"km_since_service": 9650, "days_left": 4, "risk_cost": 350.0},
-                "actions": ["schedule_service", "assign_mechanic"]
-            },
-            {
-                "id": "showcase-best",
-                "category": "best_driver_week",
-                "severity": "blue",
-                "title": "Best Driver This Week",
-                "description": "Exemplary driving score of 98/100 with zero harsh braking events and lowest idling.",
-                "vehicle_name": devices[0].name if devices else "Primary Fleet Vehicle",
-                "device_id": devices[0].id if devices else 1,
-                "driver_name": devices[0].driver_name if (devices and devices[0].driver_name) else "Top Driver",
-                "metric_value": "98/100",
-                "money_impact": None,
-                "created_at": (now - timedelta(days=1)).isoformat(),
-                "extra_data": {"score": 98, "fuel_saved_liters": 26.4},
-                "actions": ["send_bonus_praise"]
-            }
-        ])
-        total_money_lost = sum(c["money_impact"] for c in cards if c.get("money_impact"))
-        urgent_actions_count = sum(1 for c in cards if c.get("severity") == "red")
 
     # Fleet health calculation: baseline 100 minus penalties for open red/orange cards
     health_penalty = min(60, (urgent_actions_count * 12) + (len(cards) * 4))
@@ -848,57 +768,6 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
                 "actions": ["request_service_day"]
             })
             seen_categories.add("service_reminder")
-
-    # If no dynamic triggers hit, provide standard clean cards for the driver to see their status
-    if not cards:
-        cards.extend([
-            {
-                "id": "driver-showcase-green",
-                "category": "great_driving",
-                "severity": "green",
-                "title": "Great Driving Today",
-                "description": "Zero speeding events and smooth driving recorded. Keep up the high standard!",
-                "vehicle_name": veh_name,
-                "metric_value": f"{driver_score}/100",
-                "created_at": now.isoformat(),
-                "extra_data": {
-                    "fuel_today": f"{my_fuel_l100km} L/100km",
-                    "reason": "Safe cruising speeds and steady braking.",
-                    "actions": ["share_score"]
-                },
-                "actions": ["share_score"]
-            },
-            {
-                "id": "driver-showcase-idle",
-                "category": "excessive_idling",
-                "severity": "orange",
-                "title": "Idling Habit Reminder",
-                "description": "Switching off the engine when waiting more than 2 minutes keeps fuel use low.",
-                "vehicle_name": veh_name,
-                "metric_value": "Tip",
-                "created_at": now.isoformat(),
-                "extra_data": {
-                    "tip": "Switch off your engine when waiting more than 2 minutes.",
-                    "actions": ["tip_switch_off"]
-                },
-                "actions": ["tip_switch_off"]
-            },
-            {
-                "id": "driver-showcase-service",
-                "category": "service_reminder",
-                "severity": "blue",
-                "title": "Service Reminder",
-                "description": "Your vehicle routine maintenance check is coming up in 420 km.",
-                "vehicle_name": veh_name,
-                "metric_value": "420 km left",
-                "created_at": now.isoformat(),
-                "extra_data": {
-                    "km_left": 420,
-                    "actions": ["request_service_day"]
-                },
-                "actions": ["request_service_day"]
-            }
-        ])
 
     return {
         "top_bar": {

@@ -39,7 +39,7 @@ def _fold_recent_ledger(entries, limit: int = 12):
         created = entry.created_at
         group_key = None
         if entry.kind == "usage" and created is not None:
-            group_key = (entry.device_id, created.date())
+            group_key = (entry.device_id, ub.billing_day(created))
         if group_key is not None and group_key in usage_groups:
             usage_groups[group_key]["amount_usd"] += float(entry.amount_usd or 0)
             continue

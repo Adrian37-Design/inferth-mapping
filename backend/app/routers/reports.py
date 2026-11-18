@@ -617,7 +617,15 @@ def analyze_report_data(report_type: str, data: dict, device_name: str = "Vehicl
             speeds = [t.get("max_speed_kmh", 0) for t in trips if "max_speed_kmh" in t]
             if speeds:
                 max_speed = max(speeds)
-            speeding_count = sum(t.get("harsh_events", 0) for t in trips)
+            # `harsh_events` is a list on trip summaries; summing it directly
+            # raised TypeError and made every Trip Report return HTTP 500.
+            speeding_count = 0
+            for t in trips:
+                events = t.get("harsh_events")
+                if isinstance(events, list):
+                    speeding_count += len(events)
+                else:
+                    speeding_count += int(events or t.get("harsh_events_count", 0) or 0)
             total_duration = sum(t.get("duration_minutes", 0) for t in trips)
             if total_duration > 0:
                 avg_speed = round((total_km / (total_duration / 60)), 1) if total_duration else 0.0

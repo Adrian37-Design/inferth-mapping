@@ -5892,7 +5892,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pauseRouteBtn) pauseRouteBtn.addEventListener('click', () => pauseRoute());
 
     const stopRouteBtn = document.getElementById('stop-route');
-    if (stopRouteBtn) stopRouteBtn.addEventListener('click', () => stopRouteAndExit());
+    if (stopRouteBtn) stopRouteBtn.addEventListener('click', () => stopRouteAndExit({ clearTimeline: true }));
 
     const playbackSpeedInput = document.getElementById('playback-speed');
     if (playbackSpeedInput) {
@@ -6134,7 +6134,12 @@ function trailBreakSet() {
     for (let i = 1; i < playbackRoute.length; i++) {
         const a = playbackRoute[i - 1];
         const b = playbackRoute[i];
-        if (b.segStart || Math.abs(parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp)) / 60000 > 120) breaks.add(i);
+        // A break is a real gap in the drive. Segment starts alone are not:
+        // road-matched segments meet at the same coordinate, and splitting
+        // there painted gaps into a continuous route.
+        const gapMins = Math.abs(parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp)) / 60000;
+        const jumpKm = haversineDistanceKm(a.lat, a.lng, b.lat, b.lng);
+        if (gapMins > 120 || jumpKm > 0.25) breaks.add(i);
     }
     return breaks;
 }
@@ -6317,7 +6322,12 @@ function stopRouteAndExit(opts = {}) {
 
     if (opts.clearTimeline) {
         const timeline = document.getElementById('detail-timeline');
-        if (timeline) timeline.innerHTML = '<p class="empty-state">Route cleared from map. Click a trip or Play Full Route to view again.</p>';
+        if (timeline) {
+            document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.remove());
+            timeline.innerHTML = '<p class="empty-state">Playback stopped. Select a date range to load the history again.</p>';
+        }
+        const playAllBtn = document.getElementById('history-play-all-btn');
+        if (playAllBtn) playAllBtn.disabled = true;
     }
 
     const sidebar = document.getElementById('sidebar');
@@ -6368,7 +6378,14 @@ function updatePlaybackMarker(index) {
     }
     markerAnimFrame = requestAnimationFrame(step);
 
-    map.panTo([targetLat, targetLng], { animate: true, duration: 0.25 });
+    // panInside keeps the marker travelling across the map. Centring the map on
+    // every tick pinned the marker to the middle of the screen, which read as
+    // "the marker is not moving" while the route slid underneath it.
+    if (typeof map.panInside === 'function') {
+        map.panInside([targetLat, targetLng], { padding: [90, 90], animate: true, duration: 0.25 });
+    } else {
+        map.panTo([targetLat, targetLng], { animate: true, duration: 0.25 });
+    }
 }
 
 // Bind functions globally to window so HTML inline onclick="playRoute()", etc. ALWAYS work

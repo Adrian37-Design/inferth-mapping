@@ -242,7 +242,23 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
+    /* Compact tools: the draw buttons were rendering as large pills. */
+    padding: 6px 10px;
+    min-height: 0;
+    height: auto;
+    width: auto;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border-radius: 8px;
+    box-shadow: none;
+    white-space: nowrap;
+}
+
+.geo-tools .btn-primary i,
+.geo-tools .btn-secondary i {
+    font-size: 0.74rem;
 }
 
 .geo-hint {

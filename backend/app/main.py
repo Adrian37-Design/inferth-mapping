@@ -214,6 +214,16 @@ async def run_migrations_and_branding():
                 except Exception as ex:
                     print(f"Xcela metadata check note: {ex}")
 
+                # One usage ledger row per vehicle per billing day: repair the
+                # legacy per-tick rows left behind by finished sessions.
+                try:
+                    from app.services.usage_billing import merge_usage_ledger_rows
+                    merged = await merge_usage_ledger_rows(db)
+                    if merged:
+                        print(f"Merged {merged} duplicate usage ledger day(s).")
+                except Exception as e:
+                    print(f"Usage ledger merge warning: {e}")
+
                 # Initialize Branding
                 try:
                     await init_branding()

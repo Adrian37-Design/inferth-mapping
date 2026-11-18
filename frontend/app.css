@@ -891,6 +891,15 @@ body {
     min-width: 340px;
     max-width: 680px;
     width: auto;
+    /* Above the live status dock (z-index 990): the dock used to sit on top of
+       the speed and timeline controls during history playback. */
+    z-index: 1200;
+}
+
+/* While a route is loaded the playback bar owns the bottom of the map, so the
+   live tracker summary must not cover any part of it. */
+body:has(#route-controls:not(.hidden)) .map-status-dock {
+    display: none;
 }
 
 .route-controls .control-btn {
