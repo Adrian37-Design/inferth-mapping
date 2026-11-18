@@ -569,8 +569,12 @@ async def get_device_route(
                 if curr_speed <= 3.0 and km >= 0.025 and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
                     curr_speed = round(implied_speed, 1)
                     point["speed"] = curr_speed
-            elif km > 0.05:
-                continue
+            # Collapsed receipt timestamps (buffered dumps): with no elapsed time
+            # there is no speed to test, and these fixes are the real breadcrumb
+            # trail the vehicle drove. The old `elif km > 0.05: continue` rule
+            # discarded them, which erased whole legs of a drive and left the map
+            # drawing long straight chords between the survivors. Only exact
+            # same-spot duplicates are collapsed, by the stationary rule below.
 
             # Guardrail 3: Suppress consecutive stationary duplicates within 60s
             # (keep periodic anchor points >=60s apart so parked periods don't

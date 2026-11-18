@@ -5988,7 +5988,10 @@ function reorderCollapsedBursts(sorted) {
         let j = i + 1;
         while (j < sorted.length && Math.abs(new Date(sorted[j].timestamp) - new Date(sorted[j - 1].timestamp)) < 1000) j++;
         const run = sorted.slice(i, j);
-        const ordered = run.length >= 3 ? nearestNeighborOrder(run, out[out.length - 1]) : run;
+        // Only short bursts are reordered: a large same-timestamp run is the
+        // vehicle's recorded trail, and nearest-neighbour ordering turns it into
+        // a zig-zag of chords across the map. Long runs keep their stored order.
+        const ordered = run.length >= 3 && run.length <= 12 ? nearestNeighborOrder(run, out[out.length - 1]) : run;
         for (const p of ordered) out.push(p);
         i = j;
     }
@@ -6577,10 +6580,25 @@ async function buildMatchedTripSegments(id, trips, isCurrent) {
     if (!isCurrent() || results.every(r => !r)) return null;
     const segs = [];
     trips.forEach((t, i) => {
-        if (results[i]) segs.push(...results[i]);
-        else segs.push(...splitTraceAtGaps(t.points));
+        const trace = splitTraceAtGaps(t.points);
+        // A match that covers only part of the drive must never replace the
+        // recorded trace: the drawn line then starts or stops in the middle of
+        // the trip, which reads as a missing / broken track.
+        const complete = results[i] && routeSegmentsKm(results[i]) >= 0.7 * routeSegmentsKm(trace);
+        segs.push(...(complete ? results[i] : trace));
     });
     return segs;
+}
+
+// Total driven length of a list of [lat,lng] segments, in km.
+function routeSegmentsKm(segments) {
+    let km = 0;
+    (segments || []).forEach(seg => {
+        for (let i = 1; i < (seg || []).length; i++) {
+            km += haversineDistanceKm(seg[i - 1][0], seg[i - 1][1], seg[i][0], seg[i][1]);
+        }
+    });
+    return km;
 }
 
 async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opts = {}) {
@@ -6633,6 +6651,9 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     if (!isCurrent()) return false;
     const snapped = matched || await snapRouteToRoad(filteredPoints, isCurrent);
     if (!isCurrent()) return false; // stopped/cleared while matching was in flight
+    if (snapped && !matched && routeSegmentsKm(snapped.segments) < 0.7 * routeSegmentsKm(traceSegments)) {
+        return true; // the recorded trace is complete, the patched route is not
+    }
     if (snapped) {
         drawRouteLayers(id, matched ? matched.map(seg => densifyCoordList(seg, 20)) : snapped.segments, waypoints, false);
     }
@@ -6806,6 +6827,12 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 if (dtSec > 0 && dtSec <= 7200 && dKm >= 0.025) {
                     const implied = dKm / (dtSec / 3600);
                     if (implied >= 3.5 && implied <= 160.0) spd = Math.round(implied * 10) / 10;
+                } else if (dtSec === 0 && dKm >= 0.025) {
+                    // Buffered dump: several fixes share one receipt timestamp, so
+                    // there is no elapsed time to derive a speed from. Without this
+                    // the whole buffered leg is classified as parked and the
+                    // timeline fragments the drive into fake stationary cards.
+                    spd = 20;
                 }
             }
             p._effectiveSpeed = spd;
@@ -9552,14 +9579,24 @@ window.openBillingChangeOptions = function(preferredMode) {
     if (bar) bar.classList.add('hidden');
     if (head) head.classList.remove('hidden');
 
+    // Every billing model stays clickable, including the one in force, so the
+    // customer can come back to it.
     _billingModes.forEach(function(m) {
         const b = document.getElementById('btn-billing-' + m);
-        if (b) b.classList.toggle('hidden', m === _billingCurrentMode);
+        if (b) b.classList.remove('hidden');
     });
 
-    // Show a full billing page for the first remaining option (or the requested one)
-    const others = _billingModes.filter(function(m) { return m !== _billingCurrentMode; });
-    const target = (preferredMode && others.indexOf(preferredMode) !== -1) ? preferredMode : others[0];
+    // Leaving _billingOptionsOpen=true makes the gate reveal the purchase grids
+    // again; without this the change panel opened onto an empty page and a
+    // subscribed customer had no route to the other plan cards (e.g. Basic to
+    // Premium on Monthly).
+    window.applySubscriptionGate();
+
+    // Open on the requested model, otherwise on the one the customer is on, so
+    // its plan cards (Basic / Premium / Enterprise) are the first thing shown.
+    const target = (preferredMode && _billingModes.indexOf(preferredMode) !== -1)
+        ? preferredMode
+        : _billingCurrentMode;
     applyBillingView(target);
 };
 
