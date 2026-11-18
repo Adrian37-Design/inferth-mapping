@@ -10499,3 +10499,40 @@ input:checked + .slider:before {
         white-space: nowrap !important;
     }
 }
+
+/* Mobile scrolling: one scroll surface only.
+   The workspace panel is the scroller. The nested .tab-content used to be
+   overflow-y:auto + overscroll-behavior:contain, which swallowed the gesture
+   on touch devices (it has no scroll range of its own), so no tab scrolled. */
+@media (max-width: 768px) {
+    .main-container:not(.panel-collapsed) .sidebar-panel {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        touch-action: pan-y !important;
+    }
+
+    .sidebar-panel .tab-content,
+    .sidebar-panel .tab-content.active {
+        flex: 0 0 auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        overscroll-behavior: auto !important;
+        touch-action: auto !important;
+        -webkit-overflow-scrolling: auto !important;
+    }
+
+    /* While the navigation drawer is open, take the workspace panel out of
+       layout so the two full-screen surfaces cannot reflow or paint over each
+       other (that was the flicker when tapping the hamburger inside a tab). */
+    body.mobile-drawer-open .main-container .sidebar-panel {
+        display: none !important;
+    }
+
+    body.mobile-drawer-open .mobile-drawer-backdrop {
+        background: rgba(15, 23, 42, 0.35) !important;
+        backdrop-filter: blur(1px) !important;
+        -webkit-backdrop-filter: blur(1px) !important;
+    }
+}

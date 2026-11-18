@@ -125,6 +125,7 @@ async def _upsert_usage_ledger(
     rows for today are merged on the next settlement.
     """
     day_start = dt.datetime.combine(day, dt.time.min, tzinfo=dt.timezone.utc)
+    day_end = day_start + dt.timedelta(days=1)
     rows = (
         await db.execute(
             select(WalletLedger)
@@ -133,6 +134,7 @@ async def _upsert_usage_ledger(
                 WalletLedger.device_id == device_id,
                 WalletLedger.kind == "usage",
                 WalletLedger.created_at >= day_start,
+                WalletLedger.created_at < day_end,
             )
             .order_by(WalletLedger.id.asc())
         )

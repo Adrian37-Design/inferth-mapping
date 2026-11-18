@@ -26,6 +26,40 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 FEATURE_PREFIX = "Feature_"
 
 
+def _fold_recent_ledger(entries, limit: int = 12):
+    """Collapse per-tick usage entries into one line per vehicle/day.
+
+    Settlement keeps a single usage row per vehicle/day, but rows written before
+    that change still exist. Folding here as well means the customer always sees
+    one running figure per vehicle/day, never a line per 5-minute tick.
+    """
+    recent = []
+    usage_groups = {}
+    for entry in entries:
+        created = entry.created_at
+        group_key = None
+        if entry.kind == "usage" and created is not None:
+            group_key = (entry.device_id, created.date())
+        if group_key is not None and group_key in usage_groups:
+            usage_groups[group_key]["amount_usd"] += float(entry.amount_usd or 0)
+            continue
+        item = {
+            "id": entry.id,
+            "device_id": entry.device_id,
+            "kind": entry.kind,
+            "amount_usd": float(entry.amount_usd or 0),
+            "balance_after_usd": float(entry.balance_after or 0),
+            "reference": entry.reference,
+            "created_at": created.isoformat() if created else None,
+        }
+        if group_key is not None:
+            usage_groups[group_key] = item
+        recent.append(item)
+        if len(recent) >= limit:
+            break
+    return recent
+
+
 async def _own_device(db: AsyncSession, user: User, device_id: int) -> Device:
     device = (await db.execute(select(Device).where(Device.id == device_id))).scalars().first()
     if not device:
@@ -234,9 +268,11 @@ async def usage_summary(
             select(WalletLedger)
             .where(WalletLedger.tenant_id == tenant.id)
             .order_by(WalletLedger.id.desc())
-            .limit(12)
+            .limit(60)
         )
     ).scalars().all()
+
+    recent_ledger = _fold_recent_ledger(ledger)
 
     return {
         "is_prepaid": ub.is_prepaid(tenant),
@@ -267,16 +303,5 @@ async def usage_summary(
             }
             for d in daily
         ],
-        "recent_ledger": [
-            {
-                "id": entry.id,
-                "device_id": entry.device_id,
-                "kind": entry.kind,
-                "amount_usd": float(entry.amount_usd or 0),
-                "balance_after_usd": float(entry.balance_after or 0),
-                "reference": entry.reference,
-                "created_at": entry.created_at.isoformat() if entry.created_at else None,
-            }
-            for entry in ledger
-        ],
+        "recent_ledger": recent_ledger,
     }
