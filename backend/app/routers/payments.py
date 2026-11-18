@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, or_, update
 from app.db import get_db
 from app.models import Device, Tenant, Transaction, User
-from app.auth_middleware import get_current_user
+from app.auth_middleware import get_current_user, scope_devices
 from paynow import Paynow
 import os
 import uuid
@@ -102,9 +102,12 @@ async def initiate_paynow(
     banded_price: Optional[float] = None
     fleet_size = 0
     if fleet_bands and not is_topup:
+        # Count exactly the devices the Billing page lists for this user (the
+        # platform admin sees every tracker, a company sees its own). Using the
+        # same visibility rule keeps the button price and this price identical.
         fleet_size = (
             await db.execute(
-                select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
+                await scope_devices(db, current_user, select(func.count(Device.id)))
             )
         ).scalar() or 0
         fleet_size = max(1, int(fleet_size))
