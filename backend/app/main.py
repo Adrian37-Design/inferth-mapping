@@ -101,6 +101,7 @@ async def run_migrations_and_branding():
                     # Wallets and ledgers keep 6 dp internally (2 dp shown to customers).
                     "ALTER TABLE tenants ALTER COLUMN wallet_balance_usd TYPE NUMERIC(14, 6) USING wallet_balance_usd::numeric(14, 6)",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS plan_name VARCHAR DEFAULT NULL",
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS billing_period VARCHAR DEFAULT NULL",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS wallet_credited BOOLEAN DEFAULT FALSE",
                     "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP WITH TIME ZONE DEFAULT NULL",

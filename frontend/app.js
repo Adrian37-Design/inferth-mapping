@@ -6813,10 +6813,13 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             return;
         }
 
-        // 1. Filter out invalid/Null-Island coordinates and sort chronologically using parseTimestamp
-        const points = data.points
-            .filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
-            .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+        // 1. Clean the fixes once, up front, with the same spike filter the map
+        // uses. The timeline and every route it draws then come from one
+        // identical point set: a parked vehicle's GPS wander no longer becomes
+        // a fake "Trip · 0.3 km" card that draws no path when clicked.
+        const points = filterValidRoutePoints(
+            (data.points || []).filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
+        );
 
         if (points.length === 0) {
             timeline.innerHTML = '<p class="empty-state">No valid route points recorded for this date range</p>';
@@ -9122,6 +9125,9 @@ window.ensurePrepaidState = async function () {
                 window.AuthManager.user.subscription = Object.assign(
                     {}, window.AuthManager.user.subscription || {}, data.subscription
                 );
+                // The server may just have moved the account onto the plan it
+                // paid for (e.g. Prepaid -> Basic); redraw the active-plan card.
+                if (typeof window.applySubscriptionGate === 'function') window.applySubscriptionGate();
             }
         }
     } catch (e) { /* fall back to the cached subscription below */ }

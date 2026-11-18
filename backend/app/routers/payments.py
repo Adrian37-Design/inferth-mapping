@@ -11,6 +11,7 @@ from paynow import Paynow
 import os
 import uuid
 import time
+import datetime
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -117,7 +118,7 @@ async def initiate_paynow(
                 status_code=400,
                 detail="Fleets above 50 vehicles are priced on an Enterprise quotation — request one from the Billing page.",
             )
-        months = YEARLY_MONTHS if (period or "").strip().lower() == "yearly" else 1
+        months = YEARLY_MONTHS if _is_yearly(period) else 1
         banded_price = round(band_rate * fleet_size * months, 2)
 
     if is_topup:
@@ -153,6 +154,7 @@ async def initiate_paynow(
         tenant_id=current_user.tenant_id,
         amount_usd=charge_amount,
         plan_name=plan_name,
+        billing_period="yearly" if _is_yearly(period) else "monthly",
         payment_method="paynow",
         status="pending",
     )
@@ -278,6 +280,92 @@ def _paynow_failure_reason(txn: Transaction) -> Optional[str]:
     return None
 
 
+SUBSCRIPTION_PLAN_LABELS = {"Professional": "Premium", "Pro": "Premium", "Fleet": "Premium"}
+
+
+def _is_yearly(period: Optional[str]) -> bool:
+    return (period or "").strip().lower() == "yearly"
+
+
+def _subscription_state(plan_name: Optional[str], period: Optional[str]):
+    """(tenants.plan, tenants.billing_cycle, days until the next payment)."""
+    key = (plan_name or "Basic").strip()
+    low = key.lower()
+    if low.startswith("console") or "rental" in low:
+        return key, "Rental", 30
+    if any(tag in low for tag in ("starter", "once-off", "onceoff", "once off", "lifetime")):
+        return "Starter Pass", "Once-off", None
+    label = SUBSCRIPTION_PLAN_LABELS.get(key, key if low in ("basic", "premium", "enterprise") else "Basic")
+    if _is_yearly(period):
+        return label, "Yearly", 365
+    return label, "Monthly", 30
+
+
+def _is_subscription_txn(txn: Transaction) -> bool:
+    plan = (txn.plan_name or "").strip()
+    return bool(plan) and plan != TOPUP_PLAN and not plan.startswith("Feature_")
+
+
+async def _apply_paid_subscription(db: AsyncSession, txn: Transaction, tenant: Tenant) -> bool:
+    """Make a paid subscription the tenant's active plan, exactly once.
+
+    Without this the account kept whatever plan it had before, so paying for
+    Basic while on the Prepaid Wallet still showed "Prepaid Fleet Wallet" as
+    the active plan even though the payment had succeeded.
+    """
+    if not _is_subscription_txn(txn):
+        return False
+    # Same once-only latch the wallet credit and feature purchases use.
+    claim = await db.execute(
+        update(Transaction)
+        .where(
+            Transaction.id == txn.id,
+            or_(
+                Transaction.wallet_credited.is_(None),
+                Transaction.wallet_credited.is_(False),
+            ),
+        )
+        .values(wallet_credited=True)
+    )
+    if not claim.rowcount:
+        return False
+
+    label, cycle, days = _subscription_state(txn.plan_name, txn.billing_period)
+    tenant.plan = label
+    tenant.billing_cycle = cycle
+    tenant.subscription_status = "active"
+    tenant.next_billing_date = (
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
+        if days else None
+    )
+    return True
+
+
+async def _heal_paid_subscription(db: AsyncSession, tenant: Optional[Tenant]) -> bool:
+    """Activate a subscription that was paid for but never applied to the tenant."""
+    if not tenant:
+        return False
+    # A cancelled subscription stays cancelled: healing must never resurrect it.
+    if (tenant.subscription_status or "").lower() == "cancelled":
+        return False
+    txn = (
+        await db.execute(
+            select(Transaction)
+            .where(
+                Transaction.tenant_id == tenant.id,
+                Transaction.status == "paid",
+                or_(
+                    Transaction.wallet_credited.is_(None),
+                    Transaction.wallet_credited.is_(False),
+                ),
+            )
+            .order_by(Transaction.id.desc())
+            .limit(1)
+        )
+    ).scalars().first()
+    return await _apply_paid_subscription(db, txn, tenant) if txn else False
+
+
 async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -> Optional[Transaction]:
     """Ask Paynow for the current status and persist it. Safe to call repeatedly."""
     if not txn or not txn.paynow_reference:
@@ -356,6 +444,7 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
                 except Exception:
                     pass
             else:
+                await _apply_paid_subscription(db, txn, tenant)
                 tenant.subscription_status = "active"
     else:
         low = raw.lower()
@@ -485,6 +574,9 @@ async def prepaid_wallet(
             select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
         )
     ).scalar() or 0
+    if await _heal_paid_subscription(db, tenant):
+        await db.commit()
+
     from app.services.usage_billing import is_prepaid as _is_prepaid
 
     prepaid = _is_prepaid(tenant)

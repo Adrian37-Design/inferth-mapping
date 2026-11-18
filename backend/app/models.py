@@ -202,6 +202,7 @@ class Transaction(Base):
     
     # Paynow specific
     plan_name = Column(String, nullable=True) # What was bought (plan, rental tier or wallet top-up)
+    billing_period = Column(String, nullable=True) # monthly / yearly — sets the next payment date
     paynow_reference = Column(String, nullable=True) # Poll URL or merchant reference
     paynow_status = Column(String, nullable=True) # RAW status from Paynow
     wallet_credited = Column(Boolean, default=False) # A top-up is credited to the wallet exactly once
