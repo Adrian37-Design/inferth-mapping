@@ -288,6 +288,43 @@ async def usage_summary(
 
     recent_ledger = _fold_recent_ledger(ledger)
 
+    # "Today's tracking" must agree with the wallet lines printed right under it.
+    # The daily counter and the ledger are keyed independently (day column vs.
+    # created_at), so after the billing day moved from UTC to Africa/Harare they
+    # reported different totals for the same day. The ledger is what was actually
+    # charged, so today's figure is folded from the same rows the customer sees.
+    today_day = ub.billing_day()
+    today_usd: dict = {}
+    for row in usage_ledger:
+        if row.created_at is None:
+            continue
+        if ub.billing_day(row.created_at) != today_day:
+            continue
+        today_usd[row.device_id] = ub.money(
+            today_usd.get(row.device_id, 0.0) + abs(float(row.amount_usd or 0))
+        )
+
+    daily_today = [d for d in daily if d.day == today_day]
+    minutes_by_device = {d.device_id: float(d.minutes or 0) for d in daily_today}
+    capped_by_device = {d.device_id: bool(d.capped) for d in daily_today}
+    devices_today = sorted(set(today_usd) | set(minutes_by_device))
+
+    today_rows = []
+    for device_id in devices_today:
+        usd = ub.money(today_usd.get(device_id, 0.0))
+        capped = capped_by_device.get(device_id, False)
+        minutes = minutes_by_device.get(device_id, 0.0)
+        if usd > 0 and not capped:
+            # Derive minutes from the amount charged so the pair always agrees.
+            minutes = round(usd / ub.RATE_PER_HOUR_USD * 60.0, 4)
+        today_rows.append({
+            "device_id": device_id,
+            "day": today_day.isoformat(),
+            "minutes": minutes,
+            "usd_billed": usd,
+            "capped": capped,
+        })
+
     return {
         "is_prepaid": ub.is_prepaid(tenant),
         "wallet_balance_usd": ub.balance_of(tenant),
@@ -318,4 +355,7 @@ async def usage_summary(
             for d in daily
         ],
         "recent_ledger": recent_ledger,
+        "billing_day": today_day.isoformat(),
+        "today": today_rows,
+        "today_total_usd": ub.money(sum(r["usd_billed"] for r in today_rows)),
     }

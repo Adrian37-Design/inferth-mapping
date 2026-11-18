@@ -30,6 +30,8 @@ let playbackIndex = 0;
 let playbackRoute = null;
 let routeDrawSeq = 0; // generation token — stale async route renders abort after stop/clear
 let playbackSegments = null;
+let playbackBreakIndexes = new Set(); // playbackRoute indices where the drawn route really breaks
+let playbackBreakRoute = null; // the exact array playbackBreakIndexes describes
 let playbackMarker = null;
 let editingVehicleId = null;
 let allVehicles = [];
@@ -5572,12 +5574,35 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
 
 // Raw route geometry: one polyline per travel piece, so raw lines never cross a
 // parked spot, a data gap or a stitched origin.
+// A trace only breaks where the vehicle really stopped reporting: a long
+// silence, or a jump no drive could have made. The old rule split every 150 m
+// chord, so a highway trace pinged 1 km apart shattered into single-point
+// parts that were then discarded — the map drew nothing at all for that trip.
+const TRACE_GAP_MINUTES = 15;
+const TRACE_JUMP_KM = 2.0;
+
 function splitTraceAtGaps(points) {
     const segments = [];
     splitIntoTravelPieces(points).forEach(piece => {
-        splitAtChords(piece.map(p => [p.lat, p.lng])).forEach(part => {
-            if (part.length > 1) segments.push(densifyCoordList(part, 20));
-        });
+        let run = [];
+        const flush = () => {
+            if (run.length > 1) segments.push(densifyCoordList(run, 20));
+            run = [];
+        };
+        for (let i = 0; i < piece.length; i++) {
+            const p = piece[i];
+            if (run.length === 0) { run.push([p.lat, p.lng]); continue; }
+            const prev = piece[i - 1];
+            const gapMins = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 60000;
+            const jumpKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
+            if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM) {
+                flush();
+                run.push([p.lat, p.lng]);
+            } else {
+                run.push([p.lat, p.lng]);
+            }
+        }
+        flush();
     });
     return segments;
 }
@@ -6134,12 +6159,16 @@ function trailBreakSet() {
     for (let i = 1; i < playbackRoute.length; i++) {
         const a = playbackRoute[i - 1];
         const b = playbackRoute[i];
-        // A break is a real gap in the drive. Segment starts alone are not:
-        // road-matched segments meet at the same coordinate, and splitting
-        // there painted gaps into a continuous route.
+        // Break exactly where the drawn polylines break. A distance test here
+        // fired on every sparse highway ping (1 km between fixes) and painted
+        // a dashed, false track over a road the vehicle actually drove.
+        if (playbackBreakRoute === playbackRoute && playbackBreakIndexes.has(i)) {
+            breaks.add(i);
+            continue;
+        }
         const gapMins = Math.abs(parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp)) / 60000;
         const jumpKm = haversineDistanceKm(a.lat, a.lng, b.lat, b.lng);
-        if (gapMins > 120 || jumpKm > 0.25) breaks.add(i);
+        if (gapMins > 120 || jumpKm > TRACE_JUMP_KM) breaks.add(i);
     }
     return breaks;
 }
@@ -6502,7 +6531,13 @@ async function matchTripSegments(id, item) {
 // could not be matched fall back to their own raw pieces so no segment is lost.
 // Matches run through a small worker pool — firing every trip at once floods
 // the matching engine, trips time out, and their segments draw as gaps.
+// A long range (week/month, hundreds of trips) is never worth road-matching:
+// the matcher queue takes minutes and its partial results mixed with raw traces
+// draw broken lines. Those ranges use the recorded trace instead.
+const MATCH_TRIP_LIMIT = 60;
+
 async function buildMatchedTripSegments(id, trips, isCurrent) {
+    if (!Array.isArray(trips) || trips.length === 0 || trips.length > MATCH_TRIP_LIMIT) return null;
     const results = new Array(trips.length).fill(null);
     let next = 0;
     const workers = Array.from({ length: Math.min(6, trips.length) }, async () => {
@@ -6539,22 +6574,16 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
 
     const waypoints = extractTravelWaypoints(filteredPoints);
     const isCurrent = () => drawSeq === routeDrawSeq;
-    if (!autoPlay) drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, true);
+    const traceSegments = splitTraceAtGaps(filteredPoints);
+    if (traceSegments.length === 0) return false;
+    // Draw the recorded trace at once in every case, so a trip card can never
+    // leave the map blank while road matching is still in flight.
+    drawRouteLayers(id, traceSegments, waypoints, true);
 
-    // Timeline paths (day view, trip cards, Play All) ask the backend's map
-    // matcher for one continuous line per trip: no splits at junction waits,
-    // no invented road through parked spots, no gaps or chords.
-    const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
-    const matched = trips ? await buildMatchedTripSegments(id, trips, isCurrent) : null;
-    if (!isCurrent()) return false;
-    const snapped = matched || await snapRouteToRoad(filteredPoints, isCurrent);
-    if (!isCurrent()) return false; // stopped/cleared while matching was in flight
-    if (snapped) {
-        drawRouteLayers(id, matched ? matched.map(seg => densifyCoordList(seg, 20)) : snapped.segments, waypoints, autoPlay);
-    } else {
-        drawRouteLayers(id, splitTraceAtGaps(filteredPoints), waypoints, autoPlay);
-    }
-
+    // Play must start immediately. Waiting for the road matcher to walk every
+    // trip in a multi-day range (hundreds of HTTP calls) left the marker frozen
+    // for minutes, which read as "Play does nothing". Playback therefore runs
+    // on the recorded trace; only a drawn, paused route waits for snapped roads.
     if (autoPlay) {
         if (window.innerWidth < 768) {
             const sidebar = document.getElementById('sidebar');
@@ -6565,7 +6594,20 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
             if (drawSeq !== routeDrawSeq) return;
             if (map) map.invalidateSize();
             playRoute();
-        }, 250);
+        }, 120);
+        return true;
+    }
+
+    // Timeline paths (day view, trip cards) ask the backend's map matcher for
+    // one continuous line per trip: no splits at junction waits, no invented
+    // road through parked spots, no gaps or chords.
+    const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
+    const matched = trips ? await buildMatchedTripSegments(id, trips, isCurrent) : null;
+    if (!isCurrent()) return false;
+    const snapped = matched || await snapRouteToRoad(filteredPoints, isCurrent);
+    if (!isCurrent()) return false; // stopped/cleared while matching was in flight
+    if (snapped) {
+        drawRouteLayers(id, matched ? matched.map(seg => densifyCoordList(seg, 20)) : snapped.segments, waypoints, false);
     }
     return true;
 }
@@ -6583,8 +6625,22 @@ function scheduleHistoryReload(load, delay = 300) {
 
 function drawRouteLayers(id, segments, waypoints, fit) {
     trailReset();
+    segments = (segments || []).filter(seg => Array.isArray(seg) && seg.length > 0);
+    if (segments.length === 0) return;
+    if (!Array.isArray(waypoints) || waypoints.length === 0) {
+        // Never let a missing waypoint list abort the draw: start/end markers
+        // are cosmetic, the route itself is not.
+        const flat = segments.flat();
+        const stamp = new Date().toISOString();
+        waypoints = [
+            { lat: flat[0][0], lng: flat[0][1], timestamp: stamp },
+            { lat: flat[flat.length - 1][0], lng: flat[flat.length - 1][1], timestamp: stamp },
+        ];
+    }
     const playbackPoints = [];
+    playbackBreakIndexes = new Set();
     segments.forEach((seg, k) => {
+        if (k > 0) playbackBreakIndexes.add(playbackPoints.length);
         seg.forEach((c, j) => playbackPoints.push({ lat: c[0], lng: c[1], timestamp: waypoints[0].timestamp, snapped: true, segStart: j === 0 && k > 0 }));
     });
 
@@ -6624,6 +6680,7 @@ function drawRouteLayers(id, segments, waypoints, fit) {
     isHistoryMode = true;
     Object.values(markers).forEach(m => { if (m instanceof L.Marker && map.hasLayer(m)) map.removeLayer(m); });
     playbackRoute = playbackPoints;
+    playbackBreakRoute = playbackRoute;
     playbackSegments = segments;
 
     const routeControls = document.getElementById('route-controls');
@@ -6916,8 +6973,11 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 const lastItem = consolidatedTimeline[consolidatedTimeline.length - 1];
                 const anchorPt = lastItem.type === 'stop' ? { lat: lastItem.lat, lng: lastItem.lng } : lastItem.end;
                 if (curr.type === 'trip' && anchorPt) {
+                    // Only join nearby points: a 30 km "stitch" drew a straight
+                    // false track across the city wherever a gap in the data
+                    // left the next session's origin far from the last stop.
                     const jumpKm = haversineDistanceKm(anchorPt.lat, anchorPt.lng, curr.start.lat, curr.start.lng);
-                    if (jumpKm >= 0.05 && jumpKm <= 30.0) {
+                    if (jumpKm >= 0.05 && jumpKm <= 1.0) {
                         const originPt = { lat: anchorPt.lat, lng: anchorPt.lng, timestamp: curr.start.timestamp, speed: 0, stitched: true };
                         curr.points = [originPt, ...curr.points];
                         curr.start = originPt;
@@ -9276,9 +9336,14 @@ window.loadPrepaidUsage = async function () {
             names[v.id] = v.name || ('Vehicle ' + v.id);
         });
 
-        const today = new Date().toISOString().slice(0, 10);
-        const rows = (data.daily || []).filter(function (d) { return d.day === today; });
-        const todayTotal = rows.reduce(function (sum, d) { return sum + Number(d.usd_billed || 0); }, 0);
+        // The server owns the billing day (Africa/Harare). Deriving it from the
+        // browser's UTC date showed yesterday's usage between 00:00 and 02:00
+        // local, and its dollars disagreed with the ledger lines underneath.
+        const today = data.billing_day || new Date().toISOString().slice(0, 10);
+        const rows = Array.isArray(data.today) ? data.today : (data.daily || []).filter(function (d) { return d.day === today; });
+        const todayTotal = data.today_total_usd != null
+            ? Number(data.today_total_usd || 0)
+            : rows.reduce(function (sum, d) { return sum + Number(d.usd_billed || 0); }, 0);
         if (totalEl) totalEl.textContent = '$' + todayTotal.toFixed(4) + ' today';
 
         if (!rows.length) {
