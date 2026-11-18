@@ -6365,6 +6365,8 @@ function stopRouteAndExit(opts = {}) {
     setTimeout(() => { if (map) map.invalidateSize(); }, 350);
 }
 
+let lastPlaybackPan = 0;
+
 function updatePlaybackMarker(index) {
     if (!playbackRoute || index >= playbackRoute.length || !playbackMarker) return;
 
@@ -6372,14 +6374,32 @@ function updatePlaybackMarker(index) {
     const targetLat = point.lat;
     const targetLng = point.lng;
 
-    if (markerAnimFrame) cancelAnimationFrame(markerAnimFrame);
+    if (markerAnimFrame) { cancelAnimationFrame(markerAnimFrame); markerAnimFrame = null; }
     trailFlush();
     if (!trailMode) trailBegin();
-    if (index === trailDrawnTo + 1 && !trailBreaks.has(index)) {
+
+    // A drawn break is a real discontinuity: the vehicle stopped reporting, the
+    // next trip started somewhere else, or the range jumped to another day.
+    // Tweening the marker across that gap dragged it over the whole city and
+    // drew a false trail, which read as "the marker is jumping / the coordinates
+    // are broken". Break points snap instantly instead.
+    const isBreak = !!(trailBreaks && trailBreaks.has(index));
+    if (!isBreak && index === trailDrawnTo + 1) {
         trailPendingIndex = index;
     } else {
         trailTipClear();
         trailTo(index);
+    }
+
+    if (isBreak) {
+        playbackMarker.setLatLng([targetLat, targetLng]);
+        lastPlaybackPan = performance.now();
+        if (typeof map.panInside === 'function') {
+            map.panInside([targetLat, targetLng], { padding: [110, 110], animate: false });
+        } else {
+            map.panTo([targetLat, targetLng], { animate: false });
+        }
+        return;
     }
 
     const startLatLng = playbackMarker.getLatLng();
@@ -6409,11 +6429,18 @@ function updatePlaybackMarker(index) {
 
     // panInside keeps the marker travelling across the map. Centring the map on
     // every tick pinned the marker to the middle of the screen, which read as
-    // "the marker is not moving" while the route slid underneath it.
-    if (typeof map.panInside === 'function') {
-        map.panInside([targetLat, targetLng], { padding: [90, 90], animate: true, duration: 0.25 });
-    } else {
-        map.panTo([targetLat, targetLng], { animate: true, duration: 0.25 });
+    // "the marker is not moving" while the route slid underneath it. It is
+    // throttled and only recentres near the edge of the viewport: calling it on
+    // every 20 ms tick restarted the pan animation continuously, which made the
+    // map (and so the marker) twitch and look like a jump.
+    const nowMs = performance.now();
+    if (nowMs - lastPlaybackPan >= 400) {
+        lastPlaybackPan = nowMs;
+        if (typeof map.panInside === 'function') {
+            map.panInside([targetLat, targetLng], { padding: [160, 160], animate: true, duration: 0.35 });
+        } else {
+            map.panTo([targetLat, targetLng], { animate: true, duration: 0.35 });
+        }
     }
 }
 
