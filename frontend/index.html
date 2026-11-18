@@ -1812,7 +1812,7 @@
                                 <div class="billing-period-toggle">
                                     <button type="button" id="btn-period-monthly" class="period-btn active" onclick="setBillingPeriod('monthly')">Monthly</button>
                                     <button type="button" id="btn-period-yearly" class="period-btn" onclick="setBillingPeriod('yearly')">
-                                        Yearly &nbsp;<span class="save-badge">Save 30%</span>
+                                        Yearly &nbsp;<span class="save-badge">2 months free</span>
                                     </button>
                                 </div>
                             </div>
@@ -1830,16 +1830,16 @@
                                     <div class="bplan-price-row">
                                         <span class="bplan-currency">$</span>
                                         <span class="bplan-amount" id="price-starter">15</span>
-                                        <span class="bplan-period">/vehicle/mo</span>
+                                        <span class="bplan-period" id="period-starter">/vehicle/mo</span>
                                     </div>
                                     <div class="bplan-yearly-note hidden" id="yearly-note-starter">Billed as $150/vehicle/yr &mdash; 2 months free</div>
 
                                     <!-- Progressive Volume Band Table -->
                                     <div style="margin: 10px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 0.75rem;">
                                         <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Progressive Volume Rates:</div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>First 1&ndash;5 vehicles:</span><strong style="color: #ea580c;">$15/mo</strong></div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 6&ndash;20:</span><strong style="color: #ea580c;">$12/mo</strong></div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 21&ndash;50:</span><strong style="color: #ea580c;">$10/mo</strong></div>
+                                        <div id="band-row-basic-1" style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>First 1&ndash;5 vehicles:</span><strong style="color: #ea580c;">$15/mo</strong></div>
+                                        <div id="band-row-basic-2" style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 6&ndash;20:</span><strong style="color: #ea580c;">$12/mo</strong></div>
+                                        <div id="band-row-basic-3" style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 2px 0;"><span>Vehicles 21&ndash;50:</span><strong style="color: #ea580c;">$10/mo</strong></div>
                                         <div style="display: flex; justify-content: space-between; padding: 2px 0;"><span>Above 50:</span><strong>Custom quote</strong></div>
                                     </div>
 
@@ -1856,9 +1856,6 @@
                                     <button class="bplan-btn btn-outline" id="pay-now-btn" onclick="triggerPlanPayment('Basic')">
                                         <i class="fas fa-credit-card"></i> Subscribe to Basic ($15/mo)
                                     </button>
-                                    <button class="bplan-btn btn-outline hidden" id="upgrade-tier-btn" style="margin-top:8px;" onclick="window.open('https://wa.me/263783009275?text=Upgrade%20to%20Premium','_blank')">
-                                        <i class="fas fa-arrow-circle-up"></i> Upgrade to Premium
-                                    </button>
                                     <div class="feature-access-list hidden" id="billing-features-list"></div>
                                 </div>
 
@@ -1873,16 +1870,16 @@
                                     <div class="bplan-price-row">
                                         <span class="bplan-currency" style="color:#ffffff !important;">$</span>
                                         <span class="bplan-amount" id="price-professional" style="color:#ffffff !important;">25</span>
-                                        <span class="bplan-period" style="color:#e2e8f0 !important;">/vehicle/mo</span>
+                                        <span class="bplan-period" id="period-professional" style="color:#e2e8f0 !important;">/vehicle/mo</span>
                                     </div>
                                     <div class="bplan-yearly-note hidden" id="yearly-note-professional" style="color:#fed7aa !important;">Billed as $250/vehicle/yr &mdash; 2 months free</div>
 
                                     <!-- Progressive Volume Band Table (High Contrast on Dark Card) -->
                                     <div style="margin: 12px 0 14px; background: rgba(0, 0, 0, 0.45); border: 1.5px solid rgba(249, 115, 22, 0.6); border-radius: 8px; padding: 10px 12px; font-size: 0.78rem;">
                                         <div style="font-weight: 800; color: #ffedd5; margin-bottom: 6px; letter-spacing: 0.02em;">Progressive Volume Rates:</div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">First 1&ndash;5 vehicles:</span><strong style="color: #fb923c; font-weight: 800;">$25 / mo</strong></div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">Vehicles 6&ndash;20:</span><strong style="color: #fb923c; font-weight: 800;">$22 / mo</strong></div>
-                                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">Vehicles 21&ndash;50:</span><strong style="color: #fb923c; font-weight: 800;">$18 / mo</strong></div>
+                                        <div id="band-row-premium-1" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">First 1&ndash;5 vehicles:</span><strong style="color: #fb923c; font-weight: 800;">$25 / mo</strong></div>
+                                        <div id="band-row-premium-2" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">Vehicles 6&ndash;20:</span><strong style="color: #fb923c; font-weight: 800;">$22 / mo</strong></div>
+                                        <div id="band-row-premium-3" style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">Vehicles 21&ndash;50:</span><strong style="color: #fb923c; font-weight: 800;">$18 / mo</strong></div>
                                         <div style="display: flex; justify-content: space-between; padding: 4px 0;"><span style="color: #ffffff !important; font-weight: 600;">Above 50:</span><strong style="color: #f1f5f9; font-weight: 700;">Custom quote</strong></div>
                                     </div>
 
@@ -1897,7 +1894,7 @@
                                         <li style="color: #ffffff !important;"><i class="fas fa-check" style="color:#f97316;"></i> Odometer &amp; vehicle health monitoring</li>
                                         <li style="color: #ffffff !important;"><i class="fas fa-check" style="color:#f97316;"></i> Maintenance reminders</li>
                                     </ul>
-                                    <button class="bplan-btn btn-primary" onclick="triggerPlanPayment('Premium')">
+                                    <button class="bplan-btn btn-primary" id="btn-subscribe-premium" onclick="triggerPlanPayment('Premium')">
                                         <i class="fas fa-credit-card"></i> Subscribe to Premium ($25/mo)
                                     </button>
                                 </div>
@@ -2774,7 +2771,7 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=204"></script>
+    <script src="/static/app.js?v=205"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

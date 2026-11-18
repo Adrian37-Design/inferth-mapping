@@ -56,12 +56,16 @@ def _upload_extension(data: bytes):
 async def initiate_paynow(
     plan_name: str, 
     amount: float = None,
+    period: str = "monthly",
     db: AsyncSession = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
     """
     Initiates standard Paynow Web Checkout using the official Paynow Python SDK.
     Supports Visa, Mastercard, Zimswitch, EcoCash, and OneMoney via redirect.
+
+    Basic/Premium are billed per vehicle: the price is derived from the tenant's own
+    fleet size and the billing period, so the browser cannot choose a cheaper band.
     """
     if not PAYNOW_ID or not PAYNOW_KEY:
         raise HTTPException(status_code=503, detail="Online payments are not configured")
@@ -84,7 +88,35 @@ async def initiate_paynow(
     TOPUP_PLAN = "Prepaid_Wallet_Topup"
     TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
 
+    # Progressive fleet bands: per-vehicle monthly rate, 10 months charged yearly
+    # (2 months free). Above 50 vehicles the plan is sold on an Enterprise quote.
+    FLEET_BANDS = {
+        "Basic": ((5, 15.0), (20, 12.0), (50, 10.0)),
+        "Premium": ((5, 25.0), (20, 22.0), (50, 18.0)),
+        "Professional": ((5, 25.0), (20, 22.0), (50, 18.0)),
+    }
+    YEARLY_MONTHS = 10
+
     is_topup = plan_name == TOPUP_PLAN
+    fleet_bands = FLEET_BANDS.get(plan_name)
+    banded_price: Optional[float] = None
+    fleet_size = 0
+    if fleet_bands and not is_topup:
+        fleet_size = (
+            await db.execute(
+                select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
+            )
+        ).scalar() or 0
+        fleet_size = max(1, int(fleet_size))
+        band_rate = next((rate for cap, rate in fleet_bands if fleet_size <= cap), None)
+        if band_rate is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Fleets above 50 vehicles are priced on an Enterprise quotation — request one from the Billing page.",
+            )
+        months = YEARLY_MONTHS if (period or "").strip().lower() == "yearly" else 1
+        banded_price = round(band_rate * fleet_size * months, 2)
+
     if is_topup:
         if amount is None or round(float(amount), 2) not in TOPUP_AMOUNTS:
             raise HTTPException(
@@ -92,6 +124,16 @@ async def initiate_paynow(
                 detail="Choose a valid wallet top-up amount (12, 24, 40 or 100 USD)",
             )
         charge_amount = round(float(amount), 2)
+    elif banded_price is not None:
+        charge_amount = banded_price
+        if amount is not None and float(amount) > 0 and abs(round(float(amount), 2) - banded_price) > 0.011:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{plan_name} for {fleet_size} vehicles is ${banded_price:.2f} "
+                    f"(${amount:.2f} was sent). Refresh the Billing page and try again."
+                ),
+            )
     elif amount is not None and float(amount) > 0:
         charge_amount = round(float(amount), 2)
         expected = price_map.get(plan_name)
@@ -119,7 +161,11 @@ async def initiate_paynow(
     item_label = (
         f"Inferth Prepaid Wallet Top-up ${charge_amount:.2f}"
         if is_topup
-        else f"Inferth {plan_name} Subscription"
+        else (
+            f"Inferth {plan_name} Subscription — {fleet_size} vehicle(s), {(period or 'monthly').lower()}"
+            if banded_price is not None
+            else f"Inferth {plan_name} Subscription"
+        )
     )
     payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or "billing@inferthmapping.co.zw")
     payment.add(item_label, charge_amount)

@@ -898,16 +898,11 @@ function loadBillingData() {
 
     // Dynamic Pricing Update
     if (pricingDisplay) {
-        if (normalizedPlan === 'Basic' || normalizedPlan === 'Starter') {
+        const activeQuote = window.planQuoteFor(normalizedPlan);
+        if (activeQuote) {
             pricingDisplay.innerHTML = `
-                <span class="price">$15</span>
-                <span class="period">/vehicle/mo</span>
-            `;
-            pricingDisplay.classList.remove('hidden');
-        } else if (normalizedPlan === 'Premium' || normalizedPlan === 'Professional') {
-            pricingDisplay.innerHTML = `
-                <span class="price">$25</span>
-                <span class="period">/vehicle/mo</span>
+                <span class="price">$${activeQuote.custom ? 'Custom' : activeQuote.perVehicle}</span>
+                <span class="period">/vehicle/${activeQuote.period === 'yearly' ? 'yr' : 'mo'}</span>
             `;
             pricingDisplay.classList.remove('hidden');
         } else if (normalizedPlan === 'Enterprise') {
@@ -948,15 +943,17 @@ function loadBillingData() {
         }
     }
 
+    // Card prices follow the fleet size (progressive bands).
+    if (typeof window.applyFleetPricing === 'function') window.applyFleetPricing();
+
     // 3. Populate Feature Access List
     renderFeatureAccess(sub.features, normalizedPlan);
 
     // 4. Global UI Locks
     applyPremiumLocks(sub.features, normalizedPlan);
 
-    // 5. Button States (Pay Now vs Upgrade)
+    // 5. Button States (Pay Now)
     const payBtn = document.getElementById('pay-now-btn');
-    const upgradeTierBtn = document.getElementById('upgrade-tier-btn');
 
     if (payBtn) {
         // Show Pay Now if they are not Enterprise (Enterprise handled by custom quote)
@@ -964,14 +961,6 @@ function loadBillingData() {
             payBtn.classList.remove('hidden');
         } else {
             payBtn.classList.add('hidden');
-        }
-    }
-
-    if (upgradeTierBtn) {
-        if (normalizedPlan === 'Enterprise') {
-            upgradeTierBtn.classList.add('hidden');
-        } else {
-            upgradeTierBtn.classList.remove('hidden');
         }
     }
 }
@@ -2957,6 +2946,7 @@ async function loadVehicles() {
 
         const vehicles = await response.json();
         allVehicles = vehicles; // Store globally for geofence assignment
+        if (typeof window.applyFleetPricing === 'function') window.applyFleetPricing();
         if (window.markActiveRentalPlan) window.markActiveRentalPlan();
         vehicles.forEach(v => { if (v.device_metadata && v.device_metadata.last_seen) markContact(v.id, v.device_metadata.last_seen); });
         updateChartVehicleSelector(allVehicles);
@@ -5593,9 +5583,13 @@ function splitTraceAtGaps(points) {
             const p = piece[i];
             if (run.length === 0) { run.push([p.lat, p.lng]); continue; }
             const prev = piece[i - 1];
-            const gapMins = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 60000;
+            const dtSec = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000;
+            const gapMins = dtSec / 60;
             const jumpKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
-            if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM) {
+            // A chord faster than a road car can drive is a bad fix, never a road:
+            // drawing it is the "track cuts across the map" artifact.
+            const impossibleChord = dtSec > 0 && jumpKm > 0.3 && (jumpKm / (dtSec / 3600)) > 200;
+            if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM || impossibleChord) {
                 flush();
                 run.push([p.lat, p.lng]);
             } else {
@@ -9628,15 +9622,29 @@ window.switchBillingPlanMode = function(mode) {
 // The amount is always sent when the button knows it, so the server never has to
 // guess which product (and price) the customer clicked.
 window.triggerPlanPayment = async function(planName, amountUsd) {
-    const amount = Number(amountUsd);
-    const hasAmount = Number.isFinite(amount) && amount > 0;
+    // Basic/Premium are priced per vehicle on the fleet band, monthly or yearly.
+    // Rental tiers still pass their own fixed amount.
+    const quote = typeof window.planQuoteFor === 'function' ? window.planQuoteFor(planName) : null;
+    let amount = Number(amountUsd);
+    let hasAmount = Number.isFinite(amount) && amount > 0;
+    if (!hasAmount && quote) {
+        if (quote.custom) {
+            window.open('https://wa.me/263783009275?text=' + encodeURIComponent(`${planName} quotation for ${quote.count} vehicles`), '_blank');
+            return;
+        }
+        amount = quote.total;
+        hasAmount = true;
+    }
     const amountParam = hasAmount ? `&amount=${amount}` : '';
-    const priceLabel = hasAmount ? ` ($${amount.toFixed(2)} USD)` : '';
+    const periodParam = (quote && !Number.isFinite(Number(amountUsd))) ? `&period=${quote.period}` : '';
+    const priceLabel = hasAmount
+        ? ` ($${Number(amount).toFixed(2)} USD${quote ? ` for ${quote.count} vehicle${quote.count === 1 ? '' : 's'} — ${quote.period}` : ''})`
+        : '';
 
     if (!confirm(`Subscribe to "${planName}"${priceLabel} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
     try {
         const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=${encodeURIComponent(planName)}${amountParam}`,
+            `/payments/paynow/initiate?plan_name=${encodeURIComponent(planName)}${amountParam}${periodParam}`,
             { method: 'POST' }
         );
         const result = await response.json().catch(() => ({}));
@@ -9771,19 +9779,125 @@ function setupPaymentListeners() {
 // (Founder Skill v1 — Vanilla JS, no React, no npm)
 // ============================================================
 
-const BILLING_PLANS = {
-    basic:        { monthly: 15,   yearly: 12.5, yearlyTotal: 150, yearlyLabel: 'Billed as $150/vehicle/yr — 2 months free' },
-    premium:      { monthly: 25,   yearly: 20.8, yearlyTotal: 250, yearlyLabel: 'Billed as $250/vehicle/yr — 2 months free' },
-    starter:      { monthly: 15,   yearly: 12.5, yearlyTotal: 150, yearlyLabel: 'Billed as $150/vehicle/yr — 2 months free' },
-    professional: { monthly: 25,   yearly: 20.8, yearlyTotal: 250, yearlyLabel: 'Billed as $250/vehicle/yr — 2 months free' },
-    enterprise:   { monthly: null, yearly: null }
+// Fleet bands: the advertised price is per vehicle and steps down as the fleet
+// grows. A band rate applies to every vehicle on the plan, so 8 vehicles on Basic
+// bill 8 x $12 = $96/month. Yearly bills 10 months (2 months free).
+const BILLING_BANDS = {
+    basic:   [{ max: 5, rate: 15 }, { max: 20, rate: 12 }, { max: 50, rate: 10 }],
+    premium: [{ max: 5, rate: 25 }, { max: 20, rate: 22 }, { max: 50, rate: 18 }]
 };
+const YEARLY_MONTHS = 10;
 
 let _billingPeriod = 'monthly';
 
+function _roundMoney(n) {
+    return Math.round(Number(n || 0) * 100) / 100;
+}
+
+function _fleetCount() {
+    const list = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
+    if (list.length) return list.length;
+    const positions = (typeof vehiclePositions !== 'undefined' && vehiclePositions) ? vehiclePositions : {};
+    return Object.keys(positions).length;
+}
+
+function _planKey(planName) {
+    const key = String(planName || '').toLowerCase();
+    if (key.startsWith('prem') || key === 'professional' || key === 'pro') return 'premium';
+    if (key === 'basic' || key === 'starter') return 'basic';
+    return null;
+}
+
+// Per-vehicle rate for this fleet size; null above the self-serve range.
+function _bandFor(key, count) {
+    const bands = BILLING_BANDS[key] || [];
+    const n = Math.max(1, Number(count) || 1);
+    for (let i = 0; i < bands.length; i++) {
+        if (n <= bands[i].max) return bands[i];
+    }
+    return null;
+}
+
+// The exact price of a plan for the tenant's fleet at the selected billing period.
+// The same numbers are recomputed server-side before Paynow is called.
+window.planQuoteFor = function(planName) {
+    const key = _planKey(planName);
+    if (!key) return null;
+    const count = Math.max(1, _fleetCount());
+    const yearly = _billingPeriod === 'yearly';
+    const band = _bandFor(key, count);
+    const period = yearly ? 'yearly' : 'monthly';
+    if (!band) return { key, count, custom: true, period };
+    const perVehicle = _roundMoney(band.rate * (yearly ? YEARLY_MONTHS : 1));
+    return {
+        key, count, band, perVehicle, period,
+        total: _roundMoney(perVehicle * count),
+        months: yearly ? YEARLY_MONTHS : 1
+    };
+};
+
+function _planLabel(key) {
+    return key === 'premium' ? 'Premium' : 'Basic';
+}
+
+function _setPlanCard(key, quote) {
+    const isPremium = key === 'premium';
+    const yearly = _billingPeriod === 'yearly';
+    const amountEl = document.getElementById(isPremium ? 'price-professional' : 'price-starter');
+    const periodEl = document.getElementById(isPremium ? 'period-professional' : 'period-starter');
+    const noteEl = document.getElementById(isPremium ? 'yearly-note-professional' : 'yearly-note-starter');
+    const custom = !!(quote && quote.custom);
+
+    if (amountEl) amountEl.textContent = custom ? 'Custom' : (quote ? String(quote.perVehicle) : '');
+    if (periodEl) periodEl.textContent = (!custom && yearly) ? '/vehicle/yr' : '/vehicle/mo';
+    if (noteEl) {
+        if (quote && !custom && yearly) {
+            noteEl.textContent = `Billed as $${quote.perVehicle}/vehicle/yr — 2 months free ` +
+                `(save $${_roundMoney(quote.band.rate * 2)}/vehicle)`;
+            noteEl.classList.remove('hidden');
+        } else {
+            noteEl.classList.add('hidden');
+        }
+    }
+
+    // Mark the band this fleet is actually billed at.
+    const bands = BILLING_BANDS[key] || [];
+    bands.forEach((band, index) => {
+        const row = document.getElementById(`band-row-${key}-${index + 1}`);
+        if (!row) return;
+        const active = !!quote && !custom && quote.band === band;
+        row.style.background = active ? (isPremium ? 'rgba(249, 115, 22, 0.28)' : '#ffedd5') : 'transparent';
+        row.style.borderRadius = '4px';
+        row.style.paddingLeft = active ? '4px' : '0';
+        row.style.paddingRight = active ? '4px' : '0';
+    });
+
+    const btn = document.getElementById(isPremium ? 'btn-subscribe-premium' : 'pay-now-btn');
+    if (!btn) return;
+    const label = _planLabel(key);
+    if (custom) {
+        btn.innerHTML = `<i class="fab fa-whatsapp"></i> Custom ${label} quote (${quote.count} vehicles)`;
+        btn.onclick = () => window.open(
+            `https://wa.me/263783009275?text=${encodeURIComponent(`${label} quotation for ${quote.count} vehicles`)}`,
+            '_blank'
+        );
+    } else if (quote) {
+        const unit = yearly ? 'yr' : 'mo';
+        btn.innerHTML = `<i class="fas fa-credit-card"></i> ${label} — ${quote.count} × $${quote.perVehicle} = ` +
+            `$${quote.total}/${unit}`;
+        btn.onclick = () => triggerPlanPayment(label);
+    }
+}
+
+// Re-price both plan cards for the current fleet size and billing period.
+window.applyFleetPricing = function() {
+    _setPlanCard('basic', window.planQuoteFor('Basic'));
+    _setPlanCard('premium', window.planQuoteFor('Premium'));
+};
+
 window.setBillingPeriod = function(period) {
-    _billingPeriod = period;
-    const isYearly = period === 'yearly';
+    _billingPeriod = period === 'yearly' ? 'yearly' : 'monthly';
+    const isYearly = _billingPeriod === 'yearly';
 
     // Toggle active button styles
     const btnM = document.getElementById('btn-period-monthly');
@@ -9791,30 +9905,7 @@ window.setBillingPeriod = function(period) {
     if (btnM) btnM.classList.toggle('active', !isYearly);
     if (btnY) btnY.classList.toggle('active', isYearly);
 
-    // Update prices with fade animation
-    const plans = ['basic', 'premium', 'starter', 'professional'];
-    plans.forEach(key => {
-        const amountEl  = document.getElementById(`price-${key}`);
-        const noteEl    = document.getElementById(`yearly-note-${key}`);
-        const plan      = BILLING_PLANS[key];
-        if (!amountEl) return;
-
-        // Fade out
-        amountEl.classList.add('fading');
-        setTimeout(() => {
-            amountEl.textContent = isYearly ? plan.yearly : plan.monthly;
-            amountEl.classList.remove('fading');
-        }, 150);
-
-        if (noteEl) {
-            if (isYearly) {
-                noteEl.textContent = plan.yearlyLabel;
-                noteEl.classList.remove('hidden');
-            } else {
-                noteEl.classList.add('hidden');
-            }
-        }
-    });
+    window.applyFleetPricing();
 };
 
 
