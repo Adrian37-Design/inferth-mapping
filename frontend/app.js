@@ -6079,6 +6079,16 @@ function filterSpikePass(inputPoints) {
                           Math.sin(dLngNext / 2) * Math.sin(dLngNext / 2);
             const distNextKm = 6371 * 2 * Math.atan2(Math.sqrt(aNext), Math.sqrt(1 - aNext));
 
+            // (C) single-point island: one fix leaves the path and the very
+            // next fix is back beside prev. A real out-and-back produces a run
+            // of fixes along the way, never one isolated point, so no timing
+            // test is needed here — an outlier only 150-400 m off the road is
+            // still physically "possible" by the speed test below, yet it draws
+            // exactly the crossing chord this filter exists to remove.
+            if (distKm > 0.15 && distNextKm < Math.max(0.1, distKm * 0.3)) {
+                continue;
+            }
+
             // (A) impossible-speed spike with return to prev
             if (dtSeconds > 0 && dtSeconds < 300) {
                 const speedKmh = (distKm / (dtSeconds / 3600));
@@ -6091,7 +6101,11 @@ function filterSpikePass(inputPoints) {
             // point within the next few returns near prev — everything between
             // is an outlier run. Look ahead up to 4 points because buffered
             // bursts often contain several consecutive bad fixes.
-            if (distKm > 1) {
+            // The excursion threshold is 120 m, not 1 km: a wrong fix only a few
+            // hundred metres off the road draws the same V-shaped "track cuts
+            // across the block" artifact as a multi-kilometre one, and the
+            // time/speed guard below is what decides whether it was real.
+            if (distKm > 0.12) {
                 let returnIdx = -1;
                 for (let j = i + 1; j <= Math.min(i + 4, inputPoints.length - 1); j++) {
                     const np = inputPoints[j];
@@ -9852,8 +9866,7 @@ function _setPlanCard(key, quote) {
     if (periodEl) periodEl.textContent = (!custom && yearly) ? '/vehicle/yr' : '/vehicle/mo';
     if (noteEl) {
         if (quote && !custom && yearly) {
-            noteEl.textContent = `Billed as $${quote.perVehicle}/vehicle/yr — 2 months free ` +
-                `(save $${_roundMoney(quote.band.rate * 2)}/vehicle)`;
+            noteEl.textContent = `$${quote.perVehicle}/vehicle/yr — 2 months free`;
             noteEl.classList.remove('hidden');
         } else {
             noteEl.classList.add('hidden');
@@ -9883,8 +9896,8 @@ function _setPlanCard(key, quote) {
         );
     } else if (quote) {
         const unit = yearly ? 'yr' : 'mo';
-        btn.innerHTML = `<i class="fas fa-credit-card"></i> ${label} — ${quote.count} × $${quote.perVehicle} = ` +
-            `$${quote.total}/${unit}`;
+        // Just the price to pay — never the arithmetic behind it.
+        btn.innerHTML = `<i class="fas fa-credit-card"></i> Subscribe to ${label} — $${quote.total}/${unit}`;
         btn.onclick = () => triggerPlanPayment(label);
     }
 }
