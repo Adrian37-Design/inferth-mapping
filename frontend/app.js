@@ -3757,8 +3757,11 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
     const ignitionColor = ignitionOn ? '#10b981' : '#64748b';
     
     // 1. Update Map Marker with smooth animation
+    // Prepaid vehicles without an active tracking session must read as a quiet
+    // grey shadow, not an alarming red dot (red stays for genuinely offline).
+    const isDimmed = window.isTrackingDimmed ? window.isTrackingDimmed(id) : false;
     const icon = L.divIcon({
-        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker" id="marker-${imei}">
+        html: `<div class="vehicle-marker ${assetStatus.toLowerCase()}-marker${isDimmed ? ' tracking-paused' : ''}" id="marker-${imei}">
                 <i class="fas fa-car" style="transform: rotate(${0}deg); transition: transform 0.5s ease;"></i>
                 <span class="speed-label">${Math.round(speed || 0)} km/h</span>
                </div>`,
@@ -3825,8 +3828,8 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         // Update marker content without recreating or dirtying unchanged DOM
         const markerEl = document.getElementById(`marker-${imei}`);
         if (markerEl) {
-            const wasPaused = markerEl.classList.contains('tracking-paused');
-            const nextMarkerClass = `vehicle-marker ${assetStatus.toLowerCase()}-marker` + (wasPaused ? ' tracking-paused' : '');
+            const dimmed = window.isTrackingDimmed ? window.isTrackingDimmed(id) : false;
+            const nextMarkerClass = `vehicle-marker ${assetStatus.toLowerCase()}-marker` + (dimmed ? ' tracking-paused' : '');
             if (markerEl.className !== nextMarkerClass) markerEl.className = nextMarkerClass;
             const speedLabel = markerEl.querySelector('.speed-label');
             const nextSpeedText = `${Math.round(speed || 0)} km/h`;
@@ -9006,6 +9009,7 @@ window.loadTrackingState = async function () {
         (data.open_sessions || []).forEach(function (s) {
             window._trackingState[s.device_id] = s.status;
         });
+        window._trackingStateLoaded = true;
         window.refreshTrackingButtons();
     } catch (e) { /* leave the last known labels */ }
 };
@@ -9029,14 +9033,19 @@ window.refreshTrackingButtons = function () {
 
 // Stopped prepaid vehicles stay on the map but fade to a shadow so a fleet
 // manager can see at a glance which assets are not being tracked/billed.
+window.isTrackingDimmed = function (deviceId) {
+    if (!window._trackingStateLoaded) return false;
+    if (!window.isPrepaidTenant || !window.isPrepaidTenant()) return false;
+    const state = (window._trackingState || {})[deviceId];
+    return state !== 'active';
+};
+
 window.applyTrackingDimming = function () {
-    const prepaid = window.isPrepaidTenant && window.isPrepaidTenant();
     const vehicles = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
     vehicles.forEach(function (v) {
         const el = document.getElementById('marker-' + v.imei);
         if (!el) return;
-        const dim = prepaid && window._trackingState[v.id] !== 'active';
-        el.classList.toggle('tracking-paused', dim);
+        el.classList.toggle('tracking-paused', window.isTrackingDimmed(v.id));
     });
 };
 

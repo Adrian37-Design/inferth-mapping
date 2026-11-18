@@ -263,14 +263,28 @@ async def usage_summary(
             .limit(60)
         )
     ).scalars().all()
-    ledger = (
+    # Usage rows fold into one line per vehicle/day. A single 60-row window
+    # understated a busy day (one legacy row per 5-minute tick), so the usage
+    # history is read in full and only top-ups/purchases stay windowed.
+    usage_ledger = (
         await db.execute(
             select(WalletLedger)
-            .where(WalletLedger.tenant_id == tenant.id)
+            .where(WalletLedger.tenant_id == tenant.id, WalletLedger.kind == "usage")
             .order_by(WalletLedger.id.desc())
-            .limit(60)
+            .limit(2000)
         )
     ).scalars().all()
+    other_ledger = (
+        await db.execute(
+            select(WalletLedger)
+            .where(WalletLedger.tenant_id == tenant.id, WalletLedger.kind != "usage")
+            .order_by(WalletLedger.id.desc())
+            .limit(30)
+        )
+    ).scalars().all()
+    ledger = sorted(
+        list(usage_ledger) + list(other_ledger), key=lambda row: row.id, reverse=True
+    )
 
     recent_ledger = _fold_recent_ledger(ledger)
 
