@@ -40,6 +40,14 @@ paynow = Paynow(
     PAYNOW_RETURN_URL,
 )
 
+# Product identifiers shared by checkout and the payment handlers. These must be
+# module-level: `_is_subscription_txn` decides whether a paid transaction is a
+# plan purchase, and it is called from the webhook, the status poll and the
+# wallet endpoint. Defined locally inside `initiate_paynow` only, they raised
+# NameError on every /payments/wallet call and took the Billing tab down.
+TOPUP_PLAN = "Prepaid_Wallet_Topup"
+TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
+
 ALLOWED_UPLOAD_TYPES = {
     b"\x89PNG": ".png",
     b"\xff\xd8\xff": ".jpg",
@@ -86,9 +94,6 @@ async def initiate_paynow(
         "Console_Growth_25": 49.0,
         "Console_Scale_100": 119.0,
     }
-    TOPUP_PLAN = "Prepaid_Wallet_Topup"
-    TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
-
     # Progressive fleet bands: per-vehicle monthly rate, 10 months charged yearly
     # (2 months free). Above 50 vehicles the plan is sold on an Enterprise quote.
     FLEET_BANDS = {
@@ -574,8 +579,19 @@ async def prepaid_wallet(
             select(func.count(Device.id)).where(Device.tenant_id == current_user.tenant_id)
         )
     ).scalar() or 0
-    if await _heal_paid_subscription(db, tenant):
-        await db.commit()
+    try:
+        if await _heal_paid_subscription(db, tenant):
+            await db.commit()
+    except Exception as heal_err:
+        # Healing is a repair, never a prerequisite: a failure here must not
+        # take down the endpoint that paints the active-plan card and balance.
+        print(f"Wallet heal note: {heal_err}")
+        await db.rollback()
+        tenant = (
+            await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
+        ).scalars().first()
+        if not tenant:
+            raise HTTPException(status_code=404, detail="Tenant not found")
 
     from app.services.usage_billing import is_prepaid as _is_prepaid
 

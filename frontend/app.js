@@ -6622,7 +6622,11 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     clearAllRoutePolylines();
 
     const sortedPoints = [...inputPoints].sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
-    const filteredPoints = filterValidRoutePoints(sortedPoints);
+    // Timeline points arrive already cleaned by loadAssetHistory. Filtering a
+    // second time re-runs burst reordering and the spike passes on a subset,
+    // which can drop the first/last fix of a trip — the drawn line then stops
+    // short of the endpoints and reads as an incomplete track.
+    const filteredPoints = opts.cleaned ? sortedPoints : filterValidRoutePoints(sortedPoints);
     if (filteredPoints.length < 2) return false;
 
     const waypoints = extractTravelWaypoints(filteredPoints);
@@ -7108,7 +7112,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             playAllBtn.disabled = false;
             playAllBtn.onclick = async () => {
                 document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
-                await renderAndPrepareRouteOnMap(id, points, true, { trips: consolidatedTimeline.filter(t => t.type === 'trip') });
+                await renderAndPrepareRouteOnMap(id, points, true, { trips: consolidatedTimeline.filter(t => t.type === 'trip'), cleaned: true });
             };
         }
 
@@ -7146,7 +7150,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 item.onclick = async () => {
                     document.querySelectorAll('#detail-timeline .timeline-item').forEach(el => el.classList.remove('active'));
                     item.classList.add('active');
-                    await renderAndPrepareRouteOnMap(id, itemData.points, historyAutoPlayTrips(), { trips: [itemData] });
+                    await renderAndPrepareRouteOnMap(id, itemData.points, historyAutoPlayTrips(), { trips: [itemData], cleaned: true });
                 };
             } else {
                 item.innerHTML = `
@@ -7194,7 +7198,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // Automatically render the route on the map when trips exist so the
         // user sees the path immediately upon selecting the asset/date range
         if (tripsCount > 0 && points.length >= 2) {
-            renderAndPrepareRouteOnMap(id, points, false, { trips: consolidatedTimeline.filter(t => t.type === 'trip') }).catch(e => console.warn('Route render failed:', e));
+            renderAndPrepareRouteOnMap(id, points, false, { trips: consolidatedTimeline.filter(t => t.type === 'trip'), cleaned: true }).catch(e => console.warn('Route render failed:', e));
         }
 
     } catch (e) {
