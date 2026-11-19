@@ -642,6 +642,9 @@ async def request_enterprise_quotation(
         plan_name="Enterprise_Quotation",
         payment_method="quotation",
         status="quote_requested",
+        quote_vehicles=vehicles,
+        quote_notes=notes or None,
+        quote_contact=customer_phone,
     )
     db.add(txn)
     await db.commit()

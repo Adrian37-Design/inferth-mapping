@@ -6756,6 +6756,34 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     // leave the map blank while road matching is still in flight.
     drawRouteLayers(id, traceSegments, waypoints, true);
 
+    const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
+    // A long range (day/week/month, hundreds of trips) is never road-snapped.
+    // The matcher already refuses those; the OSRM fallback used to run over the
+    // whole range and its partial, rate-limited output could replace a complete
+    // recorded trace with fragments. Draw the recorded line and stop there.
+    const roadSnapWorthwhile = !Array.isArray(opts.trips) || opts.trips.length <= MATCH_TRIP_LIMIT;
+
+    // Road preparation: matcher first, then the straight-chord pass. Shared by
+    // the auto-play path, which used to return before any of this ran — with
+    // "Auto-play trip animation" on, a trip card drew its raw recorded chord
+    // (a diagonal across the blocks) and never the road.
+    const prepareDrawSegments = async () => {
+        const matched = await buildMatchedTripSegments(id, trips, isCurrent);
+        if (!isCurrent()) return null;
+        const snapped = matched || (roadSnapWorthwhile ? await snapRouteToRoad(filteredPoints, isCurrent) : null);
+        if (!isCurrent()) return null; // stopped/cleared while matching was in flight
+        const snappedSegments = snapped ? mergeNearbySegments(snapped.segments, 0.06) : null;
+        if (snappedSegments && !matched && routeSegmentsKm(snappedSegments) < 0.7 * routeSegmentsKm(traceSegments)) {
+            return []; // the recorded trace is complete, the patched route is not
+        }
+        let drawSegments = (snappedSegments && snappedSegments.length) ? snappedSegments : traceSegments;
+        if (roadSnapWorthwhile) {
+            drawSegments = await roadifyStraightChords(drawSegments, isCurrent);
+            if (!isCurrent()) return null;
+        }
+        return drawSegments || [];
+    };
+
     // Play must start immediately. Waiting for the road matcher to walk every
     // trip in a multi-day range (hundreds of HTTP calls) left the marker frozen
     // for minutes, which read as "Play does nothing". Playback therefore runs
@@ -6766,6 +6794,13 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
             if (sidebar) sidebar.classList.add('collapsed');
             syncWorkspaceLayout();
         }
+        // One short trip is cheap to prepare and must not animate a chord across
+        // the blocks; a long range still starts instantly on the recorded trace.
+        if (Array.isArray(opts.trips) && opts.trips.length === 1 && routeSegmentsKm(traceSegments) <= 3) {
+            const prepared = await prepareDrawSegments();
+            if (!isCurrent()) return false;
+            if (prepared && prepared.length) drawRouteLayers(id, prepared, waypoints, true);
+        }
         setTimeout(() => {
             if (drawSeq !== routeDrawSeq) return;
             if (map) map.invalidateSize();
@@ -6774,31 +6809,14 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
         return true;
     }
 
-    // Timeline paths (day view, trip cards) ask the backend's map matcher for
-    // one continuous line per trip: no splits at junction waits, no invented
-    // road through parked spots, no gaps or chords.
-    const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
-    // A long range (day/week/month, hundreds of trips) is never road-snapped.
-    // The matcher already refuses those; the OSRM fallback used to run over the
-    // whole range and its partial, rate-limited output could replace a complete
-    // recorded trace with fragments. Draw the recorded line and stop there.
-    const roadSnapWorthwhile = !Array.isArray(opts.trips) || opts.trips.length <= MATCH_TRIP_LIMIT;
-    const matched = trips ? await buildMatchedTripSegments(id, trips, isCurrent) : null;
+    // Timeline paths (day view, trip cards) draw one continuous line per trip:
+    // no splits at junction waits, no invented road through parked spots, no
+    // gaps or chords between two fixes.
+    const drawSegments = await prepareDrawSegments();
     if (!isCurrent()) return false;
-    const snapped = matched || (roadSnapWorthwhile ? await snapRouteToRoad(filteredPoints, isCurrent) : null);
-    if (!isCurrent()) return false; // stopped/cleared while matching was in flight
-    const snappedSegments = snapped ? mergeNearbySegments(snapped.segments, 0.06) : null;
-    if (snappedSegments && !matched && routeSegmentsKm(snappedSegments) < 0.7 * routeSegmentsKm(traceSegments)) {
-        return true; // the recorded trace is complete, the patched route is not
-    }
-    let drawSegments = (snappedSegments && snappedSegments.length) ? snappedSegments : traceSegments;
-    if (roadSnapWorthwhile) {
-        drawSegments = await roadifyStraightChords(drawSegments, isCurrent);
-        if (!isCurrent()) return false;
-    }
     if (drawSegments && drawSegments.length) {
-        const lines = matched ? drawSegments.map(seg => densifyCoordList(seg, 20)) : drawSegments;
-        drawRouteLayers(id, lines, waypoints, false);
+        // Densified only for a smooth playback trail; the line itself is unchanged.
+        drawRouteLayers(id, drawSegments.map(seg => densifyCoordList(seg, 20)), waypoints, false);
     }
     return true;
 }
@@ -8546,6 +8564,7 @@ function loadSettingsTab() {
         autoPlayEl.checked = historyAutoPlayTrips();
     }
     if (typeof window.loadRetentionSettings === 'function') window.loadRetentionSettings();
+    if (typeof window.loadEnterpriseQuotes === 'function') window.loadEnterpriseQuotes();
 }
 
 
@@ -8633,6 +8652,71 @@ window.runRetentionDryRun = async function () {
         }
     } catch (e) {
         if (out) out.textContent = 'Dry run unavailable: ' + e.message;
+    }
+};
+
+// --- Enterprise quotations (platform admin) ---
+// The Billing tab only records a request (QTE-<id>). Activation happens here:
+// the agreed price is typed in once, and this closes the request and moves the
+// company onto Enterprise.
+window.loadEnterpriseQuotes = async function () {
+    const card = document.getElementById('enterprise-quotes-admin');
+    const list = document.getElementById('enterprise-quote-list');
+    if (!card || !list || !window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/enterprise-quotes');
+        if (!res.ok) { card.hidden = true; return; }
+        const data = await res.json();
+        card.hidden = false;
+        const quotes = data.quotes || [];
+        if (!quotes.length) {
+            list.innerHTML = '<p style="margin:0;font-size:0.78rem;color:#64748b;">No open quotation requests.</p>';
+            return;
+        }
+        list.innerHTML = quotes.map(function (q) {
+            var when = q.created_at ? new Date(q.created_at).toLocaleString() : '';
+            var vehicles = q.vehicles ? (q.vehicles + ' vehicles') : 'fleet size not given';
+            var facts = (q.tenant_name || ('Tenant ' + q.tenant_id)) + ' &middot; ' + vehicles +
+                (q.contact ? ' &middot; ' + escapeHTML(q.contact) : '') +
+                (q.notes ? '<br>' + escapeHTML(q.notes) : '') +
+                '<br><span style="color:#94a3b8;">' + escapeHTML(when) + '</span>';
+            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">' +
+                '<strong style="font-size:0.8rem;color:#0f172a;min-width:96px;">' + escapeHTML(q.reference) + '</strong>' +
+                '<span style="font-size:0.72rem;color:#475569;flex:1 1 220px;line-height:1.45;">' + facts + '</span>' +
+                '<input type="number" min="1" step="0.01" placeholder="monthly $" id="equote-price-' + q.id + '" aria-label="Agreed monthly price for ' + escapeHTML(q.reference) + '" style="width:120px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;">' +
+                '<select id="equote-cycle-' + q.id + '" aria-label="Billing cycle for ' + escapeHTML(q.reference) + '" style="padding:5px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.78rem;"><option value="monthly">Monthly</option><option value="yearly">Yearly (10 months)</option></select>' +
+                '<button type="button" onclick="activateEnterpriseQuote(' + q.id + ')" style="background:#0f172a;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:0.74rem;font-weight:700;cursor:pointer;">Activate</button>' +
+                '</div>';
+        }).join('');
+    } catch (e) {
+        card.hidden = true;
+    }
+};
+
+window.activateEnterpriseQuote = async function (id) {
+    const priceEl = document.getElementById('equote-price-' + id);
+    const cycleEl = document.getElementById('equote-cycle-' + id);
+    const monthly = Number(String((priceEl && priceEl.value) || '').trim());
+    if (!Number.isFinite(monthly) || monthly <= 0) {
+        alert('Enter the agreed monthly price first.');
+        return;
+    }
+    const period = cycleEl && cycleEl.value === 'yearly' ? 'yearly' : 'monthly';
+    if (!confirm('Activate this company on Enterprise at $' + monthly.toFixed(2) + '/month (' + period + ')?')) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/enterprise-quotes/' + id + '/activate', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monthly_usd: monthly, billing_period: period })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Activation failed');
+        alert('Activated ' + data.reference + '.\nPlan: ' + data.plan + ' (' + data.billing_cycle + ')' +
+            '\nInvoice: $' + Number(data.amount_usd).toFixed(2) +
+            '\nNext invoice: ' + (data.next_billing_date ? new Date(data.next_billing_date).toLocaleDateString() : 'not set'));
+        window.loadEnterpriseQuotes();
+    } catch (e) {
+        alert(e.message || 'Could not activate this quotation.');
     }
 };
 

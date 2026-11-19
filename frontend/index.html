@@ -1991,7 +1991,6 @@
                                         <i class="fas fa-calculator"></i>
                                         <span id="console-rental-live-quote-text">Detecting the number of vehicles on this console&hellip;</span>
                                     </div>
-                                    <p style="font-size:0.75rem; color:#64748b; margin-top:8px;">The price is set by how many vehicles are on <em>your</em> console, detected automatically. How you charge your own customers is entirely up to you.</p>
                                 </div>
 
                                 <!-- Progressive Reseller Fee Structure -->
@@ -2346,6 +2345,19 @@
                                     <span id="retention-dryrun-result" style="font-size:0.78rem; color:#475569;"></span>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- 4. Enterprise quotations (platform admin) -->
+                        <div class="card" id="enterprise-quotes-admin" hidden style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
+                            <h4 style="margin:0 0 10px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-file-invoice-dollar" style="color:#ea580c;"></i> Enterprise quotations
+                            </h4>
+                            <p style="margin:0 0 12px; font-size:0.78rem; color:#64748b; line-height:1.5;">
+                                A request sent from the Billing tab appears here as <strong>QTE-</strong>. Type the monthly price you agreed, then activate:
+                                that company moves to Enterprise, the billing cycle and next invoice date are set, and the request closes.
+                                No money is charged here &mdash; send the invoice on WhatsApp as usual.
+                            </p>
+                            <div id="enterprise-quote-list" style="display:flex; flex-direction:column; gap:8px;"></div>
                         </div>
                     </div>
                 </div>
@@ -2806,7 +2818,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=211"></script>
+    <script src="/static/app.js?v=212"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

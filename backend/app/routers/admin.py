@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 from sqlalchemy.future import select
@@ -231,4 +232,117 @@ async def retention_dry_run(
     except Exception:
         await db.rollback()
     return report
+
+
+# --- ENTERPRISE QUOTATIONS ---
+# A request from the Billing tab is recorded, not activated: Enterprise is
+# negotiated. Sales agrees a price, then activates it here, which moves the
+# tenant onto Enterprise and sets the next invoice date.
+
+class EnterpriseQuoteActivation(BaseModel):
+    monthly_usd: float
+    billing_period: str = "monthly"
+    vehicles: Optional[int] = None
+
+
+@router.get("/enterprise-quotes")
+async def list_enterprise_quotes(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Open Enterprise quotation requests, newest first."""
+    rows = (
+        await db.execute(
+            select(Transaction, Tenant)
+            .join(Tenant, Tenant.id == Transaction.tenant_id, isouter=True)
+            .where(Transaction.plan_name == "Enterprise_Quotation")
+            .where(Transaction.status == "quote_requested")
+            .order_by(Transaction.id.desc())
+            .limit(200)
+        )
+    ).all()
+    quotes = []
+    for txn, tenant in rows:
+        quotes.append({
+            "id": txn.id,
+            "reference": f"QTE-{txn.id}",
+            "tenant_id": txn.tenant_id,
+            "tenant_name": tenant.name if tenant else None,
+            "vehicles": txn.quote_vehicles,
+            "notes": txn.quote_notes,
+            "contact": txn.quote_contact,
+            "created_at": txn.created_at.isoformat() if txn.created_at else None,
+        })
+    return {"quotes": quotes}
+
+
+@router.patch("/enterprise-quotes/{txn_id}/activate")
+async def activate_enterprise_quote(
+    txn_id: int,
+    payload: EnterpriseQuoteActivation,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Activate an agreed Enterprise quotation on the requesting tenant."""
+    txn = (
+        await db.execute(select(Transaction).where(Transaction.id == txn_id))
+    ).scalars().first()
+    if not txn or (txn.plan_name or "") != "Enterprise_Quotation":
+        raise HTTPException(status_code=404, detail="Quotation not found")
+    if txn.status != "quote_requested":
+        raise HTTPException(status_code=400, detail="This quotation has already been handled")
+
+    monthly = round(float(payload.monthly_usd or 0), 2)
+    if monthly <= 0 or monthly > 100000:
+        raise HTTPException(status_code=400, detail="Enter the agreed monthly price in USD")
+    if payload.vehicles is not None and not (1 <= int(payload.vehicles) <= 100000):
+        raise HTTPException(status_code=400, detail="Vehicles must be between 1 and 100000")
+
+    yearly = (payload.billing_period or "").strip().lower().startswith("y")
+    days = 365 if yearly else 30
+    # Yearly is charged as ten months, the same rule as the self-serve plans.
+    amount = round(monthly * 10 if yearly else monthly, 2)
+
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == txn.tenant_id))
+    ).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    txn.amount_usd = amount
+    txn.billing_period = "yearly" if yearly else "monthly"
+    txn.status = "quote_approved"
+    # Keep the paid-subscription healer from re-applying this record later.
+    txn.wallet_credited = True
+    if payload.vehicles is not None:
+        txn.quote_vehicles = int(payload.vehicles)
+
+    tenant.plan = "Enterprise"
+    tenant.billing_cycle = "Yearly" if yearly else "Monthly"
+    tenant.subscription_status = "active"
+    tenant.next_billing_date = now + datetime.timedelta(days=days)
+
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="ENTERPRISE_QUOTE_ACTIVATED",
+        details={
+            "quote_id": txn_id,
+            "target_tenant": tenant.id,
+            "monthly_usd": monthly,
+            "billing_period": txn.billing_period,
+            "amount_usd": amount,
+        },
+        ip_address="127.0.0.1",
+    ))
+    await db.commit()
+    return {
+        "reference": f"QTE-{txn.id}",
+        "tenant_id": tenant.id,
+        "plan": tenant.plan,
+        "billing_cycle": tenant.billing_cycle,
+        "amount_usd": amount,
+        "next_billing_date": tenant.next_billing_date.isoformat() if tenant.next_billing_date else None,
+    }
 

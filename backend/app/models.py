@@ -206,6 +206,10 @@ class Transaction(Base):
     paynow_reference = Column(String, nullable=True) # Poll URL or merchant reference
     paynow_status = Column(String, nullable=True) # RAW status from Paynow
     wallet_credited = Column(Boolean, default=False) # A top-up is credited to the wallet exactly once
+    # Enterprise quotation requests: what the customer asked to be quoted for.
+    quote_vehicles = Column(Integer, nullable=True)
+    quote_notes = Column(String, nullable=True)
+    quote_contact = Column(String, nullable=True)
     
     # Manual Fallback
     proof_url = Column(String, nullable=True) # Path to uploaded screnshot

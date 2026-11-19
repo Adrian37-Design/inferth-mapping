@@ -103,6 +103,10 @@ async def run_migrations_and_branding():
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS plan_name VARCHAR DEFAULT NULL",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS billing_period VARCHAR DEFAULT NULL",
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS wallet_credited BOOLEAN DEFAULT FALSE",
+                    # Enterprise quotation requests recorded from the Billing tab
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS quote_vehicles INTEGER DEFAULT NULL",
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS quote_notes VARCHAR DEFAULT NULL",
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS quote_contact VARCHAR DEFAULT NULL",
                     "CREATE TABLE IF NOT EXISTS geofences (id SERIAL PRIMARY KEY, name VARCHAR NOT NULL, color VARCHAR, assets JSON, alert_rules JSON, notification JSON, geojson JSON, tenant_id INTEGER REFERENCES tenants(id), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
                     "ALTER TABLE geofences ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     "CREATE TABLE IF NOT EXISTS rules (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id), device_id INTEGER REFERENCES devices(id), event_type VARCHAR, threshold FLOAT, channel VARCHAR DEFAULT 'system', contact VARCHAR, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
