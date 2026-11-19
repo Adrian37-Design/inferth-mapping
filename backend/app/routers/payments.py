@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from typing import Optional
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, or_, update
@@ -12,6 +13,7 @@ import os
 import uuid
 import time
 import datetime
+import asyncio
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -47,6 +49,9 @@ paynow = Paynow(
 # NameError on every /payments/wallet call and took the Billing tab down.
 TOPUP_PLAN = "Prepaid_Wallet_Topup"
 TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
+
+# Sales line for Enterprise quotation requests (digits only, international).
+SALES_WHATSAPP = os.getenv("SALES_WHATSAPP", "263783009275")
 
 ALLOWED_UPLOAD_TYPES = {
     b"\x89PNG": ".png",
@@ -371,6 +376,54 @@ async def _heal_paid_subscription(db: AsyncSession, tenant: Optional[Tenant]) ->
     return await _apply_paid_subscription(db, txn, tenant) if txn else False
 
 
+async def _send_whatsapp_safe(msisdn: Optional[str], text: str) -> bool:
+    """Send one WhatsApp message; never raises and never blocks the request."""
+    if not msisdn:
+        return False
+    try:
+        from app.services.whatsapp import normalize_msisdn, send_whatsapp
+
+        number = normalize_msisdn(msisdn)
+        if not number:
+            return False
+        return bool(await send_whatsapp(number, text))
+    except Exception:
+        return False
+
+
+def _payment_receipt_text(txn: Transaction) -> str:
+    product = (
+        "Prepaid Wallet top-up"
+        if txn.plan_name == TOPUP_PLAN
+        else (txn.plan_name or "Subscription")
+    )
+    return (
+        "Payment received \u2014 Inferth Mapping\n"
+        f"Receipt: INV-{txn.id}\n"
+        f"Item: {product}\n"
+        f"Amount: ${float(txn.amount_usd or 0):.2f} USD\n"
+        "Status: Paid\n\n"
+        "Your plan is active. The same receipt is kept under Billing on your account."
+    )
+
+
+async def _send_payment_receipt(db: AsyncSession, txn: Transaction) -> None:
+    """WhatsApp receipt to the account owner, once per paid transaction."""
+    try:
+        owner = (
+            await db.execute(
+                select(User)
+                .where(User.tenant_id == txn.tenant_id)
+                .order_by(User.id.asc())
+                .limit(1)
+            )
+        ).scalars().first()
+        if owner and owner.phone:
+            asyncio.create_task(_send_whatsapp_safe(owner.phone, _payment_receipt_text(txn)))
+    except Exception as exc:
+        print(f"Payment receipt note: {exc}")
+
+
 async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -> Optional[Transaction]:
     """Ask Paynow for the current status and persist it. Safe to call repeatedly."""
     if not txn or not txn.paynow_reference:
@@ -384,6 +437,7 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
     if raw:
         txn.paynow_status = raw
 
+    applied = False
     if bool(getattr(status, "paid", False)):
         txn.status = "paid"
         tenant = (
@@ -408,6 +462,7 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
                     .values(wallet_credited=True)
                 )
                 if claim.rowcount:
+                    applied = True
                     tenant.wallet_balance_usd = round(
                         float(tenant.wallet_balance_usd or 0) + float(txn.amount_usd or 0), 6
                     )
@@ -443,13 +498,14 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
                         .values(wallet_credited=True)
                     )
                     if claimed.rowcount:
+                        applied = True
                         await ub.activate_feature_from_payment(
                             db, tenant.id, int(device_part), key, txn.id
                         )
                 except Exception:
                     pass
             else:
-                await _apply_paid_subscription(db, txn, tenant)
+                applied = await _apply_paid_subscription(db, txn, tenant)
                 tenant.subscription_status = "active"
     else:
         low = raw.lower()
@@ -462,6 +518,11 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
         await db.commit()
     except Exception:
         await db.rollback()
+    if applied:
+        # The Billing copy promises a WhatsApp confirmation and receipt; this is
+        # that message, sent once per transaction (the same latch that applies
+        # the plan guarantees it cannot fire twice).
+        await _send_payment_receipt(db, txn)
     return txn
 
 
@@ -500,7 +561,80 @@ async def latest_paynow_payment(
         return {"found": False}
     if txn.status == "pending":
         txn = await _refresh_paynow_status(db, txn)
+    # A settled attempt is only news for the return trip. Keeping it on screen
+    # forever meant the old "$60 Starter Pass" result stayed on Billing after the
+    # account had moved to another plan.
+    if txn.status != "pending" and txn.created_at is not None:
+        created = txn.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=datetime.timezone.utc)
+        age_sec = (datetime.datetime.now(datetime.timezone.utc) - created).total_seconds()
+        if age_sec > 3600:
+            return {"found": False}
     return _payment_payload(txn)
+
+
+class EnterpriseQuoteRequest(BaseModel):
+    vehicles: int = 1
+    notes: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@router.post("/enterprise/quotation")
+async def request_enterprise_quotation(
+    payload: EnterpriseQuoteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Record an Enterprise quotation request and notify sales and the customer.
+
+    Enterprise is negotiated, not self-serve, so this deliberately leaves the
+    tenant's plan alone: it opens a tracked request (QTE-<id>) that sales quotes
+    and then activates. Without it the "Request Enterprise Quotation" button
+    only opened WhatsApp on devices that had WhatsApp signed in and left no
+    record on the account.
+    """
+    vehicles = int(payload.vehicles or 0)
+    if vehicles < 1 or vehicles > 100000:
+        raise HTTPException(status_code=400, detail="Enter how many vehicles you need quoted.")
+    notes = (payload.notes or "").strip()[:500]
+
+    txn = Transaction(
+        tenant_id=current_user.tenant_id,
+        amount_usd=0.0,
+        plan_name="Enterprise_Quotation",
+        payment_method="quotation",
+        status="quote_requested",
+    )
+    db.add(txn)
+    await db.commit()
+    await db.refresh(txn)
+    reference = f"QTE-{txn.id}"
+
+    customer_phone = payload.phone or current_user.phone
+    customer_text = (
+        f"Inferth Mapping \u2014 Enterprise quotation request {reference}\n"
+        f"Vehicles: {vehicles}\n"
+        + (f"Details: {notes}\n" if notes else "")
+        + "Our team will send the tailored quotation to this number. "
+          "The plan is activated once you accept it."
+    )
+    sales_text = (
+        f"New Enterprise quotation request {reference}\n"
+        f"Account: {current_user.email}\n"
+        f"Vehicles: {vehicles}\n"
+        f"Contact: {customer_phone or 'no phone on file'}\n"
+        f"Details: {notes or '-'}"
+    )
+    asyncio.create_task(_send_whatsapp_safe(customer_phone, customer_text))
+    asyncio.create_task(_send_whatsapp_safe(SALES_WHATSAPP, sales_text))
+
+    return {
+        "reference": reference,
+        "status": "received",
+        "vehicles": vehicles,
+        "whatsapp_requested": bool(customer_phone),
+    }
 
 
 @router.post("/subscription/cancel")

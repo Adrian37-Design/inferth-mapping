@@ -1920,7 +1920,7 @@
                                         <li><i class="fas fa-check"></i> Priority 24/7 technical support</li>
                                         <li><i class="fas fa-check"></i> Remote immobilisation (where supported)</li>
                                     </ul>
-                                    <button class="bplan-btn btn-outline" onclick="window.open('https://wa.me/263783009275?text=Enterprise%20Quotation%20Request','_blank')">
+                                    <button class="bplan-btn btn-outline" onclick="window.requestEnterpriseQuote()">
                                         <i class="fab fa-whatsapp"></i> Request Enterprise Quotation
                                     </button>
                                 </div>
@@ -1971,8 +1971,9 @@
                             <div class="ot-footnote">
                                 <i class="fas fa-shield-alt"></i>
                                 <strong>Secure payment:</strong> Paynow &middot; EcoCash &middot; OneMoney &middot; Zimswitch.
-                                A WhatsApp confirmation and receipt follow immediately, and the vehicle is activated within
-                                <strong>2 hours</strong> of confirmation.
+                                The receipt appears here as soon as Paynow confirms (usually seconds), a WhatsApp
+                                confirmation is sent to the number on your account, and the vehicle is activated
+                                <strong>immediately</strong>.
                                 <a href="#" class="ot-footnote-link" onclick="window.openFaqTopic('lifetime-pass'); return false;">Full lifetime terms in FAQ &rarr;</a>
                             </div>
 
@@ -2771,7 +2772,36 @@
     <script src="/static/auth.js?v=69"></script>
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
-    <script src="/static/app.js?v=209"></script>
+    <!-- Enterprise quotation request -->
+    <div id="enterprise-quote-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header">
+                <h3>Request Enterprise quotation</h3>
+                <button class="close-modal" onclick="closeEnterpriseQuote()">&times;</button>
+            </div>
+            <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+                <p style="margin:0; font-size:0.82rem; color:#475569;">
+                    Tell us the fleet size and anything specific (multiple companies, API access, retention,
+                    immobilisation). The request is recorded against your account and answered on WhatsApp.
+                </p>
+                <label style="font-size:0.78rem; font-weight:700; color:#0f172a;">Vehicles to quote
+                    <input id="enterprise-quote-vehicles" type="number" min="1" max="100000" style="width:100%; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem;">
+                </label>
+                <label style="font-size:0.78rem; font-weight:700; color:#0f172a;">WhatsApp number
+                    <input id="enterprise-quote-phone" type="tel" placeholder="+263 77 123 4567" style="width:100%; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem;">
+                </label>
+                <label style="font-size:0.78rem; font-weight:700; color:#0f172a;">What do you need?
+                    <textarea id="enterprise-quote-notes" rows="3" maxlength="500" placeholder="Multi-company accounts, API access, 365-day history…" style="width:100%; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem; resize:vertical;"></textarea>
+                </label>
+                <div id="enterprise-quote-status" style="font-size:0.78rem; color:#047857; min-height:16px;"></div>
+                <button type="button" id="enterprise-quote-submit" class="bplan-btn btn-primary" onclick="submitEnterpriseQuote()" style="width:100%;">
+                    <i class="fa-brands fa-whatsapp"></i> Request quotation
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=210"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

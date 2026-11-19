@@ -917,7 +917,13 @@ function loadBillingData() {
     }
 
     // 2. Populate Usage (Active Assets)
-    const activeCount = Object.keys(vehiclePositions).length;
+    // The paid plan's assets must show the moment Billing paints. vehiclePositions
+    // is filled asynchronously by loadAllPositions, so on a fresh page load (or
+    // right after a Paynow redirect) it is still empty and the tab read
+    // "0 / x" until it was reopened.
+    const activeCount = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length)
+        ? allVehicles.length
+        : Object.keys(vehiclePositions).length;
     let limit = 5;
     if (normalizedPlan === 'Premium' || normalizedPlan === 'Professional') limit = 50;
     else if (normalizedPlan === 'Enterprise') limit = 1000; // Scope cap
@@ -6578,6 +6584,28 @@ async function matchTripSegments(id, item) {
 // draw broken lines. Those ranges use the recorded trace instead.
 const MATCH_TRIP_LIMIT = 60;
 
+// Matched / road-snapped geometry comes back as several pieces whose ends sit a
+// few metres apart (the matcher drops a point, OSRM returns a new run). Drawn as
+// separate polylines they read as a broken track with holes in the middle of a
+// road. Join pieces whose ends are within `toleranceKm`; anything further apart
+// is a genuine gap and stays open.
+function mergeNearbySegments(segments, toleranceKm = 0.06) {
+    const merged = [];
+    (Array.isArray(segments) ? segments : []).forEach(seg => {
+        if (!Array.isArray(seg) || seg.length === 0) return;
+        const open = merged[merged.length - 1];
+        if (!open) { merged.push(seg.slice()); return; }
+        const end = open[open.length - 1];
+        const start = seg[0];
+        if (haversineDistanceKm(end[0], end[1], start[0], start[1]) <= toleranceKm) {
+            open.push(...seg.slice(1));
+        } else {
+            merged.push(seg.slice());
+        }
+    });
+    return merged;
+}
+
 async function buildMatchedTripSegments(id, trips, isCurrent) {
     if (!Array.isArray(trips) || trips.length === 0 || trips.length > MATCH_TRIP_LIMIT) return null;
     const results = new Array(trips.length).fill(null);
@@ -6597,12 +6625,17 @@ async function buildMatchedTripSegments(id, trips, isCurrent) {
         // recorded trace: the drawn line then starts or stops in the middle of
         // the trip, which reads as a missing / broken track. Matched geometry
         // carries its own internal holes wherever the matcher cannot place a
-        // stretch, so it is only trustworthy when it covers essentially the
-        // whole drive — one dropped leg on a 5 km trip is a visible gap.
-        const complete = results[i] && routeSegmentsKm(results[i]) >= 0.95 * routeSegmentsKm(trace);
-        segs.push(...(complete ? results[i] : trace));
+        // stretch, so it is only trustworthy when it is one continuous piece
+        // covering essentially the whole drive — one dropped leg on a 5 km trip
+        // is a visible gap.
+        const matched = results[i] ? mergeNearbySegments(results[i], 0.06) : null;
+        const complete = matched && matched.length === 1 &&
+            routeSegmentsKm(matched) >= 0.95 * routeSegmentsKm(trace);
+        segs.push(...(complete ? matched : trace));
     });
-    return segs;
+    // Trips that meet at the same parking spot draw as one line, so a day view
+    // no longer looks like unrelated strokes on the same road.
+    return mergeNearbySegments(segs, 0.06);
 }
 
 // Total driven length of a list of [lat,lng] segments, in km.
@@ -6666,15 +6699,21 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     // one continuous line per trip: no splits at junction waits, no invented
     // road through parked spots, no gaps or chords.
     const trips = Array.isArray(opts.trips) ? opts.trips : [{ points: filteredPoints, id: 'adhoc' }];
+    // A long range (day/week/month, hundreds of trips) is never road-snapped.
+    // The matcher already refuses those; the OSRM fallback used to run over the
+    // whole range and its partial, rate-limited output could replace a complete
+    // recorded trace with fragments. Draw the recorded line and stop there.
+    const roadSnapWorthwhile = !Array.isArray(opts.trips) || opts.trips.length <= MATCH_TRIP_LIMIT;
     const matched = trips ? await buildMatchedTripSegments(id, trips, isCurrent) : null;
     if (!isCurrent()) return false;
-    const snapped = matched || await snapRouteToRoad(filteredPoints, isCurrent);
+    const snapped = matched || (roadSnapWorthwhile ? await snapRouteToRoad(filteredPoints, isCurrent) : null);
     if (!isCurrent()) return false; // stopped/cleared while matching was in flight
-    if (snapped && !matched && routeSegmentsKm(snapped.segments) < 0.7 * routeSegmentsKm(traceSegments)) {
+    const snappedSegments = snapped ? mergeNearbySegments(snapped.segments, 0.06) : null;
+    if (snappedSegments && !matched && routeSegmentsKm(snappedSegments) < 0.7 * routeSegmentsKm(traceSegments)) {
         return true; // the recorded trace is complete, the patched route is not
     }
-    if (snapped) {
-        drawRouteLayers(id, matched ? matched.map(seg => densifyCoordList(seg, 20)) : snapped.segments, waypoints, false);
+    if (snappedSegments && snappedSegments.length) {
+        drawRouteLayers(id, matched ? snappedSegments.map(seg => densifyCoordList(seg, 20)) : snappedSegments, waypoints, false);
     }
     return true;
 }
@@ -9513,24 +9552,8 @@ window.loadWalletBalance = async function () {
 
         const activateBtn = document.getElementById('activate-prepaid-btn');
         if (activateBtn) {
-            activateBtn.addEventListener('click', async function () {
-                activateBtn.disabled = true;
-                activateBtn.textContent = 'Activating\u2026';
-                try {
-                    const activateRes = await window.AuthManager.fetchAPI('/payments/subscription/activate-prepaid', { method: 'POST' });
-                    const activateData = await activateRes.json().catch(() => ({}));
-                    if (!activateRes.ok) throw new Error(activateData.detail || 'Could not activate Prepaid');
-                    if (window.AuthManager.user) {
-                        window.AuthManager.user.subscription = Object.assign({}, window.AuthManager.user.subscription, {
-                            plan: activateData.plan, cycle: activateData.cycle, status: 'active', next_billing: null
-                        });
-                    }
-                    window.applySubscriptionGate();
-                } catch (err) {
-                    alert(err.message);
-                    activateBtn.disabled = false;
-                    activateBtn.textContent = 'Activate Prepaid';
-                }
+            activateBtn.addEventListener('click', function () {
+                window.activatePrepaidWallet(activateBtn);
             });
         }
 
@@ -9547,6 +9570,46 @@ window.loadWalletBalance = async function () {
             }
         }
     } catch (e) { /* leave the last known balance on screen */ }
+};
+
+// Switching to Prepaid changes more than the plan card: the vehicle cards gain
+// Start/Stop tracking, the map dims untracked assets, the usage and feature
+// panels appear, and the wallet becomes spendable. Every one of those reads
+// window._serverPrepaid, so it must be set here and the views rebuilt — the
+// previous handler only redrew the plan card, which is why "Activate Prepaid"
+// looked like it did nothing.
+window.activatePrepaidWallet = async function (btn) {
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Activating\u2026'; }
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/subscription/activate-prepaid', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Could not activate Prepaid');
+
+        window._serverPrepaid = true;
+        window._trackingState = {};
+        window._trackingStateLoaded = false;
+        if (window.AuthManager.user) {
+            window.AuthManager.user.subscription = Object.assign({}, window.AuthManager.user.subscription, {
+                plan: data.plan, cycle: data.cycle, status: 'active', next_billing: null
+            });
+        }
+        // The last payment's banner (e.g. the $60 Starter Pass) describes a plan
+        // that is no longer active; it must not stay on screen after the switch.
+        window.dismissPaymentResult();
+        window.applySubscriptionGate();
+        applyBillingView('prepaid');
+        if (typeof loadBillingData === 'function') loadBillingData();
+        await window.loadWalletBalance();
+        if (typeof window.loadVehicles === 'function') await window.loadVehicles();
+        if (typeof window.loadTrackingState === 'function') await window.loadTrackingState();
+        window.loadPrepaidUsage();
+        window.loadPrepaidTrackingList();
+        window.loadFeatureCatalog();
+    } catch (err) {
+        alert(err.message);
+        if (btn) { btn.disabled = false; btn.textContent = 'Activate Prepaid'; }
+    }
 };
 
 window.initBillingAccess = function() {
@@ -9709,6 +9772,67 @@ window.triggerOnceOffTracking = async function(tier, priceUsd) {
         }
     } catch (err) {
         alert(`Initiating once-off payment of $${priceUsd} USD for ${label}.\nOur team will send an EcoCash prompt to your registered number.`);
+    }
+};
+
+// Enterprise is not a self-serve checkout: the request has to reach a human and
+// be recorded so it can be activated and invoiced. A bare wa.me link only worked
+// on a device with WhatsApp signed in and left no record, so the promise of a
+// confirmation could not be kept.
+window.requestEnterpriseQuote = function () {
+    const modal = document.getElementById('enterprise-quote-modal');
+    if (!modal) return;
+    const countEl = document.getElementById('enterprise-quote-vehicles');
+    const fleet = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length)
+        ? allVehicles.length : 1;
+    if (countEl && !countEl.value) countEl.value = String(Math.max(1, fleet));
+    const phoneEl = document.getElementById('enterprise-quote-phone');
+    const user = window.AuthManager && window.AuthManager.user;
+    if (phoneEl && !phoneEl.value && user && user.phone) phoneEl.value = user.phone;
+    const status = document.getElementById('enterprise-quote-status');
+    if (status) status.textContent = '';
+    modal.classList.remove('hidden');
+};
+
+window.closeEnterpriseQuote = function () {
+    const modal = document.getElementById('enterprise-quote-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.submitEnterpriseQuote = async function () {
+    const btn = document.getElementById('enterprise-quote-submit');
+    const status = document.getElementById('enterprise-quote-status');
+    const countEl = document.getElementById('enterprise-quote-vehicles');
+    const notesEl = document.getElementById('enterprise-quote-notes');
+    const phoneEl = document.getElementById('enterprise-quote-phone');
+    const vehicles = Number(countEl ? countEl.value : 0);
+    if (!Number.isFinite(vehicles) || vehicles < 1) {
+        if (status) status.textContent = 'Enter how many vehicles you need quoted.';
+        return;
+    }
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+    if (status) status.textContent = '';
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/enterprise/quotation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                vehicles: Math.round(vehicles),
+                notes: (notesEl && notesEl.value ? notesEl.value.trim() : '') || null,
+                phone: (phoneEl && phoneEl.value ? phoneEl.value.trim() : '') || null
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Could not send the quotation request');
+        if (status) {
+            status.innerHTML = '<i class="fas fa-circle-check"></i> Request <strong>' + escapeHTML(data.reference || '') +
+                '</strong> received. Our team will send the quotation to your WhatsApp number and activate the plan once it is accepted.';
+        }
+        if (btn) { btn.disabled = false; btn.textContent = 'Request quotation'; }
+    } catch (err) {
+        if (status) status.textContent = err.message;
+        if (btn) { btn.disabled = false; btn.textContent = 'Request quotation'; }
     }
 };
 
@@ -10006,6 +10130,40 @@ window.retryPlanPayment = function () {
     if (typeof window.openBillingChangeOptions === 'function') window.openBillingChangeOptions();
 };
 
+// The browser keeps the subscription it loaded with. After Paynow settles, the
+// paid plan (and therefore its assets, usage panels and wallet) must be pulled
+// from the server before Billing paints — waiting for the next tab visit is
+// what made a paid plan look unpaid on the return trip.
+var _paynowSettledFor = null;
+
+window.refreshAfterPayment = async function () {
+    if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
+    try {
+        const res = await window.AuthManager.fetchAPI('/payments/wallet');
+        if (res.ok) {
+            const data = await res.json();
+            window._serverPrepaid = data.is_prepaid !== false;
+            if (data.subscription && window.AuthManager.user) {
+                window.AuthManager.user.subscription = Object.assign(
+                    {}, window.AuthManager.user.subscription || {}, data.subscription
+                );
+            }
+        }
+    } catch (e) { /* the payment banner still reports the outcome */ }
+
+    window.applySubscriptionGate();
+    if (typeof loadBillingData === 'function') loadBillingData();
+    if (typeof window.applyFleetPricing === 'function') window.applyFleetPricing();
+    window.loadWalletBalance();
+    if (typeof window.loadVehicles === 'function') await window.loadVehicles();
+    if (window.isPrepaidTenant && window.isPrepaidTenant()) {
+        if (typeof window.loadTrackingState === 'function') window.loadTrackingState();
+        window.loadPrepaidUsage();
+        window.loadPrepaidTrackingList();
+        window.loadFeatureCatalog();
+    }
+};
+
 window.checkPaynowReturn = async function (manual) {
     if (!window.AuthManager || !window.AuthManager.fetchAPI) return;
     if (manual) _paynowPollCount = 0;
@@ -10023,6 +10181,13 @@ window.checkPaynowReturn = async function (manual) {
     }
 
     window.renderPaymentResult(data);
+
+    // Settle once per transaction: sync the plan, then rebuild the views that
+    // depend on it (assets, usage, wallet, tracking controls).
+    if (data.status !== 'pending' && _paynowSettledFor !== data.transaction_id) {
+        _paynowSettledFor = data.transaction_id;
+        await window.refreshAfterPayment();
+    }
 
     if (data.status === 'pending' && _paynowPollCount < 12) {
         if (_paynowPollTimer) return;
