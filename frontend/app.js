@@ -6700,12 +6700,52 @@ function routeSegmentsKm(segments) {
 // fires for it, and the call budget keeps a month view from flooding OSRM.
 const ROADIFY_MIN_CHORD_KM = 0.12;
 const ROADIFY_MAX_CALLS = 25;
+// A tracker that reports a run of evenly spaced fixes with no scatter at all is
+// not describing a drive, it is drawing a straight line between two positions
+// (interpolated / buffered data). Each chord in such a run is only metres long,
+// so the per-chord pass below never fires and the whole run cuts across the
+// blocks. Such a run is routed as one leg instead.
+const STRAIGHT_TRACE_MIN_KM = 0.15;
+const STRAIGHT_TRACE_MIN_DEV_M = 12;
+
+function isStraightLineTrace(seg) {
+    if (!Array.isArray(seg) || seg.length < 4) return false;
+    const a = seg[0], b = seg[seg.length - 1];
+    const chordKm = haversineDistanceKm(a[0], a[1], b[0], b[1]);
+    if (chordKm < STRAIGHT_TRACE_MIN_KM) return false;
+    const k = Math.cos(a[0] * Math.PI / 180);
+    const bx = (b[1] - a[1]) * k * 111320, by = (b[0] - a[0]) * 111320;
+    const len = Math.hypot(bx, by) || 1;
+    let maxDev = 0;
+    for (const p of seg) {
+        const px = (p[1] - a[1]) * k * 111320, py = (p[0] - a[0]) * k * 111320;
+        const dev = Math.abs((px * by - py * bx) / len);
+        if (dev > maxDev) maxDev = dev;
+    }
+    return maxDev <= Math.max(STRAIGHT_TRACE_MIN_DEV_M, chordKm * 1000 * 0.05);
+}
 
 async function roadifyStraightChords(segments, isCurrent = () => true) {
     let calls = ROADIFY_MAX_CALLS;
     const out = [];
     for (const seg of (Array.isArray(segments) ? segments : [])) {
         if (!Array.isArray(seg) || seg.length < 2) continue;
+        if (isStraightLineTrace(seg) && calls > 0 && isCurrent()) {
+            calls--;
+            const a = seg[0], b = seg[seg.length - 1];
+            const chord = haversineDistanceKm(a[0], a[1], b[0], b[1]);
+            const road = await osrmPlainRoute([
+                { lat: a[0], lng: a[1] },
+                { lat: b[0], lng: b[1] },
+            ]);
+            if (road) {
+                const roadKm = routeSegmentsKm([road.coords]);
+                if (roadKm <= chord * 3 + 0.4) {
+                    out.push(road.coords);
+                    continue;
+                }
+            }
+        }
         const line = [seg[0]];
         for (let i = 1; i < seg.length; i++) {
             const a = line[line.length - 1];
