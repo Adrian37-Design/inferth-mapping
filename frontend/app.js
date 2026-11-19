@@ -6570,6 +6570,11 @@ const _tripMatchCache = new Map();
 async function matchTripSegments(id, item) {
     const real = item.points.filter(p => !p.stitched);
     if (real.length < 2) return null;
+    // A trip recorded with a handful of fixes has no shape for the matching
+    // engine to follow: it either rejects the trace or spends half a minute
+    // returning nothing, and the caller is then left drawing the raw chord.
+    // Short traces are routed locally instead (see prepareDrawSegments).
+    if (real.length < 4) return null;
     const first = real[0], last = real[real.length - 1];
     const startIso = parseTimestamp(first.timestamp).toISOString();
     const endIso = parseTimestamp(last.timestamp).toISOString();
@@ -6768,9 +6773,18 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     // "Auto-play trip animation" on, a trip card drew its raw recorded chord
     // (a diagonal across the blocks) and never the road.
     const prepareDrawSegments = async () => {
-        const matched = await buildMatchedTripSegments(id, trips, isCurrent);
+        // A short trip (one card, a few hundred metres) is routed locally: the
+        // road pass below turns every long chord into the driving route in a
+        // few hundred milliseconds. The server matcher and the full-trace OSRM
+        // fallback are both slow and both answer nothing useful for a trace of
+        // two or three fixes, so waiting on them only delays the redraw — and a
+        // superseded render leaves the raw chord on the map.
+        const shortTrip = routeSegmentsKm(traceSegments) <= 3;
+        const matched = shortTrip ? null : await buildMatchedTripSegments(id, trips, isCurrent);
         if (!isCurrent()) return null;
-        const snapped = matched || (roadSnapWorthwhile ? await snapRouteToRoad(filteredPoints, isCurrent) : null);
+        const snapped = shortTrip
+            ? null
+            : (matched || (roadSnapWorthwhile ? await snapRouteToRoad(filteredPoints, isCurrent) : null));
         if (!isCurrent()) return null; // stopped/cleared while matching was in flight
         const snappedSegments = snapped ? mergeNearbySegments(snapped.segments, 0.06) : null;
         if (snappedSegments && !matched && routeSegmentsKm(snappedSegments) < 0.7 * routeSegmentsKm(traceSegments)) {

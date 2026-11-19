@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise quotation calculator &mdash; Inferth Mapping</title>
+<style>
+    :root {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --bg: #f1f5f9;
+        --brand: #0b3a53;
+        --accent: #ea580c;
+        --ok: #047857;
+        --warn: #b45309;
+        --bad: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header.topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 14px 22px;
+        background: var(--brand);
+        color: #fff;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+    header .brand { font-weight: 800; letter-spacing: .06em; font-size: .9rem; }
+    header .brand span { font-weight: 500; letter-spacing: 0; opacity: .75; margin-left: 10px; }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .topbar-actions a { color: #cbd5e1; font-size: .8rem; text-decoration: none; margin-right: 4px; }
+    .topbar-actions a:hover { color: #fff; }
+    button {
+        font: inherit;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        padding: 7px 13px;
+        cursor: pointer;
+        font-size: .8rem;
+        font-weight: 700;
+    }
+    .btn-light { background: #fff; color: var(--brand); }
+    .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+    .btn-light:hover { background: #e2e8f0; }
+    .btn-ghost:hover { border-color: #fff; }
+
+    main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
+        gap: 18px;
+        padding: 18px 22px 48px;
+        align-items: start;
+        max-width: 1500px;
+        margin: 0 auto;
+    }
+    @media (max-width: 1080px) {
+        main { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+    }
+    .panel h2 {
+        margin: 0 0 12px;
+        font-size: .82rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: var(--muted);
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .panel h2 .num {
+        background: var(--brand);
+        color: #fff;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .68rem;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    label.field { display: flex; flex-direction: column; gap: 4px; font-size: .74rem; font-weight: 700; color: #334155; }
+    label.field .hint { font-weight: 500; color: var(--muted); font-size: .7rem; }
+    input[type="text"], input[type="number"], select {
+        font: inherit;
+        font-size: .82rem;
+        padding: 7px 9px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #fff;
+        color: var(--ink);
+        width: 100%;
+    }
+    input:focus, select:focus { outline: 2px solid #bae6fd; border-color: #0284c7; }
+    input[readonly] { background: #f8fafc; color: var(--muted); }
+
+    .line-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--line);
+    }
+    .line-item:last-child { border-bottom: none; }
+    .line-item .name { flex: 1 1 auto; font-size: .8rem; }
+    .line-item .name small { display: block; color: var(--muted); font-size: .68rem; font-weight: 400; }
+    .line-item input[type="number"] { width: 92px; text-align: right; }
+    .line-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand); }
+    .check-row { display: flex; align-items: center; gap: 8px; font-size: .8rem; }
+
+    details.ratecard summary {
+        cursor: pointer;
+        font-size: .76rem;
+        font-weight: 700;
+        color: var(--brand);
+        padding: 4px 0;
+    }
+    details.ratecard { margin-top: 12px; }
+    details.ratecard .grid { margin-top: 10px; }
+
+    /* Quotation panel */
+    #quote-panel { position: sticky; top: 74px; }
+    @media (max-width: 1080px) { #quote-panel { position: static; } }
+    .q-head {
+        border-bottom: 2px solid var(--brand);
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+    }
+    .q-head .co { font-size: 1.02rem; font-weight: 800; color: var(--brand); letter-spacing: .04em; }
+    .q-head .sub { font-size: .72rem; color: var(--muted); }
+    .q-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: .72rem; margin-bottom: 12px; }
+    .q-meta div span { color: var(--muted); }
+    .q-meta div { color: var(--ink); font-weight: 600; }
+    table.q-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    table.q-table th, table.q-table td { padding: 5px 0; text-align: right; }
+    table.q-table th:first-child, table.q-table td:first-child { text-align: left; }
+    table.q-table thead th {
+        font-size: .68rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 6px;
+    }
+    table.q-table tr.section td {
+        padding-top: 12px;
+        font-weight: 800;
+        font-size: .7rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: var(--brand);
+    }
+    table.q-table tr.total td {
+        border-top: 2px solid var(--ink);
+        margin-top: 6px;
+        padding-top: 8px;
+        font-weight: 800;
+        font-size: .92rem;
+    }
+    table.q-table tr.soft td { color: var(--muted); }
+    table.q-table td.neg { color: var(--bad); }
+    .q-note { font-size: .7rem; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+    .badge {
+        display: inline-block;
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+        padding: 3px 8px;
+        border-radius: 999px;
+    }
+    .badge.ok { background: #dcfce7; color: var(--ok); }
+    .badge.warn { background: #fef3c7; color: var(--warn); }
+    .badge.bad { background: #fee2e2; color: var(--bad); }
+    #warnings { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    #warnings li {
+        font-size: .73rem;
+        line-height: 1.45;
+        padding: 7px 9px;
+        border-radius: 6px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        color: #78350f;
+    }
+    #warnings li.bad { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+    #warnings li.info { background: #f0f9ff; border-color: #bae6fd; color: #075985; }
+
+    .margin-box {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #f8fafc;
+        border: 1px solid var(--line);
+        font-size: .74rem;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 3px 10px;
+    }
+    .margin-box .k { color: var(--muted); }
+    .margin-box .v { font-weight: 700; text-align: right; }
+
+    .quote-footer { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 10px; font-size: .68rem; color: var(--muted); line-height: 1.55; }
+    .quote-footer strong { color: #334155; }
+
+    @media print {
+        body { background: #fff; }
+        header.topbar, .inputs, .no-print { display: none !important; }
+        main { display: block; padding: 0; max-width: none; }
+        .panel { border: none; padding: 0; margin: 0; }
+        #quote-panel { position: static; }
+        #warnings, .margin-box { display: none !important; }
+        .quote-footer { color: #334155; }
+        @page { margin: 14mm; }
+    }
+</style>
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">INFERTH MAPPING <span>Enterprise quotation</span></div>
+    <div class="topbar-actions">
+        <a href="/static/index.html">&larr; Back to platform</a>
+        <button type="button" class="btn-ghost" id="btn-reset">Reset</button>
+        <button type="button" class="btn-ghost" id="btn-copy">Copy quotation text</button>
+        <button type="button" class="btn-light" id="btn-print">Print / Save as PDF</button>
+    </div>
+</header>
+
+<main>
+    <div class="inputs">
+        <!-- 1. Customer -->
+        <section class="panel">
+            <h2><span class="num">1</span> Customer</h2>
+            <div class="grid">
+                <label class="field">Company name
+                    <input type="text" id="customer_company" placeholder="e.g. Matapi Logistics (Pvt) Ltd">
+                </label>
+                <label class="field">Contact person
+                    <input type="text" id="customer_contact" placeholder="e.g. T. Moyo, Fleet Manager">
+                </label>
+                <label class="field">Contact details
+                    <input type="text" id="customer_email" placeholder="Phone or email">
+                </label>
+                <label class="field">Prepared by
+                    <input type="text" id="prepared_by" placeholder="Inferth Mapping" value="Inferth Mapping">
+                </label>
+            </div>
+        </section>
+
+        <!-- 2. Fleet -->
+        <section class="panel">
+            <h2><span class="num">2</span> Fleet &amp; platform</h2>
+            <div class="grid">
+                <label class="field">Active vehicles
+                    <input type="number" id="vehicles" min="1" step="1" value="100">
+                </label>
+                <label class="field">Platform fee / month (USD)
+                    <span class="hint">$50&ndash;$100 standard; add for complex deployments</span>
+                    <input type="number" id="platform_fee" min="0" step="5" value="75">
+                </label>
+                <label class="field">Contract term
+                    <select id="contract_months">
+                        <option value="1">Month to month</option>
+                        <option value="12" selected>12 months</option>
+                        <option value="24">24 months</option>
+                        <option value="36">36 months</option>
+                    </select>
+                </label>
+                <label class="field">Data retention
+                    <select id="retention">
+                        <option value="0">3 months (included)</option>
+                        <option value="12">12 months</option>
+                        <option value="24" selected>24 months</option>
+                        <option value="36">36 months</option>
+                    </select>
+                </label>
+            </div>
+            <details class="ratecard">
+                <summary>Rate card &mdash; progressive vehicle bands (edit only with commercial sign-off)</summary>
+                <div class="grid">
+                    <label class="field">First 50 @
+                        <input type="number" id="r_b1" min="0" step="0.25" value="8">
+                    </label>
+                    <label class="field">51&ndash;100 @
+                        <input type="number" id="r_b2" min="0" step="0.25" value="6">
+                    </label>
+                    <label class="field">101&ndash;250 @
+                        <input type="number" id="r_b3" min="0" step="0.25" value="5">
+                    </label>
+                    <label class="field">251&ndash;500 @
+                        <input type="number" id="r_b4" min="0" step="0.25" value="4">
+                    </label>
+                    <label class="field">501&ndash;1,000 @
+                        <span class="hint">Negotiated &mdash; placeholder, not approved</span>
+                        <input type="number" id="r_b5" min="0" step="0.25" value="3">
+                    </label>
+                    <label class="field">Above 1,000 @
+                        <span class="hint">Custom quotation basis</span>
+                        <input type="number" id="r_b6" min="0" step="0.25" value="2.5">
+                    </label>
+                </div>
+            </details>
+        </section>
+
+        <!-- 3. Modules -->
+        <section class="panel">
+            <h2><span class="num">3</span> Optional modules (monthly)</h2>
+            <div id="modules">
+                <div class="line-item">
+                    <input type="checkbox" id="m_reporting" data-name="Advanced fleet reporting" checked>
+                    <span class="name">Advanced fleet reporting<small>Scheduled reports, distribution, historical exports</small></span>
+                    <input type="number" id="p_reporting" min="0" step="5" value="30" aria-label="Advanced fleet reporting price">
+                </div>
+                <div class="line-item">
+                    <input type="checkbox" id="m_analytics" data-name="Custom analytics and dashboards">
+                    <span class="name">Custom analytics &amp; dashboards<small>Bespoke KPIs, driver scorecards, fuel variance</small></span>
+                    <input type="number" id="p_analytics" min="0" step="5" value="45" aria-label="Custom analytics price">
+                </div>
+                <div class="line-item">
+                    <input type="checkbox" id="m_roles" data-name="Custom user roles and permissions">
+                    <span class="name">Custom roles &amp; permissions<small>Departmental scoping, approval chains</small></span>
+                    <input type="number" id="p_roles" min="0" step="5" value="20" aria-label="Custom roles price">
+                </div>
+                <div class="line-item">
+                    <input type="checkbox" id="m_infra" data-name="Dedicated infrastructure">
+                    <span class="name">Dedicated infrastructure<small>Isolated database / region, pass-through cost + margin</small></span>
+                    <input type="number" id="p_infra" min="0" step="5" value="120" aria-label="Dedicated infrastructure price">
+                </div>
+                <div class="line-item">
+                    <input type="checkbox" id="m_monitoring" data-name="Operational monitoring">
+                    <span class="name">Operational monitoring<small>Watch desk, incident escalation, monthly report</small></span>
+                    <input type="number" id="p_monitoring" min="0" step="5" value="150" aria-label="Operational monitoring price">
+                </div>
+                <div class="line-item">
+                    <input type="checkbox" id="m_immobilise" data-name="Remote immobilisation">
+                    <span class="name">Remote immobilisation<small>Quoted only after tracker and vehicle compatibility is verified</small></span>
+                    <input type="number" id="p_immobilise" min="0" step="5" value="35" aria-label="Remote immobilisation price">
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. Support -->
+        <section class="panel">
+            <h2><span class="num">4</span> Support &amp; SLA (monthly)</h2>
+            <div class="grid">
+                <label class="field">Support level
+                    <select id="support_level">
+                        <option value="0">Standard &mdash; business hours, email (included)</option>
+                        <option value="40" selected>Priority &mdash; business hours, phone + WhatsApp</option>
+                        <option value="90">Extended hours &mdash; 06:00&ndash;22:00 incl. weekends</option>
+                        <option value="220">24/7 with written SLA &amp; escalation</option>
+                    </select>
+                </label>
+                <label class="field">Support charge override / month
+                    <span class="hint">Leave at 0 to use the support level price</span>
+                    <input type="number" id="support_override" min="0" step="5" value="0">
+                </label>
+            </div>
+        </section>
+
+        <!-- 5. One-time -->
+        <section class="panel">
+            <h2><span class="num">5</span> One-time charges (first invoice)</h2>
+            <div class="grid">
+                <label class="field">Onboarding &amp; configuration
+                    <input type="number" id="ot_onboarding" min="0" step="50" value="250">
+                </label>
+                <label class="field">Data migration
+                    <input type="number" id="ot_migration" min="0" step="50" value="0">
+                </label>
+                <label class="field">API / system integration
+                    <input type="number" id="ot_integration" min="0" step="50" value="0">
+                </label>
+                <label class="field">Custom report development
+                    <input type="number" id="ot_report" min="0" step="50" value="0">
+                </label>
+                <label class="field">Custom software development
+                    <input type="number" id="ot_dev" min="0" step="50" value="0">
+                </label>
+                <label class="field">Special deployment requirements
+                    <input type="number" id="ot_deploy" min="0" step="50" value="0">
+                </label>
+            </div>
+        </section>
+
+        <!-- 6. Discounts & VAT -->
+        <section class="panel">
+            <h2><span class="num">6</span> Discount &amp; tax</h2>
+            <div class="grid">
+                <label class="field">Commercial discount %
+                    <span class="hint">Above 15% requires written approval</span>
+                    <input type="number" id="discount_pct" min="0" max="100" step="0.5" value="0">
+                </label>
+                <label class="field">VAT %
+                    <span class="hint">Shown separately; 0 if not registered</span>
+                    <input type="number" id="vat_pct" min="0" max="100" step="0.5" value="15">
+                </label>
+                <label class="field">Annual payment
+                    <span class="hint">10 months paid for a 12-month term (16.7%)</span>
+                    <span class="check-row"><input type="checkbox" id="annual_prepay"> Customer pays annually in advance</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- 7. Cost & margin guardrail -->
+        <section class="panel">
+            <h2><span class="num">7</span> Cost inputs &amp; margin guardrail</h2>
+            <p style="margin:0 0 10px;font-size:.74rem;color:#64748b;line-height:1.5;">
+                These are the real costs for this account. Nothing is estimated for you &mdash; enter the figures from
+                invoices and timesheets so the margin shown is the true margin.
+            </p>
+            <div class="grid">
+                <label class="field">Hosting &amp; infrastructure / month
+                    <input type="number" id="cost_infra" min="0" step="5" value="0">
+                </label>
+                <label class="field">Data, storage &amp; support per vehicle
+                    <input type="number" id="cost_per_vehicle" min="0" step="0.05" value="0">
+                </label>
+                <label class="field">Fixed support / admin load per month
+                    <input type="number" id="cost_support" min="0" step="5" value="0">
+                </label>
+                <label class="field">Minimum gross margin %
+                    <input type="number" id="min_margin" min="0" max="95" step="5" value="55">
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <!-- Quotation output -->
+    <aside class="panel" id="quote-panel">
+        <div class="q-head">
+            <div class="co">INFERTH MAPPING</div>
+            <div class="sub">Enterprise service quotation &middot; United States Dollars (USD)</div>
+        </div>
+        <div class="q-meta">
+            <div><span>Reference</span><br><span id="q_ref">QTE-</span></div>
+            <div><span>Date</span><br><span id="q_date">&mdash;</span></div>
+            <div><span>Prepared for</span><br><span id="q_customer">&mdash;</span></div>
+            <div><span>Fleet size</span><br><span id="q_vehicles">&mdash;</span></div>
+            <div><span>Contract term</span><br><span id="q_term">&mdash;</span></div>
+            <div><span>Valid until</span><br><span id="q_valid">&mdash;</span></div>
+        </div>
+
+        <table class="q-table">
+            <thead>
+                <tr><th>Recurring charge</th><th>Basis</th><th>USD / month</th></tr>
+            </thead>
+            <tbody id="q_recurring"></tbody>
+            <tbody id="q_totals"></tbody>
+        </table>
+
+        <div class="margin-box">
+            <span class="k">Monthly after discount</span><span class="v" id="m_net">$0</span>
+            <span class="k">Annual contract value</span><span class="v" id="m_annual">$0</span>
+            <span class="k">One-time charges</span><span class="v" id="m_onetime">$0</span>
+            <span class="k">First invoice (excl. VAT)</span><span class="v" id="m_first">$0</span>
+            <span class="k">VAT <span id="m_vat_label">&mdash;</span></span><span class="v" id="m_vat">$0</span>
+            <span class="k">First invoice including VAT</span><span class="v" id="m_first_vat">$0</span>
+            <span class="k">Effective rate per vehicle / month</span><span class="v" id="m_perveh">$0</span>
+            <span class="k">Delivered cost / month</span><span class="v" id="m_cost">$0</span>
+            <span class="k">Gross margin</span><span class="v" id="m_margin">$0</span>
+        </div>
+
+        <ul id="warnings"></ul>
+
+        <div class="quote-footer">
+            <strong>Included:</strong> platform access, live tracking, trip history, geofences, alerts, standard support.
+            <strong>Excluded:</strong> trackers, installation, SIM cards and airtime, on-site attendance, third-party licences,
+            and any development not listed above. <strong>Payment:</strong> USD, monthly in advance; one-time charges 50% on
+            acceptance. <strong>Term:</strong> as stated; 60 days written notice thereafter. Prices valid 30 days.
+            Remote immobilisation is quoted only where tracker and vehicle compatibility has been verified.
+        </div>
+
+        <div class="no-print" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+            <button type="button" class="btn-light" style="background:var(--brand);color:#fff;" id="btn-print-2">Print / Save as PDF</button>
+            <button type="button" class="btn-light" style="background:#e2e8f0;color:var(--brand);" id="btn-copy-2">Copy quotation text</button>
+        </div>
+    </aside>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    var $ = function (id) { return document.getElementById(id); };
+    var money = function (n) {
+        return '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+    };
+    var num = function (id, fallback) {
+        var v = Number($(id) && $(id).value);
+        return Number.isFinite(v) ? v : (fallback || 0);
+    };
+    var esc = function (s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+    var pct = function (n) {
+        return (Math.round(n * 1000) / 10).toLocaleString('en-US', { maximumFractionDigits: 1 }) + '%';
+    };
+
+    // Reference number is stable for the day so a printed copy can be found again.
+    var stamp = new Date();
+    var dateStr = stamp.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    var validStr = new Date(stamp.getTime() + 30 * 86400000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    var ref = 'QTE-' + stamp.getFullYear() +
+        String(stamp.getMonth() + 1).padStart(2, '0') +
+        String(stamp.getDate()).padStart(2, '0') + '-' +
+        String(Math.floor(Math.random() * 900) + 100);
+
+    // Progressive bands, applied cumulatively. Each band only prices the
+    // vehicles inside it, so the cheapest rate never applies to the whole fleet.
+    function bandBreakdown(vehicles, rates) {
+        var bands = [
+            { label: 'First 50', from: 0, to: 50, rate: rates[0] },
+            { label: '51 – 100', from: 50, to: 100, rate: rates[1] },
+            { label: '101 – 250', from: 100, to: 250, rate: rates[2] },
+            { label: '251 – 500', from: 250, to: 500, rate: rates[3] },
+            { label: '501 – 1,000', from: 500, to: 1000, rate: rates[4] },
+            { label: 'Above 1,000', from: 1000, to: Infinity, rate: rates[5] }
+        ];
+        var rows = [];
+        bands.forEach(function (b) {
+            var inBand = Math.max(0, Math.min(vehicles, b.to) - b.from);
+            if (inBand <= 0) return;
+            rows.push({
+                label: b.label,
+                units: inBand,
+                rate: b.rate,
+                amount: inBand * b.rate,
+                negotiated: b.from >= 500
+            });
+        });
+        return rows;
+    }
+
+    var MODULES = [
+        { check: 'm_reporting', price: 'p_reporting' },
+        { check: 'm_analytics', price: 'p_analytics' },
+        { check: 'm_roles', price: 'p_roles' },
+        { check: 'm_infra', price: 'p_infra' },
+        { check: 'm_monitoring', price: 'p_monitoring' },
+        { check: 'm_immobilise', price: 'p_immobilise' }
+    ];
+
+    var RETENTION_PRICE = { '0': 0, '12': 15, '24': 25, '36': 40 };
+
+    var last = null;
+
+    function calculate() {
+        var vehicles = Math.max(0, Math.floor(num('vehicles', 0)));
+        var rates = [
+            num('r_b1'), num('r_b2'), num('r_b3'),
+            num('r_b4'), num('r_b5'), num('r_b6')
+        ];
+        var bands = bandBreakdown(vehicles, rates);
+        var vehicleTotal = bands.reduce(function (a, b) { return a + b.amount; }, 0);
+
+        var platformFee = num('platform_fee');
+
+        var modules = [];
+        MODULES.forEach(function (m) {
+            var box = $(m.check);
+            if (box && box.checked) {
+                modules.push({ name: box.dataset.name, amount: num(m.price) });
+            }
+        });
+        var retention = $('retention') ? $('retention').value : '0';
+        var retentionAmount = RETENTION_PRICE[retention] || 0;
+        if (retentionAmount > 0) {
+            modules.push({ name: 'Extended data retention (' + retention + ' months)', amount: retentionAmount });
+        }
+
+        var supportBase = Number($('support_level').value) || 0;
+        var supportOverride = num('support_override');
+        var support = supportOverride > 0 ? supportOverride : supportBase;
+
+        var subtotal = platformFee + vehicleTotal +
+            modules.reduce(function (a, m) { return a + m.amount; }, 0) + support;
+
+        var prepay = $('annual_prepay').checked;
+        var prepayPct = prepay ? (2 / 12) : 0; // 10 months paid for a 12-month term
+        var discountPct = Math.min(100, Math.max(0, num('discount_pct'))) / 100;
+
+        var afterPrepay = subtotal * (1 - prepayPct);
+        var discountAmount = afterPrepay * discountPct;
+        var netMonthly = afterPrepay - discountAmount;
+
+        var months = Math.max(1, num('contract_months', 12));
+        var annualValue = netMonthly * months;
+
+        var oneTime = num('ot_onboarding') + num('ot_migration') + num('ot_integration') +
+            num('ot_report') + num('ot_dev') + num('ot_deploy');
+        var firstInvoice = netMonthly + oneTime;
+        var vatPct = Math.max(0, num('vat_pct')) / 100;
+        var vatAmount = firstInvoice * vatPct;
+
+        var cost = num('cost_infra') + num('cost_per_vehicle') * vehicles + num('cost_support');
+        var margin = netMonthly - cost;
+        var marginPct = netMonthly > 0 ? margin / netMonthly : 0;
+        var minMargin = Math.max(0, num('min_margin')) / 100;
+
+        var warnings = [];
+        if (vehicles <= 0) {
+            warnings.push({ level: 'bad', text: 'Enter the number of active vehicles.' });
+        }
+        if (cost <= 0) {
+            warnings.push({
+                level: 'info',
+                text: 'No cost inputs entered, so gross margin cannot be checked. Fill in hosting, per-vehicle delivery cost and support load before this quote is approved.'
+            });
+        }
+        if (netMonthly < cost && cost > 0) {
+            warnings.push({
+                level: 'bad',
+                text: 'This quotation is below delivered cost by ' + money(cost - netMonthly) + ' per month. It loses money on every invoice — do not send it.'
+            });
+        } else if (cost > 0 && marginPct < minMargin) {
+            warnings.push({
+                level: 'bad',
+                text: 'Gross margin ' + pct(marginPct) + ' is below the ' + pct(minMargin) + ' floor. Reduce the discount, raise the platform fee, or renegotiate the fleet size.'
+            });
+        }
+        if (rates[4] > 0 && rates[4] < rates[3]) {
+            warnings.push({
+                level: 'info',
+                text: 'The 501–1,000 band (' + money(rates[4]) + ') is priced below the 251–500 band (' + money(rates[3]) +
+                    '). Growing past 500 vehicles will reduce monthly revenue unless this is a deliberate, signed volume commitment.'
+            });
+        }
+        if (vehicles > 1000) {
+            warnings.push({
+                level: 'info',
+                text: 'Above 1,000 vehicles the quotation is a custom basis. Confirm delivery cost at that scale before sending.'
+            });
+        }
+        if (discountPct > 0.15) {
+            warnings.push({
+                level: 'warn',
+                text: 'A ' + pct(discountPct) + ' discount is above the 15% authority limit. Attach written approval and a term commitment.'
+            });
+        }
+        if (prepay && months < 12) {
+            warnings.push({
+                level: 'info',
+                text: 'Annual prepayment applies only to 12-month terms or longer.'
+            });
+        }
+        if ($('m_immobilise').checked) {
+            warnings.push({
+                level: 'warn',
+                text: 'Remote immobilisation is quoted: confirm in writing that the tracker model and the vehicle have been tested for safe immobilisation.'
+            });
+        }
+
+        render({
+            vehicles: vehicles,
+            bands: bands,
+            vehicleTotal: vehicleTotal,
+            platformFee: platformFee,
+            modules: modules,
+            support: support,
+            subtotal: subtotal,
+            prepayPct: prepayPct,
+            discountPct: discountPct,
+            discountAmount: discountAmount,
+            netMonthly: netMonthly,
+            months: months,
+            annualValue: annualValue,
+            oneTime: oneTime,
+            firstInvoice: firstInvoice,
+            vatPct: vatPct,
+            vatAmount: vatAmount,
+            cost: cost,
+            margin: margin,
+            marginPct: marginPct,
+            warnings: warnings
+        });
+    }
+
+    function render(d) {
+        last = d;
+
+        var rows = '';
+        rows += '<tr class="section"><td colspan="3">Vehicle charges (progressive)</td></tr>';
+        d.bands.forEach(function (b) {
+            rows += '<tr><td>' + esc(b.label) + ' &times; ' + b.units + ' vehicles' +
+                (b.negotiated ? ' <em style="color:#b45309;font-style:normal;font-size:.68rem;">negotiated</em>' : '') +
+                '</td><td>' + money(b.rate) + '</td><td>' + money(b.amount) + '</td></tr>';
+        });
+        rows += '<tr class="soft"><td>Vehicle subtotal</td><td></td><td>' + money(d.vehicleTotal) + '</td></tr>';
+        rows += '<tr><td>Platform fee</td><td>fixed</td><td>' + money(d.platformFee) + '</td></tr>';
+        if (d.modules.length) {
+            rows += '<tr class="section"><td colspan="3">Modules</td></tr>';
+            d.modules.forEach(function (m) {
+                rows += '<tr><td>' + esc(m.name) + '</td><td></td><td>' + money(m.amount) + '</td></tr>';
+            });
+        }
+        if (d.support > 0) {
+            rows += '<tr><td>Support &amp; SLA</td><td>monthly</td><td>' + money(d.support) + '</td></tr>';
+        }
+        $('q_recurring').innerHTML = rows;
+
+        var totals = '';
+        totals += '<tr class="total"><td>Monthly quotation</td><td>' + money(d.subtotal) + '</td><td>' + money(d.subtotal) + '</td></tr>';
+        if (d.prepayPct > 0) {
+            totals += '<tr class="soft"><td>Annual prepayment (10 months for 12)</td><td>' + pct(d.prepayPct) + '</td><td class="neg">-' +
+                money(d.subtotal * d.prepayPct) + '</td></tr>';
+        }
+        if (d.discountPct > 0) {
+            totals += '<tr class="soft"><td>Commercial discount</td><td>' + pct(d.discountPct) + '</td><td class="neg">-' +
+                money(d.discountAmount) + '</td></tr>';
+        }
+        totals += '<tr class="total"><td>Net monthly fee</td><td>' + d.months + ' month term</td><td>' + money(d.netMonthly) + '</td></tr>';
+        totals += '<tr class="section"><td colspan="3">One-time charges (billed once)</td></tr>';
+        totals += '<tr><td>Onboarding, migration, integration &amp; development</td><td>' + money(d.oneTime) + '</td><td>' + money(d.oneTime) + '</td></tr>';
+        totals += '<tr class="total"><td>First invoice</td><td>monthly + one-time</td><td>' + money(d.firstInvoice) + '</td></tr>';
+        $('q_totals').innerHTML = totals;
+
+        $('q_ref').textContent = ref;
+        $('q_date').textContent = dateStr;
+        $('q_customer').textContent = $('customer_company').value.trim() || '—';
+        $('q_vehicles').textContent = d.vehicles ? (d.vehicles + ' vehicles') : '—';
+        $('q_term').textContent = d.months === 1 ? 'Month to month' : (d.months + ' months');
+        $('q_valid').textContent = validStr;
+
+        $('m_net').textContent = money(d.netMonthly);
+        $('m_annual').textContent = money(d.annualValue);
+        $('m_onetime').textContent = money(d.oneTime);
+        $('m_first').textContent = money(d.firstInvoice);
+        $('m_vat_label').textContent = '(' + (Math.round(d.vatPct * 1000) / 10) + '%)';
+        $('m_vat').textContent = money(d.vatAmount);
+        $('m_first_vat').textContent = money(d.firstInvoice + d.vatAmount);
+        $('m_perveh').textContent = d.vehicles ? money(d.netMonthly / d.vehicles) : '—';
+        $('m_cost').textContent = money(d.cost);
+        $('m_margin').textContent = money(d.margin) + ' (' + pct(d.marginPct) + ')';
+        $('m_margin').style.color = d.cost <= 0 ? '' : (d.marginPct < 0 ? '#b91c1c' : (d.marginPct < 0.4 ? '#b45309' : '#047857'));
+
+        $('warnings').innerHTML = d.warnings.map(function (w) {
+            return '<li class="' + (w.level === 'bad' ? 'bad' : (w.level === 'info' ? 'info' : '')) + '">' + esc(w.text) + '</li>';
+        }).join('');
+    }
+
+    function quotationText() {
+        if (!last) return '';
+        var d = last;
+        var lines = [];
+        lines.push('INFERTH MAPPING — ENTERPRISE SERVICE QUOTATION');
+        lines.push('Reference: ' + ref + '   Date: ' + dateStr + '   Valid until: ' + validStr);
+        lines.push('Prepared for: ' + ($('customer_company').value.trim() || '(customer)'));
+        if ($('customer_contact').value.trim()) lines.push('Attention: ' + $('customer_contact').value.trim());
+        lines.push('Fleet: ' + d.vehicles + ' active vehicles   Term: ' + (d.months === 1 ? 'month to month' : d.months + ' months'));
+        lines.push('');
+        lines.push('MONTHLY RECURRING CHARGES (USD)');
+        d.bands.forEach(function (b) {
+            lines.push('  ' + b.label + ' x ' + b.units + ' vehicles @ ' + money(b.rate) + ' = ' + money(b.amount));
+        });
+        lines.push('  Platform fee = ' + money(d.platformFee));
+        d.modules.forEach(function (m) { lines.push('  ' + m.name + ' = ' + money(m.amount)); });
+        if (d.support > 0) lines.push('  Support & SLA = ' + money(d.support));
+        lines.push('  Monthly quotation = ' + money(d.subtotal));
+        if (d.prepayPct > 0) lines.push('  Annual prepayment (' + pct(d.prepayPct) + ') = -' + money(d.subtotal * d.prepayPct));
+        if (d.discountPct > 0) lines.push('  Commercial discount (' + pct(d.discountPct) + ') = -' + money(d.discountAmount));
+        lines.push('  NET MONTHLY FEE = ' + money(d.netMonthly));
+        lines.push('');
+        lines.push('ONE-TIME CHARGES: ' + money(d.oneTime));
+        lines.push('FIRST INVOICE: ' + money(d.firstInvoice) + ' (VAT ' + pct(d.vatPct) + ': ' + money(d.vatAmount) + ', total ' + money(d.firstInvoice + d.vatAmount) + ')');
+        lines.push('ANNUAL CONTRACT VALUE: ' + money(d.annualValue));
+        lines.push('EFFECTIVE RATE: ' + money(d.vehicles ? d.netMonthly / d.vehicles : 0) + ' per vehicle per month');
+        lines.push('');
+        lines.push('Included: platform access, live tracking, trip history, geofences, alerts, standard support.');
+        lines.push('Excluded: trackers, installation, SIM cards and airtime, on-site attendance, third-party licences,');
+        lines.push('and any development not listed above. Payment in USD, monthly in advance; one-time charges 50% on acceptance.');
+        return lines.join('\n');
+    }
+
+    function copyText() {
+        var text = quotationText();
+        if (!text) return;
+        var done = function () {
+            var b = $('btn-copy');
+            var old = b.textContent;
+            b.textContent = 'Copied';
+            setTimeout(function () { b.textContent = old; }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy quotation', text); });
+        } else {
+            window.prompt('Copy quotation', text);
+        }
+    }
+
+    var RATE_KEYS = ['r_b1', 'r_b2', 'r_b3', 'r_b4', 'r_b5', 'r_b6'];
+
+    function loadRates() {
+        try {
+            var saved = JSON.parse(localStorage.getItem('inferthQuoteRates') || 'null');
+            if (!saved) return;
+            RATE_KEYS.forEach(function (k) {
+                if (saved[k] != null) $(k).value = saved[k];
+            });
+        } catch (e) { /* ignore corrupt storage */ }
+    }
+    function saveRates() {
+        try {
+            var out = {};
+            RATE_KEYS.forEach(function (k) { out[k] = $(k).value; });
+            localStorage.setItem('inferthQuoteRates', JSON.stringify(out));
+        } catch (e) { /* storage may be unavailable */ }
+    }
+
+    document.addEventListener('input', function (e) {
+        if (!e.target || !e.target.id) return;
+        if (RATE_KEYS.indexOf(e.target.id) !== -1) saveRates();
+        calculate();
+    });
+    document.addEventListener('change', calculate);
+
+    $('btn-print').addEventListener('click', function () { window.print(); });
+    $('btn-print-2').addEventListener('click', function () { window.print(); });
+    $('btn-copy').addEventListener('click', copyText);
+    $('btn-copy-2').addEventListener('click', copyText);
+    $('btn-reset').addEventListener('click', function () {
+        try { localStorage.removeItem('inferthQuoteRates'); } catch (e) {}
+        window.location.reload();
+    });
+
+    loadRates();
+    calculate();
+})();
+</script>
+</body>
+</html>
