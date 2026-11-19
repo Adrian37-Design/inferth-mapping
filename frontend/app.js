@@ -5562,8 +5562,8 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
     return { segments: lines, matched: results.some(runs => runs.some(run => run.routed)) };
 }
 
-// Raw route geometry: one polyline per travel piece, so raw lines never cross a
-// parked spot, a data gap or a stitched origin.
+// Raw route geometry: one polyline per travel piece, so raw lines never cross
+// a data gap or a stitched origin.
 // A trace only breaks where the vehicle really stopped reporting: a long
 // silence, or a jump no drive could have made. The old rule split every 150 m
 // chord, so a highway trace pinged 1 km apart shattered into single-point
@@ -5571,33 +5571,37 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
 const TRACE_GAP_MINUTES = 15;
 const TRACE_JUMP_KM = 2.0;
 
+// Drawing does NOT reuse splitIntoTravelPieces: those 5-minute / junction-wait
+// cuts exist to keep road-snapping honest, but as drawing cuts they severed a
+// perfectly recorded drive wherever the vehicle paused in traffic, so a single
+// trip drew as two strokes with a hole in the middle.
 function splitTraceAtGaps(points) {
     const segments = [];
-    splitIntoTravelPieces(points).forEach(piece => {
-        let run = [];
-        const flush = () => {
-            if (run.length > 1) segments.push(densifyCoordList(run, 20));
-            run = [];
-        };
-        for (let i = 0; i < piece.length; i++) {
-            const p = piece[i];
-            if (run.length === 0) { run.push([p.lat, p.lng]); continue; }
-            const prev = piece[i - 1];
-            const dtSec = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000;
-            const gapMins = dtSec / 60;
-            const jumpKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
-            // A chord faster than a road car can drive is a bad fix, never a road:
-            // drawing it is the "track cuts across the map" artifact.
-            const impossibleChord = dtSec > 0 && jumpKm > 0.3 && (jumpKm / (dtSec / 3600)) > 200;
-            if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM || impossibleChord) {
-                flush();
-                run.push([p.lat, p.lng]);
-            } else {
-                run.push([p.lat, p.lng]);
-            }
+    let run = [];
+    const flush = () => {
+        if (run.length > 1) segments.push(densifyCoordList(run, 20));
+        run = [];
+    };
+    let prev = null;
+    (Array.isArray(points) ? points : []).forEach(p => {
+        if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+        // A stitched origin is a synthesised join between two sessions, not a
+        // recorded fix: start a fresh piece rather than draw through it.
+        if (p.stitched) { flush(); prev = null; return; }
+        if (!prev) { run.push([p.lat, p.lng]); prev = p; return; }
+        const dtSec = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000;
+        const gapMins = dtSec / 60;
+        const jumpKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
+        // A chord faster than a road car can drive is a bad fix, never a road:
+        // drawing it is the "track cuts across the map" artifact.
+        const impossibleChord = dtSec > 0 && jumpKm > 0.3 && (jumpKm / (dtSec / 3600)) > 200;
+        if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM || impossibleChord) {
+            flush();
         }
-        flush();
+        run.push([p.lat, p.lng]);
+        prev = p;
     });
+    flush();
     return segments;
 }
 
@@ -6591,8 +6595,11 @@ async function buildMatchedTripSegments(id, trips, isCurrent) {
         const trace = splitTraceAtGaps(t.points);
         // A match that covers only part of the drive must never replace the
         // recorded trace: the drawn line then starts or stops in the middle of
-        // the trip, which reads as a missing / broken track.
-        const complete = results[i] && routeSegmentsKm(results[i]) >= 0.7 * routeSegmentsKm(trace);
+        // the trip, which reads as a missing / broken track. Matched geometry
+        // carries its own internal holes wherever the matcher cannot place a
+        // stretch, so it is only trustworthy when it covers essentially the
+        // whole drive — one dropped leg on a 5 km trip is a visible gap.
+        const complete = results[i] && routeSegmentsKm(results[i]) >= 0.95 * routeSegmentsKm(trace);
         segs.push(...(complete ? results[i] : trace));
     });
     return segs;
