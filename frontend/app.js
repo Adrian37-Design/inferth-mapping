@@ -5454,6 +5454,24 @@ async function osrmRouteThrough(piece, items) {
     }
 }
 
+// Same request without travel bearings. Bearings keep a long drive honest, but
+// on a single short leg a guessed bearing makes OSRM answer NoRoute, and the
+// caller then fell back to a straight chord across the buildings.
+async function osrmPlainRoute(items) {
+    const path = items.map(w => `${w.lng},${w.lat}`).join(';');
+    try {
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`);
+        const data = res.ok ? await res.json() : null;
+        const route = data && data.code === 'Ok' ? data.routes?.[0] : null;
+        const coords = route?.geometry?.coordinates;
+        if (!coords || coords.length < 2 || !route.legs || route.legs.length !== items.length - 1) return null;
+        return { coords: coords.map(c => [c[1], c[0]]), legs: route.legs.map(l => l.distance) };
+    } catch (e) {
+        console.warn('OSRM plain route request error:', e);
+        return null;
+    }
+}
+
 function splitAtChords(coords) {
     const parts = [[coords[0]]];
     for (let i = 1; i < coords.length; i++) {
@@ -5499,10 +5517,21 @@ function routeAcceptable(route, items, raw) {
 async function routeRun(piece, items, budget) {
     if (budget.calls > 0 && budget.alive()) {
         budget.calls--;
-        const route = await osrmRouteThrough(piece, items);
+        const route = await osrmRouteThrough(piece, items)
+            || (items.length === 2 ? await osrmPlainRoute(items) : null);
         const raw = piece.slice(items[0].i, items[items.length - 1].i + 1).map(p => [p.lat, p.lng]);
         if (route && routeAcceptable(route, items, raw)) return [{ coords: route.coords, routed: true }];
-        if (items.length === 2) return rawRuns(piece, items);
+        if (items.length === 2) {
+            // A two-fix trip on a road that doubles back slightly (one-way loop,
+            // a U-turn at the gate) fails the backtrack test, and the old
+            // fallback drew the straight chord between the fixes — a line
+            // cutting across the blocks. A road route of plausible length is
+            // still the road the vehicle actually drove.
+            if (route && legsPlausible(route, items).every(Boolean)) {
+                return [{ coords: route.coords, routed: true }];
+            }
+            return rawRuns(piece, items);
+        }
         const bad = route ? legsPlausible(route, items).indexOf(false) : -1;
         const parts = [];
         if (bad >= 0) {
@@ -6629,8 +6658,18 @@ async function buildMatchedTripSegments(id, trips, isCurrent) {
         // covering essentially the whole drive — one dropped leg on a 5 km trip
         // is a visible gap.
         const matched = results[i] ? mergeNearbySegments(results[i], 0.06) : null;
-        const complete = matched && matched.length === 1 &&
-            routeSegmentsKm(matched) >= 0.95 * routeSegmentsKm(trace);
+        // A matched piece is only a road when it has corners. Two fixes joined by
+        // a straight chord can cover the same distance as the trace and still be
+        // a line through the blocks between them.
+        const matchedKm = (matched && matched.length === 1) ? routeSegmentsKm(matched) : 0;
+        const chordKm = (matched && matched.length === 1)
+            ? haversineDistanceKm(
+                matched[0][0][0], matched[0][0][1],
+                matched[0][matched[0].length - 1][0], matched[0][matched[0].length - 1][1])
+            : 0;
+        const roadLike = matchedKm > 0 && !(chordKm > 0.1 && matchedKm < chordKm * 1.02);
+        const complete = matched && matched.length === 1 && roadLike &&
+            matchedKm >= 0.95 * routeSegmentsKm(trace);
         segs.push(...(complete ? matched : trace));
     });
     // Trips that meet at the same parking spot draw as one line, so a day view
@@ -6647,6 +6686,46 @@ function routeSegmentsKm(segments) {
         }
     });
     return km;
+}
+
+// A trace recorded with only a handful of fixes draws as straight chords between
+// them. Any drawn chord longer than this is replaced with the driving route
+// between its two ends, so a short trip follows the road instead of cutting
+// across the blocks. Road-matched geometry is dense enough that nothing here
+// fires for it, and the call budget keeps a month view from flooding OSRM.
+const ROADIFY_MIN_CHORD_KM = 0.12;
+const ROADIFY_MAX_CALLS = 25;
+
+async function roadifyStraightChords(segments, isCurrent = () => true) {
+    let calls = ROADIFY_MAX_CALLS;
+    const out = [];
+    for (const seg of (Array.isArray(segments) ? segments : [])) {
+        if (!Array.isArray(seg) || seg.length < 2) continue;
+        const line = [seg[0]];
+        for (let i = 1; i < seg.length; i++) {
+            const a = line[line.length - 1];
+            const b = seg[i];
+            const chord = haversineDistanceKm(a[0], a[1], b[0], b[1]);
+            if (chord > ROADIFY_MIN_CHORD_KM && calls > 0 && isCurrent()) {
+                calls--;
+                const road = await osrmPlainRoute([
+                    { lat: a[0], lng: a[1] },
+                    { lat: b[0], lng: b[1] },
+                ]);
+                if (road) {
+                    const roadKm = routeSegmentsKm([road.coords]);
+                    // Reject a detour no drive of that length could have made.
+                    if (roadKm <= chord * 3 + 0.4) {
+                        line.push(...road.coords.slice(1));
+                        continue;
+                    }
+                }
+            }
+            line.push(b);
+        }
+        out.push(line);
+    }
+    return out;
 }
 
 async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opts = {}) {
@@ -6712,8 +6791,14 @@ async function renderAndPrepareRouteOnMap(id, inputPoints, autoPlay = false, opt
     if (snappedSegments && !matched && routeSegmentsKm(snappedSegments) < 0.7 * routeSegmentsKm(traceSegments)) {
         return true; // the recorded trace is complete, the patched route is not
     }
-    if (snappedSegments && snappedSegments.length) {
-        drawRouteLayers(id, matched ? snappedSegments.map(seg => densifyCoordList(seg, 20)) : snappedSegments, waypoints, false);
+    let drawSegments = (snappedSegments && snappedSegments.length) ? snappedSegments : traceSegments;
+    if (roadSnapWorthwhile) {
+        drawSegments = await roadifyStraightChords(drawSegments, isCurrent);
+        if (!isCurrent()) return false;
+    }
+    if (drawSegments && drawSegments.length) {
+        const lines = matched ? drawSegments.map(seg => densifyCoordList(seg, 20)) : drawSegments;
+        drawRouteLayers(id, lines, waypoints, false);
     }
     return true;
 }
@@ -9792,11 +9877,18 @@ window.requestEnterpriseQuote = function () {
     const status = document.getElementById('enterprise-quote-status');
     if (status) status.textContent = '';
     modal.classList.remove('hidden');
+    // `.hidden` alone is not enough: the modals in this app are positioned by an
+    // explicit flex display, so without it the panel was appended at the very
+    // bottom of the page and the button looked like it did nothing.
+    modal.style.display = 'flex';
 };
 
 window.closeEnterpriseQuote = function () {
     const modal = document.getElementById('enterprise-quote-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+    }
 };
 
 window.submitEnterpriseQuote = async function () {
@@ -10638,12 +10730,89 @@ function _setEl(id, text) {
 // ===== END DASHBOARD SUB-TABS =====
 
 
-/* ---------- Platform Fleet Rental: mark the plan matching the fleet size ---------- */
+/* ---------- Platform Fleet Rental: priced on the renter's own fleet ---------- */
+// $15 covers the first 5 client vehicles of the console; every vehicle above
+// that is billed on the progressive reseller bands. These are the same numbers
+// the server recomputes before Paynow is called.
+var CONSOLE_BASE_FEE = 15;
+var CONSOLE_BASE_VEHICLES = 5;
+var CONSOLE_BANDS = [[25, 1.70], [75, 1.00], [200, 0.80]];
+var CONSOLE_TIERS = {
+    base: { min: 1, max: 5, label: 'Base' },
+    growth: { min: 6, max: 25, label: 'Growth' },
+    scale: { min: 26, max: 200, label: 'Scale' }
+};
+
+function consoleRentalQuote(count) {
+    var n = Math.max(1, Math.round(Number(count) || 1));
+    if (n <= CONSOLE_BASE_VEHICLES) {
+        return { count: n, total: CONSOLE_BASE_FEE, tier: 'base', custom: false };
+    }
+    if (n > CONSOLE_BANDS[CONSOLE_BANDS.length - 1][0]) {
+        return { count: n, total: null, tier: 'enterprise', custom: true };
+    }
+    var total = CONSOLE_BASE_FEE;
+    var covered = CONSOLE_BASE_VEHICLES;
+    CONSOLE_BANDS.forEach(function(band) {
+        if (n <= covered) return;
+        total += (Math.min(n, band[0]) - covered) * band[1];
+        covered = band[0];
+    });
+    var tier = n <= 25 ? 'growth' : 'scale';
+    return { count: n, total: Math.round(total * 100) / 100, tier: tier, custom: false };
+}
+
+// Show what this console actually costs for the vehicles it is running, and put
+// that price on the button instead of a fixed 25- or 100-vehicle tier price.
+window.refreshConsoleRentalPricing = function() {
+    var quote = consoleRentalQuote(_fleetCount());
+    var text = document.getElementById('console-rental-live-quote-text');
+    if (text) {
+        var vehicles = quote.count + ' vehicle' + (quote.count === 1 ? '' : 's');
+        if (quote.custom) {
+            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 above 200 vehicles it is priced on an Enterprise quotation.';
+        } else if (quote.count <= CONSOLE_BASE_VEHICLES) {
+            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $15 console fee already covers the first 5).';
+        } else {
+            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> on the ' + CONSOLE_TIERS[quote.tier].label + ' reseller rate.';
+        }
+    }
+    Object.keys(CONSOLE_TIERS).forEach(function(key) {
+        var btn = document.getElementById('rental-btn-' + key);
+        if (!btn) return;
+        var tier = CONSOLE_TIERS[key];
+        var active = !quote.custom && quote.count >= tier.min && quote.count <= tier.max;
+        btn.disabled = false;
+        btn.classList.toggle('is-current', active);
+        if (active) {
+            btn.textContent = 'Activate ' + quote.count + ' vehicle' + (quote.count === 1 ? '' : 's') +
+                ' \u2014 $' + quote.total.toFixed(2) + '/mo';
+        } else if (quote.custom) {
+            btn.textContent = tier.label + ' tier \u2014 request a quote';
+        } else {
+            btn.textContent = tier.label + ' tier \u2014 ' +
+                (key === 'base' ? 'up to 5 vehicles' : (key === 'growth' ? '6 to 25 vehicles' : '26 to 200 vehicles'));
+        }
+    });
+};
+
+// One button behaviour for all three cards: charge for the fleet this console
+// is actually running. The renter bills their own customers however they like;
+// this is only the platform fee they owe Inferth.
+window.triggerConsoleRentalPayment = function() {
+    var quote = consoleRentalQuote(_fleetCount());
+    if (quote.custom) {
+        window.requestEnterpriseQuote();
+        return;
+    }
+    window.triggerPlanPayment('Console_Rental', quote.total);
+};
+
 window.markActiveRentalPlan = function() {
     var cards = document.querySelectorAll('.rental-plan-card');
     if (!cards.length) return;
-    var count = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length)
-        ? allVehicles.length : 2; // Console Telematics currently runs 2 vehicles
+    window.refreshConsoleRentalPricing();
+    var count = Math.max(1, _fleetCount());
     var rentalView = document.getElementById('billing-rental-view');
     var isRental = !!(rentalView && !rentalView.classList.contains('hidden'));
     cards.forEach(function(card) {
@@ -10651,14 +10820,8 @@ window.markActiveRentalPlan = function() {
         var max = parseInt(card.getAttribute('data-rental-max') || '10', 10);
         var active = isRental && count >= min && count <= max;
         card.classList.toggle('is-active', active);
-        var btn = card.querySelector('.rental-plan-btn');
-        if (btn) {
-            btn.classList.toggle('is-current', active);
-            btn.disabled = active;
-            if (active) btn.textContent = 'Current plan';
-        }
         var badge = card.querySelector('.rental-plan-badge');
-        if (badge) badge.textContent = active ? 'Current Plan' : (max <= 10 ? 'Console Rental' : (max >= 100 ? 'Scale Pack' : 'Fleet Pack'));
+        if (badge && active) badge.textContent = 'Current Plan';
     });
 };
 

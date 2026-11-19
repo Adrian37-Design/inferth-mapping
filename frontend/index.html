@@ -1987,6 +1987,11 @@
                                     <span class="badge" style="background:#ea580c; color:#fff; font-size:0.68rem; font-weight:800; padding:3px 10px; border-radius:50px;">CONSOLE RENTAL</span>
                                     <h3 style="margin-top:6px;">For Tracking Businesses &amp; Service Providers</h3>
                                     <p>Run your own GPS tracking or fleet-management operation using Inferth Mapping's infrastructure. Base console fee: <strong>$15 per month</strong> (includes first 1&ndash;5 vehicles).</p>
+                                    <div id="console-rental-live-quote" style="margin-top:10px; padding:10px 12px; border:1px solid #fed7aa; background:#fff7ed; border-radius:8px; font-size:0.8rem; color:#9a3412; line-height:1.45;">
+                                        <i class="fas fa-calculator"></i>
+                                        <span id="console-rental-live-quote-text">Detecting the number of vehicles on this console&hellip;</span>
+                                    </div>
+                                    <p style="font-size:0.75rem; color:#64748b; margin-top:8px;">The price is set by how many vehicles are on <em>your</em> console, detected automatically. How you charge your own customers is entirely up to you.</p>
                                 </div>
 
                                 <!-- Progressive Reseller Fee Structure -->
@@ -2033,7 +2038,7 @@
                                             <li><i class="fas fa-check"></i> Automated weekly PDF activity reports</li>
                                             <li><i class="fas fa-check"></i> Direct technical platform support</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Base_5', 15)">Start Base Console &mdash; $15/mo</button>
+                                        <button type="button" id="rental-btn-base" class="rental-plan-btn" onclick="triggerConsoleRentalPayment()">Start Base Console &mdash; $15/mo</button>
                                     </div>
 
                                     <!-- Container 2: Growth Fleet Tier (6–25 Vehicles) -->
@@ -2057,17 +2062,17 @@
                                             <li><i class="fas fa-check"></i> Driver performance &amp; speed violation tracking</li>
                                             <li><i class="fas fa-check"></i> Priority WhatsApp support</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Growth_25', 49)">Subscribe Growth Tier (25 trucks &mdash; $49/mo)</button>
+                                        <button type="button" id="rental-btn-growth" class="rental-plan-btn" onclick="triggerConsoleRentalPayment()">Subscribe to the Growth tier</button>
                                     </div>
 
                                     <!-- Container 3: Scaled Fleet Tier (26–100+ Vehicles) -->
-                                    <div class="rental-plan-card" data-rental-min="26" data-rental-max="100">
+                                    <div class="rental-plan-card" data-rental-min="26" data-rental-max="200">
                                         <div class="rental-plan-badge" style="background:#16a34a; color:#fff;">High Volume Scale</div>
                                         <div class="rental-plan-top">
                                             <span class="rental-plan-icon"><i class="fas fa-building"></i></span>
                                             <div>
-                                                <h4>Scale Console (26&ndash;100+ Vehicles)</h4>
-                                                <p class="rental-plan-range">26 to 100+ active vehicles</p>
+                                                <h4>Scale Console (26&ndash;200 Vehicles)</h4>
+                                                <p class="rental-plan-range">26 to 200 active vehicles</p>
                                             </div>
                                         </div>
                                         <div class="rental-plan-price"><span class="cur">$</span><span class="amt">1.00 &ndash; 0.80</span><span class="per">/ vehicle / month</span></div>
@@ -2080,7 +2085,7 @@
                                             <li><i class="fas fa-check"></i> Dedicated engineering WhatsApp SLA</li>
                                             <li><i class="fas fa-check"></i> Full REST API integration for your billing software</li>
                                         </ul>
-                                        <button type="button" class="rental-plan-btn" onclick="triggerPlanPayment('Console_Scale_100', 119)">Subscribe Scale Tier (100 trucks &mdash; $119/mo)</button>
+                                        <button type="button" id="rental-btn-scale" class="rental-plan-btn" onclick="triggerConsoleRentalPayment()">Subscribe to the Scale tier</button>
                                     </div>
                                 </div>
                             </div>
@@ -2773,7 +2778,7 @@
     <script src="/static/spotlight.js?v=3"></script>
     <script src="/static/contact-status.js?v=1"></script>
     <!-- Enterprise quotation request -->
-    <div id="enterprise-quote-modal" class="modal-overlay hidden">
+    <div id="enterprise-quote-modal" class="modal-overlay hidden" onclick="if(event.target===this) window.closeEnterpriseQuote()" style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 10090; display: none; align-items: center; justify-content: center; padding: 16px;">
         <div class="modal-content" style="max-width:460px;">
             <div class="modal-header">
                 <h3>Request Enterprise quotation</h3>
@@ -2801,7 +2806,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=210"></script>
+    <script src="/static/app.js?v=211"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=5"></script>
     <!-- Payment Modal -->

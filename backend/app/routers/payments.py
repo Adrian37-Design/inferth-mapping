@@ -50,6 +50,31 @@ paynow = Paynow(
 TOPUP_PLAN = "Prepaid_Wallet_Topup"
 TOPUP_AMOUNTS = {12.0, 24.0, 40.0, 100.0}
 
+# Console rental is priced on the renter's own fleet: the $15 console fee covers
+# the first five client vehicles, then progressive per-vehicle bands. The price
+# is always derived from the devices the tenant actually has, never from a tier
+# the browser picked.
+CONSOLE_BASE_FEE = 15.0
+CONSOLE_BASE_VEHICLES = 5
+CONSOLE_BANDS = ((25, 1.70), (75, 1.00), (200, 0.80))
+
+
+def _console_rental_price(fleet_size: int) -> Optional[float]:
+    """Monthly console rental for `fleet_size` vehicles (None above 200)."""
+    n = max(1, int(fleet_size or 1))
+    if n <= CONSOLE_BASE_VEHICLES:
+        return CONSOLE_BASE_FEE
+    if n > CONSOLE_BANDS[-1][0]:
+        return None
+    total = CONSOLE_BASE_FEE
+    covered = CONSOLE_BASE_VEHICLES
+    for cap, rate in CONSOLE_BANDS:
+        if n <= covered:
+            break
+        total += (min(n, cap) - covered) * rate
+        covered = cap
+    return round(total, 2)
+
 # Sales line for Enterprise quotation requests (digits only, international).
 SALES_WHATSAPP = os.getenv("SALES_WHATSAPP", "263783009275")
 
@@ -109,10 +134,11 @@ async def initiate_paynow(
     YEARLY_MONTHS = 10
 
     is_topup = plan_name == TOPUP_PLAN
+    is_console = plan_name.strip().lower().startswith("console")
     fleet_bands = FLEET_BANDS.get(plan_name)
     banded_price: Optional[float] = None
     fleet_size = 0
-    if fleet_bands and not is_topup:
+    if (fleet_bands or is_console) and not is_topup:
         # Count exactly the devices the Billing page lists for this user (the
         # platform admin sees every tracker, a company sees its own). Using the
         # same visibility rule keeps the button price and this price identical.
@@ -122,14 +148,25 @@ async def initiate_paynow(
             )
         ).scalar() or 0
         fleet_size = max(1, int(fleet_size))
-        band_rate = next((rate for cap, rate in fleet_bands if fleet_size <= cap), None)
-        if band_rate is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Fleets above 50 vehicles are priced on an Enterprise quotation — request one from the Billing page.",
-            )
-        months = YEARLY_MONTHS if _is_yearly(period) else 1
-        banded_price = round(band_rate * fleet_size * months, 2)
+        if is_console:
+            console_price = _console_rental_price(fleet_size)
+            if console_price is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Consoles above 200 vehicles are priced on an Enterprise quotation — request one from the Billing page.",
+                )
+            plan_name = "Console_Rental"
+            months = YEARLY_MONTHS if _is_yearly(period) else 1
+            banded_price = round(console_price * months, 2)
+        else:
+            band_rate = next((rate for cap, rate in fleet_bands if fleet_size <= cap), None)
+            if band_rate is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Fleets above 50 vehicles are priced on an Enterprise quotation — request one from the Billing page.",
+                )
+            months = YEARLY_MONTHS if _is_yearly(period) else 1
+            banded_price = round(band_rate * fleet_size * months, 2)
 
     if is_topup:
         if amount is None or round(float(amount), 2) not in TOPUP_AMOUNTS:
