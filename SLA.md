@@ -27,7 +27,7 @@ This Service Level Agreement ("SLA") defines the service availability, performan
 * **Monthly / Annual Subscriptions:** Basic, Premium, and Enterprise.
 * **Once-Off Lifetime Pass:** Starter Pass (perpetual vehicle software tracking license).
 * **Pay-As-You-Drive (PAYD):** Daily usage billing ($0.40/active day + modular feature passes).
-* **Platform Fleet Rental (Console Telematics):** Multi-tenant console infrastructure for tracking businesses and fleet service providers.
+* **Platform Fleet Rental:** Dedicated console and cloud infrastructure for independent tracking companies, fleet management operators, and white-label resellers.
 
 ---
 
@@ -38,8 +38,8 @@ Inferth Mapping guarantees the following Core Platform Uptime across each calend
 
 | Service Model / Subscription Tier | Monthly Availability Target | Service Credit Eligibility |
 | :--- | :--- | :--- |
-| **Enterprise Plan** | **99.9%** | Yes (See Section 6) |
-| **Platform Fleet Rental (Console Telematics)** | **99.9%** | Yes (See Section 6) |
+| **Enterprise Plan** | **99.9%** | Yes (See Section 7) |
+| **Platform Fleet Rental** | **99.9%** | Yes (See Section 7) |
 | **Premium Plan** | **99.5%** | Standard support escalation |
 | **Basic Plan** | Best-effort (Target 99.0%) | Standard support escalation |
 | **Once-Off Lifetime Pass** | **99.0%** (Platform continuity) | Standard support escalation |
@@ -59,10 +59,10 @@ Inferth Mapping guarantees the following Core Platform Uptime across each calend
 * **Service Availability Remedy:** If a verified core gateway outage exceeds 3 consecutive hours on an active billing day, the daily charge and activated daily add-on fees for that calendar day are credited back to the customer's prepaid wallet balance.
 * **Prepaid Wallet:** Wallet balances do not expire while the account remains in good standing.
 
-### 3.3 Platform Fleet Rental (Console Telematics)
-* **Wholesale / Multi-Tenant Availability:** Guaranteed **99.9%** uptime for the master console, sub-tenant tenant routing, device ingestion pipelines, and brand configuration endpoints.
-* **Tenant Isolation SLA:** Platform updates or load on other tenants will not degrade or expose the Client's isolated fleet database or custom-branded interface.
-* **Escalated Support:** Master console operators receive Enterprise-tier P1 (< 1 hour) support priority.
+### 3.3 Platform Fleet Rental
+* **Wholesale & White-Label Infrastructure:** Dedicated multi-tenant environment, tenant sub-account management, device ingestion pipelines, and custom branding for tracking businesses.
+* **Tenant Isolation SLA:** Platform updates or system load on other accounts will not degrade, disrupt, or expose the Client's isolated fleet database.
+* **Escalated Support:** Platform Fleet Rental operators receive Enterprise-grade P1 (< 1 hour) support priority.
 
 ---
 
@@ -111,7 +111,7 @@ Inferth Mapping operates specialized telematics infrastructure designed for Sout
 
 ## 7. Service Credits (Enterprise & Platform Fleet Rental)
 
-If Inferth Mapping fails to meet the guaranteed monthly availability commitment (99.9%) for an **Enterprise** or **Platform Fleet Rental (Console Telematics)** contract, the Client is eligible to receive a service credit applied to their subsequent billing invoice:
+If Inferth Mapping fails to meet the guaranteed monthly availability commitment (99.9%) for an **Enterprise** or **Platform Fleet Rental** contract, the Client is eligible to receive a service credit applied to their subsequent billing invoice:
 
 | Monthly Uptime Percentage | Service Credit Percentage (% of monthly base fee) |
 | :--- | :--- |
