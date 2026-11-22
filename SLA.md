@@ -23,37 +23,54 @@ Email: _______________________________
 ## 1. Overview & Purpose
 Inferth Mapping is a fleet tracking and telematics platform owned and operated by Inferth Projects (Private) Limited. All services provided under this Agreement are supplied by Inferth Projects (Private) Limited through the Inferth Mapping platform.
 
-This Service Level Agreement ("SLA") defines the service availability, performance commitments, support tiers, and remedies provided by **Inferth Projects (Private) Limited** ("Company", "Provider", "we", "us") to the **Client** ("Customer", "you") across active subscription plans (**Basic**, **Premium**, and **Enterprise**).
+This Service Level Agreement ("SLA") defines the service availability, performance commitments, support tiers, and remedies provided by **Inferth Projects (Private) Limited** ("Company", "Provider", "we", "us") to the **Client** ("Customer", "you") across all active commercial plans and licensing models offered on the platform:
+* **Monthly / Annual Subscriptions:** Basic, Premium, and Enterprise.
+* **Once-Off Lifetime Pass:** Starter Pass (perpetual vehicle software tracking license).
+* **Pay-As-You-Drive (PAYD):** Daily usage billing ($0.40/active day + modular feature passes).
+* **Platform Fleet Rental (Console Telematics):** Multi-tenant console infrastructure for tracking businesses and fleet service providers.
 
 ---
 
 ## 2. Service Availability & Uptime Commitments
 
-### 2.1 Monthly Uptime Target
+### 2.1 Monthly Uptime Target by Service Model
 Inferth Mapping guarantees the following Core Platform Uptime across each calendar month:
 
-| Subscription Tier | Monthly Availability Commitment |
-| :--- | :--- |
-| **Enterprise Plan** | **99.9%** |
-| **Premium Plan** | **99.5%** |
-| **Basic Plan** | Best-effort (Target 99.0%) |
-
-### 2.2 Measurement & Availability Definition
-Uptime is calculated as:
-$$\text{Uptime Percentage} = \frac{\text{Total Operational Minutes} - \text{Unscheduled Downtime Minutes}}{\text{Total Minutes in Month}} \times 100$$
-
-**Covered Services:**
-* Web Console access (`https://inferthmapping.co.zw` & platform dashboards).
-* REST API endpoints for fleet status, reporting, and live coordinates.
-* TCP Socket Gateway ingestion servers (GT06, SinoTrack, Teltonika AVL, H02).
+| Service Model / Subscription Tier | Monthly Availability Target | Service Credit Eligibility |
+| :--- | :--- | :--- |
+| **Enterprise Plan** | **99.9%** | Yes (See Section 6) |
+| **Platform Fleet Rental (Console Telematics)** | **99.9%** | Yes (See Section 6) |
+| **Premium Plan** | **99.5%** | Standard support escalation |
+| **Basic Plan** | Best-effort (Target 99.0%) | Standard support escalation |
+| **Once-Off Lifetime Pass** | **99.0%** (Platform continuity) | Standard support escalation |
+| **Pay-As-You-Drive (PAYD)** | **99.0%** (Active tracking days) | Day-fee credit on validated outage |
 
 ---
 
-## 3. Support Response Tiers & Severity Levels
+## 3. Commercial Plan Specific Terms
+
+### 3.1 Once-Off Lifetime Pass (Starter Pass)
+* **Scope of Guarantee:** Platform software access and GPS tracking continuity for the registered tracker hardware/IMEI for its functional hardware lifespan.
+* **Hardware Independence:** Does not cover physical tracker replacement, SIM cellular airtime/data replenishment, or battery wear.
+* **Data Retention:** Standard 30-day rolling journey history and trip playback.
+
+### 3.2 Pay-As-You-Drive (PAYD)
+* **Deduction Guarantee:** PAYD daily rate ($0.40/day) is only deducted for calendar days where the vehicle is marked active and reports telematics data to the gateway.
+* **Service Availability Remedy:** If a verified core gateway outage exceeds 3 consecutive hours on an active billing day, the daily charge and activated daily add-on fees for that calendar day are credited back to the customer's prepaid wallet balance.
+* **Prepaid Wallet:** Wallet balances do not expire while the account remains in good standing.
+
+### 3.3 Platform Fleet Rental (Console Telematics)
+* **Wholesale / Multi-Tenant Availability:** Guaranteed **99.9%** uptime for the master console, sub-tenant tenant routing, device ingestion pipelines, and brand configuration endpoints.
+* **Tenant Isolation SLA:** Platform updates or load on other tenants will not degrade or expose the Client's isolated fleet database or custom-branded interface.
+* **Escalated Support:** Master console operators receive Enterprise-tier P1 (< 1 hour) support priority.
+
+---
+
+## 4. Support Response Tiers & Severity Levels
 
 Support tickets and operational incidents are prioritized and acknowledged according to the following matrix:
 
-| Severity Level | Definition | Enterprise Target | Premium Target | Basic Target |
+| Severity Level | Definition | Enterprise & Fleet Rental Target | Premium Target | Basic, Once-Off & PAYD Target |
 | :--- | :--- | :--- | :--- | :--- |
 | **P1 — Critical** | Ingestion gateway offline, complete dashboard outage, or remote shutdown failure across the fleet. | **< 1 hour** (24/7) | **< 4 hours** (Business hrs) | **< 12 hours** (Business hrs) |
 | **P2 — Major** | Degraded performance, delayed WhatsApp reports/alerts, or vehicle history playback unavailable. | **< 2 hours** (24/7) | **< 8 hours** (Business hrs) | **< 24 hours** (Business hrs) |
@@ -62,20 +79,20 @@ Support tickets and operational incidents are prioritized and acknowledged accor
 
 ---
 
-## 4. Maintenance Windows
+## 5. Maintenance Windows
 
-### 4.1 Scheduled Maintenance
+### 5.1 Scheduled Maintenance
 * Inferth Mapping performs regular database pruning, infrastructure upgrades, and system improvements.
 * Scheduled maintenance will occur between **00:00 and 04:00 CAT (UTC+2)**.
 * Customers will receive at least **48 hours advance notice** via WhatsApp notification or email.
 * Scheduled maintenance is excluded from downtime calculations.
 
-### 4.2 Emergency Maintenance
+### 5.2 Emergency Maintenance
 In the event of critical security patches, zero-day vulnerabilities, or upstream hosting facility emergencies, Inferth Mapping reserves the right to perform emergency maintenance with immediate notice.
 
 ---
 
-## 5. Exclusions & Emerging Market Limitations
+## 6. Exclusions & Emerging Market Limitations
 
 Inferth Mapping operates specialized telematics infrastructure designed for Southern Africa. The following events are **strictly excluded** from downtime and SLA breaches:
 
@@ -92,11 +109,11 @@ Inferth Mapping operates specialized telematics infrastructure designed for Sout
 
 ---
 
-## 6. Service Credits (Enterprise Tier Only)
+## 7. Service Credits (Enterprise & Platform Fleet Rental)
 
-If Inferth Mapping fails to meet the guaranteed monthly availability commitment for an Enterprise contract, the Customer is eligible to receive a service credit applied to their subsequent billing invoice:
+If Inferth Mapping fails to meet the guaranteed monthly availability commitment (99.9%) for an **Enterprise** or **Platform Fleet Rental (Console Telematics)** contract, the Client is eligible to receive a service credit applied to their subsequent billing invoice:
 
-| Monthly Uptime Percentage | Service Credit Percentage (% of monthly fee) |
+| Monthly Uptime Percentage | Service Credit Percentage (% of monthly base fee) |
 | :--- | :--- |
 | **99.0% – 99.89%** | **10%** |
 | **95.0% – 98.99%** | **25%** |
@@ -106,12 +123,13 @@ If Inferth Mapping fails to meet the guaranteed monthly availability commitment 
 * Service credits must be claimed in writing within **30 calendar days** of the month in which the incident occurred.
 * Credits are non-refundable and cannot be exchanged for cash or transferred between accounts.
 * The total service credits awarded in any single calendar month shall not exceed **50%** of the customer's monthly recurring software subscription charges.
+* For **PAYD**, verified platform downtime exceeding 3 consecutive hours on an active tracking day is credited as a 100% refund of that day's daily tracking fee ($0.40/vehicle) back to the user's prepaid wallet.
 
 ---
 
-## 7. Customer Responsibilities
+## 8. Customer Responsibilities
 
 To maintain SLA coverage, Customers agree to:
 * Ensure trackers are configured to report to designated server ports with verified APN settings.
-* Promptly report suspected platform anomalies via designated support channels (WhatsApp Business hotline or `support@inferthmapping.co.zw`).
-* Keep billing accounts active and in good standing.
+* Promptly report suspected platform anomalies via designated support channels (WhatsApp Business hotline or `inferthprojects@gmail.com`).
+* Keep billing accounts and prepaid wallet balances in good standing.
