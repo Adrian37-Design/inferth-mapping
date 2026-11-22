@@ -393,7 +393,7 @@ async def _heal_paid_subscription(db: AsyncSession, tenant: Optional[Tenant]) ->
     if not tenant:
         return False
     # A cancelled subscription stays cancelled: healing must never resurrect it.
-    if (tenant.subscription_status or "").lower() == "cancelled":
+    if (tenant.subscription_status or "").lower() in ("cancelled", "canceled"):
         return False
     txn = (
         await db.execute(
@@ -689,18 +689,19 @@ async def cancel_subscription(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
-    if (tenant.subscription_status or "").lower() != "cancelled":
-        tenant.subscription_status = "cancelled"
-        tenant.next_billing_date = None
-        await db.commit()
-        # Cancelling must stop the meter and the paid add-ons it funded.
-        from app.services import usage_billing as ub
+    tenant.subscription_status = "cancelled"
+    tenant.next_billing_date = None
+    await db.commit()
+    # Cancelling must stop the meter and the paid add-ons it funded.
+    from app.services import usage_billing as ub
 
-        await ub.stop_tenant_sessions(db, tenant.id, "subscription_cancelled")
+    await ub.stop_tenant_sessions(db, tenant.id, "subscription_cancelled")
 
     return {
         "status": "cancelled",
         "plan": tenant.plan,
+        "cycle": tenant.billing_cycle,
+        "next_billing": None,
         "wallet_balance_usd": round(float(tenant.wallet_balance_usd or 0), 2),
     }
 

@@ -821,6 +821,12 @@ window.switchTab = function(targetId) {
         if (targetId === 'tab-billing') {
             loadBillingData();
             window.initBillingAccess();
+            if (window.AuthManager && typeof window.AuthManager.refreshUser === 'function') {
+                window.AuthManager.refreshUser().then(function() {
+                    loadBillingData();
+                    window.applySubscriptionGate();
+                }).catch(function() {});
+            }
         }
 
         if (targetId === 'tab-insights' && typeof window.loadInsights === 'function') {
@@ -867,10 +873,11 @@ window.showFullMap = function() {
 
 // --- Billing & Subscription Logic (Step 10) ---
 function loadBillingData() {
-    const user = window.AuthManager.user;
+    const user = window.AuthManager && window.AuthManager.user;
     if (!user || !user.subscription) return;
 
     const sub = user.subscription;
+    const active = String(sub.status || '').toLowerCase() === 'active';
     // Normalize plan naming (support both "Pro" and "Professional")
     const normalizedPlan = (sub.plan === 'Pro' || sub.plan === 'Professional' || sub.plan === 'Premium') ? 'Premium' : sub.plan;
 
@@ -881,14 +888,14 @@ function loadBillingData() {
     const nextDate = document.getElementById('billing-next-date');
     const pricingDisplay = document.querySelector('.plan-pricing');
 
-    if (planName) planName.textContent = normalizedPlan + ' Plan';
+    if (planName) planName.textContent = active ? (normalizedPlan + ' Plan') : 'No Active Plan';
     if (statusText) {
-        statusText.textContent = sub.status.charAt(0).toUpperCase() + sub.status.slice(1);
-        statusText.style.color = sub.status === 'active' ? 'var(--success)' : 'var(--danger)';
+        statusText.textContent = sub.status ? (sub.status.charAt(0).toUpperCase() + sub.status.slice(1)) : 'Inactive';
+        statusText.style.color = active ? 'var(--success)' : 'var(--danger)';
     }
-    if (cycleText) cycleText.textContent = sub.cycle;
+    if (cycleText) cycleText.textContent = active ? (sub.cycle || 'Monthly') : '\u2014';
     if (nextDate) {
-        if (sub.next_billing) {
+        if (active && sub.next_billing) {
             const date = new Date(sub.next_billing);
             nextDate.textContent = date.toLocaleDateString();
         } else {
@@ -9315,7 +9322,11 @@ window.applySubscriptionGate = function () {
         el.style.display = '';
     });
     const statusBar = document.getElementById('billing-current-plan-bar');
-    if (statusBar) statusBar.style.display = '';
+    if (statusBar) statusBar.style.display = 'none';
+    const monthlyUsageCard = document.getElementById('billing-monthly-usage-card');
+    if (monthlyUsageCard) monthlyUsageCard.style.display = 'none';
+    const bcpCancel = panel && panel.querySelector('.bcp-cancel');
+    if (bcpCancel) bcpCancel.style.display = 'none';
     Object.keys(views).forEach(function (m) {
         if (views[m]) views[m].classList.toggle('hidden', m !== (_billingCurrentMode || 'monthly'));
     });
@@ -9336,6 +9347,8 @@ window.showPlanChooser = function () {
     const head = panel && panel.querySelector('.bcp-head');
     const card = document.getElementById('active-plan-card');
     const hint = document.getElementById('subscription-chooser-hint');
+    const bcpCancel = panel && panel.querySelector('.bcp-cancel');
+    if (bcpCancel) bcpCancel.style.display = '';
     if (panel) panel.classList.remove('hidden');
     if (bar) bar.classList.add('hidden');
     if (head) head.classList.remove('hidden');
@@ -9346,6 +9359,8 @@ window.showPlanChooser = function () {
     });
     const statusBar = document.getElementById('billing-current-plan-bar');
     if (statusBar) statusBar.style.display = '';
+    const monthlyUsageCard = document.getElementById('billing-monthly-usage-card');
+    if (monthlyUsageCard) monthlyUsageCard.style.display = '';
     _billingModes.forEach(function (m) {
         const b = document.getElementById('btn-billing-' + m);
         if (b) b.classList.remove('hidden');
@@ -9364,13 +9379,23 @@ window.cancelSubscription = async function () {
         const res = await window.AuthManager.fetchAPI('/payments/subscription/cancel', { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || 'Could not cancel the subscription');
-        if (window.AuthManager.user && window.AuthManager.user.subscription) {
+        if (window.AuthManager && window.AuthManager.user) {
+            if (!window.AuthManager.user.subscription) window.AuthManager.user.subscription = {};
             window.AuthManager.user.subscription.status = 'cancelled';
+            window.AuthManager.user.subscription.next_billing = null;
+            try { localStorage.setItem('user', JSON.stringify(window.AuthManager.user)); } catch (e) {}
         }
         window._serverPrepaid = false;
+        if (typeof window.dismissPaymentResult === 'function') window.dismissPaymentResult();
         window.applySubscriptionGate();
+        if (typeof loadBillingData === 'function') loadBillingData();
         window.loadWalletBalance();
         if (typeof window.loadVehicles === 'function') window.loadVehicles();
+        if (window.AuthManager && typeof window.AuthManager.refreshUser === 'function') {
+            await window.AuthManager.refreshUser();
+            window.applySubscriptionGate();
+            if (typeof loadBillingData === 'function') loadBillingData();
+        }
     } catch (err) {
         alert(err.message);
     } finally {
@@ -9816,6 +9841,7 @@ window.activatePrepaidWallet = async function (btn) {
             window.AuthManager.user.subscription = Object.assign({}, window.AuthManager.user.subscription, {
                 plan: data.plan, cycle: data.cycle, status: 'active', next_billing: null
             });
+            try { localStorage.setItem('user', JSON.stringify(window.AuthManager.user)); } catch (e) {}
         }
         // The last payment's banner (e.g. the $60 Starter Pass) describes a plan
         // that is no longer active; it must not stay on screen after the switch.
@@ -10377,9 +10403,14 @@ window.refreshAfterPayment = async function () {
                 window.AuthManager.user.subscription = Object.assign(
                     {}, window.AuthManager.user.subscription || {}, data.subscription
                 );
+                try { localStorage.setItem('user', JSON.stringify(window.AuthManager.user)); } catch (e) {}
             }
         }
     } catch (e) { /* the payment banner still reports the outcome */ }
+
+    if (window.AuthManager && typeof window.AuthManager.refreshUser === 'function') {
+        await window.AuthManager.refreshUser();
+    }
 
     window.applySubscriptionGate();
     if (typeof loadBillingData === 'function') loadBillingData();

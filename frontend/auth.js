@@ -35,9 +35,15 @@ class AuthManager {
             }
         }
 
-        // Initialize 15-minute inactivity auto-logout on dashboard pages
+        // Initialize 15-minute inactivity auto-logout on dashboard pages & sync live profile
         if (!isAuthPage && this.isAuthenticated()) {
             this.initInactivityTimer(15);
+            this.refreshUser().then(u => {
+                if (u && typeof window.applySubscriptionGate === 'function') {
+                    window.applySubscriptionGate();
+                    if (typeof loadBillingData === 'function') loadBillingData();
+                }
+            }).catch(() => {});
         }
     }
 
@@ -267,6 +273,26 @@ class AuthManager {
         }
 
         return await response.json();
+    }
+
+    // Refresh current user profile & subscription from server, updating memory & localStorage
+    async refreshUser() {
+        if (!this.token) return null;
+        try {
+            const user = await this.getCurrentUser();
+            if (user) {
+                this.user = user;
+                try {
+                    localStorage.setItem('user', JSON.stringify(user));
+                } catch (e) {}
+                if (user.theme && !window.location.pathname.includes('login.html')) {
+                    this.applyTheme(user.theme);
+                }
+            }
+            return user;
+        } catch (e) {
+            return this.user;
+        }
     }
 
     // Logout
