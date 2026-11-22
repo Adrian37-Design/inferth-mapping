@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights
+from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights, resellers
 from app.services.mqtt_client import start_mqtt
 import asyncio
 import datetime
@@ -182,7 +182,27 @@ async def run_migrations_and_branding():
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR DEFAULT NULL",
                     # Road-matched route geometry cache (one row per device trip window)
                     "CREATE TABLE IF NOT EXISTS matched_routes (id SERIAL PRIMARY KEY, device_id INTEGER REFERENCES devices(id), start_ts TIMESTAMP WITH TIME ZONE NOT NULL, end_ts TIMESTAMP WITH TIME ZONE NOT NULL, fingerprint VARCHAR NOT NULL, segments JSON NOT NULL, engine VARCHAR NOT NULL DEFAULT 'valhalla', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
-                    "CREATE INDEX IF NOT EXISTS idx_matched_routes_lookup ON matched_routes(device_id, start_ts, end_ts)"
+                    "CREATE INDEX IF NOT EXISTS idx_matched_routes_lookup ON matched_routes(device_id, start_ts, end_ts)",
+
+                    # ── Platform Fleet Rental ── Reseller commercial contracts ──────────────────
+                    "CREATE TABLE IF NOT EXISTS reseller_contracts (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) UNIQUE NOT NULL, model VARCHAR(20) NOT NULL DEFAULT 'MODEL_A', status VARCHAR(20) NOT NULL DEFAULT 'active', commission_pct FLOAT DEFAULT 20.0, min_platform_contribution_usd FLOAT DEFAULT 20.0, lifetime_hosting_per_vehicle_usd FLOAT DEFAULT 1.50, custom_pricing_json JSON DEFAULT NULL, billing_day_of_month INTEGER DEFAULT 1, notes VARCHAR DEFAULT NULL, commenced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+
+                    # ── Platform Fleet Rental ── Per-tenant encrypted payment gateway credentials ─
+                    "CREATE TABLE IF NOT EXISTS tenant_gateways (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) UNIQUE NOT NULL, gateway_name VARCHAR(50) NOT NULL DEFAULT 'paynow', merchant_id_enc VARCHAR(500) NOT NULL DEFAULT '', merchant_key_enc VARCHAR(500) NOT NULL DEFAULT '', is_active BOOLEAN DEFAULT TRUE, webhook_url VARCHAR DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+
+                    # ── Platform Fleet Rental ── Monthly wholesale invoices ──────────────────────
+                    "CREATE TABLE IF NOT EXISTS reseller_invoices (id SERIAL PRIMARY KEY, invoice_number VARCHAR(50) UNIQUE NOT NULL, tenant_id INTEGER REFERENCES tenants(id) NOT NULL, model VARCHAR(20) NOT NULL, billing_period_start DATE NOT NULL, billing_period_end DATE NOT NULL, active_vehicles_count INTEGER DEFAULT 0, lifetime_vehicles_count INTEGER DEFAULT 0, gross_customer_revenue_usd NUMERIC(12,2) DEFAULT 0.00, calculated_amount_usd NUMERIC(12,2) DEFAULT 0.00, adjustments_usd NUMERIC(12,2) DEFAULT 0.00, total_due_usd NUMERIC(12,2) DEFAULT 0.00, status VARCHAR(20) DEFAULT 'unpaid', notes VARCHAR DEFAULT NULL, paid_at TIMESTAMP WITH TIME ZONE DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+
+                    # ── Platform Fleet Rental ── Commission audit ledger (Model B) ───────────────
+                    "CREATE TABLE IF NOT EXISTS reseller_commission_ledger (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) NOT NULL, transaction_id INTEGER REFERENCES transactions(id), retail_amount_usd NUMERIC(12,2) DEFAULT 0.00, commission_pct FLOAT DEFAULT 20.0, inferth_commission_usd NUMERIC(12,2) DEFAULT 0.00, package_type VARCHAR(50) DEFAULT 'monthly', status VARCHAR(20) DEFAULT 'calculated', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+
+                    # ── Platform Fleet Rental ── Device billable service status ───────────────────
+                    "ALTER TABLE devices ADD COLUMN IF NOT EXISTS service_status VARCHAR DEFAULT 'active'",
+
+                    # ── Platform Fleet Rental ── Indexes ─────────────────────────────────────────
+                    "CREATE INDEX IF NOT EXISTS idx_reseller_invoices_tenant ON reseller_invoices(tenant_id, billing_period_start DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_commission_ledger_tenant ON reseller_commission_ledger(tenant_id, created_at DESC)",
+                    "CREATE INDEX IF NOT EXISTS idx_devices_service_status ON devices(tenant_id, service_status)",
                 ]
                 
                 for stmt in migration_statements:
@@ -336,6 +356,27 @@ async def _retention_daily_loop():
             await asyncio.sleep(3600)
 
 
+async def _reseller_monthly_invoicing_loop():
+    """Platform Fleet Rental: generates monthly wholesale invoices on the 1st of each month at 06:00 UTC."""
+    await asyncio.sleep(120)  # Let boot migrations finish first
+    while True:
+        try:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            if now.day == 1 and now.hour == 6:
+                from app.db import AsyncSessionLocal
+                from app.services.reseller_invoicing import run_monthly_invoicing
+                async with AsyncSessionLocal() as db:
+                    count = await run_monthly_invoicing(db)
+                    print(f"[ResellerInvoicing] Generated {count} monthly invoice(s)")
+                # Sleep 2 hours to avoid double-running in the same hour window
+                await asyncio.sleep(7200)
+            else:
+                await asyncio.sleep(1800)  # Check every 30 minutes
+        except Exception as exc:
+            print(f"[ResellerInvoicing] Loop error: {exc}")
+            await asyncio.sleep(3600)
+
+
 async def _whatsapp_keepalive_loop():
     """
     WhatsApp keepalive loop (every 2 minutes):
@@ -422,6 +463,7 @@ async def startup_event():
     # 1. Start Heavy Logic in Background to avoid 502 Gateway Timeouts during boot
     asyncio.create_task(run_migrations_and_branding())
     asyncio.create_task(_whatsapp_keepalive_loop())
+    asyncio.create_task(_reseller_monthly_invoicing_loop())
     if os.getenv("USAGE_BILLING", "true").strip().lower() != "false":
         asyncio.create_task(_usage_settlement_loop())
     if os.getenv("RETENTION_ENABLED", "false").strip().lower() == "true" and os.getenv("RETENTION_SCHEDULER", "true").strip().lower() == "true":
@@ -1181,6 +1223,8 @@ app.include_router(analytics.router)
 app.include_router(controller.router)
 app.include_router(tracker_secrets.router)
 app.include_router(insights.router)
+app.include_router(resellers.router)
+app.include_router(resellers.admin_router)
 
 @app.websocket("/ws/positions")
 async def websocket_endpoint(websocket: WebSocket):

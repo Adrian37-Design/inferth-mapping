@@ -42,6 +42,83 @@ paynow = Paynow(
     PAYNOW_RETURN_URL,
 )
 
+
+async def get_paynow_for_tenant(db: AsyncSession, tenant_id: int) -> Paynow:
+    """Return the Paynow client for the tenant: their own merchant gateway if configured,
+    or the default Inferth platform gateway."""
+    try:
+        from app.models import TenantGateway
+        from app.services.gateway_crypto import decrypt_credential
+
+        gw_res = await db.execute(
+            select(TenantGateway).where(
+                TenantGateway.tenant_id == tenant_id,
+                TenantGateway.is_active.is_(True),
+            )
+        )
+        gw = gw_res.scalar_one_or_none()
+        if gw and gw.merchant_id_enc and gw.merchant_key_enc:
+            m_id = decrypt_credential(gw.merchant_id_enc)
+            m_key = decrypt_credential(gw.merchant_key_enc)
+            if m_id and m_key:
+                res_url = gw.webhook_url or PAYNOW_RESULT_URL
+                return Paynow(m_id, m_key, res_url, PAYNOW_RETURN_URL)
+    except Exception as exc:
+        print(f"[get_paynow_for_tenant] fallback to default: {exc}")
+    return paynow
+
+
+async def _record_reseller_commission_if_applicable(db: AsyncSession, txn: Transaction) -> None:
+    """Under Model B, record Inferth's revenue share into the commission audit ledger."""
+    try:
+        from app.models import ResellerContract, ResellerCommissionLedger
+
+        contract_res = await db.execute(
+            select(ResellerContract).where(
+                ResellerContract.tenant_id == txn.tenant_id,
+                ResellerContract.status == "active",
+                ResellerContract.model == "MODEL_B",
+            )
+        )
+        contract = contract_res.scalar_one_or_none()
+        if not contract:
+            return
+
+        # Prevent duplicate entries for the same transaction
+        existing = await db.execute(
+            select(ResellerCommissionLedger).where(
+                ResellerCommissionLedger.transaction_id == txn.id
+            )
+        )
+        if existing.scalar_one_or_none():
+            return
+
+        amt = float(txn.amount_usd or 0.0)
+        comm_pct = float(contract.commission_pct or 20.0)
+        inferth_cut = round(amt * (comm_pct / 100.0), 2)
+
+        plan_low = (txn.plan_name or "").lower()
+        if any(tag in plan_low for tag in ("lifetime", "starter", "onceoff", "once-off")):
+            pkg_type = "onceoff_lifetime"
+        elif plan_low == TOPUP_PLAN.lower() or "payd" in plan_low or "wallet" in plan_low:
+            pkg_type = "payd"
+        else:
+            pkg_type = "monthly"
+
+        ledger = ResellerCommissionLedger(
+            tenant_id=txn.tenant_id,
+            transaction_id=txn.id,
+            retail_amount_usd=amt,
+            commission_pct=comm_pct,
+            inferth_commission_usd=inferth_cut,
+            package_type=pkg_type,
+            status="calculated",
+        )
+        db.add(ledger)
+        await db.commit()
+    except Exception as exc:
+        print(f"[ResellerCommission] Ledger record failed: {exc}")
+
 # Product identifiers shared by checkout and the payment handlers. These must be
 # module-level: `_is_subscription_txn` decides whether a paid transaction is a
 # plan purchase, and it is called from the webhook, the status poll and the
@@ -106,7 +183,8 @@ async def initiate_paynow(
     Basic/Premium are billed per vehicle: the price is derived from the tenant's own
     fleet size and the billing period, so the browser cannot choose a cheaper band.
     """
-    if not PAYNOW_ID or not PAYNOW_KEY:
+    active_paynow = await get_paynow_for_tenant(db, current_user.tenant_id)
+    if not active_paynow.integration_id or not active_paynow.integration_key:
         raise HTTPException(status_code=503, detail="Online payments are not configured")
     
     # Server-side prices. The browser may pass an amount, but it is only accepted
@@ -219,10 +297,10 @@ async def initiate_paynow(
             else f"Inferth {plan_name} Subscription"
         )
     )
-    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or "billing@inferthmapping.co.zw")
+    payment = active_paynow.create_payment(f"INV-{txn.id}", current_user.email or "billing@inferthmapping.co.zw")
     payment.add(item_label, charge_amount)
     
-    response = paynow.send(payment)
+    response = active_paynow.send(payment)
     
     if response.success:
         txn.paynow_reference = response.poll_url
@@ -252,7 +330,8 @@ async def initiate_paynow_mobile(
     Initiates express mobile checkout via EcoCash or OneMoney USSD push
     using Paynow Python SDK's send_mobile() method.
     """
-    if not PAYNOW_ID or not PAYNOW_KEY:
+    active_paynow = await get_paynow_for_tenant(db, current_user.tenant_id)
+    if not active_paynow.integration_id or not active_paynow.integration_key:
         raise HTTPException(status_code=503, detail="Online payments are not configured")
     
     method_clean = method.lower().strip()
@@ -282,10 +361,10 @@ async def initiate_paynow_mobile(
     await db.commit()
     await db.refresh(txn)
 
-    payment = paynow.create_payment(f"INV-{txn.id}", current_user.email or f"{clean_phone}@inferthmapping.co.zw")
+    payment = active_paynow.create_payment(f"INV-{txn.id}", current_user.email or f"{clean_phone}@inferthmapping.co.zw")
     payment.add(f"Inferth {plan_name}", charge_amount)
     
-    response = paynow.send_mobile(payment, clean_phone, method_clean)
+    response = active_paynow.send_mobile(payment, clean_phone, method_clean)
     
     if response.success:
         txn.paynow_reference = response.poll_url
@@ -466,7 +545,8 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
     if not txn or not txn.paynow_reference:
         return txn
     try:
-        status = paynow.check_transaction_status(txn.paynow_reference)
+        active_paynow = await get_paynow_for_tenant(db, txn.tenant_id)
+        status = active_paynow.check_transaction_status(txn.paynow_reference)
     except Exception:
         return txn
 
@@ -560,6 +640,7 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
         # that message, sent once per transaction (the same latch that applies
         # the plan guarantees it cannot fire twice).
         await _send_payment_receipt(db, txn)
+        await _record_reseller_commission_if_applicable(db, txn)
     return txn
 
 

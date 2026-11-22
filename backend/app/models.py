@@ -89,6 +89,7 @@ class Device(Base):
     name = Column(String)
     driver_name = Column(String, nullable=True) # Added driver name
     company = Column(String, nullable=True) # Company/operator name for this tracker
+    service_status = Column(String, default="active", index=True) # active, suspended, unassigned
     tenant_id = Column(Integer, ForeignKey("tenants.id"))
     device_metadata = Column(JSON, default={})
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -413,3 +414,85 @@ class DeviceUsageDaily(Base):
     minutes = Column(Float, default=0.0)
     usd_billed = Column(Numeric(14, 6, asdecimal=False), default=0.0)
     capped = Column(Boolean, default=False)
+
+
+# --- PLATFORM FLEET RENTAL & MULTI-TENANT RESELLER ARCHITECTURE ---
+
+class ResellerContract(Base):
+    """Commercial contract and pricing configuration for a renting platform tenant."""
+    __tablename__ = "reseller_contracts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), unique=True, index=True, nullable=False)
+    model = Column(String(20), default="MODEL_A", nullable=False)  # MODEL_A (Wholesale) | MODEL_B (RevShare)
+    status = Column(String(20), default="active", nullable=False)  # pending | active | overdue | restricted | suspended | terminated
+    commission_pct = Column(Float, default=20.0)                  # Model B: percentage split for Inferth (e.g. 20%)
+    min_platform_contribution_usd = Column(Float, default=20.0)   # Model B: minimum monthly floor (e.g. $20)
+    lifetime_hosting_per_vehicle_usd = Column(Float, default=1.50)# Model B: monthly hosting per active lifetime vehicle
+    custom_pricing_json = Column(JSON, nullable=True)             # Super Admin overrides for progressive bands
+    billing_day_of_month = Column(Integer, default=1)             # Day of month invoice generates
+    commenced_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    tenant = relationship("Tenant")
+
+
+class TenantGateway(Base):
+    """Encrypted merchant payment gateway credentials per reseller tenant."""
+    __tablename__ = "tenant_gateways"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), unique=True, index=True, nullable=False)
+    gateway_name = Column(String(50), default="paynow", nullable=False)
+    merchant_id_enc = Column(String(500), nullable=False)
+    merchant_key_enc = Column(String(500), nullable=False)
+    is_active = Column(Boolean, default=True)
+    webhook_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    tenant = relationship("Tenant")
+
+
+class ResellerInvoice(Base):
+    """Monthly wholesale platform rental or commission invoice issued to a reseller."""
+    __tablename__ = "reseller_invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_number = Column(String(50), unique=True, index=True, nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    model = Column(String(20), nullable=False)                   # MODEL_A | MODEL_B
+    billing_period_start = Column(Date, nullable=False)
+    billing_period_end = Column(Date, nullable=False)
+    active_vehicles_count = Column(Integer, default=0)
+    lifetime_vehicles_count = Column(Integer, default=0)
+    gross_customer_revenue_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    calculated_amount_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    adjustments_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    total_due_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    status = Column(String(20), default="unpaid", index=True)    # unpaid | paid | overdue | voided
+    notes = Column(String, nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tenant = relationship("Tenant")
+
+
+class ResellerCommissionLedger(Base):
+    """Audit log of individual customer transaction commissions under Model B."""
+    __tablename__ = "reseller_commission_ledger"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True, index=True)
+    retail_amount_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    commission_pct = Column(Float, default=20.0)
+    inferth_commission_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    package_type = Column(String(50), default="monthly")         # monthly | onceoff_lifetime | payd
+    status = Column(String(20), default="calculated", index=True)# calculated | payable | settled | reversed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    tenant = relationship("Tenant")
+

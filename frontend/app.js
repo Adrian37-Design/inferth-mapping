@@ -9247,6 +9247,10 @@ function applyBillingView(mode) {
         window.loadPrepaidUsage();
         window.loadPrepaidTrackingList();
     }
+    if (mode === 'rental') {
+        if (typeof window.refreshConsoleRentalPricing === 'function') window.refreshConsoleRentalPricing();
+        if (typeof window.loadResellerPortal === 'function') window.loadResellerPortal();
+    }
 }
 
 function _subscriptionMode(sub) {
@@ -10977,12 +10981,12 @@ function _setEl(id, text) {
 
 
 /* ---------- Platform Fleet Rental: priced on the renter's own fleet ---------- */
-// $15 covers the first 5 client vehicles of the console; every vehicle above
+// $20 covers the first 5 client vehicles of the console; every vehicle above
 // that is billed on the progressive reseller bands. These are the same numbers
 // the server recomputes before Paynow is called.
-var CONSOLE_BASE_FEE = 15;
+var CONSOLE_BASE_FEE = 20;
 var CONSOLE_BASE_VEHICLES = 5;
-var CONSOLE_BANDS = [[25, 1.70], [75, 1.00], [200, 0.80]];
+var CONSOLE_BANDS = [[25, 2.50], [75, 2.00], [200, 1.50], [500, 1.25], [Infinity, 1.00]];
 var CONSOLE_TIERS = {
     base: { min: 1, max: 5, label: 'Base' },
     growth: { min: 6, max: 25, label: 'Growth' },
@@ -10994,16 +10998,16 @@ function consoleRentalQuote(count) {
     if (n <= CONSOLE_BASE_VEHICLES) {
         return { count: n, total: CONSOLE_BASE_FEE, tier: 'base', custom: false };
     }
-    if (n > CONSOLE_BANDS[CONSOLE_BANDS.length - 1][0]) {
-        return { count: n, total: null, tier: 'enterprise', custom: true };
-    }
     var total = CONSOLE_BASE_FEE;
     var covered = CONSOLE_BASE_VEHICLES;
-    CONSOLE_BANDS.forEach(function(band) {
-        if (n <= covered) return;
-        total += (Math.min(n, band[0]) - covered) * band[1];
-        covered = band[0];
-    });
+    for (var i = 0; i < CONSOLE_BANDS.length; i++) {
+        var cap = CONSOLE_BANDS[i][0];
+        var rate = CONSOLE_BANDS[i][1];
+        if (n <= covered) break;
+        var inBand = Math.min(n, cap) - covered;
+        total += inBand * rate;
+        covered = cap;
+    }
     var tier = n <= 25 ? 'growth' : 'scale';
     return { count: n, total: Math.round(total * 100) / 100, tier: tier, custom: false };
 }
@@ -11015,10 +11019,8 @@ window.refreshConsoleRentalPricing = function() {
     var text = document.getElementById('console-rental-live-quote-text');
     if (text) {
         var vehicles = quote.count + ' vehicle' + (quote.count === 1 ? '' : 's');
-        if (quote.custom) {
-            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 above 200 vehicles it is priced on an Enterprise quotation.';
-        } else if (quote.count <= CONSOLE_BASE_VEHICLES) {
-            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $15 console fee already covers the first 5).';
+        if (quote.count <= CONSOLE_BASE_VEHICLES) {
+            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $20 minimum covers the first 5).';
         } else {
             text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> on the ' + CONSOLE_TIERS[quote.tier].label + ' reseller rate.';
         }
@@ -11033,13 +11035,114 @@ window.refreshConsoleRentalPricing = function() {
         if (active) {
             btn.textContent = 'Activate ' + quote.count + ' vehicle' + (quote.count === 1 ? '' : 's') +
                 ' \u2014 $' + quote.total.toFixed(2) + '/mo';
-        } else if (quote.custom) {
-            btn.textContent = tier.label + ' tier \u2014 request a quote';
         } else {
             btn.textContent = tier.label + ' tier \u2014 ' +
                 (key === 'base' ? 'up to 5 vehicles' : (key === 'growth' ? '6 to 25 vehicles' : '26 to 200 vehicles'));
         }
     });
+};
+
+// Reseller Gateway and Invoices loader
+window.loadResellerPortal = async function() {
+    var badge = document.getElementById('reseller-contract-badge');
+    var invList = document.getElementById('reseller-invoices-list');
+    try {
+        var planRes = await fetch('/resellers/my-plan', {
+            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+        });
+        if (planRes.ok) {
+            var planData = await planRes.json();
+            if (badge) {
+                if (planData.has_reseller_contract) {
+                    var mLabel = planData.contract.model === 'MODEL_B' ? 'Model B (RevShare ' + planData.contract.commission_pct + '%)' : 'Model A (Wholesale)';
+                    badge.textContent = mLabel + ' \u2014 ' + planData.contract.status.toUpperCase();
+                    badge.style.background = planData.contract.status === 'active' ? '#16a34a' : '#ea580c';
+                } else {
+                    badge.textContent = 'Standard Tenant Account';
+                    badge.style.background = '#64748b';
+                }
+            }
+        }
+
+        var gwRes = await fetch('/resellers/my-gateway', {
+            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+        });
+        if (gwRes.ok) {
+            var gwData = await gwRes.json();
+            var gwIdInput = document.getElementById('reseller-gateway-id');
+            if (gwIdInput && gwData.configured && gwData.merchant_id_masked) {
+                gwIdInput.value = gwData.merchant_id_masked;
+                gwIdInput.placeholder = gwData.merchant_id_masked;
+            }
+        }
+
+        var invRes = await fetch('/resellers/my-invoices', {
+            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
+        });
+        if (invRes.ok && invList) {
+            var invoices = await invRes.json();
+            if (!invoices || !invoices.length) {
+                invList.innerHTML = '<em>No monthly invoices issued yet. Invoices generate on the 1st of each month.</em>';
+            } else {
+                var html = '<table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:0.75rem;">' +
+                    '<thead><tr style="border-bottom:1px solid #cbd5e1; text-align:left; color:#475569;">' +
+                    '<th style="padding:4px 6px;">Invoice #</th><th>Period</th><th>Vehicles</th><th>Model</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+                invoices.forEach(function(inv) {
+                    var stColor = inv.status === 'paid' ? '#16a34a' : (inv.status === 'unpaid' ? '#ea580c' : '#dc2626');
+                    html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
+                        '<td style="padding:5px 6px; font-weight:700;">' + inv.invoice_number + '</td>' +
+                        '<td>' + inv.billing_period_start + ' to ' + inv.billing_period_end + '</td>' +
+                        '<td>' + inv.active_vehicles_count + '</td>' +
+                        '<td>' + inv.model + '</td>' +
+                        '<td>$' + Number(inv.total_due_usd).toFixed(2) + '</td>' +
+                        '<td><span style="color:' + stColor + '; font-weight:700;">' + inv.status.toUpperCase() + '</span></td>' +
+                        '</tr>';
+                });
+                html += '</tbody></table>';
+                invList.innerHTML = html;
+            }
+        }
+    } catch (e) {
+        if (invList) invList.innerHTML = '<em>Could not load reseller data.</em>';
+    }
+};
+
+window.saveResellerGateway = async function() {
+    var idInput = document.getElementById('reseller-gateway-id');
+    var keyInput = document.getElementById('reseller-gateway-key');
+    var msg = document.getElementById('reseller-gateway-status-msg');
+    if (!idInput || !keyInput) return;
+
+    var mId = (idInput.value || '').trim();
+    var mKey = (keyInput.value || '').trim();
+    if (!mId || !mKey) {
+        alert('Please provide both Paynow Integration ID and Integration Key.');
+        return;
+    }
+
+    try {
+        var res = await fetch('/resellers/my-gateway', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+            },
+            body: JSON.stringify({ merchant_id: mId, merchant_key: mKey })
+        });
+        var data = await res.json();
+        if (res.ok) {
+            if (msg) {
+                msg.textContent = '\u2713 ' + (data.message || 'Gateway credentials encrypted and saved.');
+                msg.style.display = 'block';
+            }
+            keyInput.value = '';
+            if (data.merchant_id_masked) idInput.value = data.merchant_id_masked;
+        } else {
+            alert('Failed to save gateway: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error saving gateway credentials: ' + err.message);
+    }
 };
 
 // One button behaviour for all three cards: charge for the fleet this console
