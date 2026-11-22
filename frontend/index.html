@@ -2113,7 +2113,7 @@
                                 </div>
                                 <label style="font-size:0.8rem; font-weight:700; color:#0f172a; display:block; margin-bottom:8px;">Instant EcoCash / Paynow Wallet Top-up:</label>
                                 <!-- Optional features: buy per vehicle, from the wallet or with Paynow -->
-                                <div id="feature-catalog-block" style="margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+                                <div id="feature-catalog-block" style="display:none; margin: 14px 0 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
                                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
                                         <div style="font-weight: 800; font-size: 0.82rem; color: #0f172a;">Optional features (per vehicle)</div>
                                         <label style="font-size:0.75rem; color:#475569;">
@@ -2130,7 +2130,7 @@
                                 </div>
 
                                 <!-- Per-vehicle start/stop for pay-as-you-drive -->
-                                <div id="prepaid-tracking-card" style="margin: 0 0 16px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;">
+                                <div id="prepaid-tracking-card" class="hidden" style="display:none; margin: 0 0 16px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px;">
                                     <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;">
                                         <h4 style="margin:0; font-size:0.9rem; font-weight:800; color:#0f172a;">Tracking per vehicle</h4>
                                         <span style="font-size:0.72rem; color:#64748b;">Start when a vehicle is on the road; stop to pause billing and the live map.</span>
@@ -2827,7 +2827,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=216"></script>
+    <script src="/static/app.js?v=217"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=6"></script>
     <!-- Payment Modal -->

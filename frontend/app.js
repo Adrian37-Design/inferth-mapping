@@ -9327,6 +9327,15 @@ window.applySubscriptionGate = function () {
     if (monthlyUsageCard) monthlyUsageCard.style.display = 'none';
     const bcpCancel = panel && panel.querySelector('.bcp-cancel');
     if (bcpCancel) bcpCancel.style.display = 'none';
+    const featureBlock = document.getElementById('feature-catalog-block');
+    if (featureBlock) featureBlock.style.display = 'none';
+    const trackingCard = document.getElementById('prepaid-tracking-card');
+    if (trackingCard) {
+        trackingCard.classList.add('hidden');
+        trackingCard.style.display = 'none';
+    }
+    const prepaidUsageCard = document.getElementById('prepaid-usage-card');
+    if (prepaidUsageCard) prepaidUsageCard.classList.add('hidden');
     Object.keys(views).forEach(function (m) {
         if (views[m]) views[m].classList.toggle('hidden', m !== (_billingCurrentMode || 'monthly'));
     });
@@ -9386,6 +9395,16 @@ window.cancelSubscription = async function () {
             try { localStorage.setItem('user', JSON.stringify(window.AuthManager.user)); } catch (e) {}
         }
         window._serverPrepaid = false;
+        window._walletBalance = 0;
+        const featureBlock = document.getElementById('feature-catalog-block');
+        if (featureBlock) featureBlock.style.display = 'none';
+        const trackingCard = document.getElementById('prepaid-tracking-card');
+        if (trackingCard) {
+            trackingCard.classList.add('hidden');
+            trackingCard.style.display = 'none';
+        }
+        const prepaidUsageCard = document.getElementById('prepaid-usage-card');
+        if (prepaidUsageCard) prepaidUsageCard.classList.add('hidden');
         if (typeof window.dismissPaymentResult === 'function') window.dismissPaymentResult();
         window.applySubscriptionGate();
         if (typeof loadBillingData === 'function') loadBillingData();
@@ -9433,9 +9452,13 @@ window.ensurePrepaidState = async function () {
 };
 
 window.isPrepaidTenant = function () {
-    if (window._serverPrepaid !== null) return window._serverPrepaid;
     const sub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+    const isCancelled = sub && String(sub.status || '').toLowerCase() === 'cancelled';
+    if (isCancelled) return false;
+    if (window._serverPrepaid !== null) return window._serverPrepaid;
     if (!sub) return false;
+    const active = String(sub.status || '').toLowerCase() === 'active';
+    if (!active) return false;
     const descriptor = ((sub.plan || '') + ' ' + (sub.cycle || '')).toLowerCase();
     return descriptor.includes('prepaid') || descriptor.includes('wallet');
 };
@@ -9553,7 +9576,11 @@ window.loadDeviceFeatureState = async function () {
 window.loadFeatureCatalog = async function () {
     const box = document.getElementById('feature-catalog-list');
     const block = document.getElementById('feature-catalog-block');
-    if (!window.isPrepaidTenant()) {
+    const balance = Number(window._walletBalance || 0);
+    const sub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+    const isCancelled = sub && String(sub.status || '').toLowerCase() === 'cancelled';
+    const canShow = window.isPrepaidTenant() && !isCancelled && balance > 0;
+    if (!canShow) {
         if (block) block.style.display = 'none';
         return;
     }
@@ -9603,11 +9630,21 @@ window.loadPrepaidTrackingList = async function () {
     const box = document.getElementById('prepaid-tracking-list');
     const card = document.getElementById('prepaid-tracking-card');
     if (!box || !window.AuthManager || !window.AuthManager.fetchAPI) return;
-    if (!window.isPrepaidTenant()) {
-        if (card) card.classList.add('hidden');
+    const balance = Number(window._walletBalance || 0);
+    const sub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+    const isCancelled = sub && String(sub.status || '').toLowerCase() === 'cancelled';
+    const canShow = window.isPrepaidTenant() && !isCancelled && balance > 0;
+    if (!canShow) {
+        if (card) {
+            card.classList.add('hidden');
+            card.style.display = 'none';
+        }
         return;
     }
-    if (card) card.classList.remove('hidden');
+    if (card) {
+        card.classList.remove('hidden');
+        card.style.display = '';
+    }
     try {
         let vehicles = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles)) ? allVehicles : [];
         if (!vehicles.length) {
@@ -9772,6 +9809,7 @@ window.loadWalletBalance = async function () {
             : 0;
         const held = Number(data.held_usd != null ? data.held_usd : (prepaidActive ? 0 : (data.balance_usd || 0)));
         const balance = available;
+        window._walletBalance = balance;
         const burn = Number(data.daily_burn_usd || 0);
         el.innerHTML = '$' + balance.toFixed(2) +
             ' <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span>';
@@ -9795,8 +9833,20 @@ window.loadWalletBalance = async function () {
                 note.style.color = '#b45309';
             }
         }
+
+        const subObj = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+        const isCancelled = subObj && String(subObj.status || '').toLowerCase() === 'cancelled';
+        const canShowPrepaid = prepaidActive && !isCancelled && (balance > 0);
+
+        const featureBlock = document.getElementById('feature-catalog-block');
+        if (featureBlock) featureBlock.style.display = canShowPrepaid ? '' : 'none';
+        const trackingCard = document.getElementById('prepaid-tracking-card');
+        if (trackingCard) {
+            trackingCard.classList.toggle('hidden', !canShowPrepaid);
+            trackingCard.style.display = canShowPrepaid ? '' : 'none';
+        }
         const usageCard = document.getElementById('prepaid-usage-card');
-        if (usageCard) usageCard.classList.toggle('hidden', !prepaidActive);
+        if (usageCard) usageCard.classList.toggle('hidden', !canShowPrepaid);
 
         const activateBtn = document.getElementById('activate-prepaid-btn');
         if (activateBtn) {
