@@ -69,6 +69,203 @@ async def get_driver_insights_endpoint(
     return data
 
 
+@router.post("/demo-showcase")
+async def seed_demo_showcase_insights(
+    expire_minutes: int = 60,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_manager)
+):
+    """
+    Seeds a high-impact, eye-catching suite of realistic demo insights
+    specifically tailored for a client presentation.
+    All seeded insights automatically expire after `expire_minutes` (default: 60 mins).
+    """
+    tenant_id = current_user.tenant_id
+    fuel_price = getattr(settings, "FUEL_PRICE_USD", 2.04)
+
+    # Fetch available vehicles for this tenant
+    dev_res = await db.execute(select(Device).where(Device.tenant_id == tenant_id))
+    devices = dev_res.scalars().all()
+    
+    primary_dev = devices[0] if devices else None
+    secondary_dev = devices[1] if len(devices) > 1 else primary_dev
+    
+    dev1_id = primary_dev.id if primary_dev else 1
+    dev1_name = primary_dev.name if primary_dev else "Freightliner Argosy (ABG-4921)"
+    driver1_name = (primary_dev.driver_name if primary_dev and primary_dev.driver_name else None) or "Tinashe Moyo"
+
+    dev2_id = secondary_dev.id if secondary_dev else 2
+    dev2_name = secondary_dev.name if secondary_dev else "Isuzu Forward 8-Ton (ADZ-1104)"
+    driver2_name = (secondary_dev.driver_name if secondary_dev and secondary_dev.driver_name else None) or "Blessing Sibanda"
+
+    now = datetime.utcnow()
+    expires_at = (now + timedelta(minutes=expire_minutes)).isoformat() + "Z"
+
+    demo_insights = [
+        # 1. Fuel Siphoning / Rapid Drain (Critical Alert - Money Impact)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev1_id,
+            driver_name=driver1_name,
+            role_target="manager",
+            category="fuel_siphoning",
+            severity="red",
+            title="Sudden Off-Shift Fuel Drain Detected",
+            description=f"Rapid 28.5 Litre fuel drop (-28.5 L) detected while ignition OFF and parked at Msasa Industrial Staging yard. Estimated loss: $58.14 USD.",
+            metric_value="-28.5 L",
+            money_impact=round(28.5 * fuel_price, 2),
+            status="open",
+            extra_data={
+                "vehicle_name": dev1_name,
+                "fuel_dropped": 28.5,
+                "fuel_price": fuel_price,
+                "time": (now - timedelta(minutes=24)).strftime("%Y-%m-%d %H:%M"),
+                "lat": -17.8412,
+                "lng": 31.1189,
+                "location_name": "Msasa Logistics Hub, Harare",
+                "actions": ["view_fuel_graph", "message_driver", "mark_resolved"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        ),
+
+        # 2. Unauthorized Night Trip (High Priority Exception)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev2_id,
+            driver_name=driver2_name,
+            role_target="manager",
+            category="unauthorized_night_trip",
+            severity="red",
+            title="Unauthorized Out-of-Hours Vehicle Movement",
+            description=f"{dev2_name} operated 46.2 km between 23:45 and 01:20 without a scheduled dispatch order. Geofence perimeter breached.",
+            metric_value="46.2 km (6.8 L)",
+            money_impact=round(6.8 * fuel_price, 2),
+            status="open",
+            extra_data={
+                "vehicle_name": dev2_name,
+                "distance_km": 46.2,
+                "fuel_used_l": 6.8,
+                "start_time": "23:45",
+                "end_time": "01:20",
+                "lat": -17.8251,
+                "lng": 31.0534,
+                "route": "Harare CBD &rarr; Chitungwiza Return Corridor",
+                "actions": ["view_trip_replay", "call_driver"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        ),
+
+        # 3. Excessive Fuel Burn / Inefficient Driving (Weekly Cost Optimization)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev1_id,
+            driver_name=driver1_name,
+            role_target="manager",
+            category="driver_costing_fuel",
+            severity="orange",
+            title="High Fuel Consumption Pattern",
+            description=f"Consuming 38.4 L/100km (+24% above fleet benchmark of 31.0 L/100km) caused by prolonged idling and aggressive acceleration.",
+            metric_value="38.4 vs 31.0 L/100km",
+            money_impact=round(33.6 * fuel_price, 2),
+            status="open",
+            extra_data={
+                "vehicle_name": dev1_name,
+                "driver_l100km": 38.4,
+                "fleet_avg_l100km": 31.0,
+                "route": "Harare &rarr; Norton Highway Transit",
+                "money_impact_per_week": round(33.6 * fuel_price, 2),
+                "fuel_price": fuel_price,
+                "actions": ["coach_driver", "check_vehicle"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        ),
+
+        # 4. Preventive Maintenance Due (Zero Downtime Fleet Protection)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev2_id,
+            driver_name=driver2_name,
+            role_target="manager",
+            category="service_due_soon",
+            severity="orange",
+            title="Scheduled B-Service Due in 320 km",
+            description=f"Odometer reached 9,680 km since last major overhaul. Engine coolant operating temperature peaking near 102°C on inclines.",
+            metric_value="9,680 / 10,000 km",
+            money_impact=450.00,
+            status="open",
+            extra_data={
+                "vehicle_name": dev2_name,
+                "km_since_service": 9680,
+                "days_left": 4,
+                "risk_cost": 450.0,
+                "actions": ["schedule_service", "assign_mechanic"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        ),
+
+        # 5. Top Driver Reward / Recognition (Culture of Safety)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev2_id,
+            driver_name=driver2_name,
+            role_target="manager",
+            category="best_driver_week",
+            severity="blue",
+            title="Top Safe Driver of the Week",
+            description=f"{driver2_name} achieved an exemplary 96/100 score with zero harsh braking maneuvers and optimal gear shift discipline across 840 km.",
+            metric_value="96/100 Score",
+            money_impact=None,
+            status="open",
+            extra_data={
+                "vehicle_name": dev2_name,
+                "score": 96,
+                "actions": ["send_bonus_praise"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        ),
+
+        # 6. Driver-Facing Alert: Engine Diagnostic Warning (Plain Language, Non-Technical)
+        Insight(
+            tenant_id=tenant_id,
+            device_id=dev1_id,
+            driver_name=driver1_name,
+            role_target="driver",
+            category="car_attention",
+            severity="red",
+            title="Engine Diagnostic: Coolant Temperature Alert",
+            description="What happened: Engine coolant temperature reached 108°C. What to do now: Pull over safely when convenient and notify your fleet coordinator.",
+            metric_value="Immediate Attention",
+            money_impact=None,
+            status="open",
+            extra_data={
+                "vehicle_name": dev1_name,
+                "plain_issue": "Engine coolant temperature running unusually high (108°C).",
+                "plain_action": "Pull over safely, let engine idle before shutdown, and contact maintenance.",
+                "actions": ["stop_safely", "call_manager", "find_nearest_mechanic"],
+                "expires_at": expires_at,
+                "is_demo": True
+            }
+        )
+    ]
+
+    for item in demo_insights:
+        db.add(item)
+    
+    await db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Successfully applied 6 client-ready showcase insights! They will automatically expire in {expire_minutes} minutes.",
+        "expires_at": expires_at,
+        "count": len(demo_insights)
+    }
+
+
 @router.post("/simulate")
 async def simulate_insight_event(
     payload: SimulateInsightIn,

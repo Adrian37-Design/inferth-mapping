@@ -187,8 +187,23 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
 
     cards: List[Dict[str, Any]] = []
     seen_categories_by_device = set()
+    current_utc = datetime.utcnow()
 
     for pi in persisted_insights:
+        # Check if insight has an explicit expiration timestamp in extra_data
+        if pi.extra_data and pi.extra_data.get("expires_at"):
+            try:
+                exp_dt = datetime.fromisoformat(pi.extra_data["expires_at"].replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    if current_utc >= exp_dt:
+                        continue
+                else:
+                    from datetime import timezone
+                    if datetime.now(timezone.utc) >= exp_dt:
+                        continue
+            except Exception:
+                pass
+
         dev = device_map.get(pi.device_id)
         dev_name = dev.name if dev else (pi.extra_data.get("vehicle_name") or f"Vehicle #{pi.device_id}")
         driver = dev.driver_name if dev and dev.driver_name else (pi.driver_name or "Assigned Driver")
@@ -565,8 +580,23 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
 
     cards: List[Dict[str, Any]] = []
     seen_categories = set()
+    current_utc = datetime.utcnow()
 
     for pi in persisted_insights:
+        # Check if insight has an explicit expiration timestamp in extra_data
+        if pi.extra_data and pi.extra_data.get("expires_at"):
+            try:
+                exp_dt = datetime.fromisoformat(pi.extra_data["expires_at"].replace("Z", "+00:00"))
+                if exp_dt.tzinfo is None:
+                    if current_utc >= exp_dt:
+                        continue
+                else:
+                    from datetime import timezone
+                    if datetime.now(timezone.utc) >= exp_dt:
+                        continue
+            except Exception:
+                pass
+
         dev = device_map.get(pi.device_id)
         cards.append({
             "id": pi.id,
