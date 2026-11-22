@@ -12,11 +12,11 @@ Trading as/operating the service known as Inferth Mapping
 **Registration Number:** 83217A0222026  
 **Email:** inferthprojects@gmail.com  
 
-**Client:**  
-Client: _______________________________  
-Address: _____________________________  
-Contact: _____________________________  
-Email: _______________________________  
+**Client / Platform Renter:**  
+Console Telematics (Operating under Platform Fleet Rental)  
+**Trading / Business Address:** _____________________________  
+**Contact Representative:** _____________________________  
+**Email:** _______________________________  
 
 ---
 
@@ -59,9 +59,13 @@ Inferth Mapping guarantees the following Core Platform Uptime across each calend
 * **Service Availability Remedy:** If a verified core gateway outage exceeds 3 consecutive hours on an active billing day, any tracking charges and activated daily add-on fees for that calendar day are credited back to the customer's prepaid wallet balance.
 * **Prepaid Wallet:** Wallet balances do not expire while the account remains in good standing.
 
-### 3.3 Platform Fleet Rental
-* **Wholesale & White-Label Infrastructure:** Dedicated multi-tenant environment, tenant sub-account management, device ingestion pipelines, and custom branding for tracking businesses.
-* **Tenant Isolation SLA:** Platform updates or system load on other accounts will not degrade, disrupt, or expose the Client's isolated fleet database.
+### 3.3 Platform Fleet Rental (Console Telematics & Wholesale Operators)
+* **Wholesale & White-Label Infrastructure:** Console Telematics and approved wholesale operators rent the platform (Inferth Mapping) to operate independent vehicle tracking and telematics businesses with dedicated multi-tenant isolation, custom branding, and autonomous customer administration.
+* **Authorized Retail Monetization Packages:** Through the rented Inferth Mapping platform, the Client is authorized to package and sell tracking services to its retail customers under three core monetization models:
+  1. **Monthly Subscription:** Recurring monthly or yearly fleet tracking (Basic and Premium tiers).
+  2. **Once-Off Lifetime Pass:** Perpetual software tracking access per registered vehicle with 30-day location history retention.
+  3. **Pay-As-You-Drive (PAYD):** Hourly pay-as-you-go telemetry ($0.02/tracked hour, settled every 5 minutes, capped at max $0.48/vehicle/day).
+* **Tenant Isolation SLA:** Platform updates, high concurrency, or system load on other accounts will not degrade, disrupt, or expose the Client's isolated fleet database.
 * **Escalated Support:** Platform Fleet Rental operators receive Enterprise-grade P1 (< 1 hour) support priority.
 
 ---

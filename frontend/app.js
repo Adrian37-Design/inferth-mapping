@@ -9291,7 +9291,18 @@ window.applySubscriptionGate = function () {
         if (cycleEl) cycleEl.textContent = sub.cycle || '\u2014';
         const nextEl = document.getElementById('active-plan-next');
         if (nextEl) {
-            nextEl.textContent = sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'Not scheduled';
+            if (mode === 'prepaid') {
+                const estDays = Number(window._estimatedDays != null ? window._estimatedDays : 0);
+                if (estDays > 0) {
+                    const estDate = new Date();
+                    estDate.setDate(estDate.getDate() + estDays);
+                    nextEl.textContent = estDate.toLocaleDateString() + ' (~' + estDays + ' active days left)';
+                } else {
+                    nextEl.textContent = sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'Top-up needed (0 days left)';
+                }
+            } else {
+                nextEl.textContent = sub.next_billing ? new Date(sub.next_billing).toLocaleDateString() : 'Not scheduled';
+            }
         }
 
         if (card) card.classList.toggle('hidden', _billingOptionsOpen);
@@ -9811,8 +9822,24 @@ window.loadWalletBalance = async function () {
         const balance = available;
         window._walletBalance = balance;
         const burn = Number(data.daily_burn_usd || 0);
+        const estimatedDays = Number(data.estimated_days || 0);
+        window._estimatedDays = estimatedDays;
         el.innerHTML = '$' + balance.toFixed(2) +
             ' <span style="font-size:0.9rem; font-weight:500; color:#64748b;">USD</span>';
+
+        // Update active plan next payment date if on prepaid
+        const activeSub = window.AuthManager && window.AuthManager.user && window.AuthManager.user.subscription;
+        const subMode = (typeof _subscriptionMode === 'function') ? _subscriptionMode(activeSub) : 'monthly';
+        const nextEl = document.getElementById('active-plan-next');
+        if (nextEl && subMode === 'prepaid') {
+            if (estimatedDays > 0) {
+                const estDate = new Date();
+                estDate.setDate(estDate.getDate() + estimatedDays);
+                nextEl.textContent = estDate.toLocaleDateString() + ' (~' + estimatedDays + ' active days left)';
+            } else {
+                nextEl.textContent = 'Top-up needed (0 days left)';
+            }
+        }
         const note = document.getElementById('prepaid-wallet-note');
         if (note) {
             if (!prepaidActive) {
