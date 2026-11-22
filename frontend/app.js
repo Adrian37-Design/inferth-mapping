@@ -9444,7 +9444,7 @@ window.refreshTrackingButtons = function () {
             : '<i class="fas fa-play"></i> <span>Start tracking</span>';
         btn.title = state === 'paused'
             ? 'Paused: wallet balance cannot cover more usage'
-            : active ? 'Billing $0.02 per tracked hour, capped at $0.40/day' : 'Start pay-as-you-drive tracking';
+            : active ? 'Billing $0.02 per tracked hour, capped at $0.48/day' : 'Start pay-as-you-drive tracking';
     });
     window.applyTrackingDimming();
 };

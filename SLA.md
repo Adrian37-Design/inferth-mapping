@@ -26,7 +26,7 @@ Inferth Mapping is a fleet tracking and telematics platform owned and operated b
 This Service Level Agreement ("SLA") defines the service availability, performance commitments, support tiers, and remedies provided by **Inferth Projects (Private) Limited** ("Company", "Provider", "we", "us") to the **Client** ("Customer", "you") across all active commercial plans and licensing models offered on the platform:
 * **Monthly / Annual Subscriptions:** Basic, Premium, and Enterprise.
 * **Once-Off Lifetime Pass:** Starter Pass (perpetual vehicle software tracking license).
-* **Pay-As-You-Drive (PAYD):** Daily usage billing ($0.40/active day + modular feature passes).
+* **Pay-As-You-Drive (PAYD):** Hourly usage billing ($0.02/tracked hour, settled every 5 minutes, capped at a maximum of $0.48/vehicle/day + modular feature passes).
 * **Platform Fleet Rental:** Dedicated console and cloud infrastructure for independent tracking companies, fleet management operators, and white-label resellers.
 
 ---
@@ -55,8 +55,8 @@ Inferth Mapping guarantees the following Core Platform Uptime across each calend
 * **Data Retention:** Standard 30-day rolling journey history and trip playback.
 
 ### 3.2 Pay-As-You-Drive (PAYD)
-* **Deduction Guarantee:** PAYD daily rate ($0.40/day) is only deducted for calendar days where the vehicle is marked active and reports telematics data to the gateway.
-* **Service Availability Remedy:** If a verified core gateway outage exceeds 3 consecutive hours on an active billing day, the daily charge and activated daily add-on fees for that calendar day are credited back to the customer's prepaid wallet balance.
+* **Usage & Cap Model:** PAYD tracking is billed at $0.02 per active tracked hour (settled incrementally every 5 minutes) up to a maximum daily cap of $0.48 per vehicle per 24-hour day. Deductions only apply while the vehicle is reporting active telemetry.
+* **Service Availability Remedy:** If a verified core gateway outage exceeds 3 consecutive hours on an active billing day, any tracking charges and activated daily add-on fees for that calendar day are credited back to the customer's prepaid wallet balance.
 * **Prepaid Wallet:** Wallet balances do not expire while the account remains in good standing.
 
 ### 3.3 Platform Fleet Rental
@@ -123,7 +123,7 @@ If Inferth Mapping fails to meet the guaranteed monthly availability commitment 
 * Service credits must be claimed in writing within **30 calendar days** of the month in which the incident occurred.
 * Credits are non-refundable and cannot be exchanged for cash or transferred between accounts.
 * The total service credits awarded in any single calendar month shall not exceed **50%** of the customer's monthly recurring software subscription charges.
-* For **PAYD**, verified platform downtime exceeding 3 consecutive hours on an active tracking day is credited as a 100% refund of that day's daily tracking fee ($0.40/vehicle) back to the user's prepaid wallet.
+* For **PAYD**, verified platform downtime exceeding 3 consecutive hours on an active tracking day is credited as a 100% refund of that day's tracking charges (up to $0.48/vehicle) back to the user's prepaid wallet.
 
 ---
 

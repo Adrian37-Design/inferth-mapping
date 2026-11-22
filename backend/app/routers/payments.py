@@ -635,6 +635,7 @@ async def request_enterprise_quotation(
     if vehicles < 1 or vehicles > 100000:
         raise HTTPException(status_code=400, detail="Enter how many vehicles you need quoted.")
     notes = (payload.notes or "").strip()[:500]
+    customer_phone = payload.phone or current_user.phone
 
     txn = Transaction(
         tenant_id=current_user.tenant_id,
@@ -651,7 +652,6 @@ async def request_enterprise_quotation(
     await db.refresh(txn)
     reference = f"QTE-{txn.id}"
 
-    customer_phone = payload.phone or current_user.phone
     customer_text = (
         f"Inferth Mapping \u2014 Enterprise quotation request {reference}\n"
         f"Vehicles: {vehicles}\n"
@@ -741,7 +741,7 @@ async def prepaid_wallet(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Prepaid Fleet Wallet balance, billed at $0.40 per active vehicle per day."""
+    """Prepaid Fleet Wallet balance, billed at up to $0.48 per active vehicle per day ($0.02/hour)."""
     tenant = (
         await db.execute(select(Tenant).where(Tenant.id == current_user.tenant_id))
     ).scalars().first()
@@ -767,11 +767,11 @@ async def prepaid_wallet(
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
-    from app.services.usage_billing import is_prepaid as _is_prepaid
+    from app.services.usage_billing import is_prepaid as _is_prepaid, DAILY_CAP_USD as _DAILY_CAP
 
     prepaid = _is_prepaid(tenant)
     balance = round(float(tenant.wallet_balance_usd or 0), 2)
-    daily_rate = 0.40
+    daily_rate = _DAILY_CAP
     per_day = round(daily_rate * max(int(vehicles), 1), 2)
     return {
         "is_prepaid": prepaid,

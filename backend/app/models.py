@@ -403,7 +403,7 @@ class TrackingSession(Base):
 
 
 class DeviceUsageDaily(Base):
-    """Per-vehicle daily usage, enforcing the $0.40 / 24h cap."""
+    """Per-vehicle daily usage, enforcing the $0.48 / 24h cap."""
     __tablename__ = "device_usage_daily"
 
     id = Column(Integer, primary_key=True, index=True)

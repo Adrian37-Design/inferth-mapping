@@ -5,7 +5,7 @@ Rate model (per vehicle):
   * Charges accumulate internally and are settled every 5 minutes.
   * A 2-minute session costs ~$0.00067 — the 5-minute tick is a settlement
     interval, never a minimum charge.
-  * Hard cap of $0.40 per vehicle per 24-hour period.
+  * Hard cap of $0.48 per vehicle per 24-hour period (24h × $0.02).
   * Tracking pauses when the wallet cannot cover the next settlement.
   * Wallet-funded features end when the balance reaches $0.
   * Balances are stored to 6 dp (customer-facing display rounds to 2 dp).
@@ -33,7 +33,7 @@ from app.models import (
 logger = logging.getLogger(__name__)
 
 RATE_PER_HOUR_USD = 0.02
-DAILY_CAP_USD = 0.40
+DAILY_CAP_USD = 0.48
 WALLET_MIN_USD = 10.00
 SETTLE_SECONDS = 300
 FRACTIONAL_DAY_MINUTES = 24 * 60
