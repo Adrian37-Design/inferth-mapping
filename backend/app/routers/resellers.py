@@ -623,6 +623,41 @@ async def _activate_confirmed_package(
     return None
 
 
+async def backfill_confirmed_packages(db: AsyncSession) -> int:
+    """Switch on the package behind POPs approved before approval did that.
+
+    Approvals made before this existed only set status="confirmed", so those
+    resellers still had no agreement and their account still read "No active
+    plan". Runs at boot, oldest first, and stamps every row it has seen with
+    activation_applied_at so the pass happens once per payment.
+    """
+    rows = (
+        await db.execute(
+            select(ManualPayment)
+            .where(
+                ManualPayment.status == "confirmed",
+                ManualPayment.activation_applied_at.is_(None),
+            )
+            .order_by(ManualPayment.created_at.asc())
+        )
+    ).scalars().all()
+    if not rows:
+        return 0
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    activated = 0
+    for payment in rows:
+        try:
+            if await _activate_confirmed_package(db, payment):
+                activated += 1
+        except Exception as exc:
+            print(f"POP activation backfill warning (payment {payment.id}): {exc}")
+        # Stamped even on failure: a permanently bad row must not re-run forever.
+        payment.activation_applied_at = now
+    await db.commit()
+    return activated
+
+
 @router.post("/manual-payments/{payment_id}/confirm")
 async def confirm_manual_payment(
     payment_id: int,
@@ -644,6 +679,7 @@ async def confirm_manual_payment(
     p.confirmed_by = current_user.email
     p.confirmed_at = datetime.datetime.now(datetime.timezone.utc)
     activation = await _activate_confirmed_package(db, p)
+    p.activation_applied_at = datetime.datetime.now(datetime.timezone.utc)
     await db.commit()
     return {
         "message": (

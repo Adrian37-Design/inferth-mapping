@@ -207,6 +207,7 @@ async def run_migrations_and_branding():
                     "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS num_vehicles INTEGER DEFAULT NULL",
                     "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS package_tier VARCHAR(50) DEFAULT NULL",
                     "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS payment_plan VARCHAR(50) DEFAULT NULL",
+                    "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS activation_applied_at TIMESTAMP WITH TIME ZONE DEFAULT NULL",
                     "CREATE INDEX IF NOT EXISTS idx_manual_payments_tenant ON manual_payments(tenant_id, created_at DESC)",
 
                     # ── Platform Fleet Rental ── Monthly wholesale invoices ──────────────────────
@@ -275,6 +276,17 @@ async def run_migrations_and_branding():
                         print(f"Merged {merged} duplicate usage ledger day(s).")
                 except Exception as e:
                     print(f"Usage ledger merge warning: {e}")
+
+                # Apply the package/contract a POP paid for on approvals made before
+                # approving actually switched it on. Each row is stamped once, so
+                # this is a no-op after the first pass.
+                try:
+                    from app.routers.resellers import backfill_confirmed_packages
+                    activated = await backfill_confirmed_packages(db)
+                    if activated:
+                        print(f"Activated {activated} previously approved proof(s) of payment.")
+                except Exception as e:
+                    print(f"POP activation backfill warning: {e}")
 
                 # Initialize Branding
                 try:

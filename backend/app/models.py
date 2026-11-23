@@ -483,6 +483,7 @@ class ManualPayment(Base):
     status = Column(String(20), default="pending")                  # pending | confirmed | rejected
     confirmed_by = Column(String(100), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    activation_applied_at = Column(DateTime(timezone=True), nullable=True)  # package/contract switched on by the approval
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tenant = relationship("Tenant")
