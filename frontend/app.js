@@ -319,6 +319,16 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadVehicles();
 
+    // Payments awaiting approval: keep the Settings rail badge live so an admin
+    // sees a customer's proof of payment without having to open Settings first.
+    const pollPendingPops = () => {
+        if (!window.AuthManager || typeof window.AuthManager.isAuthenticated !== 'function') return;
+        if (!window.AuthManager.isAuthenticated()) return;
+        if (typeof window.loadAdminPendingPops === 'function') window.loadAdminPendingPops();
+    };
+    setTimeout(pollPendingPops, 5000);
+    setInterval(pollPendingPops, 120000);
+
     // Dashboard map/table init lazily on first switchTab('tab-dashboard')
     const dashSearch = document.getElementById('dash-vehicle-search');
     if (dashSearch) dashSearch.addEventListener('input', () => renderDashVehicles());
@@ -7824,6 +7834,11 @@ function setupRulesEngine() {
     loadRules();
     loadRecentAlerts();
     setInterval(loadRecentAlerts, 10000); // Poll Alerts every 10s
+    // Poll pending subscription approvals every 60s for super-admin badge
+    if (typeof window.loadAdminPendingPops === 'function') {
+        window.loadAdminPendingPops();
+        setInterval(window.loadAdminPendingPops, 60000);
+    }
 }
 
 function renderRules() {
@@ -8644,6 +8659,7 @@ window.switchCompanySubtab = function(subtab) {
             btnCompanies.style.color = '#475569';
         }
         window.loadAdminResellers();
+        window.loadAdminPendingPops();
     } else {
         if (viewResellers) viewResellers.classList.add('hidden');
         if (viewCompanies) viewCompanies.classList.remove('hidden');
@@ -8656,6 +8672,129 @@ window.switchCompanySubtab = function(subtab) {
             btnResellers.style.color = '#475569';
         }
         loadCompanies();
+    }
+};
+
+// ─── Admin Pending Proof-of-Payment Approvals ───────────────────────────────
+window.loadAdminPendingPops = async function() {
+    const panel = document.getElementById('admin-pending-pops-panel');
+    const list = document.getElementById('admin-pending-pops-list');
+    const badge = document.getElementById('admin-pop-count-badge');
+    const tabBadge = document.getElementById('admin-pop-badge');
+    // Platform admins see this in the reseller tab; a company's own admin sees
+    // the same list in Settings, so every target that exists is painted.
+    const settingsCard = document.getElementById('pending-pops-admin');
+    const settingsList = document.getElementById('pending-pops-admin-list');
+    const settingsCount = document.getElementById('pending-pops-admin-count');
+    const railBadge = document.getElementById('rail-pending-pops');
+    const targets = [list, settingsList].filter(Boolean);
+    if (!targets.length) return;
+
+    targets.forEach(function (el) { el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading pending requests...'; });
+
+    try {
+        const res = await window.AuthManager.fetchAPI('/resellers/admin/pending-pops');
+        if (!res || !res.ok) {
+            if (panel) panel.style.display = 'none';
+            if (settingsCard) settingsCard.hidden = true;
+            return;
+        }
+        const pops = await res.json();
+
+        if (!Array.isArray(pops) || pops.length === 0) {
+            if (panel) panel.style.display = 'none';
+            if (settingsCard) settingsCard.hidden = true;
+            if (tabBadge) tabBadge.style.display = 'none';
+            if (railBadge) railBadge.classList.add('hidden');
+            return;
+        }
+
+        // Show panel and update counts
+        if (panel) panel.style.display = 'block';
+        if (settingsCard) settingsCard.hidden = false;
+        if (settingsCount) settingsCount.textContent = pops.length;
+        if (railBadge) {
+            railBadge.textContent = pops.length;
+            railBadge.classList.remove('hidden');
+        }
+        if (badge) badge.textContent = pops.length + ' pending';
+        if (tabBadge) {
+            tabBadge.textContent = pops.length;
+            tabBadge.style.display = 'flex';
+        }
+
+        const rowsHtml = pops.map(function(p) {
+            var tierColors = { 'Basic': '#0ea5e9', 'Premium': '#8b5cf6', 'Enterprise': '#f59e0b' };
+            var tierColor = tierColors[p.package_tier] || '#64748b';
+            var dateStr = p.created_at ? new Date(p.created_at).toLocaleString() : '—';
+            var previewHtml = p.proof_image_data
+                ? '<img src="' + p.proof_image_data + '" style="max-height:60px; border-radius:4px; cursor:pointer; border:1px solid #fde68a;" onclick="document.getElementById(\'pop-lightbox-img\').src=\'' + p.proof_image_data + '\'; document.getElementById(\'pop-image-lightbox\').style.display=\'flex\';">'
+                : '<span style="color:#94a3b8; font-size:0.75rem;">No screenshot</span>';
+            return '<div style="background:#fff; border:1px solid #fde68a; border-radius:8px; padding:12px 14px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">' +
+                '<div style="flex:1; min-width:200px;">' +
+                    '<div style="font-weight:800; color:#0f172a; font-size:0.88rem;">' + (p.payer_name || '—') + ' <span style="font-weight:400; color:#64748b;">— ' + (p.payer_phone || '') + '</span></div>' +
+                    '<div style="margin:4px 0; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
+                        '<span style="background:' + tierColor + '; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;">' + (p.package_tier || '—') + '</span>' +
+                        '<span style="background:#f1f5f9; color:#475569; font-size:0.68rem; font-weight:600; padding:2px 8px; border-radius:4px;">' + (p.payment_plan || '—') + '</span>' +
+                        '<span style="font-size:0.78rem; color:#0f172a; font-weight:700;">$' + parseFloat(p.amount_usd || 0).toFixed(2) + ' USD</span>' +
+                        '<span style="font-size:0.76rem; color:#334155;">' + (p.num_vehicles || '—') + ' vehicle' + (p.num_vehicles === 1 ? '' : 's') + '</span>' +
+                    '</div>' +
+                    '<div style="font-size:0.74rem; color:#94a3b8;">' + dateStr + (p.notes ? ' · ' + p.notes : '') + '</div>' +
+                    '<div style="font-size:0.74rem; color:#64748b; font-style:italic;">Tenant: ' + (p.tenant_name || 'ID ' + p.tenant_id) + '</div>' +
+                '</div>' +
+                '<div style="display:flex; flex-direction:column; align-items:center; gap:6px;">' +
+                    previewHtml +
+                    '<div style="display:flex; gap:6px; margin-top:4px;">' +
+                        '<button onclick="window.adminApprovePop(' + p.id + ', this)" style="background:#16a34a; color:#fff; border:none; border-radius:4px; padding:5px 12px; font-size:0.75rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Approve</button>' +
+                        '<button onclick="window.adminRejectPop(' + p.id + ', this)" style="background:#ef4444; color:#fff; border:none; border-radius:4px; padding:5px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;"><i class="fas fa-times"></i> Reject</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        targets.forEach(function (el) { el.innerHTML = rowsHtml; });
+
+    } catch (err) {
+        if (panel) panel.style.display = 'none';
+        if (settingsCard) settingsCard.hidden = true;
+        console.warn('loadAdminPendingPops error:', err.message);
+    }
+};
+
+window.adminApprovePop = async function(paymentId, btn) {
+    if (!confirm('Confirm that you have received the funds and approve this subscription request?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    try {
+        const res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + paymentId + '/confirm', { method: 'POST' });
+        if (res && res.ok) {
+            alert('\u2713 Subscription request approved! The customer\'s package is now active.');
+            window.loadAdminPendingPops();
+        } else {
+            const e = await res.json().catch(() => ({}));
+            alert('Error: ' + (e.detail || 'Could not approve.'));
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Approve'; }
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Approve'; }
+    }
+};
+
+window.adminRejectPop = async function(paymentId, btn) {
+    if (!confirm('Reject this proof of payment? The customer will need to resubmit.')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    try {
+        const res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + paymentId + '/reject', { method: 'POST' });
+        if (res && res.ok) {
+            alert('Payment rejected.');
+            window.loadAdminPendingPops();
+        } else {
+            const e = await res.json().catch(() => ({}));
+            alert('Error: ' + (e.detail || 'Could not reject.'));
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-times"></i> Reject'; }
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-times"></i> Reject'; }
     }
 };
 
@@ -9092,6 +9231,7 @@ function loadSettingsTab() {
     }
     if (typeof window.loadRetentionSettings === 'function') window.loadRetentionSettings();
     if (typeof window.loadEnterpriseQuotes === 'function') window.loadEnterpriseQuotes();
+    if (typeof window.loadAdminPendingPops === 'function') window.loadAdminPendingPops();
 }
 
 
@@ -11581,7 +11721,6 @@ window.updateRentalSimCalculations = function() {
 // Reseller Gateway, Invoices, and WhatsApp/EcoCash Payments loader
 window.loadResellerPortal = async function() {
     var badge = document.getElementById('reseller-contract-badge');
-    var invList = document.getElementById('reseller-invoices-list');
     try {
         var planRes = await window.AuthManager.fetchAPI('/resellers/my-plan');
         if (planRes && planRes.ok) {
@@ -11623,57 +11762,6 @@ window.loadResellerPortal = async function() {
             badge.style.background = '#64748b';
         }
 
-        var gwRes = await window.AuthManager.fetchAPI('/resellers/my-gateway');
-        if (gwRes && gwRes.ok) {
-            var gwData = await gwRes.json();
-            var gwIdInput = document.getElementById('reseller-gateway-id');
-            if (gwIdInput && gwData.configured && gwData.merchant_id_masked) {
-                gwIdInput.value = gwData.merchant_id_masked;
-                gwIdInput.placeholder = gwData.merchant_id_masked;
-            }
-            // Populate EcoCash & WhatsApp fields
-            var ecoNumInput = document.getElementById('reseller-ecocash-number');
-            var ecoNameInput = document.getElementById('reseller-ecocash-name');
-            var waNumInput = document.getElementById('reseller-whatsapp-number');
-            var instrInput = document.getElementById('reseller-payment-instructions');
-            var acceptToggle = document.getElementById('reseller-accept-manual');
-
-            if (ecoNumInput && gwData.ecocash_number) ecoNumInput.value = gwData.ecocash_number;
-            if (ecoNameInput && gwData.ecocash_name) ecoNameInput.value = gwData.ecocash_name;
-            if (waNumInput && gwData.whatsapp_number) waNumInput.value = gwData.whatsapp_number;
-            if (instrInput && gwData.payment_instructions) instrInput.value = gwData.payment_instructions;
-            if (acceptToggle && typeof gwData.accept_manual_payments === 'boolean') {
-                acceptToggle.checked = gwData.accept_manual_payments;
-            }
-        }
-
-        var invRes = await window.AuthManager.fetchAPI('/resellers/my-invoices');
-        if (invRes && invRes.ok && invList) {
-            var invoices = await invRes.json();
-            if (!invoices || !invoices.length) {
-                invList.innerHTML = '<em>No monthly wholesale invoices issued yet. Platform invoices generate on the 1st of each month.</em>';
-            } else {
-                var html = '<table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:0.75rem;">' +
-                    '<thead><tr style="border-bottom:1px solid #cbd5e1; text-align:left; color:#475569;">' +
-                    '<th style="padding:6px;">Invoice #</th><th>Period</th><th>Vehicles</th><th>Model</th><th>Total</th><th>Status</th></tr></thead><tbody>';
-                invoices.forEach(function(inv) {
-                    var stColor = inv.status === 'paid' ? '#16a34a' : (inv.status === 'unpaid' ? '#ea580c' : '#dc2626');
-                    html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
-                        '<td style="padding:6px; font-weight:700;">' + escapeHTML(inv.invoice_number) + '</td>' +
-                        '<td>' + (inv.billing_period_start || '').slice(0, 10) + ' to ' + (inv.billing_period_end || '').slice(0, 10) + '</td>' +
-                        '<td>' + (inv.active_vehicles_count || 0) + '</td>' +
-                        '<td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-size:0.7rem;">' + escapeHTML(inv.model) + '</span></td>' +
-                        '<td><strong style="color:#0f172a;">$' + Number(inv.total_due_usd || 0).toFixed(2) + '</strong></td>' +
-                        '<td><span style="color:' + stColor + '; font-weight:700;">' + escapeHTML(inv.status.toUpperCase()) + '</span></td>' +
-                        '</tr>';
-                });
-                html += '</tbody></table>';
-                invList.innerHTML = html;
-            }
-        } else if (invList) {
-            invList.innerHTML = '<em>No monthly wholesale invoices issued yet.</em>';
-        }
-
         // Load Manual Payments / Proof of Payment Ledger
         if (typeof window.loadManualPaymentsTable === 'function') {
             window.loadManualPaymentsTable();
@@ -11683,62 +11771,6 @@ window.loadResellerPortal = async function() {
             badge.textContent = 'Reseller Console';
             badge.style.background = '#64748b';
         }
-        if (invList) invList.innerHTML = '<em>Could not load reseller data.</em>';
-    }
-};
-
-window.saveResellerGateway = async function() {
-    var idInput = document.getElementById('reseller-gateway-id');
-    var keyInput = document.getElementById('reseller-gateway-key');
-    var ecoNumInput = document.getElementById('reseller-ecocash-number');
-    var ecoNameInput = document.getElementById('reseller-ecocash-name');
-    var waNumInput = document.getElementById('reseller-whatsapp-number');
-    var instrInput = document.getElementById('reseller-payment-instructions');
-    var acceptToggle = document.getElementById('reseller-accept-manual');
-    var msg = document.getElementById('reseller-gateway-status-msg');
-
-    var mId = (idInput ? idInput.value : '').trim();
-    var mKey = (keyInput ? keyInput.value : '').trim();
-    var ecoNum = (ecoNumInput ? ecoNumInput.value : '').trim();
-    var ecoName = (ecoNameInput ? ecoNameInput.value : '').trim();
-    var waNum = (waNumInput ? waNumInput.value : '').trim();
-    var instr = (instrInput ? instrInput.value : '').trim();
-    var acceptManual = acceptToggle ? acceptToggle.checked : true;
-
-    if (!mId && !ecoNum && !waNum) {
-        alert('Please provide either Paynow merchant credentials or an EcoCash / WhatsApp number for payments.');
-        return;
-    }
-
-    try {
-        var payload = {
-            merchant_id: mId,
-            merchant_key: mKey,
-            ecocash_number: ecoNum,
-            ecocash_name: ecoName,
-            whatsapp_number: waNum,
-            payment_instructions: instr,
-            accept_manual_payments: acceptManual
-        };
-
-        var res = await window.AuthManager.fetchAPI('/resellers/my-gateway', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        var data = await res.json().catch(function() { return {}; });
-        if (res && res.ok) {
-            if (msg) {
-                msg.textContent = '\u2713 ' + (data.message || 'Payment settings and credentials saved successfully.');
-                msg.style.display = 'block';
-            }
-            if (keyInput) keyInput.value = '';
-            if (data.merchant_id_masked && idInput) idInput.value = data.merchant_id_masked;
-            alert('Payment settings saved successfully.');
-        } else {
-            alert('Failed to save gateway: ' + (data.detail || 'Unknown error'));
-        }
-    } catch (err) {
-        alert('Error saving payment options: ' + err.message);
     }
 };
 
@@ -11855,6 +11887,20 @@ window.rejectManualPayment = async function(id) {
 };
 
 window.openSubmitManualPaymentModal = function() {
+    // Reset form fields
+    ['mp-payer-name','mp-payer-phone','mp-amount','mp-notes','mp-num-vehicles','mp-proof-filename'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { if (el.tagName === 'INPUT') el.value = ''; }
+    });
+    var sel1 = document.getElementById('mp-package-tier');
+    var sel2 = document.getElementById('mp-payment-plan');
+    if (sel1) sel1.value = '';
+    if (sel2) sel2.value = '';
+    var preview = document.getElementById('mp-proof-preview-wrap');
+    if (preview) preview.style.display = 'none';
+    var fn = document.getElementById('mp-proof-filename');
+    if (fn) fn.textContent = 'Click to choose EcoCash screenshot';
+    window.currentCustomerProofBase64 = null;
     var modal = document.getElementById('manual-payment-modal');
     if (modal) modal.style.display = 'flex';
 };
@@ -11892,14 +11938,20 @@ window.submitManualPaymentForm = async function() {
     var phone = (document.getElementById('mp-payer-phone') || {}).value || '';
     var amount = parseFloat((document.getElementById('mp-amount') || {}).value || 0);
     var notes = (document.getElementById('mp-notes') || {}).value || '';
+    var numVehicles = parseInt((document.getElementById('mp-num-vehicles') || {}).value || 0, 10) || null;
+    var packageTier = (document.getElementById('mp-package-tier') || {}).value || null;
+    var paymentPlan = (document.getElementById('mp-payment-plan') || {}).value || null;
 
     if (!name.trim() || !phone.trim() || amount <= 0) {
         alert('Please fill in your name, contact phone, and amount paid.');
         return;
     }
-
+    if (!numVehicles || !packageTier || !paymentPlan) {
+        alert('Please fill in the number of vehicles, subscription tier, and payment plan.');
+        return;
+    }
     if (!window.currentCustomerProofBase64) {
-        alert('Please choose or upload a screenshot/photo of your payment proof.');
+        alert('Please upload a screenshot/photo of your payment proof.');
         return;
     }
 
@@ -11912,16 +11964,25 @@ window.submitManualPaymentForm = async function() {
                 amount_usd: amount,
                 reference_code: 'POP-UPLOAD',
                 proof_image_data: window.currentCustomerProofBase64,
-                notes: notes.trim()
+                notes: notes.trim(),
+                num_vehicles: numVehicles,
+                package_tier: packageTier,
+                payment_plan: paymentPlan,
             })
         });
         var data = await res.json().catch(function() { return {}; });
         if (res && res.ok) {
-            alert('\u2713 Proof of payment submitted successfully! Your screenshot has been uploaded and will be verified shortly.');
             window.closeSubmitManualPaymentModal();
             window.currentCustomerProofBase64 = null;
+            // The backend notifies the account's admins itself (in-app and by
+            // WhatsApp), so the customer no longer has to forward anything.
+            alert('Your proof of payment has been submitted. The admin has been notified on WhatsApp and in the app; the package is activated once the funds are confirmed and your trackers are configured.');
             if (typeof window.loadManualPaymentsTable === 'function') {
                 window.loadManualPaymentsTable();
+            }
+            // Refresh admin pending panel if visible
+            if (typeof window.loadAdminPendingPops === 'function') {
+                window.loadAdminPendingPops();
             }
         } else {
             alert('Submission failed: ' + (data.detail || 'Unknown error'));

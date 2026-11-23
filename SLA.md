@@ -8,11 +8,10 @@
 **Service Provider:**  
 Console Telematics  
 **Services Supplied:** Cloud Fleet Tracking, Telemetry Monitoring & Asset Immobilization  
-**Contact Representative:** Adrian Kwaramba  
-**Contact Phone:** +263783009275  
+**Contact Representative:** Luke Mahambo  
+**Contact Phone:** +263776591163  
 
-**Client / Customer:**  
-Fleet Operator / Vehicle Owner / Enterprise Client  
+**Client / Customer:** _____________________________  
 **Registered Account:** _____________________________  
 **Contact Representative:** _____________________________  
 **Email / Phone:** _______________________________  
@@ -22,7 +21,7 @@ Fleet Operator / Vehicle Owner / Enterprise Client
 ## 1. Overview & Purpose
 This Service Level Agreement ("SLA") defines the service availability, performance commitments, support tiers, and remedies provided by **Console Telematics** ("Company", "Provider", "we", "us") to the **Client** ("Customer", "you") across all 3 active commercial service packages offered on the platform:
 
-1. **Monthly Subscription:** Recurring monthly vehicle fleet monitoring, 10-second live GPS tracking, 30-day journey playback, automated geofencing, speed violations, and remote engine relay shutoff.
+1. **Monthly Subscription:** Recurring monthly vehicle fleet monitoring, 10-second live GPS tracking, journey playback, automated geofencing, speed violations, and remote engine relay shutoff, offered in three tiers: **Basic**, **Premium** and **Enterprise** (see Section 2.1).
 2. **Once-off Payment:** Perpetual lifetime tracking license per registered vehicle, guaranteeing lifetime cloud hosting and telemetry playback with zero recurring monthly subscription overhead.
 3. **Pay-as-you-drive (PAYD):** Flexible pay-per-use telemetry billed at $0.02 per active tracked hour (settled incrementally every 5 minutes), capped at a maximum daily ceiling of $0.48 per vehicle per 24-hour day.
 
@@ -31,9 +30,17 @@ This Service Level Agreement ("SLA") defines the service availability, performan
 ## 2. The 3 Core Commercial Packages
 
 ### 2.1 Package 1: Monthly Subscription
-* **Coverage:** Continuous 24/7 real-time tracking, live sensor telemetry, engine cut controls, and WhatsApp / SMS alert dispatch.
-* **Billing Cycle:** Monthly recurring billing on an active vehicle basis.
-* **Data Retention:** 30-day rolling journey history, stop analysis, and mileage audit logs.
+
+Billed monthly on an active vehicle basis, in one of three tiers. Every tier includes continuous 24/7 real-time tracking, live sensor telemetry, engine cut controls, and WhatsApp / SMS alert dispatch.
+
+| Tier | Who it suits | Included |
+| :--- | :--- | :--- |
+| **Basic** | Small fleets and single-vehicle owners | 10-second live tracking, basic alerts (speeding, ignition, power cut), 7–14 day journey history, device health status, one user login |
+| **Premium** | Growing fleets that need reporting and managers | Everything in Basic, 90-day journey history, geofencing zones, mileage and violation reports, fleet analytics, advanced rule engine, up to five users, priority support |
+| **Enterprise** | Multi-depot operators and corporate fleets | Everything in Premium, 1–3 year history, unlimited users, full API access, audit logs, custom integrations, dedicated SLA support (Sections 3–4) |
+
+* **Billing Cycle:** Monthly recurring billing on an active vehicle basis, per tier.
+* **Data Retention:** 7–14 days on Basic, 90 days on Premium, 1–3 years on Enterprise.
 
 ### 2.2 Package 2: Once-off Payment (Lifetime Pass)
 * **Coverage:** Perpetual cloud hosting and live telemetry access for the physical functional lifetime of the registered tracking unit/IMEI.

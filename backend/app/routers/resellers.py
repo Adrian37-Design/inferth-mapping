@@ -17,6 +17,7 @@ Provides endpoints for:
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 from typing import Optional, Any
 from pydantic import BaseModel, Field
@@ -76,6 +77,10 @@ class ManualPaymentCreateRequest(BaseModel):
     proof_image_data: Optional[str] = None
     notes: Optional[str] = None
     tenant_id: Optional[int] = None
+    # Package request fields
+    num_vehicles: Optional[int] = Field(None, ge=1, le=1000)
+    package_tier: Optional[str] = Field(None, description="basic | premium | enterprise")
+    payment_plan: Optional[str] = Field(None, description="monthly | onceoff_lifetime | payd")
 
 
 class ContractCreateRequest(BaseModel):
@@ -361,6 +366,9 @@ async def list_manual_payments(
             "reference_code": p.reference_code,
             "proof_image_data": p.proof_image_data,
             "notes": p.notes,
+            "num_vehicles": p.num_vehicles,
+            "package_tier": p.package_tier,
+            "payment_plan": p.payment_plan,
             "status": p.status,
             "confirmed_by": p.confirmed_by,
             "confirmed_at": p.confirmed_at.isoformat() if p.confirmed_at else None,
@@ -377,6 +385,7 @@ async def submit_manual_payment(
     current_user: User = Depends(get_current_user),
 ):
     """Customer / Sender: submit proof of manual payment (EcoCash / WhatsApp POP with screenshot)."""
+    import urllib.parse
     target_tenant_id = req.tenant_id or current_user.tenant_id
 
     # Verify tenant exists
@@ -392,16 +401,117 @@ async def submit_manual_payment(
         reference_code=req.reference_code.strip() if req.reference_code else "",
         proof_image_data=req.proof_image_data,
         notes=req.notes.strip() if req.notes else None,
+        num_vehicles=req.num_vehicles,
+        package_tier=req.package_tier,
+        payment_plan=req.payment_plan,
         status="pending",
     )
     db.add(payment)
     await db.commit()
     await db.refresh(payment)
+
+    # Notify the people who can actually approve this: the admins of the account
+    # the payment was submitted to, plus every platform super admin. Previously
+    # the endpoint only returned a wa.me link to one hardcoded number, so nothing
+    # reached the admins unless the customer chose to forward it themselves.
+    tier_label = {
+        "basic": "Basic", "premium": "Premium", "enterprise": "Enterprise"
+    }.get(req.package_tier or "", req.package_tier or "—")
+    plan_label = {
+        "monthly": "Monthly Subscription",
+        "onceoff_lifetime": "Once-Off Lifetime",
+        "payd": "Pay-As-You-Drive",
+    }.get(req.payment_plan or "", req.payment_plan or "—")
+
+    tenant_row = await db.execute(select(Tenant.name).where(Tenant.id == target_tenant_id))
+    tenant_label = tenant_row.scalar() or f"Tenant #{target_tenant_id}"
+
+    whatsapp_msg = (
+        f"🔔 *Payment awaiting approval* (#{payment.id})\n"
+        f"🏢 Account: {tenant_label}\n"
+        f"👤 Customer: {req.payer_name} | {req.payer_phone}\n"
+        f"💵 Amount paid: ${req.amount_usd:.2f} USD\n"
+        f"🚗 Vehicles: {req.num_vehicles or '—'}\n"
+        f"📦 Tier: {tier_label} | Plan: {plan_label}\n"
+        f"📝 Notes: {req.notes or '—'}\n"
+        f"✅ Confirm the funds and the trackers, then approve under "
+        f"Settings → Pending payment approvals."
+    )
+
+    from app.services.whatsapp import send_whatsapp
+
+    recipient_phones: set[str] = set()
+    tenant_admins = await db.execute(
+        select(User.phone).where(
+            User.tenant_id == target_tenant_id,
+            User.role.in_(["admin", "super_admin"]),
+            User.phone.is_not(None),
+        )
+    )
+    recipient_phones.update(str(row[0]).strip() for row in tenant_admins.all() if row[0])
+    platform_admins = await db.execute(
+        select(User.phone).where(
+            User.role == "super_admin",
+            User.phone.is_not(None),
+        )
+    )
+    recipient_phones.update(str(row[0]).strip() for row in platform_admins.all() if row[0])
+
+    for phone in recipient_phones:
+        asyncio.create_task(send_whatsapp(phone, whatsapp_msg))
+
     return {
-        "message": "Proof of payment submitted successfully. Your reseller/admin will verify and confirm receipt.",
+        "message": (
+            "Proof of payment submitted successfully. Your admin has been notified "
+            "and will approve the package once the funds are confirmed."
+        ),
         "payment_id": payment.id,
         "status": payment.status,
+        "admins_notified": len(recipient_phones),
     }
+
+
+@router.get("/admin/pending-pops")
+async def list_all_pending_pops(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Pending proof-of-payment requests awaiting approval.
+
+    A platform admin sees every company; a company's own admin sees only the
+    payments submitted to their account — the request that concerns them.
+    """
+    stmt = (
+        select(ManualPayment, Tenant)
+        .join(Tenant, ManualPayment.tenant_id == Tenant.id)
+        .where(ManualPayment.status == "pending")
+    )
+    if current_user.tenant_id != 1:
+        stmt = stmt.where(ManualPayment.tenant_id == current_user.tenant_id)
+    res = await db.execute(
+        stmt.order_by(ManualPayment.created_at.desc()).limit(50)
+    )
+    rows = res.all()
+    tier_labels = {"basic": "Basic", "premium": "Premium", "enterprise": "Enterprise"}
+    plan_labels = {"monthly": "Monthly", "onceoff_lifetime": "Once-Off Lifetime", "payd": "Pay-As-You-Drive"}
+    return [
+        {
+            "id": p.id,
+            "tenant_id": p.tenant_id,
+            "tenant_name": t.name if t else f"Tenant #{p.tenant_id}",
+            "payer_name": p.payer_name,
+            "payer_phone": p.payer_phone,
+            "amount_usd": float(p.amount_usd or 0),
+            "num_vehicles": p.num_vehicles,
+            "package_tier": tier_labels.get(p.package_tier or "", p.package_tier or "—"),
+            "payment_plan": plan_labels.get(p.payment_plan or "", p.payment_plan or "—"),
+            "proof_image_data": p.proof_image_data,
+            "notes": p.notes,
+            "status": p.status,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p, t in rows
+    ]
 
 
 @router.post("/manual-payments/{payment_id}/confirm")

@@ -476,6 +476,10 @@ class ManualPayment(Base):
     reference_code = Column(String(100), nullable=True, default="")  # Optional EcoCash ref
     proof_image_data = Column(Text, nullable=True)                  # Base64 image data of proof of payment
     notes = Column(Text, nullable=True)                             # Vehicle plate / invoice note
+    # Package request fields (what the customer is subscribing to)
+    num_vehicles = Column(Integer, nullable=True)                   # Requested number of vehicles
+    package_tier = Column(String(50), nullable=True)                # basic | premium | enterprise
+    payment_plan = Column(String(50), nullable=True)                # monthly | onceoff_lifetime | payd
     status = Column(String(20), default="pending")                  # pending | confirmed | rejected
     confirmed_by = Column(String(100), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
