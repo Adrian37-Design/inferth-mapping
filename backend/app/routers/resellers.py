@@ -514,13 +514,122 @@ async def list_all_pending_pops(
     ]
 
 
+RESELLER_MODEL_ALIASES = {
+    "model_a": "MODEL_A",
+    "model_a_wholesale": "MODEL_A",
+    "model_b": "MODEL_B",
+    "model_b_revshare": "MODEL_B",
+}
+PACKAGE_PLAN_STATE = {
+    # payment_plan -> (tenants.plan suffix, tenants.billing_cycle, days)
+    "monthly": ("Monthly", 30),
+    "onceoff_lifetime": ("Once-off", None),
+    "payd": ("Prepaid", None),
+}
+
+
+def _reseller_model_for(payment: ManualPayment) -> Optional[str]:
+    """Which Platform Fleet Rental model this POP is paying for, if any."""
+    tier = (payment.package_tier or "").strip().lower()
+    if tier in RESELLER_MODEL_ALIASES:
+        return RESELLER_MODEL_ALIASES[tier]
+    if tier in ("console", "console_rental", "rental", "platform_fleet_rental"):
+        return "MODEL_A"
+    haystack = f"{payment.payer_name or ''} {payment.notes or ''}".lower()
+    if "model_b" in haystack:
+        return "MODEL_B"
+    if "model_a" in haystack or "platform reseller" in haystack or "platform rental" in haystack:
+        return "MODEL_A"
+    return None
+
+
+async def _activate_confirmed_package(
+    db: AsyncSession, payment: ManualPayment
+) -> Optional[dict]:
+    """Switch on what a confirmed POP paid for.
+
+    Approving used to only flip the payment row to "confirmed", so nothing was
+    ever activated: an approved reseller stayed missing from Platform Fleet
+    Rental agreements and Billing kept saying "No active plan" even though the
+    money had been confirmed. This applies the rental contract or the package
+    plan in the same transaction as the approval.
+    """
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == payment.tenant_id))
+    ).scalars().first()
+    if not tenant:
+        return None
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    model = _reseller_model_for(payment)
+    if model:
+        contract = (
+            await db.execute(
+                select(ResellerContract).where(ResellerContract.tenant_id == tenant.id)
+            )
+        ).scalars().first()
+        created = False
+        if contract:
+            contract.model = model
+            contract.status = "active"
+        else:
+            db.add(ResellerContract(
+                tenant_id=tenant.id,
+                model=model,
+                status="active",
+                notes=f"Activated from approved proof of payment #{payment.id}",
+            ))
+            created = True
+
+        tenant.plan = "Console Rental"
+        tenant.billing_cycle = "Rental"
+        tenant.subscription_status = "active"
+        tenant.next_billing_date = now + datetime.timedelta(days=30)
+        model_label = "Model B (Revenue Share)" if model == "MODEL_B" else "Model A (Wholesale Rental)"
+        return {
+            "kind": "reseller_rental",
+            "model": model,
+            "contract_created": created,
+            "plan": tenant.plan,
+            "billing_cycle": tenant.billing_cycle,
+            "next_billing_date": tenant.next_billing_date.isoformat(),
+            "message": (
+                f"Payment confirmed. {model_label} is now active on this console "
+                f"and the agreement appears under Platform Fleet Rental."
+            ),
+        }
+
+    tier = (payment.package_tier or "").strip().lower()
+    if tier in ("basic", "premium", "enterprise"):
+        plan_key = (payment.payment_plan or "monthly").strip().lower()
+        cycle, days = PACKAGE_PLAN_STATE.get(plan_key, PACKAGE_PLAN_STATE["monthly"])
+        label = {"basic": "Basic", "premium": "Premium", "enterprise": "Enterprise"}[tier]
+        tenant.plan = "Starter Pass" if plan_key == "onceoff_lifetime" else label
+        tenant.billing_cycle = cycle
+        tenant.subscription_status = "active"
+        tenant.next_billing_date = now + datetime.timedelta(days=days) if days else None
+        return {
+            "kind": "package",
+            "tier": tier,
+            "payment_plan": plan_key,
+            "plan": tenant.plan,
+            "billing_cycle": tenant.billing_cycle,
+            "next_billing_date": (
+                tenant.next_billing_date.isoformat() if tenant.next_billing_date else None
+            ),
+            "message": f"Payment confirmed. The {label} package ({cycle}) is now active.",
+        }
+
+    return None
+
+
 @router.post("/manual-payments/{payment_id}/confirm")
 async def confirm_manual_payment(
     payment_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Receiver: mark an EcoCash/manual payment as confirmed / received."""
+    """Receiver: confirm an EcoCash/manual payment and activate the package it paid for."""
     res = await db.execute(
         select(ManualPayment).where(ManualPayment.id == payment_id)
     )
@@ -534,8 +643,17 @@ async def confirm_manual_payment(
     p.status = "confirmed"
     p.confirmed_by = current_user.email
     p.confirmed_at = datetime.datetime.now(datetime.timezone.utc)
+    activation = await _activate_confirmed_package(db, p)
     await db.commit()
-    return {"message": "Payment confirmed and marked as received.", "payment_id": p.id, "status": "confirmed"}
+    return {
+        "message": (
+            activation["message"] if activation
+            else "Payment confirmed and marked as received."
+        ),
+        "payment_id": p.id,
+        "status": "confirmed",
+        "activation": activation,
+    }
 
 
 @router.post("/manual-payments/{payment_id}/reject")

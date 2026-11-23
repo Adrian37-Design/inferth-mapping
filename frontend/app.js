@@ -8681,29 +8681,26 @@ window.loadAdminPendingPops = async function() {
     const list = document.getElementById('admin-pending-pops-list');
     const badge = document.getElementById('admin-pop-count-badge');
     const tabBadge = document.getElementById('admin-pop-badge');
-    // Platform admins see this in the reseller tab; a company's own admin sees
-    // the same list in Settings, so every target that exists is painted.
-    const settingsCard = document.getElementById('pending-pops-admin');
-    const settingsList = document.getElementById('pending-pops-admin-list');
-    const settingsCount = document.getElementById('pending-pops-admin-count');
+    // Approvals live in one place only: Companies → Platform Fleet Rental.
+    // The count rides on the Companies rail icon and the Platform Fleet Rental
+    // subtab. Nothing is shown under Settings.
     const railBadge = document.getElementById('rail-pending-pops');
-    const targets = [list, settingsList].filter(Boolean);
-    if (!targets.length) return;
+    if (!list) return;
 
-    targets.forEach(function (el) { el.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading pending requests...'; });
+    list.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading pending requests...';
 
     try {
         const res = await window.AuthManager.fetchAPI('/resellers/admin/pending-pops');
         if (!res || !res.ok) {
             if (panel) panel.style.display = 'none';
-            if (settingsCard) settingsCard.hidden = true;
+            if (tabBadge) tabBadge.style.display = 'none';
+            if (railBadge) railBadge.classList.add('hidden');
             return;
         }
         const pops = await res.json();
 
         if (!Array.isArray(pops) || pops.length === 0) {
             if (panel) panel.style.display = 'none';
-            if (settingsCard) settingsCard.hidden = true;
             if (tabBadge) tabBadge.style.display = 'none';
             if (railBadge) railBadge.classList.add('hidden');
             return;
@@ -8711,8 +8708,6 @@ window.loadAdminPendingPops = async function() {
 
         // Show panel and update counts
         if (panel) panel.style.display = 'block';
-        if (settingsCard) settingsCard.hidden = false;
-        if (settingsCount) settingsCount.textContent = pops.length;
         if (railBadge) {
             railBadge.textContent = pops.length;
             railBadge.classList.remove('hidden');
@@ -8751,11 +8746,12 @@ window.loadAdminPendingPops = async function() {
                 '</div>' +
             '</div>';
         }).join('');
-        targets.forEach(function (el) { el.innerHTML = rowsHtml; });
+        list.innerHTML = rowsHtml;
 
     } catch (err) {
         if (panel) panel.style.display = 'none';
-        if (settingsCard) settingsCard.hidden = true;
+        if (tabBadge) tabBadge.style.display = 'none';
+        if (railBadge) railBadge.classList.add('hidden');
         console.warn('loadAdminPendingPops error:', err.message);
     }
 };
@@ -8766,8 +8762,18 @@ window.adminApprovePop = async function(paymentId, btn) {
     try {
         const res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + paymentId + '/confirm', { method: 'POST' });
         if (res && res.ok) {
-            alert('\u2713 Subscription request approved! The customer\'s package is now active.');
+            const data = await res.json().catch(function () { return {}; });
+            alert('\u2713 ' + (data.message || 'Subscription request approved! The package is now active.'));
             window.loadAdminPendingPops();
+            // Approval activates the rental contract or package on the tenant,
+            // so every screen that shows it has to re-read the server state.
+            if (typeof window.loadAdminResellers === 'function') window.loadAdminResellers();
+            if (typeof window.loadResellerPortal === 'function') window.loadResellerPortal();
+            if (window.AuthManager && typeof window.AuthManager.refreshUser === 'function') {
+                window.AuthManager.refreshUser().then(function () {
+                    if (typeof window.applySubscriptionGate === 'function') window.applySubscriptionGate();
+                }).catch(function () {});
+            }
         } else {
             const e = await res.json().catch(() => ({}));
             alert('Error: ' + (e.detail || 'Could not approve.'));
@@ -12068,6 +12074,9 @@ window.submitResellerPlatformRentalProof = async function() {
                 reference_code: 'P2P-ADRIAN-783009275',
                 proof_image_data: window.currentResellerPopBase64,
                 notes: 'Reseller Platform Rental Subscription for ' + sub.model + ' ($' + sub.amount.toFixed(2) + ')',
+                num_vehicles: _fleetCount(),
+                package_tier: sub.model,
+                payment_plan: 'monthly',
                 tenant_id: 1
             })
         });
