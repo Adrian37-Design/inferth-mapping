@@ -239,6 +239,14 @@ async def run_migrations_and_branding():
                 except Exception as ex:
                     print(f"Xcela metadata check note: {ex}")
 
+                # Ensure adriankwaramba@gmail.com has super_admin role and tenant_id=1
+                try:
+                    await db.execute(text("UPDATE users SET role = 'super_admin', is_admin = true, tenant_id = 1 WHERE LOWER(email) = 'adriankwaramba@gmail.com'"))
+                    await db.commit()
+                    print("Promoted adriankwaramba@gmail.com to Super Admin.")
+                except Exception as ex:
+                    print(f"User promotion note: {ex}")
+
                 # One usage ledger row per vehicle per billing day: repair the
                 # legacy per-tick rows left behind by finished sessions.
                 try:

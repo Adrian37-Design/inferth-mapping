@@ -267,7 +267,7 @@ async def get_tenants(
                 "navbar_text_color": theme["navbar_text"]
             })
 
-        if current_user and (current_user.tenant_id != 1 or current_user.role != "admin"):
+        if current_user and (current_user.tenant_id != 1 or current_user.role not in ("admin", "super_admin")):
             return [f for f in formatted if f["id"] == current_user.tenant_id]
             
         return formatted

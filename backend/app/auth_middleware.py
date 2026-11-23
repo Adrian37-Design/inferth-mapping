@@ -90,8 +90,8 @@ async def get_current_user_optional(
         return None
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Require that the current user is an admin"""
-    if current_user.role != "admin" and not current_user.is_admin:
+    """Require that the current user is an admin or super admin"""
+    if current_user.role not in ("admin", "super_admin") and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only administrators can perform this action"
@@ -99,8 +99,8 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 async def require_manager(current_user: User = Depends(get_current_user)) -> User:
-    """Require that the current user is an admin or manager"""
-    allowed_roles = ["admin", "manager"]
+    """Require that the current user is an admin, manager, or super admin"""
+    allowed_roles = ["admin", "manager", "super_admin"]
     if current_user.role not in allowed_roles and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -109,7 +109,7 @@ async def require_manager(current_user: User = Depends(get_current_user)) -> Use
     return current_user
 
 def is_platform_admin(user: User) -> bool:
-    return user.tenant_id == 1 and user.role == "admin"
+    return (user.tenant_id == 1 and user.role in ("admin", "super_admin")) or user.role == "super_admin"
 
 async def tenant_name(db: AsyncSession, user: User) -> Optional[str]:
     return (await db.execute(select(Tenant.name).where(Tenant.id == user.tenant_id))).scalar()

@@ -45,7 +45,7 @@ async def get_manager_insights_endpoint(
     Manager Insights: 'Where am I losing money?'
     Strict RBAC: Only admin or manager role may access this endpoint.
     """
-    if current_user.role not in ["admin", "manager"] and not current_user.is_admin:
+    if current_user.role not in ["admin", "manager", "super_admin"] and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access restricted: Manager role required to view Fleet Manager Insights"

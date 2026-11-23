@@ -1032,7 +1032,10 @@ class AuthManager {
         if (this.user) {
             const userDisplay = document.getElementById('user-role-display');
             if (userDisplay) {
-                userDisplay.textContent = `${this.user.email} (${this.user.role.toUpperCase()})`;
+                const role = String(this.user.role || '').toLowerCase();
+                const isSuper = role === 'super_admin' || (role === 'admin' && this.user.tenant_id === 1);
+                const roleLabel = isSuper ? 'SUPER ADMIN' : role.replace(/_/g, ' ').toUpperCase();
+                userDisplay.textContent = `${this.user.email} (${roleLabel})`;
                 userDisplay.classList.add('show');
             }
         }

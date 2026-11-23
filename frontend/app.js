@@ -527,22 +527,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const railAuditBtn = document.getElementById('rail-audit-btn');
         const railCompaniesBtn = document.getElementById('rail-companies');
 
-        // 1. Management Tab (Users) - Admin or Manager
-        if (user.role === 'admin' || user.role === 'manager') {
+        // 1. Management Tab (Users) - Admin, Manager, or Super Admin
+        if (user.role === 'admin' || user.role === 'manager' || user.role === 'super_admin') {
             if (railUsersBtn) railUsersBtn.classList.remove('hidden');
         } else {
             if (railUsersBtn) railUsersBtn.classList.add('hidden');
         }
 
-        // 2. Audit Logs Tab - Admin or Manager
-        if (user.role === 'admin' || user.role === 'manager') {
+        // 2. Audit Logs Tab - Admin, Manager, or Super Admin
+        if (user.role === 'admin' || user.role === 'manager' || user.role === 'super_admin') {
             if (railAuditBtn) railAuditBtn.classList.remove('hidden');
         } else {
             if (railAuditBtn) railAuditBtn.classList.add('hidden');
         }
 
-        // 3. Companies Tab - Global Admin Only (Tenant 1)
-        if (user.role === 'admin' && user.tenant_id === 1) {
+        // 3. Companies Tab - Global Admin / Super Admin (Tenant 1)
+        if ((user.role === 'admin' || user.role === 'super_admin') && user.tenant_id === 1) {
             if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
         } else {
             if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
@@ -4978,7 +4978,7 @@ function applyCompanyFieldLock() {
     const input = document.getElementById('vehicle-company');
     if (!input) return;
     const u = (window.AuthManager && window.AuthManager.user) || {};
-    const isPlatformAdmin = u.role === 'admin' && u.tenant_id === 1;
+    const isPlatformAdmin = (u.role === 'admin' || u.role === 'super_admin') && u.tenant_id === 1;
     input.disabled = !isPlatformAdmin;
     const hint = input.parentElement ? input.parentElement.querySelector('small') : null;
     if (hint) {
@@ -8615,9 +8615,11 @@ function loadSettingsTab() {
         const tenantEl = document.getElementById('settings-user-tenant');
         if (emailEl) emailEl.textContent = user.email || '--';
         if (roleEl) {
-            const role = (user.role || 'user').toUpperCase();
+            const rawRole = String(user.role || 'user').toLowerCase();
+            const isSuper = rawRole === 'super_admin' || (rawRole === 'admin' && user.tenant_id === 1);
+            const role = isSuper ? 'SUPER ADMIN' : rawRole.replace(/_/g, ' ').toUpperCase();
             roleEl.textContent = role;
-            roleEl.className = 'badge badge-' + role.toLowerCase();
+            roleEl.className = 'badge badge-' + (isSuper ? 'admin' : rawRole);
         }
         if (tenantEl) {
             tenantEl.textContent = user.company_name || user.tenant_name || (user.tenant_id === 1 ? 'Inferth Superadmin' : 'Tenant #' + user.tenant_id);
