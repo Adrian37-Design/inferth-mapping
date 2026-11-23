@@ -3473,6 +3473,9 @@ function initSpotlight() {
     });
     document.querySelectorAll('[data-spotlight]').forEach(wrapper => Spotlight.attach(wrapper));
     const globalInput = document.getElementById('global-search-input');
+    if (globalInput && (globalInput.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(globalInput.value.trim()))) {
+        globalInput.value = '';
+    }
     document.addEventListener('keydown', e => {
         const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
         if (!globalInput) return;

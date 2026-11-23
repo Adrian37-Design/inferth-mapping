@@ -985,3 +985,87 @@ async def get_payment_status(txn_id: int, db: AsyncSession = Depends(get_db), cu
         txn = await _refresh_paynow_status(db, txn)
             
     return {"status": txn.status, "method": txn.payment_method, "created_at": txn.created_at}
+
+
+class ResellerGatewayReq(BaseModel):
+    merchant_id: str
+    merchant_key: str
+    gateway_name: str = "paynow"
+    is_active: bool = True
+    webhook_url: Optional[str] = None
+
+
+@router.get("/reseller/gateway")
+async def get_reseller_gateway_payments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return the reseller's Paynow merchant gateway configuration with sensitive key masked."""
+    from app.models import TenantGateway
+    from app.services.gateway_crypto import decrypt_credential, mask_credential
+
+    gw = (
+        await db.execute(
+            select(TenantGateway).where(TenantGateway.tenant_id == current_user.tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not gw:
+        return {"configured": False, "tenant_id": current_user.tenant_id}
+
+    merchant_id = decrypt_credential(gw.merchant_id_enc)
+    return {
+        "configured": True,
+        "tenant_id": current_user.tenant_id,
+        "gateway_name": gw.gateway_name,
+        "merchant_id_masked": mask_credential(merchant_id, 2, 2),
+        "is_active": gw.is_active,
+        "webhook_url": gw.webhook_url,
+        "updated_at": gw.updated_at,
+    }
+
+
+@router.post("/reseller/gateway")
+async def set_reseller_gateway_payments(
+    req: ResellerGatewayReq,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save or update reseller's merchant gateway credentials (encrypted with AES/HMAC)."""
+    from app.models import TenantGateway
+    from app.services.gateway_crypto import encrypt_credential, mask_credential
+
+    if not req.merchant_id.strip() or not req.merchant_key.strip():
+        raise HTTPException(status_code=400, detail="Integration ID and Key are required.")
+
+    merchant_id_enc = encrypt_credential(req.merchant_id.strip())
+    merchant_key_enc = encrypt_credential(req.merchant_key.strip())
+
+    gw = (
+        await db.execute(
+            select(TenantGateway).where(TenantGateway.tenant_id == current_user.tenant_id)
+        )
+    ).scalar_one_or_none()
+
+    if gw:
+        gw.merchant_id_enc = merchant_id_enc
+        gw.merchant_key_enc = merchant_key_enc
+        gw.gateway_name = req.gateway_name
+        gw.is_active = req.is_active
+        gw.webhook_url = req.webhook_url
+    else:
+        gw = TenantGateway(
+            tenant_id=current_user.tenant_id,
+            gateway_name=req.gateway_name,
+            merchant_id_enc=merchant_id_enc,
+            merchant_key_enc=merchant_key_enc,
+            is_active=req.is_active,
+            webhook_url=req.webhook_url,
+        )
+        db.add(gw)
+
+    await db.commit()
+    return {
+        "message": "Gateway credentials encrypted and saved successfully.",
+        "merchant_id_masked": mask_credential(req.merchant_id.strip(), 2, 2),
+        "is_active": req.is_active,
+    }

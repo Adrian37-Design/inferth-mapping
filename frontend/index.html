@@ -27,7 +27,7 @@
         <span class="role-badge" id="user-role-display"></span>
         <div class="nav-search spot" id="global-search" data-spotlight>
             <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
-            <span class="spot-input-wrap"><input type="text" id="global-search-input" class="spot-input" placeholder="Search vehicles, plates, IMEI…" autocomplete="off" spellcheck="false"></span>
+            <span class="spot-input-wrap"><input type="search" name="search_vehicles_query" id="global-search-input" class="spot-input" placeholder="Search vehicles, plates, IMEI…" autocomplete="off" autocorrect="off" autocapitalize="off" data-lpignore="true" data-1p-ignore="true" spellcheck="false"></span>
             <kbd class="spot-kbd" id="global-search-kbd">Ctrl K</kbd>
         </div>
         <div class="nav-stats">
@@ -2869,7 +2869,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=220"></script>
+    <script src="/static/app.js?v=221"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=6"></script>
     <!-- Payment Modal -->
