@@ -134,6 +134,10 @@
     }
 
     function render(field) {
+        if (field.input.value && (field.input.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(field.input.value.trim()))) {
+            field.input.value = '';
+            renderGhost(field);
+        }
         const query = field.input.value.trim();
         field.shortcutsEl.hidden = !!query;
         field.resultsEl.hidden = !query;
@@ -201,14 +205,28 @@
 
     function bind(field) {
         const { wrapper, input, panel } = field;
-        input.addEventListener('focus', () => open(field));
-        input.addEventListener('input', () => {
+        const purgeIfEmail = () => {
             if (input.value && (input.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim()))) {
                 input.value = '';
                 renderGhost(field);
-                return;
+                return true;
             }
+            return false;
+        };
+
+        input.addEventListener('focus', () => {
+            purgeIfEmail();
+            open(field);
+        });
+        input.addEventListener('input', () => {
+            if (purgeIfEmail()) return;
             isOpen(field) ? render(field) : open(field);
+        });
+        input.addEventListener('change', purgeIfEmail);
+        input.addEventListener('animationstart', (e) => {
+            if (e.animationName && e.animationName.toLowerCase().includes('autofill')) {
+                purgeIfEmail();
+            }
         });
         input.addEventListener('keydown', e => onKeydown(field, e));
         wrapper.addEventListener('focusout', e => { if (!wrapper.contains(e.relatedTarget)) close(field); });

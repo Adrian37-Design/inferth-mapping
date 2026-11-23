@@ -8685,11 +8685,11 @@ window.loadAdminResellers = async function() {
                 let terms = '';
                 let estDue = 0;
                 if (c.model === 'MODEL_A') {
-                    terms = 'Progressive Marginal ($20 floor, $2.50 to $1.00/veh)';
-                    estDue = typeof window.consoleRentalQuote === 'function' ? window.consoleRentalQuote(activeVeh) : 20;
+                    terms = 'Progressive Marginal ($15 floor, $2.50 to $1.00/veh)';
+                    estDue = typeof window.consoleRentalQuote === 'function' ? window.consoleRentalQuote(activeVeh) : 15;
                 } else {
-                    terms = `${c.commission_pct}% commission (min $${c.min_platform_contribution_usd}/mo)`;
-                    estDue = Number(c.min_platform_contribution_usd || 20);
+                    terms = `${c.commission_pct}% commission (min $${c.min_platform_contribution_usd || 15}/mo)`;
+                    estDue = Number(c.min_platform_contribution_usd || 15);
                 }
                 totalDues += estDue;
 
@@ -8815,7 +8815,7 @@ window.openNewResellerContractModal = async function() {
 
     document.getElementById('rc-commercial-model').value = 'MODEL_A';
     document.getElementById('rc-commission-pct').value = '20.0';
-    document.getElementById('rc-min-contribution').value = '20.0';
+    document.getElementById('rc-min-contribution').value = '15.0';
     document.getElementById('rc-lifetime-hosting').value = '1.50';
     document.getElementById('rc-billing-day').value = '1';
     document.getElementById('rc-status').value = 'active';
@@ -8843,7 +8843,7 @@ window.openEditResellerContractModal = function(tenantId) {
 
     document.getElementById('rc-commercial-model').value = c.model || 'MODEL_A';
     document.getElementById('rc-commission-pct').value = c.commission_pct != null ? c.commission_pct : 20.0;
-    document.getElementById('rc-min-contribution').value = c.min_platform_contribution_usd != null ? c.min_platform_contribution_usd : 20.0;
+    document.getElementById('rc-min-contribution').value = c.min_platform_contribution_usd != null ? c.min_platform_contribution_usd : 15.0;
     document.getElementById('rc-lifetime-hosting').value = c.lifetime_hosting_per_vehicle_usd != null ? c.lifetime_hosting_per_vehicle_usd : 1.50;
     document.getElementById('rc-billing-day').value = c.billing_day_of_month || 1;
     document.getElementById('rc-status').value = c.status || 'active';
@@ -8870,7 +8870,7 @@ window.saveResellerContract = async function() {
     const tenantId = parseInt(document.getElementById('rc-tenant-id').value, 10);
     const model = document.getElementById('rc-commercial-model').value;
     const commissionPct = parseFloat(document.getElementById('rc-commission-pct').value) || 20.0;
-    const minContribution = parseFloat(document.getElementById('rc-min-contribution').value) || 20.0;
+    const minContribution = parseFloat(document.getElementById('rc-min-contribution').value) || 15.0;
     const lifetimeHosting = parseFloat(document.getElementById('rc-lifetime-hosting').value) || 1.50;
     const billingDay = parseInt(document.getElementById('rc-billing-day').value, 10) || 1;
     const status = document.getElementById('rc-status').value;
@@ -11447,10 +11447,10 @@ function _setEl(id, text) {
 
 
 /* ---------- Platform Fleet Rental: priced on the renter's own fleet ---------- */
-// $20 covers the first 5 client vehicles of the console; every vehicle above
+// $15 covers the first 5 client vehicles of the console; every vehicle above
 // that is billed on the progressive reseller bands. These are the same numbers
 // the server recomputes before Paynow is called.
-var CONSOLE_BASE_FEE = 20;
+var CONSOLE_BASE_FEE = 15;
 var CONSOLE_BASE_VEHICLES = 5;
 var CONSOLE_BANDS = [[25, 2.50], [75, 2.00], [200, 1.50], [500, 1.25], [Infinity, 1.00]];
 var CONSOLE_TIERS = {
@@ -11488,7 +11488,7 @@ window.refreshConsoleRentalPricing = function() {
     if (text) {
         var vehicles = quote.count + ' active vehicle' + (quote.count === 1 ? '' : 's');
         if (quote.count <= CONSOLE_BASE_VEHICLES) {
-            text.innerHTML = 'This console is operating <strong>' + vehicles + '</strong> &mdash; Model A wholesale: <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $20 minimum covers up to 5).';
+            text.innerHTML = 'This console is operating <strong>' + vehicles + '</strong> &mdash; Model A wholesale: <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $15 minimum covers up to 5).';
         } else {
             text.innerHTML = 'This console is operating <strong>' + vehicles + '</strong> &mdash; Model A wholesale: <strong>$' + quote.total.toFixed(2) + '/month</strong> (effective: $' + (quote.total / quote.count).toFixed(2) + '/veh/mo).';
         }
@@ -11553,7 +11553,7 @@ window.updateRentalSimCalculations = function() {
 
     if (breakdownEl) {
         var lines = [];
-        lines.push('First 5 vehicles: <strong>$20.00 min base</strong>');
+        lines.push('First 5 vehicles: <strong>$15.00 min base</strong>');
         if (n > 5) {
             var b2 = Math.min(n - 5, 20);
             lines.push(b2 + ' units @ $2.50 = <strong>+$' + (b2 * 2.50).toFixed(2) + '</strong>');
@@ -11578,15 +11578,13 @@ window.updateRentalSimCalculations = function() {
     }
 };
 
-// Reseller Gateway and Invoices loader
+// Reseller Gateway, Invoices, and WhatsApp/EcoCash Payments loader
 window.loadResellerPortal = async function() {
     var badge = document.getElementById('reseller-contract-badge');
     var invList = document.getElementById('reseller-invoices-list');
     try {
-        var planRes = await fetch('/resellers/my-plan', {
-            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
-        });
-        if (planRes.ok) {
+        var planRes = await window.AuthManager.fetchAPI('/resellers/my-plan');
+        if (planRes && planRes.ok) {
             var planData = await planRes.json();
             if (badge) {
                 if (planData.has_reseller_contract) {
@@ -11620,24 +11618,37 @@ window.loadResellerPortal = async function() {
                     badge.style.background = '#64748b';
                 }
             }
+        } else if (badge) {
+            badge.textContent = 'Standard Tenant';
+            badge.style.background = '#64748b';
         }
 
-        var gwRes = await fetch('/resellers/my-gateway', {
-            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
-        });
-        if (gwRes.ok) {
+        var gwRes = await window.AuthManager.fetchAPI('/resellers/my-gateway');
+        if (gwRes && gwRes.ok) {
             var gwData = await gwRes.json();
             var gwIdInput = document.getElementById('reseller-gateway-id');
             if (gwIdInput && gwData.configured && gwData.merchant_id_masked) {
                 gwIdInput.value = gwData.merchant_id_masked;
                 gwIdInput.placeholder = gwData.merchant_id_masked;
             }
+            // Populate EcoCash & WhatsApp fields
+            var ecoNumInput = document.getElementById('reseller-ecocash-number');
+            var ecoNameInput = document.getElementById('reseller-ecocash-name');
+            var waNumInput = document.getElementById('reseller-whatsapp-number');
+            var instrInput = document.getElementById('reseller-payment-instructions');
+            var acceptToggle = document.getElementById('reseller-accept-manual');
+
+            if (ecoNumInput && gwData.ecocash_number) ecoNumInput.value = gwData.ecocash_number;
+            if (ecoNameInput && gwData.ecocash_name) ecoNameInput.value = gwData.ecocash_name;
+            if (waNumInput && gwData.whatsapp_number) waNumInput.value = gwData.whatsapp_number;
+            if (instrInput && gwData.payment_instructions) instrInput.value = gwData.payment_instructions;
+            if (acceptToggle && typeof gwData.accept_manual_payments === 'boolean') {
+                acceptToggle.checked = gwData.accept_manual_payments;
+            }
         }
 
-        var invRes = await fetch('/resellers/my-invoices', {
-            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') }
-        });
-        if (invRes.ok && invList) {
+        var invRes = await window.AuthManager.fetchAPI('/resellers/my-invoices');
+        if (invRes && invRes.ok && invList) {
             var invoices = await invRes.json();
             if (!invoices || !invoices.length) {
                 invList.innerHTML = '<em>No monthly wholesale invoices issued yet. Platform invoices generate on the 1st of each month.</em>';
@@ -11659,8 +11670,19 @@ window.loadResellerPortal = async function() {
                 html += '</tbody></table>';
                 invList.innerHTML = html;
             }
+        } else if (invList) {
+            invList.innerHTML = '<em>No monthly wholesale invoices issued yet.</em>';
+        }
+
+        // Load Manual Payments / Proof of Payment Ledger
+        if (typeof window.loadManualPaymentsTable === 'function') {
+            window.loadManualPaymentsTable();
         }
     } catch (e) {
+        if (badge) {
+            badge.textContent = 'Reseller Console';
+            badge.style.background = '#64748b';
+        }
         if (invList) invList.innerHTML = '<em>Could not load reseller data.</em>';
     }
 };
@@ -11668,45 +11690,192 @@ window.loadResellerPortal = async function() {
 window.saveResellerGateway = async function() {
     var idInput = document.getElementById('reseller-gateway-id');
     var keyInput = document.getElementById('reseller-gateway-key');
+    var ecoNumInput = document.getElementById('reseller-ecocash-number');
+    var ecoNameInput = document.getElementById('reseller-ecocash-name');
+    var waNumInput = document.getElementById('reseller-whatsapp-number');
+    var instrInput = document.getElementById('reseller-payment-instructions');
+    var acceptToggle = document.getElementById('reseller-accept-manual');
     var msg = document.getElementById('reseller-gateway-status-msg');
-    if (!idInput || !keyInput) return;
 
-    var mId = (idInput.value || '').trim();
-    var mKey = (keyInput.value || '').trim();
-    if (!mId || !mKey) {
-        alert('Please provide both Paynow Integration ID and Integration Key.');
+    var mId = (idInput ? idInput.value : '').trim();
+    var mKey = (keyInput ? keyInput.value : '').trim();
+    var ecoNum = (ecoNumInput ? ecoNumInput.value : '').trim();
+    var ecoName = (ecoNameInput ? ecoNameInput.value : '').trim();
+    var waNum = (waNumInput ? waNumInput.value : '').trim();
+    var instr = (instrInput ? instrInput.value : '').trim();
+    var acceptManual = acceptToggle ? acceptToggle.checked : true;
+
+    if (!mId && !ecoNum && !waNum) {
+        alert('Please provide either Paynow merchant credentials or an EcoCash / WhatsApp number for payments.');
         return;
     }
 
     try {
-        var res = await fetch('/resellers/my-gateway', {
+        var payload = {
+            merchant_id: mId,
+            merchant_key: mKey,
+            ecocash_number: ecoNum,
+            ecocash_name: ecoName,
+            whatsapp_number: waNum,
+            payment_instructions: instr,
+            accept_manual_payments: acceptManual
+        };
+
+        var res = await window.AuthManager.fetchAPI('/resellers/my-gateway', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
-            },
-            body: JSON.stringify({ merchant_id: mId, merchant_key: mKey })
+            body: JSON.stringify(payload)
         });
-        var data = await res.json();
-        if (res.ok) {
+        var data = await res.json().catch(function() { return {}; });
+        if (res && res.ok) {
             if (msg) {
-                msg.textContent = '\u2713 ' + (data.message || 'Gateway credentials encrypted and saved.');
+                msg.textContent = '\u2713 ' + (data.message || 'Payment settings and credentials saved successfully.');
                 msg.style.display = 'block';
             }
-            keyInput.value = '';
-            if (data.merchant_id_masked) idInput.value = data.merchant_id_masked;
+            if (keyInput) keyInput.value = '';
+            if (data.merchant_id_masked && idInput) idInput.value = data.merchant_id_masked;
+            alert('Payment settings saved successfully.');
         } else {
             alert('Failed to save gateway: ' + (data.detail || 'Unknown error'));
         }
     } catch (err) {
-        alert('Error saving gateway credentials: ' + err.message);
+        alert('Error saving payment options: ' + err.message);
+    }
+};
+
+// ─── Manual Payments & Proof of Payment Ledger ────────────────────────────────
+window.loadManualPaymentsTable = async function() {
+    var listEl = document.getElementById('reseller-manual-payments-list');
+    if (!listEl) return;
+    try {
+        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments');
+        if (!res || !res.ok) {
+            listEl.innerHTML = '<em>No manual payment records found.</em>';
+            return;
+        }
+        var payments = await res.json();
+        if (!payments || !payments.length) {
+            listEl.innerHTML = '<div style="font-size:0.8rem; color:#64748b; padding:10px 0;">No manual EcoCash / WhatsApp payments received yet. When clients submit proofs of payment, they will appear here for verification.</div>';
+            return;
+        }
+        var html = '<table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:0.75rem;">' +
+            '<thead><tr style="border-bottom:2px solid #cbd5e1; text-align:left; color:#475569;">' +
+            '<th style="padding:6px;">Date</th><th>Payer / Contact</th><th>Amount</th><th>EcoCash Ref</th><th>Notes</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead><tbody>';
+
+        payments.forEach(function(p) {
+            var isPending = p.status === 'pending';
+            var stBadge = isPending
+                ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700;">PENDING REVIEW</span>'
+                : (p.status === 'confirmed'
+                    ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-weight:700;">\u2713 CONFIRMED</span>'
+                    : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-weight:700;">REJECTED</span>');
+
+            var actions = '';
+            if (isPending) {
+                actions = '<button type="button" onclick="confirmManualPayment(' + p.id + ')" style="background:#16a34a; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:0.7rem; font-weight:700; cursor:pointer; margin-right:4px;"><i class="fas fa-check"></i> Confirm Received</button>' +
+                          '<button type="button" onclick="rejectManualPayment(' + p.id + ')" style="background:#dc2626; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-times"></i> Reject</button>';
+            } else if (p.confirmed_by) {
+                actions = '<span style="font-size:0.7rem; color:#64748b;">By ' + escapeHTML(p.confirmed_by) + '</span>';
+            }
+
+            html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
+                '<td style="padding:6px; color:#64748b;">' + (p.created_at ? p.created_at.slice(0, 16).replace('T', ' ') : '—') + '</td>' +
+                '<td><strong>' + escapeHTML(p.payer_name) + '</strong><br><span style="color:#64748b;">' + escapeHTML(p.payer_phone) + '</span></td>' +
+                '<td><strong style="color:#0f172a; font-size:0.85rem;">$' + Number(p.amount_usd || 0).toFixed(2) + '</strong></td>' +
+                '<td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">' + escapeHTML(p.reference_code) + '</code></td>' +
+                '<td style="color:#475569; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHTML(p.notes || '—') + '</td>' +
+                '<td>' + stBadge + '</td>' +
+                '<td style="text-align:right;">' + actions + '</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table>';
+        listEl.innerHTML = html;
+    } catch (e) {
+        listEl.innerHTML = '<em>Failed to load manual payments.</em>';
+    }
+};
+
+window.confirmManualPayment = async function(id) {
+    if (!confirm('Confirm that you have received this payment in your EcoCash/mobile money account?')) return;
+    try {
+        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + id + '/confirm', { method: 'POST' });
+        if (res && res.ok) {
+            alert('\u2713 Payment confirmed and marked as received.');
+            window.loadManualPaymentsTable();
+        } else {
+            var data = await res.json().catch(function() { return {}; });
+            alert('Failed to confirm payment: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+};
+
+window.rejectManualPayment = async function(id) {
+    if (!confirm('Reject this payment submission?')) return;
+    try {
+        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + id + '/reject', { method: 'POST' });
+        if (res && res.ok) {
+            alert('Payment marked as rejected.');
+            window.loadManualPaymentsTable();
+        } else {
+            var data = await res.json().catch(function() { return {}; });
+            alert('Failed: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+};
+
+window.openSubmitManualPaymentModal = function() {
+    var modal = document.getElementById('manual-payment-modal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeSubmitManualPaymentModal = function() {
+    var modal = document.getElementById('manual-payment-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitManualPaymentForm = async function() {
+    var name = (document.getElementById('mp-payer-name') || {}).value || '';
+    var phone = (document.getElementById('mp-payer-phone') || {}).value || '';
+    var amount = parseFloat((document.getElementById('mp-amount') || {}).value || 0);
+    var ref = (document.getElementById('mp-reference') || {}).value || '';
+    var notes = (document.getElementById('mp-notes') || {}).value || '';
+
+    if (!name.trim() || !phone.trim() || !ref.trim() || amount <= 0) {
+        alert('Please fill in your name, phone number, amount, and the EcoCash transaction reference code.');
+        return;
+    }
+
+    try {
+        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments', {
+            method: 'POST',
+            body: JSON.stringify({
+                payer_name: name.trim(),
+                payer_phone: phone.trim(),
+                amount_usd: amount,
+                reference_code: ref.trim(),
+                notes: notes.trim()
+            })
+        });
+        var data = await res.json().catch(function() { return {}; });
+        if (res && res.ok) {
+            alert('\u2713 Proof of payment submitted successfully! The recipient will verify the EcoCash reference and confirm receipt.');
+            window.closeSubmitManualPaymentModal();
+            window.loadManualPaymentsTable();
+        } else {
+            alert('Submission failed: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 };
 
 window.triggerConsoleRentalPayment = function(model) {
     var quote = consoleRentalQuote(_fleetCount());
     var planType = model === 'MODEL_B' ? 'Platform_Rental_Model_B' : 'Platform_Rental_Model_A';
-    var amount = model === 'MODEL_B' ? 20.00 : quote.total;
+    var amount = model === 'MODEL_B' ? 15.00 : quote.total;
     window.triggerPlanPayment(planType, amount);
 };
 

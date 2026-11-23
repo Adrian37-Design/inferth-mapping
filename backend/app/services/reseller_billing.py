@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 #   The first band uses a flat minimum rather than per-vehicle, so it is handled
 #   specially: if total active <= band[0].up_to, the charge is the flat minimum.
 DEFAULT_MODEL_A_BANDS: list[dict] = [
-    {"up_to": 5,   "rate": None,  "flat_minimum": 20.00},  # first 5 vehicles → $20 flat
+    {"up_to": 5,   "rate": None,  "flat_minimum": 15.00},  # first 5 vehicles → $15 flat
     {"up_to": 25,  "rate": 2.50,  "flat_minimum": None},   # vehicles 6–25
     {"up_to": 75,  "rate": 2.00,  "flat_minimum": None},   # vehicles 26–75
     {"up_to": 200, "rate": 1.50,  "flat_minimum": None},   # vehicles 76–200
@@ -36,7 +36,7 @@ DEFAULT_MODEL_A_BANDS: list[dict] = [
 
 # ─── DEFAULT MODEL B COMMISSION ──────────────────────────────────────────────
 DEFAULT_COMMISSION_PCT: float = 20.0        # Inferth's percentage of eligible revenue
-DEFAULT_MIN_CONTRIBUTION_USD: float = 20.0  # Monthly floor regardless of revenue
+DEFAULT_MIN_CONTRIBUTION_USD: float = 15.0  # Monthly floor regardless of revenue ($15)
 DEFAULT_LIFETIME_HOSTING_USD: float = 1.50  # Per active lifetime-vehicle per month
 
 
@@ -110,17 +110,17 @@ def compute_model_a_wholesale(
 def _validate_model_a_benchmarks() -> None:
     """Internal smoke-test of the billing engine against spec benchmarks."""
     benchmarks = [
-        (5,    20.00),
-        (10,   32.50),
-        (25,   70.00),
-        (50,  120.00),
-        (75,  170.00),
-        (100, 207.50),
-        (150, 282.50),
-        (200, 357.50),
-        (300, 482.50),
-        (500, 732.50),
-        (1000, 1232.50),
+        (5,    15.00),
+        (10,   27.50),
+        (25,   65.00),
+        (50,  115.00),
+        (75,  165.00),
+        (100, 202.50),
+        (150, 277.50),
+        (200, 352.50),
+        (300, 477.50),
+        (500, 727.50),
+        (1000, 1227.50),
     ]
     for vehicles, expected in benchmarks:
         result = compute_model_a_wholesale(vehicles)
@@ -145,14 +145,15 @@ def compute_model_b_commission(
     Args:
         eligible_revenue_usd: Total qualifying retail service revenue for the period.
         commission_pct: Inferth's percentage share (default 20%).
-        min_contribution_usd: Minimum monthly floor in USD (default $20).
+        min_contribution_usd: Minimum monthly floor in USD (default $15).
 
     Returns:
         Inferth's commission in USD, rounded to 2 decimal places.
 
     Benchmark validation (from spec):
-        $50 rev   → $20.00  (floor applies)
-        $100 rev  → $20.00  (floor applies)
+        $50 rev   → $15.00  (floor applies)
+        $75 rev   → $15.00  (floor applies)
+        $100 rev  → $20.00
         $200 rev  → $40.00
         $500 rev  → $100.00
         $1,000 rev → $200.00
@@ -173,7 +174,8 @@ def compute_reseller_net_model_b(
 
 def _validate_model_b_benchmarks() -> None:
     benchmarks = [
-        (50.00,   20.00),
+        (50.00,   15.00),
+        (75.00,   15.00),
         (100.00,  20.00),
         (200.00,  40.00),
         (500.00, 100.00),

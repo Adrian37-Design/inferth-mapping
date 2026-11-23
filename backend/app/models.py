@@ -427,7 +427,7 @@ class ResellerContract(Base):
     model = Column(String(20), default="MODEL_A", nullable=False)  # MODEL_A (Wholesale) | MODEL_B (RevShare)
     status = Column(String(20), default="active", nullable=False)  # pending | active | overdue | restricted | suspended | terminated
     commission_pct = Column(Float, default=20.0)                  # Model B: percentage split for Inferth (e.g. 20%)
-    min_platform_contribution_usd = Column(Float, default=20.0)   # Model B: minimum monthly floor (e.g. $20)
+    min_platform_contribution_usd = Column(Float, default=15.0)   # Model B: minimum monthly floor (e.g. $15)
     lifetime_hosting_per_vehicle_usd = Column(Float, default=1.50)# Model B: monthly hosting per active lifetime vehicle
     custom_pricing_json = Column(JSON, nullable=True)             # Super Admin overrides for progressive bands
     billing_day_of_month = Column(Integer, default=1)             # Day of month invoice generates
@@ -440,18 +440,45 @@ class ResellerContract(Base):
 
 
 class TenantGateway(Base):
-    """Encrypted merchant payment gateway credentials per reseller tenant."""
+    """Encrypted merchant payment gateway credentials & manual EcoCash/WhatsApp payment details."""
     __tablename__ = "tenant_gateways"
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), unique=True, index=True, nullable=False)
     gateway_name = Column(String(50), default="paynow", nullable=False)
-    merchant_id_enc = Column(String(500), nullable=False)
-    merchant_key_enc = Column(String(500), nullable=False)
+    merchant_id_enc = Column(String(500), nullable=True, default="")
+    merchant_key_enc = Column(String(500), nullable=True, default="")
     is_active = Column(Boolean, default=True)
     webhook_url = Column(String, nullable=True)
+
+    # Direct EcoCash & WhatsApp Manual Payment Support
+    ecocash_number = Column(String(50), nullable=True)
+    ecocash_name = Column(String(100), nullable=True)
+    whatsapp_number = Column(String(50), nullable=True)
+    payment_instructions = Column(Text, nullable=True)
+    accept_manual_payments = Column(Boolean, default=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    tenant = relationship("Tenant")
+
+
+class ManualPayment(Base):
+    """Customer manual payments (EcoCash / WhatsApp POP) awaiting receiver verification."""
+    __tablename__ = "manual_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)
+    payer_name = Column(String(100), nullable=False)
+    payer_phone = Column(String(50), nullable=False)
+    amount_usd = Column(Float, nullable=False)
+    reference_code = Column(String(100), nullable=False)  # EcoCash transaction reference
+    notes = Column(Text, nullable=True)                   # Vehicle plate / invoice note
+    status = Column(String(20), default="pending")        # pending | confirmed | rejected
+    confirmed_by = Column(String(100), nullable=True)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tenant = relationship("Tenant")
 

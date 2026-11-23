@@ -28,7 +28,7 @@ from sqlalchemy import func, update
 from app.db import get_db
 from app.models import (
     Tenant, User, Device, ResellerContract, TenantGateway,
-    ResellerInvoice, ResellerCommissionLedger
+    ResellerInvoice, ResellerCommissionLedger, ManualPayment
 )
 from app.auth_middleware import get_current_user, require_admin, require_super_admin
 from app.services.reseller_billing import (
@@ -55,11 +55,26 @@ admin_router = APIRouter(prefix="/admin/resellers", tags=["resellers-admin"])
 # ─── PYDANTIC SCHEMAS ────────────────────────────────────────────────────────
 
 class GatewayConfigRequest(BaseModel):
-    merchant_id: str = Field(..., description="Paynow Integration ID")
-    merchant_key: str = Field(..., description="Paynow Integration Key")
+    merchant_id: Optional[str] = Field(None, description="Paynow Integration ID")
+    merchant_key: Optional[str] = Field(None, description="Paynow Integration Key")
     gateway_name: str = "paynow"
     is_active: bool = True
     webhook_url: Optional[str] = None
+    # Direct EcoCash & WhatsApp Manual Payment Support
+    ecocash_number: Optional[str] = Field(None, description="EcoCash or mobile money phone number")
+    ecocash_name: Optional[str] = Field(None, description="Registered name on EcoCash")
+    whatsapp_number: Optional[str] = Field(None, description="WhatsApp number for proof of payment")
+    payment_instructions: Optional[str] = Field(None, description="Custom payment instructions for clients")
+    accept_manual_payments: bool = True
+
+
+class ManualPaymentCreateRequest(BaseModel):
+    payer_name: str = Field(..., min_length=2, max_length=100)
+    payer_phone: str = Field(..., min_length=6, max_length=50)
+    amount_usd: float = Field(..., gt=0)
+    reference_code: str = Field(..., min_length=3, max_length=100, description="EcoCash or bank transaction reference")
+    notes: Optional[str] = None
+    tenant_id: Optional[int] = None
 
 
 class ContractCreateRequest(BaseModel):
@@ -170,15 +185,20 @@ async def get_my_gateway_config(
     if not gw:
         return {"configured": False, "tenant_id": tenant_id}
 
-    merchant_id = decrypt_credential(gw.merchant_id_enc)
+    merchant_id = decrypt_credential(gw.merchant_id_enc) if gw.merchant_id_enc else ""
 
     return {
         "configured": True,
         "tenant_id": tenant_id,
         "gateway_name": gw.gateway_name,
-        "merchant_id_masked": mask_credential(merchant_id, 2, 2),
+        "merchant_id_masked": mask_credential(merchant_id, 2, 2) if merchant_id else "",
         "is_active": gw.is_active,
         "webhook_url": gw.webhook_url,
+        "ecocash_number": gw.ecocash_number,
+        "ecocash_name": gw.ecocash_name,
+        "whatsapp_number": gw.whatsapp_number,
+        "payment_instructions": gw.payment_instructions,
+        "accept_manual_payments": gw.accept_manual_payments if gw.accept_manual_payments is not None else True,
         "updated_at": gw.updated_at,
     }
 
@@ -189,25 +209,42 @@ async def set_my_gateway_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Save or update reseller's merchant gateway credentials (encrypted)."""
+    """Save or update reseller's merchant gateway credentials (encrypted) and WhatsApp/EcoCash details."""
     tenant_id = current_user.tenant_id
-    if not req.merchant_id.strip() or not req.merchant_key.strip():
-        raise HTTPException(status_code=400, detail="Integration ID and Key are required.")
 
-    merchant_id_enc = encrypt_credential(req.merchant_id.strip())
-    merchant_key_enc = encrypt_credential(req.merchant_key.strip())
+    has_paynow = bool((req.merchant_id or "").strip() and (req.merchant_key or "").strip())
+    has_ecocash = bool((req.ecocash_number or "").strip() or (req.whatsapp_number or "").strip())
+
+    if not has_paynow and not has_ecocash:
+        raise HTTPException(
+            status_code=400,
+            detail="Please provide either Paynow merchant credentials or an EcoCash / WhatsApp payment number."
+        )
 
     gw_res = await db.execute(
         select(TenantGateway).where(TenantGateway.tenant_id == tenant_id)
     )
     gw = gw_res.scalar_one_or_none()
 
+    merchant_id_enc = encrypt_credential(req.merchant_id.strip()) if has_paynow else (gw.merchant_id_enc if gw else "")
+    merchant_key_enc = encrypt_credential(req.merchant_key.strip()) if has_paynow else (gw.merchant_key_enc if gw else "")
+
     if gw:
-        gw.merchant_id_enc = merchant_id_enc
-        gw.merchant_key_enc = merchant_key_enc
+        if has_paynow:
+            gw.merchant_id_enc = merchant_id_enc
+            gw.merchant_key_enc = merchant_key_enc
         gw.gateway_name = req.gateway_name
         gw.is_active = req.is_active
         gw.webhook_url = req.webhook_url
+        if req.ecocash_number is not None:
+            gw.ecocash_number = req.ecocash_number.strip()
+        if req.ecocash_name is not None:
+            gw.ecocash_name = req.ecocash_name.strip()
+        if req.whatsapp_number is not None:
+            gw.whatsapp_number = req.whatsapp_number.strip()
+        if req.payment_instructions is not None:
+            gw.payment_instructions = req.payment_instructions.strip()
+        gw.accept_manual_payments = req.accept_manual_payments
     else:
         gw = TenantGateway(
             tenant_id=tenant_id,
@@ -216,14 +253,23 @@ async def set_my_gateway_config(
             merchant_key_enc=merchant_key_enc,
             is_active=req.is_active,
             webhook_url=req.webhook_url,
+            ecocash_number=req.ecocash_number.strip() if req.ecocash_number else None,
+            ecocash_name=req.ecocash_name.strip() if req.ecocash_name else None,
+            whatsapp_number=req.whatsapp_number.strip() if req.whatsapp_number else None,
+            payment_instructions=req.payment_instructions.strip() if req.payment_instructions else None,
+            accept_manual_payments=req.accept_manual_payments,
         )
         db.add(gw)
 
     await db.commit()
+    decrypted_id = decrypt_credential(gw.merchant_id_enc) if gw.merchant_id_enc else ""
     return {
-        "message": "Gateway credentials encrypted and saved successfully.",
-        "merchant_id_masked": mask_credential(req.merchant_id.strip(), 2, 2),
-        "is_active": req.is_active,
+        "message": "Payment options and credentials saved successfully.",
+        "merchant_id_masked": mask_credential(decrypted_id, 2, 2) if decrypted_id else "",
+        "ecocash_number": gw.ecocash_number,
+        "whatsapp_number": gw.whatsapp_number,
+        "accept_manual_payments": gw.accept_manual_payments,
+        "is_active": gw.is_active,
     }
 
 
@@ -289,6 +335,116 @@ async def get_my_commissions(
         }
         for row in rows
     ]
+
+
+@router.get("/manual-payments")
+async def list_manual_payments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Reseller: list all manual payments / POP submissions received for current tenant."""
+    tenant_id = current_user.tenant_id
+    res = await db.execute(
+        select(ManualPayment)
+        .where(ManualPayment.tenant_id == tenant_id)
+        .order_by(ManualPayment.created_at.desc())
+        .limit(100)
+    )
+    rows = res.scalars().all()
+    return [
+        {
+            "id": p.id,
+            "payer_name": p.payer_name,
+            "payer_phone": p.payer_phone,
+            "amount_usd": float(p.amount_usd or 0),
+            "reference_code": p.reference_code,
+            "notes": p.notes,
+            "status": p.status,
+            "confirmed_by": p.confirmed_by,
+            "confirmed_at": p.confirmed_at.isoformat() if p.confirmed_at else None,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in rows
+    ]
+
+
+@router.post("/manual-payments")
+async def submit_manual_payment(
+    req: ManualPaymentCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Customer / Sender: submit proof of manual payment (EcoCash / WhatsApp POP)."""
+    target_tenant_id = req.tenant_id or current_user.tenant_id
+
+    # Verify tenant exists
+    t_res = await db.execute(select(Tenant).where(Tenant.id == target_tenant_id))
+    if not t_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    payment = ManualPayment(
+        tenant_id=target_tenant_id,
+        payer_name=req.payer_name.strip(),
+        payer_phone=req.payer_phone.strip(),
+        amount_usd=req.amount_usd,
+        reference_code=req.reference_code.strip(),
+        notes=req.notes.strip() if req.notes else None,
+        status="pending",
+    )
+    db.add(payment)
+    await db.commit()
+    await db.refresh(payment)
+    return {
+        "message": "Proof of payment submitted successfully. Your reseller/admin will verify and confirm receipt.",
+        "payment_id": payment.id,
+        "status": payment.status,
+    }
+
+
+@router.post("/manual-payments/{payment_id}/confirm")
+async def confirm_manual_payment(
+    payment_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Receiver: mark an EcoCash/manual payment as confirmed / received."""
+    res = await db.execute(
+        select(ManualPayment).where(ManualPayment.id == payment_id)
+    )
+    p = res.scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment record not found.")
+
+    if current_user.tenant_id != 1 and p.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    p.status = "confirmed"
+    p.confirmed_by = current_user.email
+    p.confirmed_at = datetime.datetime.now(datetime.timezone.utc)
+    await db.commit()
+    return {"message": "Payment confirmed and marked as received.", "payment_id": p.id, "status": "confirmed"}
+
+
+@router.post("/manual-payments/{payment_id}/reject")
+async def reject_manual_payment(
+    payment_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Receiver: reject an unverified manual payment."""
+    res = await db.execute(
+        select(ManualPayment).where(ManualPayment.id == payment_id)
+    )
+    p = res.scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment record not found.")
+
+    if current_user.tenant_id != 1 and p.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Unauthorized.")
+
+    p.status = "rejected"
+    await db.commit()
+    return {"message": "Payment marked as rejected.", "payment_id": p.id, "status": "rejected"}
 
 
 # ─── SUPER ADMIN ENDPOINTS ───────────────────────────────────────────────────
@@ -479,6 +635,23 @@ async def update_invoice_status(
 
     await db.commit()
     return {"message": f"Invoice status updated to {req.status}."}
+
+
+@admin_router.post("/invoices/{invoice_id}/settle")
+async def settle_reseller_invoice(
+    invoice_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Super Admin: mark a wholesale platform rental invoice as settled/paid."""
+    res = await db.execute(select(ResellerInvoice).where(ResellerInvoice.id == invoice_id))
+    inv = res.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+    inv.status = "paid"
+    inv.paid_at = datetime.datetime.now(datetime.timezone.utc)
+    await db.commit()
+    return {"message": "Invoice marked as settled.", "invoice_id": invoice_id}
 
 
 @admin_router.get("/benchmark-calculator")

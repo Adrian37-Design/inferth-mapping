@@ -23,18 +23,18 @@ class TestResellerBilling(unittest.TestCase):
     def test_model_a_wholesale_benchmarks(self):
         benchmarks = [
             (0, 0.00),
-            (1, 20.00),       # Minimum applies
-            (5, 20.00),       # 5 vehicles = $20 minimum
-            (10, 32.50),      # 20 + 5*2.50 = 32.50
-            (25, 70.00),      # 20 + 20*2.50 = 70.00
-            (50, 120.00),     # 70 + 25*2.00 = 120.00
-            (75, 170.00),     # 70 + 50*2.00 = 170.00
-            (100, 207.50),    # 170 + 25*1.50 = 207.50
-            (150, 282.50),    # 170 + 75*1.50 = 282.50
-            (200, 357.50),    # 170 + 125*1.50 = 357.50
-            (300, 482.50),    # 357.50 + 100*1.25 = 482.50
-            (500, 732.50),    # 357.50 + 300*1.25 = 732.50
-            (1000, 1232.50),  # 732.50 + 500*1.00 = 1232.50
+            (1, 15.00),       # Minimum applies ($15)
+            (5, 15.00),       # 5 vehicles = $15 minimum
+            (10, 27.50),      # 15 + 5*2.50 = 27.50
+            (25, 65.00),      # 15 + 20*2.50 = 65.00
+            (50, 115.00),     # 65 + 25*2.00 = 115.00
+            (75, 165.00),     # 65 + 50*2.00 = 165.00
+            (100, 202.50),    # 165 + 25*1.50 = 202.50
+            (150, 277.50),    # 165 + 75*1.50 = 277.50
+            (200, 352.50),    # 165 + 125*1.50 = 352.50
+            (300, 477.50),    # 352.50 + 100*1.25 = 477.50
+            (500, 727.50),    # 352.50 + 300*1.25 = 727.50
+            (1000, 1227.50),  # 727.50 + 500*1.00 = 1227.50
         ]
         for vehicles, expected in benchmarks:
             result = compute_model_a_wholesale(vehicles)
@@ -58,9 +58,10 @@ class TestResellerBilling(unittest.TestCase):
 
     def test_model_b_commission_benchmarks(self):
         benchmarks = [
-            (50.00, 20.00, 30.00),     # Floor applies ($50 * 20% = $10 < $20)
-            (100.00, 20.00, 80.00),    # Floor applies ($100 * 20% = $20 == $20)
-            (200.00, 40.00, 160.00),   # 20% > floor ($40 > $20)
+            (50.00, 15.00, 35.00),     # Floor applies ($50 * 20% = $10 < $15)
+            (75.00, 15.00, 60.00),     # Floor applies ($75 * 20% = $15 == $15)
+            (100.00, 20.00, 80.00),    # 20% > floor ($20 > $15)
+            (200.00, 40.00, 160.00),   # 20% > floor ($40 > $15)
             (500.00, 100.00, 400.00),  # 20% = $100
             (1000.00, 200.00, 800.00), # 20% = $200
         ]
@@ -87,11 +88,11 @@ class TestResellerBilling(unittest.TestCase):
             active_vehicles=100,
             eligible_revenue_usd=1500.00,
         )
-        self.assertEqual(summary["wholesale_charge"], 207.50)
-        self.assertEqual(summary["total_due"], 207.50)
+        self.assertEqual(summary["wholesale_charge"], 202.50)
+        self.assertEqual(summary["total_due"], 202.50)
         self.assertEqual(summary["commission"], 0.00)
         self.assertEqual(summary["lifetime_hosting"], 0.00)
-        self.assertEqual(summary["reseller_net"], 1292.50)
+        self.assertEqual(summary["reseller_net"], 1297.50)
 
     def test_combined_billing_model_b(self):
         summary = compute_monthly_charge(
