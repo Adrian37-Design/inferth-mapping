@@ -2270,30 +2270,128 @@
                     </div>
                 </div>
 
-                <!-- Tab: Companies -->
+                <!-- Tab: Companies & Platform Fleet Rental -->
                 <div id="tab-companies" class="tab-content">
-                    <div class="panel-header" style="justify-content: space-between;">
-                        <h2><i class="fas fa-building"></i> Company Management</h2>
-                        <button class="btn-primary"
-                            onclick="document.getElementById('company-form-modal').classList.remove('hidden')">
-                            <i class="fas fa-plus"></i> New Company
+                    <!-- Sub-navigation tabs -->
+                    <div style="display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:16px; padding-bottom:8px;">
+                        <button type="button" id="subtab-btn-companies" class="btn-secondary" onclick="switchCompanySubtab('companies')" style="border-radius:20px; padding:6px 16px; font-weight:600; font-size:0.85rem; background:#0f172a; color:#fff; cursor:pointer;">
+                            <i class="fas fa-building"></i> Companies &amp; Tenants
+                        </button>
+                        <button type="button" id="subtab-btn-resellers" class="btn-secondary" onclick="switchCompanySubtab('resellers')" style="border-radius:20px; padding:6px 16px; font-weight:600; font-size:0.85rem; background:#f1f5f9; color:#475569; cursor:pointer;">
+                            <i class="fas fa-handshake"></i> Platform Fleet Rental
                         </button>
                     </div>
-                    <div class="users-list-container">
+
+                    <!-- Subtab 1: Companies & Tenants -->
+                    <div id="subtab-view-companies">
+                        <div class="panel-header" style="justify-content: space-between;">
+                            <h2><i class="fas fa-building"></i> Company Management</h2>
+                            <button class="btn-primary"
+                                onclick="document.getElementById('company-form-modal').classList.remove('hidden')">
+                                <i class="fas fa-plus"></i> New Company
+                            </button>
+                        </div>
+                        <div class="users-list-container">
+                            <div class="data-table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Logo</th>
+                                        <th>Company Name</th>
+                                        <th>ID</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="companies-table-body">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subtab 2: Platform Fleet Rental (Super Admin) -->
+                    <div id="subtab-view-resellers" class="hidden">
+                        <div class="panel-header" style="justify-content: space-between; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h2 style="margin:0;"><i class="fas fa-handshake"></i> Reseller Fleet Rental Agreements</h2>
+                                <p style="margin:4px 0 0; font-size:0.8rem; color:#64748b;">Wholesale marginal pricing (Model A) &amp; Revenue-sharing (Model B)</p>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn-primary" onclick="openNewResellerContractModal()" style="font-size:0.82rem;">
+                                    <i class="fas fa-plus"></i> New Agreement
+                                </button>
+                                <button type="button" class="btn-secondary" onclick="openBenchmarkCalculatorModal()" style="font-size:0.82rem; background:#f8fafc; border:1px solid #cbd5e1; cursor:pointer;">
+                                    <i class="fas fa-calculator"></i> Pricing Simulator
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Stat Summary Cards -->
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin:16px 0;">
+                            <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                                <span style="font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase;">Active Resellers</span>
+                                <h3 id="reseller-stat-contracts-count" style="margin:6px 0 0; font-size:1.4rem; color:#0f172a;">--</h3>
+                            </div>
+                            <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                                <span style="font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase;">Managed Fleet Vehicles</span>
+                                <h3 id="reseller-stat-vehicles-count" style="margin:6px 0 0; font-size:1.4rem; color:#0f172a;">--</h3>
+                            </div>
+                            <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                                <span style="font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase;">Est. Monthly Platform Dues</span>
+                                <h3 id="reseller-stat-platform-dues" style="margin:6px 0 0; font-size:1.4rem; color:#059669;">--</h3>
+                            </div>
+                        </div>
+
+                        <!-- Reseller Contracts Table -->
+                        <h4 style="margin:20px 0 8px; font-size:0.9rem; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-file-contract" style="color:#f97316;"></i> Active Agreements
+                        </h4>
+                        <div class="data-table-wrapper" style="margin-bottom:24px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tenant</th>
+                                        <th>Model</th>
+                                        <th>Vehicles</th>
+                                        <th>Pricing Terms</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reseller-contracts-table-body">
+                                    <tr><td colspan="6" class="text-center" style="color:#64748b;">Loading agreements...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Invoices Ledger -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin:20px 0 8px;">
+                            <h4 style="margin:0; font-size:0.9rem; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-file-invoice-dollar" style="color:#3b82f6;"></i> Wholesale Invoices
+                            </h4>
+                            <button type="button" class="btn-secondary" onclick="loadResellerInvoicesTable()" style="font-size:0.75rem; padding:4px 10px; cursor:pointer;">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
                         <div class="data-table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Logo</th>
-                                    <th>Company Name</th>
-                                    <th>ID</th>
-                                    <th class="text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="companies-table-body">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Reseller</th>
+                                        <th>Period</th>
+                                        <th>Vehicles</th>
+                                        <th>Gross Customer Rev</th>
+                                        <th>Total Due</th>
+                                        <th>Status</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reseller-invoices-table-body">
+                                    <tr><td colspan="8" class="text-center" style="color:#64748b;">Loading invoices...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -2733,6 +2831,127 @@
         </div>
     </div>
 
+    <!-- Reseller Contract Modal -->
+    <div class="modal hidden" id="reseller-contract-modal">
+        <div class="modal-content" style="max-width:540px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-contract" style="color:#f97316;"></i> <span id="rc-modal-title">New Reseller Agreement</span></h3>
+                <button class="close-modal" onclick="closeResellerContractModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="reseller-contract-form" onsubmit="event.preventDefault(); saveResellerContract();">
+                    <input type="hidden" id="rc-contract-id">
+                    <input type="hidden" id="rc-is-edit" value="0">
+
+                    <div class="form-group">
+                        <label for="rc-tenant-id">Reseller / Tenant *</label>
+                        <select id="rc-tenant-id" class="dd-select" required style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.875rem;">
+                            <!-- Populated with tenants -->
+                        </select>
+                        <small>The tenant organization renting the Inferth Mapping platform.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rc-commercial-model">Commercial Model *</label>
+                        <select id="rc-commercial-model" class="dd-select" required onchange="toggleResellerModelFields()" style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.875rem;">
+                            <option value="MODEL_A">Model A: Wholesale Fleet Rental (Marginal bands)</option>
+                            <option value="MODEL_B">Model B: Revenue Sharing (Split + Minimum contribution)</option>
+                        </select>
+                        <small>Model A charges progressive monthly rates per vehicle. Model B takes a percentage of retail revenue.</small>
+                    </div>
+
+                    <div id="rc-model-b-fields" class="hidden">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <div class="form-group">
+                                <label for="rc-commission-pct">Inferth Split (%)</label>
+                                <input type="number" id="rc-commission-pct" step="0.1" min="0" max="100" value="20.0" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                                <small>Proposed starting split: 20% Inferth, 80% Reseller</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="rc-min-contribution">Min Monthly Fee ($)</label>
+                                <input type="number" id="rc-min-contribution" step="0.5" min="0" value="20.0" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                                <small>Floor contribution (greater of % or floor)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                        <div class="form-group">
+                            <label for="rc-lifetime-hosting">Lifetime Hosting ($/veh/mo)</label>
+                            <input type="number" id="rc-lifetime-hosting" step="0.1" min="0" value="1.50" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                            <small>Recurring server cost for once-off vehicles</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="rc-billing-day">Billing Day of Month</label>
+                            <input type="number" id="rc-billing-day" min="1" max="28" value="1" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem;">
+                            <small>Day invoices are generated (Default: 1st)</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rc-status">Agreement Status</label>
+                        <select id="rc-status" class="dd-select" style="width:100%; padding:9px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.875rem;">
+                            <option value="active">Active (Operational &amp; Invoiced)</option>
+                            <option value="paused">Paused (Suspended billing)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rc-notes">Commercial Notes / Terms</label>
+                        <textarea id="rc-notes" rows="2" placeholder="e.g., Primary contract for Console Telematics Zimbabwe" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:0.85rem; resize:vertical;"></textarea>
+                    </div>
+
+                    <div id="rc-status-msg" style="font-size:0.8rem; margin:8px 0; min-height:18px;"></div>
+
+                    <button type="submit" id="rc-submit-btn" class="btn-primary" style="width:100%; margin-top:8px;">
+                        <i class="fas fa-check"></i> Save Agreement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reseller Pricing Calculator Modal -->
+    <div class="modal hidden" id="reseller-calculator-modal">
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-calculator" style="color:#3b82f6;"></i> Wholesale Marginal Pricing Simulator</h3>
+                <button class="close-modal" onclick="document.getElementById('reseller-calculator-modal').classList.add('hidden')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="margin:0 0 14px; font-size:0.82rem; color:#475569;">
+                    Model A uses marginal progressive banding. Each vehicle rate applies only to units within that specific bracket.
+                </p>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label for="sim-vehicle-input" style="font-weight:700; color:#0f172a;">Active Vehicles to Simulate</label>
+                    <div style="display:flex; gap:10px; align-items:center; margin-top:4px;">
+                        <input type="number" id="sim-vehicle-input" min="0" max="10000" value="50" oninput="runSimCalculation()" style="width:120px; font-size:1.1rem; font-weight:700; padding:8px 12px; border-radius:8px; border:2px solid #3b82f6; text-align:center;">
+                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(5)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">5</button>
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(25)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">25</button>
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(50)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">50</button>
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(100)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">100</button>
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(500)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">500</button>
+                            <button type="button" class="btn-secondary" onclick="setSimVehicles(1000)" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;">1000</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sim-results-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px;">
+                    <!-- Rendered by runSimCalculation -->
+                </div>
+
+                <div style="text-align:right;">
+                    <button type="button" class="btn-secondary" onclick="document.getElementById('reseller-calculator-modal').classList.add('hidden')">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Vehicle Modal -->
     <div class="modal hidden" id="add-vehicle-modal">
         <div class="modal-content">
@@ -2869,7 +3088,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=222"></script>
+    <script src="/static/app.js?v=223"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=6"></script>
     <!-- Payment Modal -->

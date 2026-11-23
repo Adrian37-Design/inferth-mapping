@@ -811,7 +811,11 @@ window.switchTab = function(targetId) {
         }
 
         if (targetId === 'tab-companies') {
-            loadCompanies();
+            if (window._currentCompanySubtab === 'resellers') {
+                if (typeof window.loadAdminResellers === 'function') window.loadAdminResellers();
+            } else {
+                loadCompanies();
+            }
         }
 
         if (targetId === 'tab-settings') {
@@ -8605,6 +8609,452 @@ async function loadCompanies() {
         tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
+
+// ─── SUPER ADMIN: PLATFORM FLEET RENTAL (RESELLER PORTAL) ────────────────────
+
+window._currentCompanySubtab = 'companies';
+
+window.switchCompanySubtab = function(subtab) {
+    window._currentCompanySubtab = subtab;
+    const viewCompanies = document.getElementById('subtab-view-companies');
+    const viewResellers = document.getElementById('subtab-view-resellers');
+    const btnCompanies = document.getElementById('subtab-btn-companies');
+    const btnResellers = document.getElementById('subtab-btn-resellers');
+
+    if (subtab === 'resellers') {
+        if (viewCompanies) viewCompanies.classList.add('hidden');
+        if (viewResellers) viewResellers.classList.remove('hidden');
+        if (btnResellers) {
+            btnResellers.style.background = '#0f172a';
+            btnResellers.style.color = '#ffffff';
+        }
+        if (btnCompanies) {
+            btnCompanies.style.background = '#f1f5f9';
+            btnCompanies.style.color = '#475569';
+        }
+        window.loadAdminResellers();
+    } else {
+        if (viewResellers) viewResellers.classList.add('hidden');
+        if (viewCompanies) viewCompanies.classList.remove('hidden');
+        if (btnCompanies) {
+            btnCompanies.style.background = '#0f172a';
+            btnCompanies.style.color = '#ffffff';
+        }
+        if (btnResellers) {
+            btnResellers.style.background = '#f1f5f9';
+            btnResellers.style.color = '#475569';
+        }
+        loadCompanies();
+    }
+};
+
+window.loadAdminResellers = async function() {
+    const tableBody = document.getElementById('reseller-contracts-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:16px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Loading reseller agreements...</td></tr>';
+
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/resellers/contracts');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const contracts = await res.json();
+
+        let totalVehicles = 0;
+        let totalDues = 0;
+
+        if (!Array.isArray(contracts) || contracts.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:20px; color:#64748b;">No reseller rental agreements configured yet.<br><small>Click <strong>New Agreement</strong> to assign a wholesale contract to a tenant.</small></td></tr>';
+        } else {
+            tableBody.innerHTML = contracts.map(c => {
+                const activeVeh = Number(c.active_vehicles_count || 0);
+                totalVehicles += activeVeh;
+
+                let terms = '';
+                let estDue = 0;
+                if (c.model === 'MODEL_A') {
+                    terms = 'Progressive Marginal ($20 floor, $2.50 to $1.00/veh)';
+                    estDue = typeof window.consoleRentalQuote === 'function' ? window.consoleRentalQuote(activeVeh) : 20;
+                } else {
+                    terms = `${c.commission_pct}% commission (min $${c.min_platform_contribution_usd}/mo)`;
+                    estDue = Number(c.min_platform_contribution_usd || 20);
+                }
+                totalDues += estDue;
+
+                const modelBadge = c.model === 'MODEL_A'
+                    ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; font-weight:600;">Model A (Wholesale)</span>'
+                    : '<span class="badge" style="background:#fef3c7; color:#b45309; font-weight:600;">Model B (Revenue Share)</span>';
+                
+                const statusBadge = c.status === 'active'
+                    ? '<span class="badge" style="background:#dcfce7; color:#15803d;">Active</span>'
+                    : '<span class="badge" style="background:#fee2e2; color:#b91c1c;">Paused</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong style="color:#0f172a;">${escapeHTML(c.tenant_name || 'Tenant #' + c.tenant_id)}</strong>
+                            <div style="font-size:0.75rem; color:#64748b;">Tenant ID: ${c.tenant_id}</div>
+                        </td>
+                        <td>${modelBadge}</td>
+                        <td><strong style="color:#0f172a;">${activeVeh}</strong> active</td>
+                        <td style="font-size:0.8rem; color:#475569;">${escapeHTML(terms)}</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-right">
+                            <div class="action-buttons" style="justify-content:flex-end; gap:6px;">
+                                <button type="button" class="btn-secondary" style="font-size:0.75rem; padding:4px 8px; cursor:pointer;" title="Generate Invoice" onclick="triggerGenerateInvoice(${c.tenant_id})">
+                                    <i class="fas fa-file-invoice"></i> Invoice
+                                </button>
+                                <button type="button" class="icon-btn edit-btn" title="Edit Agreement" onclick="openEditResellerContractModal(${c.tenant_id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update stats
+        const statContracts = document.getElementById('reseller-stat-contracts-count');
+        const statVehicles = document.getElementById('reseller-stat-vehicles-count');
+        const statDues = document.getElementById('reseller-stat-platform-dues');
+        if (statContracts) statContracts.textContent = String(contracts.length);
+        if (statVehicles) statVehicles.textContent = String(totalVehicles);
+        if (statDues) statDues.textContent = '$' + totalDues.toFixed(2);
+
+        window._resellerContractsCache = contracts;
+        window.loadResellerInvoicesTable();
+    } catch (err) {
+        console.error("Failed to load reseller contracts:", err);
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:#b91c1c; padding:16px;">Error loading reseller agreements: ${escapeHTML(err.message)}</td></tr>`;
+    }
+};
+
+window.loadResellerInvoicesTable = async function() {
+    const tableBody = document.getElementById('reseller-invoices-table-body');
+    if (!tableBody) return;
+    tableBody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:16px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Loading invoices...</td></tr>';
+
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/resellers/invoices');
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const invoices = await res.json();
+
+        if (!Array.isArray(invoices) || invoices.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:20px; color:#64748b;">No wholesale invoices generated yet.</td></tr>';
+            return;
+        }
+
+        tableBody.innerHTML = invoices.map(inv => {
+            const statusBadge = (inv.status || '').toLowerCase() === 'paid'
+                ? '<span class="badge" style="background:#dcfce7; color:#15803d;">Paid</span>'
+                : '<span class="badge" style="background:#fef3c7; color:#b45309;">Issued</span>';
+
+            const period = `${(inv.billing_period_start || '').slice(0, 10)} to ${(inv.billing_period_end || '').slice(0, 10)}`;
+            const grossRev = inv.gross_customer_revenue_usd ? `$${Number(inv.gross_customer_revenue_usd).toFixed(2)}` : '--';
+            const totalDue = `$${Number(inv.total_due_usd || 0).toFixed(2)}`;
+
+            const settleBtn = (inv.status || '').toLowerCase() !== 'paid'
+                ? `<button type="button" class="btn-primary" style="font-size:0.75rem; padding:4px 8px; background:#059669; cursor:pointer;" onclick="settleResellerInvoice(${inv.id})"><i class="fas fa-check"></i> Settle</button>`
+                : '<span style="font-size:0.75rem; color:#15803d;"><i class="fas fa-check-circle"></i> Settled</span>';
+
+            return `
+                <tr>
+                    <td><strong>${escapeHTML(inv.invoice_number)}</strong></td>
+                    <td>${escapeHTML(inv.tenant_name || 'Tenant #' + inv.tenant_id)}</td>
+                    <td style="font-size:0.8rem; color:#64748b;">${period}</td>
+                    <td>${inv.active_vehicles_count || 0}</td>
+                    <td style="font-size:0.8rem;">${grossRev}</td>
+                    <td><strong style="color:#0f172a;">${totalDue}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td class="text-right">${settleBtn}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error("Failed to load invoices:", err);
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center" style="color:#b91c1c; padding:16px;">Error loading invoices: ${escapeHTML(err.message)}</td></tr>`;
+    }
+};
+
+window.openNewResellerContractModal = async function() {
+    const modal = document.getElementById('reseller-contract-modal');
+    if (!modal) return;
+    document.getElementById('rc-modal-title').textContent = 'New Reseller Agreement';
+    document.getElementById('rc-is-edit').value = '0';
+    document.getElementById('rc-contract-id').value = '';
+    const tenantSelect = document.getElementById('rc-tenant-id');
+    tenantSelect.disabled = false;
+    tenantSelect.innerHTML = '<option value="">Loading tenants...</option>';
+
+    try {
+        const res = await window.AuthManager.fetchAPI('/auth/tenants');
+        if (res.ok) {
+            const tenants = await res.json();
+            const eligible = (tenants || []).filter(t => t.id !== 1);
+            tenantSelect.innerHTML = eligible.map(t => `<option value="${t.id}">${escapeHTML(t.name)} (ID: ${t.id})</option>`).join('');
+        }
+    } catch (e) {
+        tenantSelect.innerHTML = '<option value="">Could not load tenants</option>';
+    }
+
+    document.getElementById('rc-commercial-model').value = 'MODEL_A';
+    document.getElementById('rc-commission-pct').value = '20.0';
+    document.getElementById('rc-min-contribution').value = '20.0';
+    document.getElementById('rc-lifetime-hosting').value = '1.50';
+    document.getElementById('rc-billing-day').value = '1';
+    document.getElementById('rc-status').value = 'active';
+    document.getElementById('rc-notes').value = '';
+    document.getElementById('rc-status-msg').textContent = '';
+    window.toggleResellerModelFields();
+    modal.classList.remove('hidden');
+};
+
+window.openEditResellerContractModal = function(tenantId) {
+    const contracts = window._resellerContractsCache || [];
+    const c = contracts.find(x => x.tenant_id === tenantId);
+    if (!c) return;
+
+    const modal = document.getElementById('reseller-contract-modal');
+    if (!modal) return;
+
+    document.getElementById('rc-modal-title').textContent = `Edit Agreement: ${c.tenant_name || 'Tenant #' + c.tenant_id}`;
+    document.getElementById('rc-is-edit').value = '1';
+    document.getElementById('rc-contract-id').value = c.id;
+
+    const tenantSelect = document.getElementById('rc-tenant-id');
+    tenantSelect.innerHTML = `<option value="${c.tenant_id}">${escapeHTML(c.tenant_name || 'Tenant #' + c.tenant_id)}</option>`;
+    tenantSelect.disabled = true;
+
+    document.getElementById('rc-commercial-model').value = c.model || 'MODEL_A';
+    document.getElementById('rc-commission-pct').value = c.commission_pct != null ? c.commission_pct : 20.0;
+    document.getElementById('rc-min-contribution').value = c.min_platform_contribution_usd != null ? c.min_platform_contribution_usd : 20.0;
+    document.getElementById('rc-lifetime-hosting').value = c.lifetime_hosting_per_vehicle_usd != null ? c.lifetime_hosting_per_vehicle_usd : 1.50;
+    document.getElementById('rc-billing-day').value = c.billing_day_of_month || 1;
+    document.getElementById('rc-status').value = c.status || 'active';
+    document.getElementById('rc-notes').value = c.notes || '';
+    document.getElementById('rc-status-msg').textContent = '';
+
+    window.toggleResellerModelFields();
+    modal.classList.remove('hidden');
+};
+
+window.closeResellerContractModal = function() {
+    const modal = document.getElementById('reseller-contract-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+window.toggleResellerModelFields = function() {
+    const model = document.getElementById('rc-commercial-model').value;
+    const bFields = document.getElementById('rc-model-b-fields');
+    if (bFields) bFields.classList.toggle('hidden', model !== 'MODEL_B');
+};
+
+window.saveResellerContract = async function() {
+    const isEdit = document.getElementById('rc-is-edit').value === '1';
+    const tenantId = parseInt(document.getElementById('rc-tenant-id').value, 10);
+    const model = document.getElementById('rc-commercial-model').value;
+    const commissionPct = parseFloat(document.getElementById('rc-commission-pct').value) || 20.0;
+    const minContribution = parseFloat(document.getElementById('rc-min-contribution').value) || 20.0;
+    const lifetimeHosting = parseFloat(document.getElementById('rc-lifetime-hosting').value) || 1.50;
+    const billingDay = parseInt(document.getElementById('rc-billing-day').value, 10) || 1;
+    const status = document.getElementById('rc-status').value;
+    const notes = document.getElementById('rc-notes').value.trim();
+    const msgEl = document.getElementById('rc-status-msg');
+    const submitBtn = document.getElementById('rc-submit-btn');
+
+    if (!tenantId) {
+        if (msgEl) { msgEl.style.color = '#b91c1c'; msgEl.textContent = 'Please select a tenant.'; }
+        return;
+    }
+
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+    try {
+        let res;
+        if (isEdit) {
+            res = await window.AuthManager.fetchAPI(`/admin/resellers/contracts/${tenantId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: model,
+                    status: status,
+                    commission_pct: commissionPct,
+                    min_platform_contribution_usd: minContribution,
+                    lifetime_hosting_per_vehicle_usd: lifetimeHosting,
+                    billing_day_of_month: billingDay,
+                    notes: notes
+                })
+            });
+        } else {
+            res = await window.AuthManager.fetchAPI('/admin/resellers/contracts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenant_id: tenantId,
+                    model: model,
+                    status: status,
+                    commission_pct: commissionPct,
+                    min_platform_contribution_usd: minContribution,
+                    lifetime_hosting_per_vehicle_usd: lifetimeHosting,
+                    billing_day_of_month: billingDay,
+                    notes: notes
+                })
+            });
+        }
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Save failed (${res.status})`);
+
+        window.closeResellerContractModal();
+        window.loadAdminResellers();
+    } catch (err) {
+        if (msgEl) {
+            msgEl.style.color = '#b91c1c';
+            msgEl.textContent = err.message;
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Save Agreement';
+        }
+    }
+};
+
+window.triggerGenerateInvoice = async function(tenantId) {
+    if (!confirm(`Generate wholesale invoice for Tenant #${tenantId} for the current month?`)) return;
+    try {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+        const res = await window.AuthManager.fetchAPI('/admin/resellers/invoices/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tenant_id: tenantId,
+                period_start: start,
+                period_end: end
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Invoice generation failed (${res.status})`);
+
+        alert(`Invoice generated successfully! Total due: $${Number(data.total_due_usd || 0).toFixed(2)}`);
+        window.loadResellerInvoicesTable();
+    } catch (err) {
+        alert(`Error: ${err.message}`);
+    }
+};
+
+window.settleResellerInvoice = async function(invoiceId) {
+    if (!confirm('Mark this invoice as settled/paid?')) return;
+    try {
+        const res = await window.AuthManager.fetchAPI(`/admin/resellers/invoices/${invoiceId}/settle`, {
+            method: 'POST'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `Settle failed (${res.status})`);
+        window.loadResellerInvoicesTable();
+    } catch (err) {
+        alert(`Error: ${err.message}`);
+    }
+};
+
+// ─── WHOLESALE PRICING SIMULATOR ─────────────────────────────────────────────
+
+window.openBenchmarkCalculatorModal = function() {
+    const modal = document.getElementById('reseller-calculator-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        window.runSimCalculation();
+    }
+};
+
+window.setSimVehicles = function(n) {
+    const input = document.getElementById('sim-vehicle-input');
+    if (input) {
+        input.value = n;
+        window.runSimCalculation();
+    }
+};
+
+window.runSimCalculation = function() {
+    const input = document.getElementById('sim-vehicle-input');
+    const results = document.getElementById('sim-results-card');
+    if (!input || !results) return;
+
+    const n = Math.max(0, parseInt(input.value, 10) || 0);
+
+    let total = 0;
+    const tierLines = [];
+
+    if (n === 0) {
+        total = 0;
+        tierLines.push('0 active vehicles: $0.00');
+    } else {
+        const b1Count = Math.min(n, 5);
+        total += 20.00;
+        tierLines.push(`First 5 vehicles (1–${b1Count}): <strong>$20.00</strong> (minimum platform fee)`);
+
+        if (n > 5) {
+            const b2Count = Math.min(n - 5, 20);
+            const b2Cost = b2Count * 2.50;
+            total += b2Cost;
+            tierLines.push(`Vehicles 6–${5 + b2Count} (${b2Count} veh @ $2.50): <strong>+$${b2Cost.toFixed(2)}</strong>`);
+        }
+
+        if (n > 25) {
+            const b3Count = Math.min(n - 25, 50);
+            const b3Cost = b3Count * 2.00;
+            total += b3Cost;
+            tierLines.push(`Vehicles 26–${25 + b3Count} (${b3Count} veh @ $2.00): <strong>+$${b3Cost.toFixed(2)}</strong>`);
+        }
+
+        if (n > 75) {
+            const b4Count = Math.min(n - 75, 125);
+            const b4Cost = b4Count * 1.50;
+            total += b4Cost;
+            tierLines.push(`Vehicles 76–${75 + b4Count} (${b4Count} veh @ $1.50): <strong>+$${b4Cost.toFixed(2)}</strong>`);
+        }
+
+        if (n > 200) {
+            const b5Count = Math.min(n - 200, 300);
+            const b5Cost = b5Count * 1.25;
+            total += b5Cost;
+            tierLines.push(`Vehicles 201–${200 + b5Count} (${b5Count} veh @ $1.25): <strong>+$${b5Cost.toFixed(2)}</strong>`);
+        }
+
+        if (n > 500) {
+            const b6Count = n - 500;
+            const b6Cost = b6Count * 1.00;
+            total += b6Cost;
+            tierLines.push(`Vehicles 501+ (${b6Count} veh @ $1.00): <strong>+$${b6Cost.toFixed(2)}</strong>`);
+        }
+    }
+
+    const effRate = n > 0 ? (total / n).toFixed(2) : '0.00';
+
+    results.innerHTML = `
+        <div style="font-size:0.8rem; color:#334155; margin-bottom:10px; display:flex; flex-direction:column; gap:4px;">
+            ${tierLines.map(l => `<div>• ${l}</div>`).join('')}
+        </div>
+        <div style="border-top:1px solid #cbd5e1; padding-top:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Total Monthly Rental</span>
+                <div style="font-size:1.4rem; font-weight:800; color:#0f172a;">$${total.toFixed(2)} <span style="font-size:0.8rem; font-weight:400; color:#64748b;">/month</span></div>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase; font-weight:700;">Effective Unit Cost</span>
+                <div style="font-size:1.1rem; font-weight:700; color:#059669;">$${effRate} <span style="font-size:0.75rem; font-weight:400; color:#64748b;">/veh/mo</span></div>
+            </div>
+        </div>
+    `;
+};
 
 // --- Platform Settings Tab Logic ---
 function loadSettingsTab() {
