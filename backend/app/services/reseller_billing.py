@@ -251,27 +251,39 @@ async def get_active_billable_vehicle_count(
     return result.scalar() or 0
 
 
+LIFETIME_PLAN_TAGS = (
+    "onceoff_lifetime", "once-off", "onceoff", "once off", "lifetime", "starter",
+)
+
+
 async def get_active_lifetime_vehicle_count(
     db: AsyncSession,
     tenant_id: int,
 ) -> int:
     """Return the count of active lifetime-plan vehicles under a reseller tenant.
 
-    Lifetime subscriptions are identified by subscription.plan_type = 'onceoff_lifetime'.
-    Only vehicles with active entitlements (service_status = 'active') are counted.
+    This schema has no subscription table: the plan a vehicle was sold on lives in
+    the device metadata (plan / plan_type / package / billing_cycle). Only active
+    service entitlements count, matching the billable active-vehicle definition.
     """
-    from app.models import Device, Subscription
+    from app.models import Device
     result = await db.execute(
-        select(func.count(Device.id))
-        .join(Subscription, Subscription.device_id == Device.id, isouter=True)
-        .where(
+        select(Device.device_metadata).where(
             Device.tenant_id == tenant_id,
             Device.service_status == "active",
-            Subscription.plan_type == "onceoff_lifetime",
-            Subscription.status == "active",
         )
     )
-    return result.scalar() or 0
+    count = 0
+    for (meta,) in result.all():
+        if not isinstance(meta, dict):
+            continue
+        marker = " ".join(
+            str(meta.get(key) or "")
+            for key in ("plan", "plan_type", "package", "billing_cycle")
+        ).lower()
+        if any(tag in marker for tag in LIFETIME_PLAN_TAGS):
+            count += 1
+    return count
 
 
 # ─── COMBINED BILLING SUMMARY ─────────────────────────────────────────────────

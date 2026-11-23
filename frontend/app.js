@@ -9818,6 +9818,10 @@ window.billingModeFromCycle = function(cycle) {
 };
 
 function applyBillingView(mode) {
+    // A plan view and the history sub-tab are mutually exclusive.
+    var historyView = document.getElementById('billing-history-view');
+    if (historyView) historyView.classList.add('hidden');
+    if (typeof window.setBillingSubtabActive === 'function') window.setBillingSubtabActive('billing');
     const viewMap = {
         monthly: document.getElementById('billing-monthly-view'),
         onceoff: document.getElementById('billing-onceoff-view'),
@@ -9878,6 +9882,9 @@ function _subscriptionMode(sub) {
 window.applySubscriptionGate = function () {
     const user = window.AuthManager && window.AuthManager.user;
     const sub = user && user.subscription;
+    const historyView = document.getElementById('billing-history-view');
+    if (historyView) historyView.classList.add('hidden');
+    if (typeof window.setBillingSubtabActive === 'function') window.setBillingSubtabActive('billing');
     if (!sub) return;
 
     const active = String(sub.status || '').toLowerCase() === 'active';
@@ -11726,57 +11733,32 @@ window.updateRentalSimCalculations = function() {
 
 // Reseller Gateway, Invoices, and WhatsApp/EcoCash Payments loader
 window.loadResellerPortal = async function() {
-    var badge = document.getElementById('reseller-contract-badge');
     try {
         var planRes = await window.AuthManager.fetchAPI('/resellers/my-plan');
-        if (planRes && planRes.ok) {
-            var planData = await planRes.json();
-            if (badge) {
-                if (planData.has_reseller_contract) {
-                    var mLabel = planData.contract.model === 'MODEL_B'
-                        ? 'Model B (RevShare ' + planData.contract.commission_pct + '%)'
-                        : 'Model A (Wholesale Rental)';
-                    badge.textContent = mLabel + ' \u2014 ' + planData.contract.status.toUpperCase();
-                    badge.style.background = planData.contract.status === 'active' ? '#16a34a' : '#ea580c';
+        if (!planRes || !planRes.ok) return;
+        var planData = await planRes.json();
+        if (!planData.has_reseller_contract) return;
 
-                    // Highlight active card
-                    var cardA = document.getElementById('card-rental-model-a');
-                    var cardB = document.getElementById('card-rental-model-b');
-                    var btnA = document.getElementById('rental-btn-model-a');
-                    var btnB = document.getElementById('rental-btn-model-b');
+        var cardA = document.getElementById('card-rental-model-a');
+        var cardB = document.getElementById('card-rental-model-b');
+        var btnA = document.getElementById('rental-btn-model-a');
+        var btnB = document.getElementById('rental-btn-model-b');
 
-                    if (planData.contract.model === 'MODEL_B') {
-                        if (cardB) cardB.style.borderColor = '#0ea5e9';
-                        if (btnB) {
-                            btnB.textContent = 'Current Plan: Model B Active';
-                            btnB.style.background = '#16a34a';
-                        }
-                    } else {
-                        if (cardA) cardA.style.borderColor = '#ea580c';
-                        if (btnA) {
-                            btnA.textContent = 'Current Plan: Model A Active';
-                            btnA.style.background = '#16a34a';
-                        }
-                    }
-                } else {
-                    badge.textContent = 'No Reseller Agreement (Standard Tenant)';
-                    badge.style.background = '#64748b';
-                }
+        if (planData.contract.model === 'MODEL_B') {
+            if (cardB) cardB.style.borderColor = '#0ea5e9';
+            if (btnB) {
+                btnB.textContent = 'Current Plan: Model B Active';
+                btnB.style.background = '#16a34a';
             }
-        } else if (badge) {
-            badge.textContent = 'Standard Tenant';
-            badge.style.background = '#64748b';
-        }
-
-        // Load Manual Payments / Proof of Payment Ledger
-        if (typeof window.loadManualPaymentsTable === 'function') {
-            window.loadManualPaymentsTable();
+        } else {
+            if (cardA) cardA.style.borderColor = '#ea580c';
+            if (btnA) {
+                btnA.textContent = 'Current Plan: Model A Active';
+                btnA.style.background = '#16a34a';
+            }
         }
     } catch (e) {
-        if (badge) {
-            badge.textContent = 'Reseller Console';
-            badge.style.background = '#64748b';
-        }
+        // The pricing cards still work when the plan response fails.
     }
 };
 
@@ -11797,100 +11779,97 @@ window.viewProofImage = function(id) {
     }
 };
 
-window.loadManualPaymentsTable = async function() {
-    var listEl = document.getElementById('reseller-manual-payments-list');
+// ─── Billing history: confirmed / rejected proof-of-payment submissions ──────
+window.loadBillingHistory = async function() {
+    var listEl = document.getElementById('billing-history-list');
     if (!listEl) return;
+    listEl.innerHTML = '<div style="color:#64748b; font-size:0.8rem;"><i class="fas fa-spinner fa-spin"></i> Loading history...</div>';
     try {
         var res = await window.AuthManager.fetchAPI('/resellers/manual-payments');
-        if (!res || !res.ok) {
-            listEl.innerHTML = '<em>No manual payment records found.</em>';
-            return;
-        }
+        if (!res || !res.ok) throw new Error('HTTP ' + (res ? res.status : ''));
         var payments = await res.json();
-        if (!payments || !payments.length) {
-            listEl.innerHTML = '<div style="font-size:0.8rem; color:#64748b; padding:10px 0;">No manual EcoCash / WhatsApp payments received yet. When clients submit proofs of payment, they will appear here for verification.</div>';
+        var closed = (payments || []).filter(function(p) {
+            return p.status === 'confirmed' || p.status === 'rejected';
+        });
+        if (!closed.length) {
+            listEl.innerHTML = '<div style="font-size:0.8rem; color:#64748b; padding:10px 0;">No confirmed or rejected transactions yet. Approved and rejected proofs of payment appear here.</div>';
             return;
         }
         var html = '<table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:0.75rem;">' +
             '<thead><tr style="border-bottom:2px solid #cbd5e1; text-align:left; color:#475569;">' +
-            '<th style="padding:6px;">Date</th><th>Payer / Contact</th><th>Amount</th><th>Proof / Screenshot</th><th>Notes</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead><tbody>';
+            '<th style="padding:6px;">Date</th><th>Payer / Contact</th><th>Amount</th><th>Proof / Screenshot</th><th>Notes</th><th>Status</th><th style="text-align:right;">Reviewed by</th></tr></thead><tbody>';
 
-        payments.forEach(function(p) {
+        closed.forEach(function(p) {
             if (p.proof_image_data) {
                 window.proofImagesMap[p.id] = p.proof_image_data;
             }
-            var isPending = p.status === 'pending';
-            var stBadge = isPending
-                ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700;">PENDING REVIEW</span>'
-                : (p.status === 'confirmed'
-                    ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-weight:700;">\u2713 CONFIRMED</span>'
-                    : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-weight:700;">REJECTED</span>');
+            var stBadge = p.status === 'confirmed'
+                ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-weight:700;">\u2713 CONFIRMED</span>'
+                : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-weight:700;">REJECTED</span>';
 
-            var proofCol = '';
+            var proofCol = '<span style="color:#94a3b8;">No photo</span>';
             if (p.proof_image_data) {
                 proofCol = '<button type="button" onclick="viewProofImage(' + p.id + ')" style="background:#0284c7; color:#fff; border:none; border-radius:4px; padding:3px 8px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-image"></i> View Screenshot</button>';
             } else if (p.reference_code) {
                 proofCol = '<code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">' + escapeHTML(p.reference_code) + '</code>';
-            } else {
-                proofCol = '<span style="color:#94a3b8;">No photo</span>';
             }
 
-            var actions = '';
-            if (isPending) {
-                actions = '<button type="button" onclick="confirmManualPayment(' + p.id + ')" style="background:#16a34a; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:0.7rem; font-weight:700; cursor:pointer; margin-right:4px;"><i class="fas fa-check"></i> Confirm Received</button>' +
-                          '<button type="button" onclick="rejectManualPayment(' + p.id + ')" style="background:#dc2626; color:#fff; border:none; border-radius:4px; padding:4px 8px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-times"></i> Reject</button>';
-            } else if (p.confirmed_by) {
-                actions = '<span style="font-size:0.7rem; color:#64748b;">By ' + escapeHTML(p.confirmed_by) + '</span>';
-            }
+            var reviewed = p.confirmed_by
+                ? escapeHTML(p.confirmed_by) + (p.confirmed_at ? '<br><span style="color:#64748b;">' + String(p.confirmed_at).slice(0, 16).replace('T', ' ') + '</span>' : '')
+                : '\u2014';
 
             html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
-                '<td style="padding:6px; color:#64748b;">' + (p.created_at ? p.created_at.slice(0, 16).replace('T', ' ') : '—') + '</td>' +
+                '<td style="padding:6px; color:#64748b;">' + (p.created_at ? String(p.created_at).slice(0, 16).replace('T', ' ') : '\u2014') + '</td>' +
                 '<td><strong>' + escapeHTML(p.payer_name) + '</strong><br><span style="color:#64748b;">' + escapeHTML(p.payer_phone) + '</span></td>' +
                 '<td><strong style="color:#0f172a; font-size:0.85rem;">$' + Number(p.amount_usd || 0).toFixed(2) + '</strong></td>' +
                 '<td>' + proofCol + '</td>' +
-                '<td style="color:#475569; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHTML(p.notes || '—') + '</td>' +
+                '<td style="color:#475569; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHTML(p.notes || '\u2014') + '</td>' +
                 '<td>' + stBadge + '</td>' +
-                '<td style="text-align:right;">' + actions + '</td>' +
+                '<td style="text-align:right; color:#475569;">' + reviewed + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table>';
         listEl.innerHTML = html;
     } catch (e) {
-        listEl.innerHTML = '<em>Failed to load manual payments.</em>';
+        listEl.innerHTML = '<div style="font-size:0.8rem; color:#b91c1c;">Failed to load payment history.</div>';
     }
 };
 
-window.confirmManualPayment = async function(id) {
-    if (!confirm('Confirm that you have received this payment in your EcoCash/mobile money account?')) return;
-    try {
-        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + id + '/confirm', { method: 'POST' });
-        if (res && res.ok) {
-            alert('\u2713 Payment confirmed and marked as received.');
-            window.loadManualPaymentsTable();
-        } else {
-            var data = await res.json().catch(function() { return {}; });
-            alert('Failed to confirm payment: ' + (data.detail || 'Unknown error'));
-        }
-    } catch (err) {
-        alert('Error: ' + err.message);
+window.setBillingSubtabActive = function(tab) {
+    var ids = { billing: 'btn-billing-subtab-billing', history: 'btn-billing-subtab-history' };
+    Object.keys(ids).forEach(function(key) {
+        var btn = document.getElementById(ids[key]);
+        if (!btn) return;
+        var on = key === tab;
+        btn.classList.toggle('active', on);
+        btn.style.background = on ? '#ffffff' : 'transparent';
+        btn.style.color = on ? '#0f172a' : '#64748b';
+        btn.style.boxShadow = on ? '0 1px 2px rgba(0,0,0,0.06)' : 'none';
+    });
+};
+
+window.switchBillingSubtab = function(tab) {
+    var isHistory = tab === 'history';
+    ['billing-monthly-view', 'billing-onceoff-view', 'billing-rental-view', 'billing-prepaid-view'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', isHistory);
+    });
+    var historyView = document.getElementById('billing-history-view');
+    if (historyView) historyView.classList.toggle('hidden', !isHistory);
+    window.setBillingSubtabActive(isHistory ? 'history' : 'billing');
+    if (isHistory) {
+        window.loadBillingHistory();
+        return;
+    }
+    var user = window.AuthManager && window.AuthManager.user;
+    if (user && user.subscription) {
+        window.applySubscriptionGate();
+    } else if (typeof applyBillingView === 'function') {
+        // No active plan: restore the plan chooser view the account was on.
+        applyBillingView(_billingCurrentMode || 'monthly');
     }
 };
 
-window.rejectManualPayment = async function(id) {
-    if (!confirm('Reject this payment submission?')) return;
-    try {
-        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments/' + id + '/reject', { method: 'POST' });
-        if (res && res.ok) {
-            alert('Payment marked as rejected.');
-            window.loadManualPaymentsTable();
-        } else {
-            var data = await res.json().catch(function() { return {}; });
-            alert('Failed: ' + (data.detail || 'Unknown error'));
-        }
-    } catch (err) {
-        alert('Error: ' + err.message);
-    }
-};
 
 window.openSubmitManualPaymentModal = function() {
     // Reset form fields
@@ -11983,8 +11962,8 @@ window.submitManualPaymentForm = async function() {
             // The backend notifies the account's admins itself (in-app and by
             // WhatsApp), so the customer no longer has to forward anything.
             alert('Your proof of payment has been submitted. The admin has been notified on WhatsApp and in the app; the package is activated once the funds are confirmed and your trackers are configured.');
-            if (typeof window.loadManualPaymentsTable === 'function') {
-                window.loadManualPaymentsTable();
+            if (typeof window.loadBillingHistory === 'function') {
+                window.loadBillingHistory();
             }
             // Refresh admin pending panel if visible
             if (typeof window.loadAdminPendingPops === 'function') {

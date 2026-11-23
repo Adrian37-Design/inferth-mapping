@@ -1736,6 +1736,27 @@
                         <!-- Paynow checkout outcome (shown when the customer returns from payment) -->
                         <div id="payment-result-banner" class="payment-result hidden" role="status" aria-live="polite"></div>
 
+                        <!-- Billing sub-tabs: plan views | transaction history -->
+                        <div id="billing-subtabs" style="display:flex; gap:4px; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; max-width:320px;">
+                            <button type="button" class="billing-pill active" id="btn-billing-subtab-billing" onclick="switchBillingSubtab('billing')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+                                <i class="fas fa-file-invoice-dollar"></i> Billing
+                            </button>
+                            <button type="button" class="billing-pill" id="btn-billing-subtab-history" onclick="switchBillingSubtab('history')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:transparent; color:#64748b;">
+                                <i class="fas fa-clock-rotate-left"></i> History
+                            </button>
+                        </div>
+
+                        <!-- Transaction history: every confirmed / rejected proof of payment -->
+                        <div id="billing-history-view" class="hidden">
+                            <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:20px;">
+                                <div style="border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:12px;">
+                                    <h4 style="font-size:1rem; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-clock-rotate-left" style="color:#0284c7;"></i> Transaction History</h4>
+                                    <p style="font-size:0.78rem; color:#64748b; margin:3px 0 0 0;">All confirmed and rejected payment submissions for this account.</p>
+                                </div>
+                                <div id="billing-history-list" style="font-size:0.8rem; color:#64748b;">Loading history&hellip;</div>
+                            </div>
+                        </div>
+
                         <!-- Active plan: only the subscribed plan is shown until it is cancelled -->
                         <div id="active-plan-card" class="active-plan-card hidden">
                             <div class="apc-head">
@@ -2190,21 +2211,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Pending Subscription Approvals & Invoices Panel -->
-                                <div id="reseller-portal-card" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:12px; padding:20px; margin-top:24px;">
-                                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:12px; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-                                        <div>
-                                            <h4 style="font-size:1rem; font-weight:800; color:#0f172a; margin:0;"><i class="fas fa-bell" style="color:#f59e0b;"></i> Pending Subscription Requests</h4>
-                                            <p style="font-size:0.78rem; color:#64748b; margin:3px 0 0 0;">Customer package requests submitted with proof of payment. Review, verify funds, then approve.</p>
-                                        </div>
-                                        <span id="reseller-contract-badge" class="badge" style="background:#0ea5e9; color:#fff; font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:4px;">Checking status...</span>
-                                    </div>
-
-                                    <!-- Customer Proof of Payment & Approval Ledger -->
-                                    <div id="reseller-manual-payments-section">
-                                        <div id="reseller-manual-payments-list" style="font-size:0.8rem; color:#64748b;">Loading pending requests...</div>
-                                    </div>
-                                </div>
                             </div>
                         </div><!-- /billing-rental-view -->
 
