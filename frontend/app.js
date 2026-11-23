@@ -3477,18 +3477,29 @@ function initSpotlight() {
     });
     document.querySelectorAll('[data-spotlight]').forEach(wrapper => Spotlight.attach(wrapper));
     const globalInput = document.getElementById('global-search-input');
-    if (globalInput && (globalInput.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(globalInput.value.trim()))) {
-        globalInput.value = '';
-    }
+    const purgeEmailAutofill = () => {
+        if (!globalInput) return;
+        if (globalInput.value && (globalInput.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(globalInput.value.trim()))) {
+            globalInput.value = '';
+        }
+    };
+    purgeEmailAutofill();
+    [50, 150, 300, 600, 1200, 2500].forEach(ms => setTimeout(purgeEmailAutofill, ms));
+
     document.addEventListener('keydown', e => {
         const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
         if (!globalInput) return;
         if ((e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'k') {
             e.preventDefault();
-            if (document.activeElement === globalInput) globalInput.blur();
-            else globalInput.focus();
+            if (document.activeElement === globalInput) {
+                globalInput.blur();
+            } else {
+                globalInput.removeAttribute('readonly');
+                globalInput.focus();
+            }
         } else if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
+            globalInput.removeAttribute('readonly');
             globalInput.focus();
         }
     });
@@ -11470,31 +11481,101 @@ function consoleRentalQuote(count) {
 // Show what this console actually costs for the vehicles it is running, and put
 // that price on the button instead of a fixed 25- or 100-vehicle tier price.
 window.refreshConsoleRentalPricing = function() {
-    var quote = consoleRentalQuote(_fleetCount());
+    var count = _fleetCount();
+    var quote = consoleRentalQuote(count);
     var text = document.getElementById('console-rental-live-quote-text');
+    var quoteTitle = document.getElementById('console-rental-quote-title');
     if (text) {
-        var vehicles = quote.count + ' vehicle' + (quote.count === 1 ? '' : 's');
+        var vehicles = quote.count + ' active vehicle' + (quote.count === 1 ? '' : 's');
         if (quote.count <= CONSOLE_BASE_VEHICLES) {
-            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $20 minimum covers the first 5).';
+            text.innerHTML = 'This console is operating <strong>' + vehicles + '</strong> &mdash; Model A wholesale: <strong>$' + quote.total.toFixed(2) + '/month</strong> (the $20 minimum covers up to 5).';
         } else {
-            text.innerHTML = 'This console has <strong>' + vehicles + '</strong> \u2014 <strong>$' + quote.total.toFixed(2) + '/month</strong> on the ' + CONSOLE_TIERS[quote.tier].label + ' reseller rate.';
+            text.innerHTML = 'This console is operating <strong>' + vehicles + '</strong> &mdash; Model A wholesale: <strong>$' + quote.total.toFixed(2) + '/month</strong> (effective: $' + (quote.total / quote.count).toFixed(2) + '/veh/mo).';
         }
     }
-    Object.keys(CONSOLE_TIERS).forEach(function(key) {
-        var btn = document.getElementById('rental-btn-' + key);
-        if (!btn) return;
-        var tier = CONSOLE_TIERS[key];
-        var active = !quote.custom && quote.count >= tier.min && quote.count <= tier.max;
-        btn.disabled = false;
-        btn.classList.toggle('is-current', active);
-        if (active) {
-            btn.textContent = 'Activate ' + quote.count + ' vehicle' + (quote.count === 1 ? '' : 's') +
-                ' \u2014 $' + quote.total.toFixed(2) + '/mo';
-        } else {
-            btn.textContent = tier.label + ' tier \u2014 ' +
-                (key === 'base' ? 'up to 5 vehicles' : (key === 'growth' ? '6 to 25 vehicles' : '26 to 200 vehicles'));
+
+    var btnA = document.getElementById('rental-btn-model-a');
+    if (btnA) {
+        btnA.innerHTML = '<i class="fas fa-check"></i> Subscribe to Model A &mdash; $' + quote.total.toFixed(2) + '/mo';
+    }
+
+    var btnB = document.getElementById('rental-btn-model-b');
+    if (btnB) {
+        btnB.innerHTML = '<i class="fas fa-handshake"></i> Subscribe to Model B &mdash; 80/20 Rev Share';
+    }
+
+    if (typeof window.updateRentalSimCalculations === 'function') {
+        window.updateRentalSimCalculations();
+    }
+};
+
+window.setRentalSimFleet = function(n) {
+    var inp = document.getElementById('rental-sim-vehicles');
+    if (inp) {
+        inp.value = n;
+        window.updateRentalSimCalculations();
+    }
+};
+
+window.updateRentalSimCalculations = function() {
+    var vInput = document.getElementById('rental-sim-vehicles');
+    var pInput = document.getElementById('rental-sim-retail-price');
+    var costEl = document.getElementById('rental-sim-wholesale-cost');
+    var unitEl = document.getElementById('rental-sim-unit-cost');
+    var profitEl = document.getElementById('rental-sim-profit');
+    var marginEl = document.getElementById('rental-sim-margin-pct');
+    var breakdownEl = document.getElementById('rental-sim-bands-breakdown');
+
+    if (!vInput || !costEl) return;
+
+    var n = Math.max(1, parseInt(vInput.value, 10) || 1);
+    var retailPrice = Math.max(1, parseFloat(pInput ? pInput.value : 15) || 15);
+
+    var quote = consoleRentalQuote(n);
+    var wholesaleTotal = quote.total;
+    var unitCost = (wholesaleTotal / n).toFixed(2);
+    var grossRev = n * retailPrice;
+    var netProfit = grossRev - wholesaleTotal;
+    var marginPct = Math.round((netProfit / grossRev) * 100);
+
+    costEl.textContent = '$' + wholesaleTotal.toFixed(2) + ' /mo';
+    if (unitEl) unitEl.textContent = '$' + unitCost + ' / vehicle / month';
+
+    if (profitEl) {
+        profitEl.textContent = (netProfit >= 0 ? '+$' : '-$') + Math.abs(netProfit).toFixed(2) + ' /mo';
+        profitEl.style.color = netProfit >= 0 ? '#059669' : '#dc2626';
+    }
+
+    if (marginEl) {
+        marginEl.textContent = marginPct + '% gross profit margin (gross collections: $' + grossRev.toFixed(2) + '/mo)';
+        marginEl.style.color = marginPct >= 50 ? '#047857' : '#d97706';
+    }
+
+    if (breakdownEl) {
+        var lines = [];
+        lines.push('First 5 vehicles: <strong>$20.00 min base</strong>');
+        if (n > 5) {
+            var b2 = Math.min(n - 5, 20);
+            lines.push(b2 + ' units @ $2.50 = <strong>+$' + (b2 * 2.50).toFixed(2) + '</strong>');
         }
-    });
+        if (n > 25) {
+            var b3 = Math.min(n - 25, 50);
+            lines.push(b3 + ' units @ $2.00 = <strong>+$' + (b3 * 2.00).toFixed(2) + '</strong>');
+        }
+        if (n > 75) {
+            var b4 = Math.min(n - 75, 125);
+            lines.push(b4 + ' units @ $1.50 = <strong>+$' + (b4 * 1.50).toFixed(2) + '</strong>');
+        }
+        if (n > 200) {
+            var b5 = Math.min(n - 200, 300);
+            lines.push(b5 + ' units @ $1.25 = <strong>+$' + (b5 * 1.25).toFixed(2) + '</strong>');
+        }
+        if (n > 500) {
+            var b6 = n - 500;
+            lines.push(b6 + ' units @ $1.00 = <strong>+$' + (b6 * 1.00).toFixed(2) + '</strong>');
+        }
+        breakdownEl.innerHTML = '<span style="font-weight:700; color:#334155;">Marginal breakdown:</span> ' + lines.join(' &middot; ');
+    }
 };
 
 // Reseller Gateway and Invoices loader
@@ -11509,11 +11590,33 @@ window.loadResellerPortal = async function() {
             var planData = await planRes.json();
             if (badge) {
                 if (planData.has_reseller_contract) {
-                    var mLabel = planData.contract.model === 'MODEL_B' ? 'Model B (RevShare ' + planData.contract.commission_pct + '%)' : 'Model A (Wholesale)';
+                    var mLabel = planData.contract.model === 'MODEL_B'
+                        ? 'Model B (RevShare ' + planData.contract.commission_pct + '%)'
+                        : 'Model A (Wholesale Rental)';
                     badge.textContent = mLabel + ' \u2014 ' + planData.contract.status.toUpperCase();
                     badge.style.background = planData.contract.status === 'active' ? '#16a34a' : '#ea580c';
+
+                    // Highlight active card
+                    var cardA = document.getElementById('card-rental-model-a');
+                    var cardB = document.getElementById('card-rental-model-b');
+                    var btnA = document.getElementById('rental-btn-model-a');
+                    var btnB = document.getElementById('rental-btn-model-b');
+
+                    if (planData.contract.model === 'MODEL_B') {
+                        if (cardB) cardB.style.borderColor = '#0ea5e9';
+                        if (btnB) {
+                            btnB.textContent = 'Current Plan: Model B Active';
+                            btnB.style.background = '#16a34a';
+                        }
+                    } else {
+                        if (cardA) cardA.style.borderColor = '#ea580c';
+                        if (btnA) {
+                            btnA.textContent = 'Current Plan: Model A Active';
+                            btnA.style.background = '#16a34a';
+                        }
+                    }
                 } else {
-                    badge.textContent = 'Standard Tenant Account';
+                    badge.textContent = 'No Reseller Agreement (Standard Tenant)';
                     badge.style.background = '#64748b';
                 }
             }
@@ -11537,20 +11640,20 @@ window.loadResellerPortal = async function() {
         if (invRes.ok && invList) {
             var invoices = await invRes.json();
             if (!invoices || !invoices.length) {
-                invList.innerHTML = '<em>No monthly invoices issued yet. Invoices generate on the 1st of each month.</em>';
+                invList.innerHTML = '<em>No monthly wholesale invoices issued yet. Platform invoices generate on the 1st of each month.</em>';
             } else {
                 var html = '<table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:0.75rem;">' +
                     '<thead><tr style="border-bottom:1px solid #cbd5e1; text-align:left; color:#475569;">' +
-                    '<th style="padding:4px 6px;">Invoice #</th><th>Period</th><th>Vehicles</th><th>Model</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+                    '<th style="padding:6px;">Invoice #</th><th>Period</th><th>Vehicles</th><th>Model</th><th>Total</th><th>Status</th></tr></thead><tbody>';
                 invoices.forEach(function(inv) {
                     var stColor = inv.status === 'paid' ? '#16a34a' : (inv.status === 'unpaid' ? '#ea580c' : '#dc2626');
                     html += '<tr style="border-bottom:1px solid #f1f5f9;">' +
-                        '<td style="padding:5px 6px; font-weight:700;">' + inv.invoice_number + '</td>' +
-                        '<td>' + inv.billing_period_start + ' to ' + inv.billing_period_end + '</td>' +
-                        '<td>' + inv.active_vehicles_count + '</td>' +
-                        '<td>' + inv.model + '</td>' +
-                        '<td>$' + Number(inv.total_due_usd).toFixed(2) + '</td>' +
-                        '<td><span style="color:' + stColor + '; font-weight:700;">' + inv.status.toUpperCase() + '</span></td>' +
+                        '<td style="padding:6px; font-weight:700;">' + escapeHTML(inv.invoice_number) + '</td>' +
+                        '<td>' + (inv.billing_period_start || '').slice(0, 10) + ' to ' + (inv.billing_period_end || '').slice(0, 10) + '</td>' +
+                        '<td>' + (inv.active_vehicles_count || 0) + '</td>' +
+                        '<td><span class="badge" style="background:#f1f5f9; color:#0f172a; font-size:0.7rem;">' + escapeHTML(inv.model) + '</span></td>' +
+                        '<td><strong style="color:#0f172a;">$' + Number(inv.total_due_usd || 0).toFixed(2) + '</strong></td>' +
+                        '<td><span style="color:' + stColor + '; font-weight:700;">' + escapeHTML(inv.status.toUpperCase()) + '</span></td>' +
                         '</tr>';
                 });
                 html += '</tbody></table>';
@@ -11600,33 +11703,18 @@ window.saveResellerGateway = async function() {
     }
 };
 
-// One button behaviour for all three cards: charge for the fleet this console
-// is actually running. The renter bills their own customers however they like;
-// this is only the platform fee they owe Inferth.
-window.triggerConsoleRentalPayment = function() {
+window.triggerConsoleRentalPayment = function(model) {
     var quote = consoleRentalQuote(_fleetCount());
-    if (quote.custom) {
-        window.requestEnterpriseQuote();
-        return;
-    }
-    window.triggerPlanPayment('Console_Rental', quote.total);
+    var planType = model === 'MODEL_B' ? 'Platform_Rental_Model_B' : 'Platform_Rental_Model_A';
+    var amount = model === 'MODEL_B' ? 20.00 : quote.total;
+    window.triggerPlanPayment(planType, amount);
 };
 
 window.markActiveRentalPlan = function() {
-    var cards = document.querySelectorAll('.rental-plan-card');
-    if (!cards.length) return;
     window.refreshConsoleRentalPricing();
-    var count = Math.max(1, _fleetCount());
-    var rentalView = document.getElementById('billing-rental-view');
-    var isRental = !!(rentalView && !rentalView.classList.contains('hidden'));
-    cards.forEach(function(card) {
-        var min = parseInt(card.getAttribute('data-rental-min') || '1', 10);
-        var max = parseInt(card.getAttribute('data-rental-max') || '10', 10);
-        var active = isRental && count >= min && count <= max;
-        card.classList.toggle('is-active', active);
-        var badge = card.querySelector('.rental-plan-badge');
-        if (badge && active) badge.textContent = 'Current Plan';
-    });
+    if (typeof window.loadResellerPortal === 'function') {
+        window.loadResellerPortal();
+    }
 };
 
 

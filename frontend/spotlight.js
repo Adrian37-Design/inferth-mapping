@@ -202,7 +202,14 @@
     function bind(field) {
         const { wrapper, input, panel } = field;
         input.addEventListener('focus', () => open(field));
-        input.addEventListener('input', () => (isOpen(field) ? render(field) : open(field)));
+        input.addEventListener('input', () => {
+            if (input.value && (input.value.includes('@') || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim()))) {
+                input.value = '';
+                renderGhost(field);
+                return;
+            }
+            isOpen(field) ? render(field) : open(field);
+        });
         input.addEventListener('keydown', e => onKeydown(field, e));
         wrapper.addEventListener('focusout', e => { if (!wrapper.contains(e.relatedTarget)) close(field); });
         wrapper.addEventListener('mousedown', e => {
