@@ -72,7 +72,8 @@ class ManualPaymentCreateRequest(BaseModel):
     payer_name: str = Field(..., min_length=2, max_length=100)
     payer_phone: str = Field(..., min_length=6, max_length=50)
     amount_usd: float = Field(..., gt=0)
-    reference_code: str = Field(..., min_length=3, max_length=100, description="EcoCash or bank transaction reference")
+    reference_code: Optional[str] = None
+    proof_image_data: Optional[str] = None
     notes: Optional[str] = None
     tenant_id: Optional[int] = None
 
@@ -358,6 +359,7 @@ async def list_manual_payments(
             "payer_phone": p.payer_phone,
             "amount_usd": float(p.amount_usd or 0),
             "reference_code": p.reference_code,
+            "proof_image_data": p.proof_image_data,
             "notes": p.notes,
             "status": p.status,
             "confirmed_by": p.confirmed_by,
@@ -374,7 +376,7 @@ async def submit_manual_payment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Customer / Sender: submit proof of manual payment (EcoCash / WhatsApp POP)."""
+    """Customer / Sender: submit proof of manual payment (EcoCash / WhatsApp POP with screenshot)."""
     target_tenant_id = req.tenant_id or current_user.tenant_id
 
     # Verify tenant exists
@@ -387,7 +389,8 @@ async def submit_manual_payment(
         payer_name=req.payer_name.strip(),
         payer_phone=req.payer_phone.strip(),
         amount_usd=req.amount_usd,
-        reference_code=req.reference_code.strip(),
+        reference_code=req.reference_code.strip() if req.reference_code else "",
+        proof_image_data=req.proof_image_data,
         notes=req.notes.strip() if req.notes else None,
         status="pending",
     )

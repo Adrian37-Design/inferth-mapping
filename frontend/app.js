@@ -11743,6 +11743,22 @@ window.saveResellerGateway = async function() {
 };
 
 // ─── Manual Payments & Proof of Payment Ledger ────────────────────────────────
+window.proofImagesMap = {};
+
+window.viewProofImage = function(id) {
+    var data = window.proofImagesMap[id];
+    if (!data) {
+        alert('No screenshot image attached to this payment.');
+        return;
+    }
+    var lightbox = document.getElementById('pop-image-lightbox');
+    var img = document.getElementById('pop-lightbox-img');
+    if (lightbox && img) {
+        img.src = data;
+        lightbox.style.display = 'flex';
+    }
+};
+
 window.loadManualPaymentsTable = async function() {
     var listEl = document.getElementById('reseller-manual-payments-list');
     if (!listEl) return;
@@ -11759,15 +11775,27 @@ window.loadManualPaymentsTable = async function() {
         }
         var html = '<table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:0.75rem;">' +
             '<thead><tr style="border-bottom:2px solid #cbd5e1; text-align:left; color:#475569;">' +
-            '<th style="padding:6px;">Date</th><th>Payer / Contact</th><th>Amount</th><th>EcoCash Ref</th><th>Notes</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead><tbody>';
+            '<th style="padding:6px;">Date</th><th>Payer / Contact</th><th>Amount</th><th>Proof / Screenshot</th><th>Notes</th><th>Status</th><th style="text-align:right;">Action</th></tr></thead><tbody>';
 
         payments.forEach(function(p) {
+            if (p.proof_image_data) {
+                window.proofImagesMap[p.id] = p.proof_image_data;
+            }
             var isPending = p.status === 'pending';
             var stBadge = isPending
                 ? '<span style="background:#fef3c7; color:#b45309; padding:2px 8px; border-radius:4px; font-weight:700;">PENDING REVIEW</span>'
                 : (p.status === 'confirmed'
                     ? '<span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:4px; font-weight:700;">\u2713 CONFIRMED</span>'
                     : '<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:4px; font-weight:700;">REJECTED</span>');
+
+            var proofCol = '';
+            if (p.proof_image_data) {
+                proofCol = '<button type="button" onclick="viewProofImage(' + p.id + ')" style="background:#0284c7; color:#fff; border:none; border-radius:4px; padding:3px 8px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-image"></i> View Screenshot</button>';
+            } else if (p.reference_code) {
+                proofCol = '<code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">' + escapeHTML(p.reference_code) + '</code>';
+            } else {
+                proofCol = '<span style="color:#94a3b8;">No photo</span>';
+            }
 
             var actions = '';
             if (isPending) {
@@ -11781,7 +11809,7 @@ window.loadManualPaymentsTable = async function() {
                 '<td style="padding:6px; color:#64748b;">' + (p.created_at ? p.created_at.slice(0, 16).replace('T', ' ') : '—') + '</td>' +
                 '<td><strong>' + escapeHTML(p.payer_name) + '</strong><br><span style="color:#64748b;">' + escapeHTML(p.payer_phone) + '</span></td>' +
                 '<td><strong style="color:#0f172a; font-size:0.85rem;">$' + Number(p.amount_usd || 0).toFixed(2) + '</strong></td>' +
-                '<td><code style="background:#f1f5f9; padding:2px 6px; border-radius:4px; font-weight:700;">' + escapeHTML(p.reference_code) + '</code></td>' +
+                '<td>' + proofCol + '</td>' +
                 '<td style="color:#475569; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHTML(p.notes || '—') + '</td>' +
                 '<td>' + stBadge + '</td>' +
                 '<td style="text-align:right;">' + actions + '</td>' +
@@ -11836,15 +11864,42 @@ window.closeSubmitManualPaymentModal = function() {
     if (modal) modal.style.display = 'none';
 };
 
+window.currentCustomerProofBase64 = null;
+
+window.handleProofFileSelect = function(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit. Please choose a smaller image.');
+        input.value = '';
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        window.currentCustomerProofBase64 = e.target.result;
+        var wrap = document.getElementById('mp-proof-preview-wrap');
+        var img = document.getElementById('mp-proof-preview');
+        var fn = document.getElementById('mp-proof-filename');
+        if (img) img.src = e.target.result;
+        if (fn) fn.textContent = file.name;
+        if (wrap) wrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+};
+
 window.submitManualPaymentForm = async function() {
     var name = (document.getElementById('mp-payer-name') || {}).value || '';
     var phone = (document.getElementById('mp-payer-phone') || {}).value || '';
     var amount = parseFloat((document.getElementById('mp-amount') || {}).value || 0);
-    var ref = (document.getElementById('mp-reference') || {}).value || '';
     var notes = (document.getElementById('mp-notes') || {}).value || '';
 
-    if (!name.trim() || !phone.trim() || !ref.trim() || amount <= 0) {
-        alert('Please fill in your name, phone number, amount, and the EcoCash transaction reference code.');
+    if (!name.trim() || !phone.trim() || amount <= 0) {
+        alert('Please fill in your name, contact phone, and amount paid.');
+        return;
+    }
+
+    if (!window.currentCustomerProofBase64) {
+        alert('Please choose or upload a screenshot/photo of your payment proof.');
         return;
     }
 
@@ -11855,15 +11910,19 @@ window.submitManualPaymentForm = async function() {
                 payer_name: name.trim(),
                 payer_phone: phone.trim(),
                 amount_usd: amount,
-                reference_code: ref.trim(),
+                reference_code: 'POP-UPLOAD',
+                proof_image_data: window.currentCustomerProofBase64,
                 notes: notes.trim()
             })
         });
         var data = await res.json().catch(function() { return {}; });
         if (res && res.ok) {
-            alert('\u2713 Proof of payment submitted successfully! The recipient will verify the EcoCash reference and confirm receipt.');
+            alert('\u2713 Proof of payment submitted successfully! Your screenshot has been uploaded and will be verified shortly.');
             window.closeSubmitManualPaymentModal();
-            window.loadManualPaymentsTable();
+            window.currentCustomerProofBase64 = null;
+            if (typeof window.loadManualPaymentsTable === 'function') {
+                window.loadManualPaymentsTable();
+            }
         } else {
             alert('Submission failed: ' + (data.detail || 'Unknown error'));
         }
@@ -11872,11 +11931,99 @@ window.submitManualPaymentForm = async function() {
     }
 };
 
+// ─── Reseller Subscription Checkout Flow (Adrian Kwaramba P2P) ───────────────
+window.currentResellerSubscription = { model: 'MODEL_A', amount: 15.00 };
+window.currentResellerPopBase64 = null;
+
 window.triggerConsoleRentalPayment = function(model) {
     var quote = consoleRentalQuote(_fleetCount());
-    var planType = model === 'MODEL_B' ? 'Platform_Rental_Model_B' : 'Platform_Rental_Model_A';
     var amount = model === 'MODEL_B' ? 15.00 : quote.total;
-    window.triggerPlanPayment(planType, amount);
+    window.currentResellerSubscription = { model: model, amount: amount };
+
+    var modal = document.getElementById('reseller-subscription-modal');
+    var titleEl = document.getElementById('rsub-modal-title');
+    var subtitleEl = document.getElementById('rsub-modal-subtitle');
+    var amountEl = document.getElementById('rsub-modal-amount');
+    var transferAmountEl = document.getElementById('rsub-transfer-amount');
+    var modelEl = document.getElementById('rsub-modal-model');
+    var waLink = document.getElementById('rsub-whatsapp-link');
+
+    if (modal) {
+        var mName = model === 'MODEL_B' ? 'Model B (80/20 Revenue Share)' : 'Model A (Wholesale Rental)';
+        if (titleEl) titleEl.textContent = 'Subscribe to ' + mName;
+        if (subtitleEl) subtitleEl.textContent = 'Console Platform Rental \u2014 ' + quote.count + ' active vehicle' + (quote.count === 1 ? '' : 's');
+        if (amountEl) amountEl.textContent = '$' + amount.toFixed(2);
+        if (transferAmountEl) transferAmountEl.textContent = '$' + amount.toFixed(2) + ' USD';
+        if (modelEl) modelEl.textContent = mName;
+        if (waLink) {
+            var msg = encodeURIComponent('Hi Adrian, I have sent payment of $' + amount.toFixed(2) + ' for Platform Fleet Rental (' + mName + '). Please find my proof of payment attached.');
+            waLink.href = 'https://wa.me/263783009275?text=' + msg;
+        }
+        modal.style.display = 'flex';
+    }
+};
+
+window.closeResellerSubscriptionModal = function() {
+    var modal = document.getElementById('reseller-subscription-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.handleResellerPopFileSelect = function(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File size exceeds 5MB limit. Please choose a smaller image.');
+        input.value = '';
+        return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        window.currentResellerPopBase64 = e.target.result;
+        var wrap = document.getElementById('rsub-pop-preview-wrap');
+        var img = document.getElementById('rsub-pop-preview');
+        var fn = document.getElementById('rsub-pop-filename');
+        if (img) img.src = e.target.result;
+        if (fn) fn.textContent = file.name;
+        if (wrap) wrap.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+};
+
+window.submitResellerPlatformRentalProof = async function() {
+    var btn = document.getElementById('rsub-submit-btn');
+    var sub = window.currentResellerSubscription || { model: 'MODEL_A', amount: 15.00 };
+    if (!window.currentResellerPopBase64) {
+        alert('Please choose or upload a screenshot of your EcoCash payment transfer first, or send it directly via the WhatsApp button.');
+        return;
+    }
+    try {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...'; }
+        var res = await window.AuthManager.fetchAPI('/resellers/manual-payments', {
+            method: 'POST',
+            body: JSON.stringify({
+                payer_name: 'Platform Reseller (' + sub.model + ')',
+                payer_phone: 'Transfer to Adrian Kwaramba (+263783009275)',
+                amount_usd: sub.amount,
+                reference_code: 'P2P-ADRIAN-783009275',
+                proof_image_data: window.currentResellerPopBase64,
+                notes: 'Reseller Platform Rental Subscription for ' + sub.model + ' ($' + sub.amount.toFixed(2) + ')',
+                tenant_id: 1
+            })
+        });
+        var data = await res.json().catch(function() { return {}; });
+        if (res && res.ok) {
+            alert('\u2713 Payment proof submitted directly to Adrian Kwaramba (+263783009275)! Your platform fleet rental contract will be activated upon verification.');
+            window.closeResellerSubscriptionModal();
+            window.currentResellerPopBase64 = null;
+            window.loadResellerPortal();
+        } else {
+            alert('Submission failed: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Submit Payment Proof to Adrian'; }
+    }
 };
 
 window.markActiveRentalPlan = function() {

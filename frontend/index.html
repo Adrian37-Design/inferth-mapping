@@ -1815,6 +1815,27 @@
                                 <p class="usage-helper" id="billing-usage-helper">Managed vehicles within your plan limits.</p>
                             </div>
 
+                            <!-- Customer EcoCash & Mobile Payment Option Banner -->
+                            <div class="customer-payment-banner" style="background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <div style="background:#16a34a; color:#fff; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+                                        <i class="fas fa-receipt"></i>
+                                    </div>
+                                    <div>
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <strong style="color:#0f172a; font-size:0.95rem;">Pay via Direct EcoCash or WhatsApp</strong>
+                                            <span class="badge" style="background:#16a34a; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;">NO CARDS REQUIRED</span>
+                                        </div>
+                                        <p style="margin:2px 0 0 0; font-size:0.78rem; color:#475569;" id="customer-p2p-instructions-text">
+                                            Already sent your subscription via EcoCash? Upload your screenshot proof of payment here for instant account crediting.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-primary" onclick="openSubmitManualPaymentModal()" style="background:#16a34a; border:none; padding:10px 18px; font-size:0.85rem; font-weight:700; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(22,163,74,0.25);">
+                                    <i class="fas fa-upload"></i> Submit Proof of Payment
+                                </button>
+                            </div>
+
                             <!-- Monthly / Yearly Period Toggle -->
                             <div class="billing-period-toggle-wrap" data-plan-purchase>
                                 <div class="billing-period-toggle">
@@ -2030,7 +2051,7 @@
                                             <!-- Base Price -->
                                             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
                                                 <div style="display:flex; align-items:baseline; gap:6px;">
-                                                    <span style="font-size:1.8rem; font-weight:900; color:#0f172a;">$20</span>
+                                                    <span style="font-size:1.8rem; font-weight:900; color:#0f172a;">$15</span>
                                                     <span style="font-size:0.85rem; color:#64748b; font-weight:600;">/ month base</span>
                                                 </div>
                                                 <div style="font-size:0.75rem; color:#059669; font-weight:600; margin-top:2px;">
@@ -2181,21 +2202,21 @@
                                         <span id="reseller-contract-badge" class="badge" style="background:#0ea5e9; color:#fff; font-size:0.75rem; font-weight:700; padding:4px 10px; border-radius:4px;">Checking status...</span>
                                     </div>
 
-                                    <!-- Option 1: Automated Paynow Gateway -->
-                                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:16px;">
+                                    <!-- Option 1: Automated Paynow Gateway (Coming Soon) -->
+                                    <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:16px; margin-bottom:16px; opacity:0.8; position:relative;">
                                         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                                            <span class="badge" style="background:#0284c7; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:4px;">OPTION 1: AUTOMATED GATEWAY</span>
-                                            <strong style="font-size:0.85rem; color:#0f172a;">Paynow Integration Keys (Optional)</strong>
+                                            <span class="badge" style="background:#64748b; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:4px;">OPTION 1: AUTOMATED GATEWAY (COMING SOON)</span>
+                                            <strong style="font-size:0.85rem; color:#475569;">Paynow Integration Keys (Coming Soon)</strong>
                                         </div>
-                                        <p style="font-size:0.76rem; color:#64748b; margin:0 0 10px;">If you have a registered Paynow Merchant account, enter your keys below for automated client checkout.</p>
+                                        <p style="font-size:0.76rem; color:#64748b; margin:0 0 10px;">Direct Paynow merchant checkout integration is currently in sandbox testing. Please use Option 2 below for active payments.</p>
                                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                                             <div>
-                                                <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Paynow Integration ID</label>
-                                                <input type="text" id="reseller-gateway-id" placeholder="e.g. 28184" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; box-sizing:border-box;">
+                                                <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:4px;">Paynow Integration ID</label>
+                                                <input type="text" id="reseller-gateway-id" placeholder="Coming soon..." disabled style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; box-sizing:border-box; background:#e2e8f0; cursor:not-allowed;">
                                             </div>
                                             <div>
-                                                <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Paynow Integration Key</label>
-                                                <input type="password" id="reseller-gateway-key" placeholder="Enter integration key" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; box-sizing:border-box;" autocomplete="new-password">
+                                                <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:4px;">Paynow Integration Key</label>
+                                                <input type="password" id="reseller-gateway-key" placeholder="Coming soon..." disabled style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem; box-sizing:border-box; background:#e2e8f0; cursor:not-allowed;" autocomplete="new-password">
                                             </div>
                                         </div>
                                     </div>
@@ -2246,11 +2267,8 @@
                                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
                                             <div>
                                                 <h5 style="font-size:0.85rem; font-weight:700; color:#0f172a; margin:0;"><i class="fas fa-receipt" style="color:#10b981;"></i> Customer Proof of Payment &amp; EcoCash Ledger</h5>
-                                                <span style="font-size:0.72rem; color:#64748b;">Review customer submissions, verify EcoCash transaction references, and confirm receipt with 1-click.</span>
+                                                <span style="font-size:0.72rem; color:#64748b;">Review incoming customer submissions, inspect screenshot proofs, and confirm receipt with 1-click.</span>
                                             </div>
-                                            <button type="button" onclick="openSubmitManualPaymentModal()" style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:0.75rem; font-weight:700; cursor:pointer;">
-                                                <i class="fas fa-plus-circle"></i> Submit Proof of Payment
-                                            </button>
                                         </div>
                                         <div id="reseller-manual-payments-list" style="font-size:0.8rem; color:#64748b;">Loading manual payment records...</div>
                                     </div>
@@ -3094,15 +3112,15 @@
             </div>
             <div style="margin-bottom:14px;">
                 <p style="font-size:0.78rem; color:#64748b; margin:0 0 14px;">
-                    Enter the details of your EcoCash or mobile payment. The recipient will match your reference code and confirm your account status.
+                    Upload a screenshot or photo of your EcoCash or mobile money payment confirmation. Your account will be verified and credited upon review.
                 </p>
                 <div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Payer Full Name *</label>
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Your Name / Company *</label>
                     <input type="text" id="mp-payer-name" placeholder="e.g. John Moyo" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
                 </div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                     <div>
-                        <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Your EcoCash Phone *</label>
+                        <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Your Phone / Contact *</label>
                         <input type="text" id="mp-payer-phone" placeholder="e.g. 0772123456" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
                     </div>
                     <div>
@@ -3110,14 +3128,24 @@
                         <input type="number" id="mp-amount" step="0.5" min="1" placeholder="e.g. 15.00" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
                     </div>
                 </div>
+
+                <!-- Proof Screenshot Upload (Replaced reference code) -->
                 <div style="margin-bottom:12px;">
-                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">EcoCash Transaction Reference Code *</label>
-                    <input type="text" id="mp-reference" placeholder="e.g. MP260223.1430.A12345" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; font-weight:700; letter-spacing:0.5px; box-sizing:border-box;">
-                    <small style="font-size:0.7rem; color:#64748b;">The SMS confirmation code received from EcoCash (*151#).</small>
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Upload Screenshot / Picture of Payment *</label>
+                    <div style="border:2px dashed #0284c7; border-radius:8px; padding:14px; text-align:center; background:#f0f9ff; cursor:pointer;" onclick="document.getElementById('mp-proof-file').click()">
+                        <i class="fas fa-image" style="font-size:1.6rem; color:#0284c7; margin-bottom:4px; display:block;"></i>
+                        <span id="mp-proof-filename" style="font-size:0.8rem; font-weight:700; color:#0369a1;">Click to choose photo or screenshot</span>
+                        <span style="display:block; font-size:0.7rem; color:#64748b; margin-top:2px;">PNG, JPG, JPEG, WEBP (Max 5MB)</span>
+                    </div>
+                    <input type="file" id="mp-proof-file" accept="image/*" style="display:none;" onchange="window.handleProofFileSelect(this)">
+                    <div id="mp-proof-preview-wrap" style="display:none; margin-top:8px; text-align:center;">
+                        <img id="mp-proof-preview" src="" style="max-height:120px; max-width:100%; border-radius:6px; border:1px solid #cbd5e1; object-fit:contain;">
+                    </div>
                 </div>
+
                 <div style="margin-bottom:16px;">
-                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Notes / Vehicle Registration Plate / Invoice #</label>
-                    <input type="text" id="mp-notes" placeholder="e.g. Tracking payment for ABG-1234 (Toyota Hilux)" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
+                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Notes / Vehicle Registration Plate / Optional Reference</label>
+                    <input type="text" id="mp-notes" placeholder="e.g. Subscription for AGH-2311 or EcoCash Ref" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
                 </div>
             </div>
             <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -3125,9 +3153,120 @@
                     Cancel
                 </button>
                 <button type="button" onclick="submitManualPaymentForm()" style="padding:8px 18px; border:none; background:#16a34a; color:#fff; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer;">
-                    <i class="fas fa-check"></i> Submit Proof of Payment
+                    <i class="fas fa-upload"></i> Upload &amp; Submit Proof
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Reseller Platform Rental Subscription Modal (Option 1 masked & Option 2 P2P to Adrian) -->
+    <div class="modal" id="reseller-subscription-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(3px);">
+        <div class="modal-content" style="max-width:520px; background:#fff; border-radius:12px; padding:24px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px; margin-bottom:16px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#0f172a;" id="rsub-modal-title">
+                        Subscribe to Platform Fleet Rental
+                    </h3>
+                    <span style="font-size:0.75rem; color:#64748b;" id="rsub-modal-subtitle">Console Wholesale Subscription</span>
+                </div>
+                <button type="button" onclick="closeResellerSubscriptionModal()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-size:0.72rem; color:#64748b; text-transform:uppercase; font-weight:700; display:block;">Amount Due This Month</span>
+                    <strong style="font-size:1.6rem; color:#0f172a;" id="rsub-modal-amount">$15.00</strong>
+                    <span style="font-size:0.78rem; color:#64748b; margin-left:4px;" id="rsub-modal-model">Model A Wholesale</span>
+                </div>
+                <div style="text-align:right;">
+                    <span class="badge" style="background:#ea580c; color:#fff; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:4px;">PLATFORM RENTAL</span>
+                </div>
+            </div>
+
+            <!-- Choose Payment Method -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:0.78rem; font-weight:700; color:#334155; margin-bottom:10px;">Select Payment Option:</label>
+
+                <!-- Option 1: Paynow (Coming Soon / Masked) -->
+                <div style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:12px 14px; margin-bottom:12px; opacity:0.65; cursor:not-allowed;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="radio" disabled name="rsub_payment_option">
+                            <strong style="font-size:0.85rem; color:#475569;">Option 1: Paynow Merchant Gateway</strong>
+                        </div>
+                        <span class="badge" style="background:#64748b; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;">COMING SOON</span>
+                    </div>
+                    <p style="margin:4px 0 0 24px; font-size:0.72rem; color:#64748b;">
+                        Automated Paynow checkout is currently in sandbox testing. Please use Option 2 below.
+                    </p>
+                </div>
+
+                <!-- Option 2: Direct Peer-to-Peer EcoCash (ACTIVE) -->
+                <div style="background:#f0fdf4; border:2px solid #22c55e; border-radius:8px; padding:14px; margin-bottom:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="radio" checked id="rsub-opt-p2p" name="rsub_payment_option" style="accent-color:#16a34a;">
+                            <strong style="font-size:0.88rem; color:#14532d;"><i class="fas fa-mobile-screen" style="color:#16a34a;"></i> Option 2: Direct Peer-to-Peer EcoCash</strong>
+                        </div>
+                        <span class="badge" style="background:#16a34a; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;">ACTIVE &bull; INSTANT</span>
+                    </div>
+
+                    <!-- Payment Target Details -->
+                    <div style="background:#ffffff; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:0.82rem;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                            <span style="color:#64748b;">Recipient Name:</span>
+                            <strong style="color:#0f172a;">Adrian Kwaramba</strong>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="color:#64748b;">EcoCash Number:</span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <strong style="color:#16a34a; font-size:0.95rem;">+263 78 300 9275</strong>
+                                <button type="button" onclick="navigator.clipboard.writeText('+263783009275'); alert('Copied +263783009275 to clipboard!');" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:2px 6px; font-size:0.7rem; cursor:pointer;">
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:#64748b;">Amount to Transfer:</span>
+                            <strong style="color:#0f172a;" id="rsub-transfer-amount">$15.00 USD</strong>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Upload Screenshot / WhatsApp -->
+                    <div style="font-size:0.78rem; color:#166534; margin-bottom:10px;">
+                        <strong>Step 2:</strong> Transfer via EcoCash and either chat on WhatsApp or upload your proof below:
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-bottom:12px;">
+                        <a id="rsub-whatsapp-link" href="https://wa.me/263783009275?text=Hi%20Adrian,%20I%20have%20paid%20$15%20for%20Platform%20Fleet%20Rental.%20Please%20find%20my%20proof%20attached." target="_blank" style="flex:1; background:#25d366; color:#fff; font-weight:700; padding:9px 12px; border-radius:6px; text-decoration:none; text-align:center; font-size:0.78rem; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fab fa-whatsapp"></i> Send POP on WhatsApp
+                        </a>
+                        <button type="button" onclick="document.getElementById('rsub-pop-file').click()" style="flex:1; background:#0f172a; color:#fff; font-weight:700; padding:9px 12px; border:none; border-radius:6px; font-size:0.78rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <i class="fas fa-upload"></i> Upload Screenshot
+                        </button>
+                    </div>
+
+                    <input type="file" id="rsub-pop-file" accept="image/*" style="display:none;" onchange="window.handleResellerPopFileSelect(this)">
+                    <div id="rsub-pop-preview-wrap" style="display:none; text-align:center; margin-bottom:10px;">
+                        <img id="rsub-pop-preview" src="" style="max-height:100px; border-radius:6px; border:1px solid #cbd5e1;">
+                        <div style="font-size:0.72rem; color:#166534; margin-top:2px;" id="rsub-pop-filename">Screenshot selected</div>
+                    </div>
+
+                    <button type="button" onclick="submitResellerPlatformRentalProof()" id="rsub-submit-btn" style="width:100%; background:#16a34a; color:#fff; font-weight:700; padding:10px; border:none; border-radius:6px; font-size:0.85rem; cursor:pointer;">
+                        <i class="fas fa-check-circle"></i> Submit Payment Proof to Adrian
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Modal to inspect Proof of Payment screenshots -->
+    <div class="modal" id="pop-image-lightbox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10099; align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this) this.style.display='none'">
+        <div style="max-width:90vw; max-height:90vh; text-align:center; position:relative;">
+            <button type="button" onclick="document.getElementById('pop-image-lightbox').style.display='none'" style="position:absolute; top:-36px; right:0; background:none; border:none; color:#fff; font-size:1.8rem; cursor:pointer;">&times;</button>
+            <img id="pop-lightbox-img" src="" style="max-width:100%; max-height:85vh; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
         </div>
     </div>
 
@@ -3267,7 +3406,7 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=225"></script>
+    <script src="/static/app.js?v=226"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=6"></script>
     <!-- Payment Modal -->

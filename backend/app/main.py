@@ -200,7 +200,9 @@ async def run_migrations_and_branding():
                     "ALTER TABLE tenant_gateways ADD COLUMN IF NOT EXISTS accept_manual_payments BOOLEAN DEFAULT TRUE",
 
                     # ── Platform Fleet Rental ── Customer Manual Payments & Proof of Payment ───────
-                    "CREATE TABLE IF NOT EXISTS manual_payments (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) NOT NULL, payer_name VARCHAR(100) NOT NULL, payer_phone VARCHAR(50) NOT NULL, amount_usd NUMERIC(10,2) NOT NULL, reference_code VARCHAR(100) NOT NULL, notes TEXT DEFAULT NULL, status VARCHAR(20) DEFAULT 'pending', confirmed_by VARCHAR(100) DEFAULT NULL, confirmed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "CREATE TABLE IF NOT EXISTS manual_payments (id SERIAL PRIMARY KEY, tenant_id INTEGER REFERENCES tenants(id) NOT NULL, payer_name VARCHAR(100) NOT NULL, payer_phone VARCHAR(50) NOT NULL, amount_usd NUMERIC(10,2) NOT NULL, reference_code VARCHAR(100) DEFAULT '', proof_image_data TEXT DEFAULT NULL, notes TEXT DEFAULT NULL, status VARCHAR(20) DEFAULT 'pending', confirmed_by VARCHAR(100) DEFAULT NULL, confirmed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS proof_image_data TEXT DEFAULT NULL",
+                    "ALTER TABLE manual_payments ALTER COLUMN reference_code DROP NOT NULL",
                     "CREATE INDEX IF NOT EXISTS idx_manual_payments_tenant ON manual_payments(tenant_id, created_at DESC)",
 
                     # ── Platform Fleet Rental ── Monthly wholesale invoices ──────────────────────

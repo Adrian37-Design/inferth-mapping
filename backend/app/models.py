@@ -473,9 +473,10 @@ class ManualPayment(Base):
     payer_name = Column(String(100), nullable=False)
     payer_phone = Column(String(50), nullable=False)
     amount_usd = Column(Float, nullable=False)
-    reference_code = Column(String(100), nullable=False)  # EcoCash transaction reference
-    notes = Column(Text, nullable=True)                   # Vehicle plate / invoice note
-    status = Column(String(20), default="pending")        # pending | confirmed | rejected
+    reference_code = Column(String(100), nullable=True, default="")  # Optional EcoCash ref
+    proof_image_data = Column(Text, nullable=True)                  # Base64 image data of proof of payment
+    notes = Column(Text, nullable=True)                             # Vehicle plate / invoice note
+    status = Column(String(20), default="pending")                  # pending | confirmed | rejected
     confirmed_by = Column(String(100), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
