@@ -60,17 +60,17 @@ def compute_model_a_wholesale(
         Monthly charge in USD, rounded to 2 decimal places.
 
     Benchmark validation (from spec):
-        5 veh  → $20.00
-        10 veh → $32.50
-        25 veh → $70.00
-        50 veh → $120.00
-        75 veh → $170.00
-        100 veh → $207.50
-        150 veh → $282.50
-        200 veh → $357.50
-        300 veh → $482.50
-        500 veh → $732.50
-        1000 veh → $1,232.50
+        5 veh  → $15.00
+        10 veh → $27.50
+        25 veh → $65.00
+        50 veh → $115.00
+        75 veh → $165.00
+        100 veh → $202.50
+        150 veh → $277.50
+        200 veh → $352.50
+        300 veh → $477.50
+        500 veh → $727.50
+        1000 veh → $1,227.50
     """
     if active_vehicles <= 0:
         return 0.00
@@ -79,7 +79,7 @@ def compute_model_a_wholesale(
 
     # First band: flat minimum if within the initial vehicle count
     flat_min_band = bands[0]
-    flat_min = flat_min_band.get("flat_minimum", 20.00)
+    flat_min = flat_min_band.get("flat_minimum", 15.00)
     flat_up_to = flat_min_band.get("up_to", 5)
 
     if active_vehicles <= flat_up_to:

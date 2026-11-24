@@ -8831,7 +8831,11 @@ window.loadAdminResellers = async function() {
                 let estDue = 0;
                 if (c.model === 'MODEL_A') {
                     terms = 'Progressive Marginal ($15 floor, $2.50 to $1.00/veh)';
-                    estDue = typeof window.consoleRentalQuote === 'function' ? window.consoleRentalQuote(activeVeh) : 15;
+                    // consoleRentalQuote() returns a quote object, not a number.
+                    var quoteA = typeof window.consoleRentalQuote === 'function' ? window.consoleRentalQuote(activeVeh) : null;
+                    estDue = quoteA && typeof quoteA === 'object'
+                        ? Number(quoteA.total || 0)
+                        : Number(quoteA || 15);
                 } else {
                     terms = `${c.commission_pct}% commission (min $${c.min_platform_contribution_usd || 15}/mo)`;
                     estDue = Number(c.min_platform_contribution_usd || 15);
@@ -9154,8 +9158,8 @@ window.runSimCalculation = function() {
         tierLines.push('0 active vehicles: $0.00');
     } else {
         const b1Count = Math.min(n, 5);
-        total += 20.00;
-        tierLines.push(`First 5 vehicles (1–${b1Count}): <strong>$20.00</strong> (minimum platform fee)`);
+        total += CONSOLE_BASE_FEE;
+        tierLines.push(`First 5 vehicles (1–${b1Count}): <strong>$${CONSOLE_BASE_FEE.toFixed(2)}</strong> (minimum platform fee)`);
 
         if (n > 5) {
             const b2Count = Math.min(n - 5, 20);
