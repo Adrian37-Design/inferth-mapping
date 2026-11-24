@@ -389,6 +389,7 @@ async def _retention_daily_loop():
 
     await asyncio.sleep(300)
     while True:
+        failed = False
         try:
             apply = os.getenv("RETENTION_DRY_RUN", "false").strip().lower() != "true"
             async with AsyncSessionLocal() as db:
@@ -407,8 +408,11 @@ async def _retention_daily_loop():
                     names = ", ".join(t["tenant"] for t in result["ineligible_tenants"])
                     print(f"[Retention] WARNING no window for: {names} - set retention_days")
         except Exception as exc:
-            print(f"[Retention] run failed: {exc}")
-        await asyncio.sleep(86400)
+            failed = True
+            print(f"[Retention] run failed: {exc} - retrying in 30 minutes")
+        # A failed pass (DB in recovery, volume full) must not black the window
+        # out for a whole day - that is how the volume filled up unnoticed.
+        await asyncio.sleep(1800 if failed else 86400)
 
 
 async def _reseller_monthly_invoicing_loop():
