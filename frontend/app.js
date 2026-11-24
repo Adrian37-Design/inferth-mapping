@@ -2740,7 +2740,10 @@ document.getElementById('edit-user-form').addEventListener('submit', async (e) =
             })
         });
 
-        if (!response.ok) throw new Error('Failed to update user');
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.detail || 'Failed to update user');
+        }
 
         document.getElementById('edit-user-modal').classList.add('hidden');
         loadUsers();
@@ -2839,8 +2842,12 @@ function updateRoleOptions(tenantId, roleSelectId) {
     const roleSelect = document.getElementById(roleSelectId);
     if (!roleSelect) return;
 
-    // We assume ID 1 is Inferth Mapping
-    const isAdminAvailable = parseInt(tenantId) === 1;
+    // Administrator is a per-company role and only ever sees that company.
+    // Appointing one is a platform decision, so the option belongs to the
+    // platform administrator alone.
+    const me = (window.AuthManager && window.AuthManager.user) || {};
+    const isAdminAvailable = me.role === 'super_admin' ||
+        (me.role === 'admin' && Number(me.tenant_id) === 1);
     const adminOption = roleSelect.querySelector('option[value="admin"]');
 
     if (adminOption) {
@@ -2850,9 +2857,10 @@ function updateRoleOptions(tenantId, roleSelectId) {
         } else {
             adminOption.style.display = 'none';
             adminOption.disabled = true;
-            // If currently selected is admin, Downgrade to manager
+            // Keep an existing Administrator visible so opening the account
+            // cannot silently demote it; it stays disabled and unchanged.
             if (roleSelect.value === 'admin') {
-                roleSelect.value = 'manager';
+                adminOption.style.display = '';
             }
         }
     }

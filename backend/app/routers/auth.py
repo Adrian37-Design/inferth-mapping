@@ -5,7 +5,13 @@ from app.models import User, Tenant, AuditLog
 from datetime import datetime, timedelta
 from app.config import settings
 from app.security import hash_password, verify_password, create_access_token
-from app.auth_middleware import require_admin, get_current_user, get_current_user_optional
+from app.auth_middleware import (
+    require_admin,
+    require_super_admin,
+    get_current_user,
+    get_current_user_optional,
+    is_platform_admin,
+)
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
@@ -188,7 +194,7 @@ async def create_tenant(
     name: str = Form(...),
     logo: Optional[UploadFile] = File(None), 
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     res = await db.execute(select(Tenant).where(Tenant.name == name))
     if res.scalars().first():
@@ -289,6 +295,11 @@ async def update_tenant(
     if not tenant:
         raise HTTPException(status_code=404, detail="Company not found")
 
+    # A company may restyle itself; only the platform administrator can
+    # rename or re-brand another company.
+    if not is_platform_admin(current_user) and tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify another company")
+
     content_type = request.headers.get("content-type", "")
     new_name = None
     remove_logo = False
@@ -388,7 +399,7 @@ async def update_tenant(
 async def delete_tenant(
     tenant_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
     tenant = result.scalars().first()

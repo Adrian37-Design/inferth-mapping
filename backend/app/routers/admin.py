@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from typing import Optional
 from app.db import get_db
 from app.models import Tenant, Transaction, User
-from app.auth_middleware import get_current_user, require_admin, require_super_admin
+from app.auth_middleware import get_current_user, require_admin, require_super_admin, is_platform_admin
 import datetime
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -21,6 +21,8 @@ async def approve_payment(
     result = await db.execute(select(Transaction).where(Transaction.id == txn_id))
     txn = result.scalars().first()
     if not txn: raise HTTPException(status_code=404, detail="Transaction not found")
+    if not is_platform_admin(current_user) and txn.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Not authorized to approve another company's payment")
     
     if txn.status == "paid":
         return {"message": "Transaction already approved"}
@@ -45,11 +47,14 @@ async def list_pending_payments(
     db: AsyncSession = Depends(get_db), 
     current_user: User = Depends(require_admin)
 ):
-    result = await db.execute(select(Transaction).where(Transaction.status == "approval_pending"))
+    stmt = select(Transaction).where(Transaction.status == "approval_pending")
+    if not is_platform_admin(current_user):
+        stmt = stmt.where(Transaction.tenant_id == current_user.tenant_id)
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 @router.get("/debug-logs", response_class=PlainTextResponse)
-async def get_tracker_debug_logs(current_user: User = Depends(require_admin)):
+async def get_tracker_debug_logs(current_user: User = Depends(require_super_admin)):
     """Returns the last 16KB of the tracker debug log efficiently."""
     log_path = "tracker_debug.log"
     if not os.path.exists(log_path):
@@ -83,7 +88,7 @@ from app.models import AuditLog
 @router.get("/storage/stats")
 async def storage_statistics(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     """Returns total rows, valid coordinates, CAN/OBD diagnostic telemetry count, and table size."""
     stats = await get_storage_stats(db)
@@ -92,7 +97,7 @@ async def storage_statistics(
 @router.post("/storage/optimize")
 async def optimize_storage(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     """Refreshes query planner statistics and optimizes partial/composite indexes."""
     result = await optimize_database_indexes(db)
@@ -116,7 +121,7 @@ from app.services.maintenance import prune_stationary_telemetry
 async def prune_telemetry_endpoint(
     days: int = 90,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     """Safely prunes stationary telemetry records older than N days (Risk 2 Founder Fix)."""
     result = await prune_stationary_telemetry(db, retention_days=days)
@@ -135,7 +140,7 @@ async def prune_telemetry_endpoint(
 async def prune_heartbeats(
     days: int = 30,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)
+    current_user: User = Depends(require_super_admin)
 ):
     """Safely prunes empty heartbeat records with no GPS and no CAN/OBD diagnostics older than N days."""
     deleted_count = await prune_old_heartbeats(db, days=days)

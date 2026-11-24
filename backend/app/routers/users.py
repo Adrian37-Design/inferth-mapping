@@ -91,12 +91,18 @@ async def create_user(
     # Generate setup token
     setup_token = secrets.token_urlsafe(32)
 
-    # Enforce role restriction: Admin only for Tenant 1 (Inferth Mapping)
-    # AND: Managers cannot create Administrators
-    if user_in.role == "admin" and (user_in.tenant_id != 1 or current_user.role != "admin"):
+    # Administrator is a per-company role: an admin only ever sees the data
+    # of the company they are assigned to. Appointing one is a platform
+    # decision, and "super_admin" stays with Inferth Mapping itself.
+    if user_in.role == "super_admin" and user_in.tenant_id != 1:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="You do not have permission to create Administrator accounts"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Platform administrator accounts belong to Inferth Mapping"
+        )
+    if user_in.role in ("admin", "super_admin") and not is_platform_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the platform administrator can create Administrator accounts"
         )
     
     # Normalize the WhatsApp number once — stored digits-only, or None
@@ -192,10 +198,10 @@ async def update_user(
     if target_role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role '{target_role}'")
 
-    if target_role == "admin" and target_tenant != 1:
+    if target_role == "super_admin" and target_tenant != 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Admin role is only available for Inferth Mapping"
+            detail="Platform administrator accounts belong to Inferth Mapping"
         )
         
     # Enforce tenant isolation
@@ -203,7 +209,13 @@ async def update_user(
         raise HTTPException(status_code=403, detail="Not authorized to update users in other companies")
     if not is_platform_admin(current_user) and user_update.tenant_id not in (None, user.tenant_id):
         raise HTTPException(status_code=403, detail="Only the platform administrator can move users between companies")
-    if not is_platform_admin(current_user) and user_update.role == "admin":
+    # Elevation guard: a company admin/manager may edit their own people but
+    # cannot mint new administrators (that would widen their own reach).
+    if (
+        not is_platform_admin(current_user)
+        and user_update.role in ("admin", "super_admin")
+        and user_update.role != user.role
+    ):
         raise HTTPException(status_code=403, detail="Only the platform administrator can grant administrator access")
         
     # Protection: Managers cannot edit Admin users
