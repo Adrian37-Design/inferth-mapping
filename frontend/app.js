@@ -111,6 +111,78 @@ function haversineDistanceKm(lat1, lon1, lat2, lon2) {
 }
 window.haversineDistanceKm = haversineDistanceKm;
 
+// ============================================================
+// Track integrity: ONE definition of "no drive joined these two fixes"
+// ============================================================
+// Distance, trips, stops, max speed and the drawn line all use this. They used
+// to be separate rules, which is how the strip could read 157.7 km over trip
+// cards that added up to a fraction of it, and how a 60 km silence could be
+// drawn as a straight line across the map.
+const TRACK_GAP_MINUTES = 15;   // a longer silence ends a continuous track
+const TRACK_JUMP_KM = 2.0;      // a single hop this long is a gap, not a road
+const TRACK_MAX_KMH = 200;      // faster than this is a bad fix, not a road car
+const TRACK_STOP_KMH = 3.0;     // at or below this the unit reports stationary
+const TRACK_NOISE_KM = 0.03;    // sub-30 m creep between minute fixes is GPS jitter
+
+function trackGapBetween(prev, curr) {
+    if (!prev || !curr) return true;
+    if (typeof prev.lat !== 'number' || typeof prev.lng !== 'number' ||
+        typeof curr.lat !== 'number' || typeof curr.lng !== 'number') return true;
+    const km = haversineDistanceKm(prev.lat, prev.lng, curr.lat, curr.lng);
+    const dtSec = Math.abs(parseTimestamp(curr.timestamp) - parseTimestamp(prev.timestamp)) / 1000;
+    // No elapsed time (buffered dump) means no speed to test: only an
+    // impossible hop is a gap. With a real interval the implied speed decides,
+    // because a tracker uploading every 3 minutes covers several kilometres
+    // between fixes and that is travel, not a gap.
+    if (!(dtSec > 0)) return km > TRACK_JUMP_KM;
+    if (dtSec >= TRACK_GAP_MINUTES * 60 && km >= 1.0) return true;
+    return km > 0.3 && (km / (dtSec / 3600)) > TRACK_MAX_KMH;
+}
+
+// A tracker can emit one impossible frame - 159 km/h on a car doing 40 - and a
+// single sample became the day's "MAX SPEED". A reported speed is only counted
+// when a neighbouring fix within two minutes backs it up, either by reporting a
+// comparable speed or by proving that ground was covered. Otherwise the sample
+// is capped to what the fixes around it support. With no neighbour to compare
+// against (sparse uploads) the reported value is trusted, capped at the
+// physical limit.
+function validatePointSpeeds(points) {
+    (points || []).forEach((p, i) => {
+        if (!p) return;
+        const reported = Number(p.speed) || 0;
+        const effective = Number(p._effectiveSpeed) || 0;
+        p._validatedSpeed = 0;
+        if (effective <= TRACK_STOP_KMH) return;          // stationary: no top speed here
+        if (reported <= TRACK_STOP_KMH) {
+            p._validatedSpeed = Math.min(effective, TRACK_MAX_KMH);
+            return;
+        }
+        let support = 0;
+        let compared = 0;
+        [i - 1, i + 1].forEach(j => {
+            const q = points[j];
+            if (!q || trackGapBetween(p, q)) return;
+            const dtSec = Math.abs(parseTimestamp(q.timestamp) - parseTimestamp(p.timestamp)) / 1000;
+            if (!(dtSec > 0)) {
+                compared++;
+                support = Math.max(support, Number(q._effectiveSpeed) || 0);
+                return;
+            }
+            if (dtSec > 120) return;
+            compared++;
+            const km = haversineDistanceKm(p.lat, p.lng, q.lat, q.lng);
+            support = Math.max(support, Number(q._effectiveSpeed) || 0, km / (dtSec / 3600));
+        });
+        if (compared === 0) {
+            p._validatedSpeed = Math.min(reported, TRACK_MAX_KMH);
+            return;
+        }
+        p._validatedSpeed = support >= reported * 0.6
+            ? Math.min(reported, TRACK_MAX_KMH)
+            : Math.min(support, TRACK_MAX_KMH);
+    });
+}
+
 let fleetFilterFrame = null;
 // Offline is decided from last contact with the server (an upload or a command
 // poll), not from the GPS fix time. Thresholds live in contact-status.js.
@@ -5406,7 +5478,8 @@ function splitIntoTravelPieces(points) {
         while (j < points.length && !points[j].stitched && haversineDistanceKm(p.lat, p.lng, points[j].lat, points[j].lng) < ROUTE_PARK_KM) j++;
         const parkedMinutes = Math.abs(parseTimestamp(points[j - 1].timestamp) - parseTimestamp(p.timestamp)) / 60000;
         if (j - i >= 5 || (j - i >= 2 && parkedMinutes >= 1)) { endPiece(); i = j; continue; }
-        if (piece.length && Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(piece[piece.length - 1].timestamp)) / 60000 > ROUTE_GAP_MINUTES) endPiece();
+        if (piece.length && (trackGapBetween(piece[piece.length - 1], p) ||
+            Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(piece[piece.length - 1].timestamp)) / 60000 > ROUTE_GAP_MINUTES)) endPiece();
         piece.push(p);
         i++;
     }
@@ -5638,8 +5711,7 @@ async function snapRouteToRoad(points, isCurrent = () => true) {
 // silence, or a jump no drive could have made. The old rule split every 150 m
 // chord, so a highway trace pinged 1 km apart shattered into single-point
 // parts that were then discarded — the map drew nothing at all for that trip.
-const TRACE_GAP_MINUTES = 15;
-const TRACE_JUMP_KM = 2.0;
+// Gap rule: see trackGapBetween() - the same one the timeline uses.
 
 // Drawing does NOT reuse splitIntoTravelPieces: those 5-minute / junction-wait
 // cuts exist to keep road-snapping honest, but as drawing cuts they severed a
@@ -5659,15 +5731,7 @@ function splitTraceAtGaps(points) {
         // recorded fix: start a fresh piece rather than draw through it.
         if (p.stitched) { flush(); prev = null; return; }
         if (!prev) { run.push([p.lat, p.lng]); prev = p; return; }
-        const dtSec = Math.abs(parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000;
-        const gapMins = dtSec / 60;
-        const jumpKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
-        // A chord faster than a road car can drive is a bad fix, never a road:
-        // drawing it is the "track cuts across the map" artifact.
-        const impossibleChord = dtSec > 0 && jumpKm > 0.3 && (jumpKm / (dtSec / 3600)) > 200;
-        if (gapMins > TRACE_GAP_MINUTES || jumpKm > TRACE_JUMP_KM || impossibleChord) {
-            flush();
-        }
+        if (trackGapBetween(prev, p)) flush();
         run.push([p.lat, p.lng]);
         prev = p;
     });
@@ -7077,10 +7141,14 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 const prev = points[i - 1];
                 const dtSec = Math.abs((parseTimestamp(p.timestamp) - parseTimestamp(prev.timestamp)) / 1000);
                 const dKm = haversineDistanceKm(prev.lat, prev.lng, p.lat, p.lng);
-                if (dtSec > 0 && dtSec <= 7200 && dKm >= 0.025) {
+                // A silence or a hop no car could make proves nothing about
+                // speed: treating it as travel is what turned an overnight gap
+                // into a 120 km/h "moving" leg with invented kilometres.
+                const gapped = trackGapBetween(prev, p);
+                if (!gapped && dtSec > 0 && dtSec <= 7200 && dKm >= 0.025) {
                     const implied = dKm / (dtSec / 3600);
                     if (implied >= 3.5 && implied <= 160.0) spd = Math.round(implied * 10) / 10;
-                } else if (dtSec === 0 && dKm >= 0.025) {
+                } else if (!gapped && dtSec === 0 && dKm >= 0.025) {
                     // Buffered dump: several fixes share one receipt timestamp, so
                     // there is no elapsed time to derive a speed from. Without this
                     // the whole buffered leg is classified as parked and the
@@ -7090,6 +7158,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             }
             p._effectiveSpeed = spd;
         }
+        validatePointSpeeds(points);
 
         // 2. Segment into Moving vs Stationary periods
         const rawSegments = [];
@@ -7111,7 +7180,8 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                 // For moving segments, split on >30m gap (unless it's a continuous road
                 // relocation) or state change; for stationary segments at the same
                 // location (<100m), do NOT split on heartbeat intervals.
-                const shouldSplit = (pMoving !== curIsMoving) ||
+                const gapped = trackGapBetween(prev, p);
+                const shouldSplit = gapped || (pMoving !== curIsMoving) ||
                     (curIsMoving && timeGapMins > 30 && distFromPrevKm < 0.10) ||
                     (!curIsMoving && distFromPrevKm > 0.10);
 
@@ -7120,8 +7190,8 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     // When transitioning from Stationary to Moving (or relocating >100m),
                     // include `prev` (the departure point) as the start of the new segment
                     // so the connecting road leg is never lost!
-                    curSegmentPoints = (!curIsMoving && (pMoving || distFromPrevKm > 0.10)) ? [prev, p] : [p];
-                    curIsMoving = pMoving || distFromPrevKm > 0.10;
+                    curSegmentPoints = (!gapped && !curIsMoving && (pMoving || distFromPrevKm > 0.10)) ? [prev, p] : [p];
+                    curIsMoving = gapped ? pMoving : (pMoving || distFromPrevKm > 0.10);
                 } else {
                     curSegmentPoints.push(p);
                 }
@@ -7183,19 +7253,29 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             const duration = Math.max(1, Math.round(Math.abs((parseTimestamp(endP.timestamp) - parseTimestamp(startP.timestamp)) / 60000)));
 
             let distKm = 0;
-            let maxSpd = 0;
+            let maxSpd = 0;   // validated: top speed the day can actually prove
+            let maxEff = 0;   // effective: did it move at all
             for (let j = 0; j < seg.points.length; j++) {
-                const spd = Number(seg.points[j]._effectiveSpeed || seg.points[j].speed) || 0;
-                if (spd > maxSpd) maxSpd = spd;
-                if (j > 0) {
-                    distKm += haversineDistanceKm(seg.points[j - 1].lat, seg.points[j - 1].lng, seg.points[j].lat, seg.points[j].lng);
+                const pt = seg.points[j];
+                const eff = Number(pt._effectiveSpeed || pt.speed) || 0;
+                const val = pt._validatedSpeed != null ? (Number(pt._validatedSpeed) || 0) : eff;
+                if (eff > maxEff) maxEff = eff;
+                if (val > maxSpd) maxSpd = val;
+                if (j > 0 && !trackGapBetween(seg.points[j - 1], pt)) {
+                    const prevPt = seg.points[j - 1];
+                    const stepKm = haversineDistanceKm(prevPt.lat, prevPt.lng, pt.lat, pt.lng);
+                    const stepSec = Math.abs(parseTimestamp(pt.timestamp) - parseTimestamp(prevPt.timestamp)) / 1000;
+                    // Creep smaller than the receiver's own scatter is not
+                    // travel: banking it turns a parked vehicle into a kilometre
+                    // of "driving" a day.
+                    if (!(stepSec < 60 && stepKm < TRACK_NOISE_KM)) distKm += stepKm;
                 }
             }
             const netDispKm = haversineDistanceKm(startP.lat, startP.lng, endP.lat, endP.lng);
             if (maxSpd > overallMaxSpeed) overallMaxSpeed = maxSpd;
 
             // Classify as Driving Trip if moving with >=150m path OR net displacement >=200m
-            const isDrivingTrip = (seg.isMoving && maxSpd > 3.0 && distKm >= 0.15) || (distKm >= 0.20 && netDispKm >= 0.15);
+            const isDrivingTrip = (seg.isMoving && maxEff > 3.0 && distKm >= 0.15) || (distKm >= 0.20 && netDispKm >= 0.15);
 
             if (isDrivingTrip) {
                 tripsCount++;
@@ -7206,6 +7286,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     duration,
                     maxSpeed: Math.round(maxSpd),
                     distance: distKm.toFixed(1),
+                    distanceKm: distKm,   // unrounded: the strip sums these, not the labels
                     start: startP,
                     end: endP,
                     id: `timeline-trip-${idx}`
@@ -7327,9 +7408,12 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         stopsCount = consolidatedTimeline.filter(x => x.type === 'stop').length;
         totalTripDistKm = consolidatedTimeline
             .filter(x => x.type === 'trip')
-            .reduce((acc, x) => acc + ( parseFloat(x.distance) || 0 ), 0);
+            .reduce((acc, x) => acc + ( Number(x.distanceKm != null ? x.distanceKm : parseFloat(x.distance)) || 0 ), 0);
 
-        const displayDistKm = Number(data.total_distance_km) > 0 ? Number(data.total_distance_km) : totalTripDistKm;
+        // The strip must equal the sum of the trip cards. It used to prefer the
+        // server's own total (a second scan with different rules), so a day read
+        // 157.7 km above cards that added up to a fraction of that.
+        const displayDistKm = totalTripDistKm;
         updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, overallMaxSpeed);
 
         // If viewing Today's history, sync dailyMileageCache with the exact route

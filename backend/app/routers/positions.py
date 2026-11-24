@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from app.realtime import publish_position
 from app.services.device_resolver import resolve_device
 from app.services.data_guardrails import (
+    haversine_distance_km,
     validate_coordinates,
     validate_and_sanitize_speed,
     validate_timestamp,
@@ -26,6 +27,53 @@ router = APIRouter(prefix="/positions")
 # unit has left the fix where it stopped by this radius, otherwise "Today" km
 # climbed all day on vehicles whose card read "Parked"/"Stationary".
 PARKED_NOISE_KM = 0.10
+
+# --- Track integrity rules ---------------------------------------------------
+# ONE definition of "no drive could have joined these two fixes", shared by
+# /routes, /daily, /trips and /match. These used to be four separate, slightly
+# different copies, which is how one day could read 157.7 km on the Route
+# History strip while its own trip cards added up to a fraction of that.
+TRACK_GAP_MINUTES = 15        # a longer silence ends a continuous track
+TRACK_JUMP_KM = 2.0           # a single hop this long is a gap, not a road
+TRACK_MAX_KMH = 200.0         # beyond this the pair is a teleport, not travel
+TRACK_STOP_KMH = 3.0          # at or below this the unit reports stationary
+TRACK_NOISE_KM = 0.03         # sub-30 m creep between minute fixes is GPS jitter
+
+
+def _seconds_between(a, b) -> float:
+    """Elapsed seconds between two datetimes (or epoch values), tz-safe."""
+    try:
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return abs(float(b) - float(a))
+        if a.tzinfo is None and b.tzinfo is not None:
+            a = a.replace(tzinfo=b.tzinfo)
+        elif b.tzinfo is None and a.tzinfo is not None:
+            b = b.replace(tzinfo=a.tzinfo)
+        return abs((b - a).total_seconds())
+    except Exception:
+        return 0.0
+
+
+def _is_track_gap(prev_ts, prev_lat, prev_lng, ts, lat, lng) -> bool:
+    """True when two consecutive fixes cannot be joined by a drive.
+
+    A gap banks no distance, and /routes flags it so the client breaks the
+    drawn line instead of drawing a chord across the missing hours.
+    """
+    if None in (prev_lat, prev_lng, lat, lng):
+        return True
+    km = haversine_distance_km(prev_lat, prev_lng, lat, lng)
+    dt = _seconds_between(prev_ts, ts)
+    if dt <= 0:
+        # Collapsed receipt timestamps (buffered dump): real breadcrumbs, so
+        # only an impossible hop is a gap. A time-bearing pair is judged by
+        # implied speed instead: a tracker that uploads every 3 minutes really
+        # does cover several kilometres between fixes, and calling that a gap
+        # would zero a highway's whole distance.
+        return km > TRACK_JUMP_KM
+    if dt >= TRACK_GAP_MINUTES * 60 and km >= 1.0:
+        return True
+    return km > 0.3 and (km / (dt / 3600.0)) > TRACK_MAX_KMH
 
 
 def _iso_utc(dt):
@@ -448,6 +496,14 @@ async def match_device_trip(
         for r in rows
         if r.timestamp is not None and not _is_coarse_sats(r.sats)
     ]
+    # Never road-match across a data gap: the matcher would invent a road
+    # between two fixes the vehicle did not drive between, and the client draws
+    # that invented road as a long straight line across the country.
+    for i in range(1, len(points)):
+        if _is_track_gap(points[i - 1]["t"], points[i - 1]["lat"], points[i - 1]["lng"],
+                         points[i]["t"], points[i]["lat"], points[i]["lng"]):
+            return {"segments": [], "matched": False, "engine": "gap"}
+
     if len(points) < 2:
         return {"segments": [], "matched": False, "engine": "none"}
 
@@ -558,10 +614,20 @@ async def get_device_route(
             prev_lng = last_valid_point["lng"]
             try:
                 prev_ts = datetime.fromisoformat(last_valid_point["timestamp"].replace('Z', '+00:00'))
-                curr_ts = p.timestamp.replace(tzinfo=prev_ts.tzinfo if prev_ts.tzinfo else None)
-                time_diff_sec = abs((curr_ts - prev_ts).total_seconds())
             except Exception:
-                time_diff_sec = 10.0
+                prev_ts = p.timestamp
+
+            # A gap is not travel and not a drawable line: the unit was silent,
+            # or the hop is physically impossible. Bank no distance and hand the
+            # client an explicit break so it cannot join the two sides.
+            if _is_track_gap(prev_ts, prev_lat, prev_lng, p.timestamp, p_lat, p_lng):
+                point["break"] = True
+                last_valid_point = point
+                route_points.append(point)
+                continue
+
+            curr_ts = p.timestamp.replace(tzinfo=prev_ts.tzinfo if prev_ts.tzinfo else None)
+            time_diff_sec = abs((curr_ts - prev_ts).total_seconds())
 
             km = haversine_distance_km(prev_lat, prev_lng, p_lat, p_lng)
             
@@ -570,6 +636,14 @@ async def get_device_route(
                 implied_speed = km / (time_diff_sec / 3600.0)
                 if implied_speed > 250.0 and km > 0.1:
                     continue  # Skip jump glitch point
+                # Sub-30 m creep between minute fixes is the receiver wandering,
+                # not the vehicle moving. Pin it to the anchor and bank nothing,
+                # otherwise a parked unit still "drives" a kilometre a day.
+                if time_diff_sec < 60.0 and km < TRACK_NOISE_KM:
+                    point["lat"] = last_valid_point["lat"]
+                    point["lng"] = last_valid_point["lng"]
+                    route_points.append(point)
+                    continue
                 # Stationary GPS wander is not travel. Keep the point for playback
                 # (parked periods must still cover their timeline) but pin it to
                 # the anchor fix and add no distance, so jitter cannot accumulate
@@ -678,6 +752,12 @@ async def get_device_trips(
             from math import radians, cos, sin, asin, sqrt
             prev = trip_positions[i-1]
             curr = trip_positions[i]
+
+            if None in (prev.latitude, prev.longitude, curr.latitude, curr.longitude):
+                continue
+            if _is_track_gap(prev.timestamp, prev.latitude, prev.longitude,
+                             curr.timestamp, curr.latitude, curr.longitude):
+                continue
             
             # Distance
             lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, curr.longitude, curr.latitude])
@@ -1074,6 +1154,12 @@ async def get_device_daily_mileage(
 
                 km = haversine_distance_km(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
 
+                if _is_track_gap(last_p.timestamp, last_p.latitude, last_p.longitude,
+                                 p.timestamp, p.latitude, p.longitude):
+                    last_p = p
+                    last_speed = curr_speed
+                    continue
+
                 if time_diff_sec > 0:
                     implied_speed = km / (time_diff_sec / 3600.0)
                     if implied_speed > 250.0 and km > 0.1:
@@ -1085,10 +1171,12 @@ async def get_device_daily_mileage(
                         continue
                     if curr_speed <= 3.0 and km >= PARKED_NOISE_KM and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
                         curr_speed = round(implied_speed, 1)
-                elif km > 0.05:
-                    continue
+                # dt == 0: several fixes share a receipt timestamp (buffered
+                # dump). They are real breadcrumbs the vehicle drove, so their
+                # distance counts - dropping it here is why "Today" km used to
+                # disagree with Route History.
 
-                if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_speed <= 3.0 and km < 0.005:
+                if time_diff_sec < 60.0 and km < TRACK_NOISE_KM:
                     continue
 
                 if km >= 0.015 or curr_speed > 3.0:
