@@ -11632,40 +11632,37 @@ function _renderPerfGraphs(data, period, deviceId) {
     const selectedLabel = (!isFleet && vehicleSel && vehicleSel.selectedIndex > 0)
         ? vehicleSel.options[vehicleSel.selectedIndex].textContent
         : '';
-    // Build safe defaults
-    const labels  = (data && Array.isArray(data.labels) && data.labels.length) ? data.labels : _buildDefaultLabels(period);
-    const fleetCount = isFleet ? ((typeof allVehicles !== 'undefined') ? allVehicles.length : 0) : 1;
 
-    // Mileage series — backend returns cumulative `mileage`
-    const mileageSeries = (data && (data.mileage_series || data.mileage)) || labels.map(() => 0);
-    // Utilization series — backend returns cumulative `hours`
-    const driveSeries   = (data && (data.drive_hours_series || data.hours)) || labels.map(() => 0);
-    const idleSeries    = (data && data.idle_hours_series) || labels.map(() => 0);
+    const hasData = !!(data && Array.isArray(data.labels) && data.labels.length);
+    const labels = hasData ? data.labels : _buildDefaultLabels(period);
+    const zeros = labels.map(() => 0);
 
-    const _last = arr => (Array.isArray(arr) && arr.length) ? (+arr[arr.length - 1] || 0) : 0;
-    const _deltaSum = arr => {
-        if (!Array.isArray(arr) || !arr.length) return 0;
-        let prev = 0, sum = 0;
-        arr.forEach(v => { const n = +v || 0; sum += Math.max(0, n - prev); prev = n; });
-        return sum;
-    };
+    const fleetCount = (hasData && data.devices_count != null) ? +data.devices_count
+        : (isFleet ? ((typeof allVehicles !== 'undefined') ? allVehicles.length : 0) : 1);
 
-    // Safety series
-    const speedingSeries = (data && data.speeding_events_series) || labels.map(() => 0);
+    // Per-bucket series, measured server-side from the cleaned track. Nothing
+    // here is estimated: a series the tracker does not report stays at zero
+    // and the card says so instead of inventing litres or a safety score.
+    const mileageSeries = (hasData && Array.isArray(data.distance_series)) ? data.distance_series : zeros;
+    const driveSeries = (hasData && Array.isArray(data.drive_hours_series)) ? data.drive_hours_series : zeros;
+    const idleSeries = (hasData && Array.isArray(data.idle_hours_series)) ? data.idle_hours_series : zeros;
+    const speedingSeries = (hasData && Array.isArray(data.speeding_events_series)) ? data.speeding_events_series : zeros;
 
-    // Fuel series — measured litres when available, else estimate at 8 km/L
-    const fuelSeries = (data && data.fuel_liters_series)
-        || mileageSeries.map(km => +((+km || 0) / 8).toFixed(2));
-    const costSeries = fuelSeries.map(l => +(l * 2.04).toFixed(2));
+    const hasFuel = !!(hasData && Array.isArray(data.fuel_liters_series));
+    const fuelSeries = hasFuel ? data.fuel_liters_series : zeros;
+    const costSeries = fuelSeries.map(l => +(((+l) || 0) * 2.04).toFixed(2));
 
-    const totalKm = (data && data.total_km != null) ? +data.total_km : _last(mileageSeries);
-    const totalHours = (data && data.drive_hours_series) ? _deltaSum(driveSeries) : _last(driveSeries);
-    const avgSpd = (data && data.avg_speed != null)
-        ? +data.avg_speed
-        : (totalHours > 0 ? totalKm / totalHours : 0);
-    const safeScore      = (data && data.safety_score != null) ? data.safety_score : null;
-    const speedingTotal  = speedingSeries.reduce((s, v) => s + v, 0);
-    const safeText       = safeScore != null ? `${safeScore.toFixed(0)}% Clean` : (speedingTotal === 0 ? '100% Clean' : `${speedingTotal} event${speedingTotal !== 1 ? 's' : ''}`);
+    const totalKm = (hasData && data.total_km != null) ? +data.total_km : 0;
+    const totalHours = (hasData && data.drive_hours != null) ? +data.drive_hours : 0;
+    const idleHours = (hasData && data.idle_hours != null) ? +data.idle_hours : 0;
+    const avgSpd = (hasData && data.avg_speed != null) ? +data.avg_speed : 0;
+    const safeScore = (hasData && data.safety_score != null) ? +data.safety_score : null;
+    const speedingTotal = (hasData && data.speeding_events != null)
+        ? +data.speeding_events
+        : speedingSeries.reduce((s, v) => s + (+v || 0), 0);
+
+    const safeText = !hasData ? 'No data'
+        : (safeScore != null ? `${safeScore.toFixed(0)}% in-limit` : 'No driving');
 
     // Update common metrics strip
     _setEl('perf-metric-fleet-count', isFleet
@@ -11703,7 +11700,7 @@ function _renderPerfGraphs(data, period, deviceId) {
 
     _buildBarChart('chart-perf-fuel', labels,
         [
-            { label: 'Fuel (L)',   data: fuelSeries, backgroundColor: 'rgba(245,158,11,0.75)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 4 },
+            { label: hasFuel ? 'Fuel (L)' : 'Fuel (L, not reported)', data: fuelSeries, backgroundColor: 'rgba(245,158,11,0.75)', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 4 },
             { label: 'Cost ($USD)', data: costSeries, backgroundColor: 'rgba(220,38,38,0.35)',  borderColor: '#dc2626', borderWidth: 1, borderRadius: 4 }
         ], baseOpts, 'fuel');
 
@@ -11712,12 +11709,11 @@ function _renderPerfGraphs(data, period, deviceId) {
         baseOpts, 'safety');
 
     // Update badge labels
-    const totalFuelL = fuelSeries.reduce((s, v) => s + v, 0);
-    const totalCost  = costSeries.reduce((s, v) => s + v, 0);
-    _setEl('badge-mileage-metric',     `${totalKm.toFixed ? totalKm.toFixed(1) : totalKm} km`);
-    _setEl('badge-utilization-metric', `${totalHours.toFixed(1)} h driven`);
-    _setEl('badge-fuel-metric',        `$${totalCost.toFixed(2)}`);
-    _setEl('badge-safety-metric',      safeText);
+    const totalCost = costSeries.reduce((s, v) => s + (+v || 0), 0);
+    _setEl('badge-mileage-metric', `${(+totalKm).toFixed(1)} km`);
+    _setEl('badge-utilization-metric', `${(+totalHours).toFixed(1)} h moving`);
+    _setEl('badge-fuel-metric', hasFuel ? `$${totalCost.toFixed(2)}` : 'No fuel telemetry');
+    _setEl('badge-safety-metric', hasData && speedingTotal > 0 ? `${speedingTotal} event${speedingTotal !== 1 ? 's' : ''}` : safeText);
 }
 
 function _buildBarChart(canvasId, labels, datasets, baseOpts, key) {

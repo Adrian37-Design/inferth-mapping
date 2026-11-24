@@ -739,6 +739,224 @@ async def get_device_trips(
         "period_days": days
     }
 
+# --- Fleet performance analytics -------------------------------------------
+# These series feed the Fleet Performance tab. They used to count a hop only
+# when the device claimed more than 3 km/h, drop every leg longer than 5 km
+# and never measure idling or speeding at all, so the tab's distance
+# disagreed with Route History and its "Safety Rating" was a default string.
+# They now run the same analyze_track the strip draws and report per-bucket
+# figures plus the measurements the metric cards quote.
+PERF_SPEED_LIMIT_KMH = 120.0
+PERF_MAX_LEG_SECONDS = 600.0
+
+async def _perf_rows(device_ids, fetch_start, db, current_user):
+    """Only the columns the aggregation reads.
+
+    The `raw` JSON blob is the bulk of a position row; a week of a truck
+    reporting every three seconds is ~80k rows, and loading the whole ORM row
+    for each one is what made this endpoint time out.
+    """
+    stmt = (
+        select(
+            Position.device_id,
+            Position.latitude,
+            Position.longitude,
+            Position.speed,
+            Position.timestamp,
+            Position.ignition,
+            Position.raw["satellites"].as_string().label("sats"),
+            Position.raw["fuel_consumption"].as_string().label("fuel_rate"),
+        )
+        .join(Device)
+        .where(Position.timestamp >= fetch_start)
+    )
+    if device_ids is not None:
+        stmt = stmt.where(Position.device_id.in_(device_ids))
+    stmt = await scope_devices(db, current_user, stmt)
+    stmt = stmt.order_by(Position.device_id, Position.timestamp.asc())
+    return (await db.execute(stmt)).all()
+
+
+def _perf_buckets(rows, bucket_of, tz_offset):
+    """Bank each device-day's cleaned track into the chart buckets.
+
+    Distance, moving time, idling and speeding all come from `analyze_track`,
+    the same scan Route History draws, so this tab and the map quote one set
+    of numbers instead of two that disagree.
+    """
+    by_day = {}
+    for r in rows:
+        if r.timestamp is None or r.latitude is None or r.longitude is None:
+            continue
+        if abs(r.latitude) < 0.0001 or abs(r.longitude) < 0.0001:
+            continue
+        by_day.setdefault((r.device_id, (r.timestamp + tz_offset).date()), []).append(r)
+
+    totals = {"km": 0.0, "drive_s": 0.0, "idle_s": 0.0, "speeding_s": 0.0,
+              "speeding": 0, "fuel": 0.0}
+    fuel_reported = False
+    buckets = {}
+
+    for (_device_id, _day), day_rows in by_day.items():
+        fixes = []
+        ign = {}
+        last_gnss = None
+        rates = []
+        for r in day_rows:
+            ign[r.timestamp] = r.ignition
+            try:
+                rate = float(r.fuel_rate)
+                if 0.0 < rate < 100.0:
+                    rates.append(rate)
+            except (TypeError, ValueError, AttributeError):
+                pass
+            if _is_coarse_sats(r.sats):
+                if last_gnss is None:
+                    continue
+                lat, lng, speed = last_gnss[0], last_gnss[1], 0.0
+            else:
+                last_gnss = (r.latitude, r.longitude)
+                lat, lng = r.latitude, r.longitude
+                speed = min(max(0.0, r.speed or 0.0), TRACK_MAX_KMH)
+            fixes.append({"lat": lat, "lng": lng, "timestamp": r.timestamp, "speed": speed})
+
+        track = analyze_track(fixes)
+        rate = (sum(rates) / len(rates)) if rates else None
+        if rate is not None:
+            fuel_reported = True
+
+        prev = None
+        over = False
+        for p in track["points"]:
+            b = bucket_of(p["timestamp"])
+            in_range = b is not None
+            if in_range and b not in buckets:
+                buckets[b] = {"km": 0.0, "drive_s": 0.0, "idle_s": 0.0,
+                              "speeding_s": 0.0, "speeding": 0, "fuel": 0.0}
+            if prev is not None and not p["break"]:
+                dt = _seconds_between(prev["timestamp"], p["timestamp"])
+                km = haversine_distance_km(prev["lat"], prev["lng"], p["lat"], p["lng"])
+                if 0 < dt <= PERF_MAX_LEG_SECONDS:
+                    if p["speed"] > TRACK_STOP_KMH:
+                        totals["drive_s"] += dt
+                        if in_range:
+                            buckets[b]["drive_s"] += dt
+                    elif ign.get(p["timestamp"]):
+                        totals["idle_s"] += dt
+                        if in_range:
+                            buckets[b]["idle_s"] += dt
+                    if p["speed"] > PERF_SPEED_LIMIT_KMH:
+                        totals["speeding_s"] += dt
+                        if in_range:
+                            buckets[b]["speeding_s"] += dt
+                if km > 0:
+                    totals["km"] += km
+                    if in_range:
+                        buckets[b]["km"] += km
+                    if rate is not None:
+                        litres = km * rate / 100.0
+                        totals["fuel"] += litres
+                        if in_range:
+                            buckets[b]["fuel"] += litres
+            if p["break"]:
+                over = False
+            elif p["speed"] > PERF_SPEED_LIMIT_KMH:
+                if not over:
+                    totals["speeding"] += 1
+                    if in_range:
+                        buckets[b]["speeding"] += 1
+                over = True
+            else:
+                over = False
+            prev = p
+
+    return buckets, totals, fuel_reported
+
+
+def _perf_series(buckets, keys, field):
+    return [round(buckets.get(k, {}).get(field, 0.0), 2) for k in keys]
+
+
+def _perf_payload(labels, keys, buckets, totals, fuel_reported, device_count):
+    drive_hours = totals["drive_s"] / 3600.0
+    avg_speed = round(totals["km"] / drive_hours, 1) if drive_hours > 0 else 0.0
+    if totals["drive_s"] > 0:
+        # Share of driving time spent at or below the limit — a measured
+        # figure, not a default string shown while there is no data.
+        safety = max(0.0, min(100.0, round(100.0 * (1.0 - totals["speeding_s"] / totals["drive_s"]), 1)))
+    else:
+        safety = None
+
+    return {
+        "labels": labels,
+        "distance_series": _perf_series(buckets, keys, "km"),
+        "drive_hours_series": [round(buckets.get(k, {}).get("drive_s", 0.0) / 3600.0, 2) for k in keys],
+        "idle_hours_series": [round(buckets.get(k, {}).get("idle_s", 0.0) / 3600.0, 2) for k in keys],
+        "speeding_events_series": [buckets.get(k, {}).get("speeding", 0) for k in keys],
+        "fuel_liters_series": _perf_series(buckets, keys, "fuel") if fuel_reported else None,
+        "total_km": round(totals["km"], 1),
+        "drive_hours": round(drive_hours, 1),
+        "idle_hours": round(totals["idle_s"] / 3600.0, 1),
+        "avg_speed": avg_speed,
+        "max_speed": 0,
+        "speeding_events": totals["speeding"],
+        "fuel_liters": round(totals["fuel"], 1) if fuel_reported else None,
+        "safety_score": safety,
+        "speed_limit_kmh": PERF_SPEED_LIMIT_KMH,
+        "devices_count": device_count,
+    }
+
+
+async def _perf_response(period, start, end, device_ids, db, current_user):
+    tz_offset = timedelta(hours=2)
+    now_zim = datetime.utcnow() + tz_offset
+    today = now_zim.date()
+
+    if period == "custom" and start and end:
+        try:
+            d0 = datetime.strptime(start, "%Y-%m-%d").date()
+            d1 = datetime.strptime(end, "%Y-%m-%d").date()
+        except Exception:
+            d0 = d1 = today
+        if d1 < d0:
+            d0, d1 = d1, d0
+        if (d1 - d0).days > 89:
+            d0 = d1 - timedelta(days=89)
+        days = [d0 + timedelta(days=i) for i in range((d1 - d0).days + 1)]
+    elif period == "weekly":
+        days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    elif period == "monthly":
+        days = [today - timedelta(days=i) for i in range(29, -1, -1)]
+    else:
+        days = [today]
+
+    fetch_start = datetime.combine(days[0], datetime.min.time()) - tz_offset
+    rows = await _perf_rows(device_ids, fetch_start, db, current_user)
+
+    if len(days) == 1 and days[0] == today:
+        current = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
+        keys = list(range(current + 1))
+        labels = ["{:02d}:{}".format(k // 2, "30" if k % 2 else "00") for k in keys]
+
+        def bucket_of(ts):
+            z = ts + tz_offset
+            if z.date() != today:
+                return None
+            idx = (z.hour * 2) + (1 if z.minute >= 30 else 0)
+            return idx if idx <= current else None
+    else:
+        day_index = {d: i for i, d in enumerate(days)}
+        keys = list(range(len(days)))
+        labels = [d.strftime("%b %d") for d in days]
+
+        def bucket_of(ts):
+            return day_index.get((ts + tz_offset).date())
+
+    buckets, totals, fuel_reported = _perf_buckets(rows, bucket_of, tz_offset)
+    device_count = len({r.device_id for r in rows}) if device_ids is None else 1
+    return _perf_payload(labels, keys, buckets, totals, fuel_reported, device_count)
+
+
 @router.get("/analytics/fleet")
 async def get_fleet_analytics(
     period: str = "daily",
@@ -747,158 +965,9 @@ async def get_fleet_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get aggregated mileage and active hours for the entire fleet (Daily/Weekly/Monthly/Custom)"""
-    from sqlalchemy import select
-    from datetime import datetime, timedelta
-    
-    # Zimbabwe is UTC+2
-    tz_offset = timedelta(hours=2)
-    now_zim = datetime.utcnow() + tz_offset
-    
-    if period == "weekly":
-        days_to_fetch = 7
-        zim_start = (now_zim - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "monthly":
-        days_to_fetch = 30
-        zim_start = (now_zim - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "custom" and start and end:
-        try:
-            zim_start = datetime.strptime(start, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
-            zim_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
-            if zim_end < zim_start:
-                zim_start, zim_end = zim_end, zim_start
-            days_to_fetch = (zim_end.date() - zim_start.date()).days + 1
-            if days_to_fetch > 90: # Cap at 90 days for performance
-                days_to_fetch = 90
-        except:
-            days_to_fetch = 1
-            zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
-    else: # daily
-        days_to_fetch = 1
-        zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # Query all positions for the range (fetch wide to cover Zim transition)
-    # Only fetch the columns we actually need — the `raw` JSON column is large
-    # and loading full ORM rows for thousands of positions caused timeouts.
-    fetch_start = zim_start - tz_offset
+    """Mileage, moving/idle hours, speeding and fuel across the whole fleet."""
+    return await _perf_response(period, start, end, None, db, current_user)
 
-    stmt = (
-        select(
-            Position.device_id,
-            Position.latitude,
-            Position.longitude,
-            Position.speed,
-            Position.timestamp
-        )
-        .join(Device)
-        .where(Position.timestamp >= fetch_start)
-    )
-
-    stmt = await scope_devices(db, current_user, stmt)
-
-    stmt = stmt.order_by(Position.timestamp.asc())
-
-    result = await db.execute(stmt)
-    positions = result.all()
-    
-    labels = []
-    mileage_data = []
-    hours_data = []
-    
-    if period == "daily":
-        # 30-min buckets for today
-        buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
-        last_positions = {}
-        
-        for p in positions:
-            if p.latitude is None or p.longitude is None: continue
-            p_zim = p.timestamp + tz_offset
-            if p_zim.date() != now_zim.date(): continue
-            
-            bucket_idx = (p_zim.hour * 2) + (1 if p_zim.minute >= 30 else 0)
-            
-            if p.device_id in last_positions:
-                prev = last_positions[p.device_id]
-                # Haversine distance
-                from math import radians, cos, sin, asin, sqrt
-                lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
-                a = sin((lat2-lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2-lon1)/2)**2
-                c = 2 * asin(sqrt(max(0, min(1, a))))
-                km = 6371 * c
-                
-                if 0 < km < 5 and p.speed is not None and p.speed > 3:
-                    buckets[bucket_idx]["distance"] += km
-                
-                if p.speed is not None and p.speed > 3: # Check for None before comparison
-                    gap = (p.timestamp - prev.timestamp).total_seconds()
-                    if 0 < gap < 600: buckets[bucket_idx]["active_seconds"] += gap
-            
-            last_positions[p.device_id] = p
-
-        cum_mileage = 0
-        cum_active_seconds = 0
-        current_zim_bucket = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
-        
-        for i in range(current_zim_bucket + 1):
-            h = i // 2
-            m = "30" if i % 2 else "00"
-            labels.append(f"{h:02d}:{m}")
-            cum_mileage += buckets[i]["distance"]
-            cum_active_seconds += buckets[i]["active_seconds"]
-            mileage_data.append(round(cum_mileage, 1))
-            hours_data.append(round(cum_active_seconds / 3600, 1))
-            
-    else:
-        # Daily buckets for Weekly/Monthly
-        buckets = {}
-        for i in range(days_to_fetch):
-            day = (zim_start + timedelta(days=i)).date()
-            buckets[day] = {"distance": 0, "active_seconds": 0}
-            
-        last_positions = {}
-        for p in positions:
-            if p.latitude is None or p.longitude is None: continue
-            p_zim = (p.timestamp + tz_offset)
-            p_date = p_zim.date()
-            
-            if p_date not in buckets: continue
-            
-            if p.device_id in last_positions:
-                prev = last_positions[p.device_id]
-                if (p.timestamp + tz_offset).date() == (prev.timestamp + tz_offset).date():
-                    from math import radians, cos, sin, asin, sqrt
-                    lon1, lat1, lon2, lat2 = map(radians, [prev.longitude, prev.latitude, p.longitude, p.latitude])
-                    a = sin((lat2-lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2-lon1)/2)**2
-                    c = 2 * asin(sqrt(max(0, min(1, a))))
-                    km = 6371 * c
-                    
-                    if 0 < km < 10 and p.speed is not None and p.speed > 3:
-                        buckets[p_date]["distance"] += km
-                    
-                    if p.speed is not None and p.speed > 3: # Check for None before comparison
-                        gap = (p.timestamp - prev.timestamp).total_seconds()
-                        if 0 < gap < 600: buckets[p_date]["active_seconds"] += gap
-            
-            last_positions[p.device_id] = p
-            
-        # Cumulative transform
-        cum_mileage = 0
-        cum_active_seconds = 0
-        # Sort buckets by date to ensure correct cumulative calculation
-        sorted_dates = sorted(buckets.keys())
-        for date in sorted_dates:
-            val = buckets[date]
-            labels.append(date.strftime("%b %d"))
-            cum_mileage += val["distance"]
-            cum_active_seconds += val["active_seconds"]
-            mileage_data.append(round(cum_mileage, 1))
-            hours_data.append(round(cum_active_seconds / 3600, 1))
-
-    return {
-        "labels": labels,
-        "mileage": mileage_data,
-        "hours": hours_data
-    }
 
 @router.get("/analytics/device/{device_id}/chart")
 async def get_device_chart_analytics(
@@ -909,133 +978,14 @@ async def get_device_chart_analytics(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get mileage and active hours chart data for a single device (Daily/Weekly/Monthly/Custom)."""
-    from sqlalchemy import select
-    from datetime import datetime, timedelta
-    from math import radians, cos, sin, asin, sqrt
-
-    tz_offset = timedelta(hours=2)
-    now_zim = datetime.utcnow() + tz_offset
-
-    if period == "weekly":
-        days_to_fetch = 7
-        zim_start = (now_zim - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "monthly":
-        days_to_fetch = 30
-        zim_start = (now_zim - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "custom" and start and end:
-        try:
-            zim_start = datetime.strptime(start, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
-            zim_end = datetime.strptime(end, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999999)
-            if zim_end < zim_start:
-                zim_start, zim_end = zim_end, zim_start
-            days_to_fetch = (zim_end.date() - zim_start.date()).days + 1
-            if days_to_fetch > 90:
-                days_to_fetch = 90
-        except Exception:
-            days_to_fetch = 1
-            zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
-    else:  # daily
-        days_to_fetch = 1
-        zim_start = now_zim.replace(hour=0, minute=0, second=0, microsecond=0)
-
-    fetch_start = zim_start - tz_offset
-
-    stmt = (
-        select(
-            Position.device_id,
-            Position.latitude,
-            Position.longitude,
-            Position.speed,
-            Position.timestamp
-        )
-        .join(Device)
-        .where(Position.device_id == device_id)
-        .where(Position.timestamp >= fetch_start)
-    )
-
-    stmt = await scope_devices(db, current_user, stmt)
-
-    stmt = stmt.order_by(Position.timestamp.asc())
-    result = await db.execute(stmt)
-    positions = result.all()
-
-    labels = []
-    mileage_data = []
-    hours_data = []
-
-    if period == "daily":
-        buckets = {i: {"distance": 0, "active_seconds": 0} for i in range(48)}
-        last_pos = None
-
-        for p in positions:
-            if p.latitude is None or p.longitude is None:
-                continue
-            p_zim = p.timestamp + tz_offset
-            if p_zim.date() != now_zim.date():
-                continue
-            bucket_idx = (p_zim.hour * 2) + (1 if p_zim.minute >= 30 else 0)
-
-            if last_pos:
-                lon1, lat1, lon2, lat2 = map(radians, [last_pos.longitude, last_pos.latitude, p.longitude, p.latitude])
-                a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
-                km = 6371 * 2 * asin(sqrt(max(0, min(1, a))))
-                if 0 < km < 5 and p.speed is not None and p.speed > 3:
-                    buckets[bucket_idx]["distance"] += km
-                if p.speed is not None and p.speed > 3:
-                    gap = (p.timestamp - last_pos.timestamp).total_seconds()
-                    if 0 < gap < 600:
-                        buckets[bucket_idx]["active_seconds"] += gap
-            last_pos = p
-
-        cum_mileage = 0
-        cum_active_seconds = 0
-        current_bucket = (now_zim.hour * 2) + (1 if now_zim.minute >= 30 else 0)
-        for i in range(current_bucket + 1):
-            h = i // 2
-            m = "30" if i % 2 else "00"
-            labels.append(f"{h:02d}:{m}")
-            cum_mileage += buckets[i]["distance"]
-            cum_active_seconds += buckets[i]["active_seconds"]
-            mileage_data.append(round(cum_mileage, 1))
-            hours_data.append(round(cum_active_seconds / 3600, 1))
-    else:
-        buckets = {}
-        for i in range(days_to_fetch):
-            day = (zim_start + timedelta(days=i)).date()
-            buckets[day] = {"distance": 0, "active_seconds": 0}
-
-        last_pos = None
-        for p in positions:
-            if p.latitude is None or p.longitude is None:
-                continue
-            p_zim = p.timestamp + tz_offset
-            p_date = p_zim.date()
-            if p_date not in buckets:
-                continue
-            if last_pos and (last_pos.timestamp + tz_offset).date() == p_date:
-                lon1, lat1, lon2, lat2 = map(radians, [last_pos.longitude, last_pos.latitude, p.longitude, p.latitude])
-                a = sin((lat2 - lat1) / 2) ** 2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2
-                km = 6371 * 2 * asin(sqrt(max(0, min(1, a))))
-                if 0 < km < 10 and p.speed is not None and p.speed > 3:
-                    buckets[p_date]["distance"] += km
-                if p.speed is not None and p.speed > 3:
-                    gap = (p.timestamp - last_pos.timestamp).total_seconds()
-                    if 0 < gap < 600:
-                        buckets[p_date]["active_seconds"] += gap
-            last_pos = p
-
-        cum_mileage = 0
-        cum_active_seconds = 0
-        for date in sorted(buckets.keys()):
-            val = buckets[date]
-            labels.append(date.strftime("%b %d"))
-            cum_mileage += val["distance"]
-            cum_active_seconds += val["active_seconds"]
-            mileage_data.append(round(cum_mileage, 1))
-            hours_data.append(round(cum_active_seconds / 3600, 1))
-
-    return {"labels": labels, "mileage": mileage_data, "hours": hours_data}
+    """The same performance series for one device."""
+    device_q = await db.execute(select(Device).where(Device.id == device_id))
+    device = device_q.scalars().first()
+    if not device:
+        raise HTTPException(404, "Device not found")
+    if not await can_see_device(db, current_user, device):
+        raise HTTPException(403, "Not authorized to view this device's performance")
+    return await _perf_response(period, start, end, [device_id], db, current_user)
 
 
 @router.get("/analytics/device/{device_id}/daily")

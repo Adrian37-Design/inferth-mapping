@@ -66,18 +66,14 @@ window.loadInsights = async function(force = false) {
     const isAdmin = window.AuthManager && window.AuthManager.isAdmin();
     const isManager = window.AuthManager && window.AuthManager.isManager();
 
-    const btnDemo = document.getElementById('btn-trigger-demo-insights');
     if (isAdmin) {
         if (roleSwitcher) roleSwitcher.classList.remove('hidden');
-        if (btnDemo) btnDemo.style.display = 'inline-flex';
         if (!currentInsightsRoleMode) currentInsightsRoleMode = 'manager';
     } else if (isManager) {
         if (roleSwitcher) roleSwitcher.classList.add('hidden');
-        if (btnDemo) btnDemo.style.display = 'inline-flex';
         currentInsightsRoleMode = 'manager';
     } else {
         if (roleSwitcher) roleSwitcher.classList.add('hidden');
-        if (btnDemo) btnDemo.style.display = 'none';
         currentInsightsRoleMode = 'driver';
     }
 
@@ -912,33 +908,3 @@ function showInsightToast(msg) {
         setTimeout(() => toast.remove(), 200);
     }, 2800);
 }
-
-// Client Demo Showcase Trigger (Expires after 1 Hour)
-window.triggerClientDemoShowcase = async function(expireMinutes = 60) {
-    const btn = document.getElementById('btn-trigger-demo-insights');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-    }
-
-    try {
-        const resp = await window.AuthManager.fetchAPI(`/insights/demo-showcase?expire_minutes=${expireMinutes}`, {
-            method: 'POST'
-        });
-        if (!resp.ok) {
-            const errData = await resp.json().catch(() => ({}));
-            throw new Error(errData.detail || 'Failed to generate demo showcase insights');
-        }
-        const res = await resp.json();
-        showInsightToast('✨ 1-Hour Client Demo Insights Active!');
-        await window.loadInsights(true);
-    } catch (err) {
-        console.error('Demo showcase error:', err);
-        alert('Could not generate showcase insights: ' + err.message);
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-magic"></i> Client Demo';
-        }
-    }
-};
