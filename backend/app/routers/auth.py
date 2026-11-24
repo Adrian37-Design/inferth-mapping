@@ -938,8 +938,8 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
 
 
 @router.get("/latest-otp")
-async def get_latest_otp():
-    """Diagnostic endpoint to inspect recent dispatched OTP codes."""
+async def get_latest_otp(current_user: User = Depends(require_super_admin)):
+    """Diagnostic endpoint to inspect recent dispatched OTP codes (super-admin only)."""
     return {"latest_codes": _latest_otps[-5:]}
 
 
