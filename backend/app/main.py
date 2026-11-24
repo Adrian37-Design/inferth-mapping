@@ -968,7 +968,6 @@ async def admin_whatsapp_view(session: str = "inferth2"):
 
         <div style="margin-top: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
             <a href="/admin/whatsapp-view?session={target_session}" class="btn">🔄 Refresh QR</a>
-            <a href="/auth/latest-otp" target="_blank" class="btn btn-outline">🔑 View Latest OTP Codes</a>
             <a href="/admin/test-whatsapp-send?phone=263713150172" target="_blank" class="btn btn-outline">✉️ Test Send to Admin</a>
             <a href="/admin/whatsapp-redeploy-service" class="btn" style="background: #dc2626;" onclick="return confirm('Reboot the Evolution API container on Railway? (Takes ~15s)')">🚀 Reboot Evolution Service</a>
         </div>
