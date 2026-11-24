@@ -33,6 +33,11 @@ BATCH_SIZE = int(os.getenv("RETENTION_BATCH_SIZE", "2000"))
 ADVISORY_LOCK_KEY = 918273645
 MAX_BATCHES_PER_TENANT = int(os.getenv("RETENTION_MAX_BATCHES", "500"))
 
+# Positions belonging to no live tenant (device deleted, or a device row whose
+# tenant_id was never set) are protected by no entitlement and were previously
+# skipped forever - an unbounded leak. They get the global floor, not a plan.
+ORPHAN_RETENTION_DAYS = int(os.getenv("RETENTION_ORPHAN_DAYS", str(MIN_RETENTION_DAYS)))
+
 
 _DELETE_SQL = text(
     """
@@ -50,6 +55,23 @@ _DELETE_SQL = text(
         SELECT id
         FROM ranked
         WHERE timestamp < :cutoff AND rn > :keep
+        LIMIT :batch
+    )
+    DELETE FROM positions p
+    USING doomed
+    WHERE p.id = doomed.id
+    """
+)
+
+
+_ORPHAN_DELETE_SQL = text(
+    """
+    WITH doomed AS (
+        SELECT p.id
+        FROM positions p
+        LEFT JOIN devices d ON d.id = p.device_id
+        WHERE (d.id IS NULL OR d.tenant_id IS NULL)
+          AND p.timestamp < :cutoff
         LIMIT :batch
     )
     DELETE FROM positions p
@@ -181,6 +203,44 @@ async def run_cleanup(
 
             entry.update({"deleted": deleted_total, "cutoff": cutoff.isoformat(), "batches": batches})
             summary["tenants"].append(entry)
+
+        # -- Rows that belong to no tenant ----------------------------------
+        orphan_days = max(ORPHAN_RETENTION_DAYS, MIN_RETENTION_DAYS)
+        orphan_cutoff = started - dt.timedelta(days=orphan_days)
+        orphans_deleted = 0
+        try:
+            while True:
+                result = await db.execute(
+                    _ORPHAN_DELETE_SQL,
+                    {"cutoff": orphan_cutoff, "batch": BATCH_SIZE},
+                )
+                await db.commit()
+                count = result.rowcount or 0
+                orphans_deleted += count
+                if count < BATCH_SIZE:
+                    break
+                await asyncio.sleep(0.2)
+        except Exception as exc:
+            await db.rollback()
+            summary["orphan_error"] = str(exc)
+        summary["orphans_deleted"] = orphans_deleted
+        summary["orphan_cutoff"] = orphan_cutoff.isoformat()
+
+        # A DELETE frees nothing on disk by itself; without this the volume fills
+        # again even though the retention window is working.
+        deleted_any = orphans_deleted + sum(
+            int(t.get("deleted") or 0) for t in summary["tenants"]
+        )
+        summary["deleted_rows"] = deleted_any
+        if deleted_any:
+            from app.services.db_maintenance import reclaim_position_space
+            summary["vacuum"] = await reclaim_position_space()
+
+        summary["ineligible_tenants"] = [
+            {"tenant_id": t["tenant_id"], "tenant": t["tenant"],
+             "reason": t.get("reason", "")}
+            for t in summary["tenants"] if t.get("skipped")
+        ]
 
         summary["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         return summary

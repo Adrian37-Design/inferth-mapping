@@ -71,7 +71,13 @@ async def get_tracker_debug_logs(current_user: User = Depends(require_admin)):
         return f"Error reading logs: {str(e)}"
 
 # --- DATABASE OPTIMIZATION & STORAGE MAINTENANCE ---
-from app.services.db_maintenance import get_storage_stats, optimize_database_indexes, prune_old_heartbeats
+from app.services.db_maintenance import (
+    get_disk_report,
+    get_storage_stats,
+    optimize_database_indexes,
+    prune_old_heartbeats,
+    reclaim_position_space,
+)
 from app.models import AuditLog
 
 @router.get("/storage/stats")
@@ -232,6 +238,79 @@ async def retention_dry_run(
     except Exception:
         await db.rollback()
     return report
+
+
+@router.get("/storage/disk")
+async def storage_disk_usage(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """
+    What is actually eating the volume: positions heap and indexes, table bloat,
+    WAL, replication slots and their retention settings. Read-only.
+    """
+    return await get_disk_report(db)
+
+
+@router.post("/storage/reclaim")
+async def reclaim_storage(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """
+    VACUUM (ANALYZE) positions so space freed by retention is reusable again.
+    Safe to run while ingest is live; does not return space to the OS.
+    """
+    result = await reclaim_position_space()
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="DATABASE_RECLAIM_SPACE",
+        details=result,
+        ip_address="127.0.0.1",
+    ))
+    await db.commit()
+    return result
+
+
+@router.post("/retention/run")
+async def run_retention_now(
+    apply: bool = False,
+    tenant_id: int = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin)
+):
+    """
+    Force a retention pass now instead of waiting for the daily run.
+    apply=false is a dry run; apply=true deletes expired rows and vacuums.
+    """
+    from app.services.retention_worker import retention_enabled, run_cleanup
+
+    if apply and not retention_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="RETENTION_ENABLED is not true, so nothing may be deleted. "
+                   "Set RETENTION_ENABLED=true on the service, then retry.",
+        )
+
+    summary = await run_cleanup(db, dry_run=not apply, tenant_id=tenant_id)
+    try:
+        db.add(AuditLog(
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            action="RETENTION_RUN_APPLIED" if apply else "RETENTION_RUN_DRY",
+            details={
+                "tenant_id": tenant_id,
+                "deleted_rows": summary.get("deleted_rows", 0),
+                "orphans_deleted": summary.get("orphans_deleted", 0),
+                "skipped": summary.get("skipped"),
+            },
+            ip_address="127.0.0.1",
+        ))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+    return summary
 
 
 # --- ENTERPRISE QUOTATIONS ---

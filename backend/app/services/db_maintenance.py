@@ -109,3 +109,126 @@ async def optimize_database_indexes(db: AsyncSession) -> Dict[str, Any]:
         results["message"] = f"Index maintenance completed with notice: {e}"
 
     return results
+
+async def get_disk_report(db: AsyncSession) -> Dict[str, Any]:
+    """
+    Where the volume's bytes actually went. Answers the only question that
+    matters when PostgreSQL panics with "No space left on device": is it the
+    positions heap, its indexes, WAL, or a stale replication slot?
+
+    Every probe is independent - one failing (pg_ls_waldir needs a privileged
+    role) never hides the others.
+    """
+    report: Dict[str, Any] = {"database_type": "postgresql"}
+
+    async def probe(key: str, sql: str, many: bool = False) -> None:
+        try:
+            result = await db.execute(text(sql))
+            if many:
+                report[key] = [dict(r) for r in result.mappings().all()]
+            else:
+                row = result.mappings().first()
+                report[key] = dict(row) if row else None
+        except Exception as exc:
+            # A failed statement poisons the transaction; roll back so the
+            # remaining probes still run.
+            try:
+                await db.rollback()
+            except Exception:
+                pass
+            report[key] = {"error": str(exc)}
+
+    await probe("database", (
+        "SELECT current_database() AS name, "
+        "pg_size_pretty(pg_database_size(current_database())) AS size, "
+        "pg_database_size(current_database()) AS bytes"
+    ))
+
+    await probe("largest_relations", (
+        "SELECT c.relname AS relation, "
+        "pg_size_pretty(pg_total_relation_size(c.oid)) AS total, "
+        "pg_total_relation_size(c.oid) AS total_bytes, "
+        "pg_size_pretty(pg_relation_size(c.oid)) AS heap, "
+        "pg_size_pretty(pg_indexes_size(c.oid)) AS indexes "
+        "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        "WHERE n.nspname = 'public' AND c.relkind = 'r' "
+        "ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 15"
+    ), many=True)
+
+    await probe("positions_bloat", (
+        "SELECT relname, n_live_tup, n_dead_tup, "
+        "pg_size_pretty(pg_total_relation_size(relid)) AS total, "
+        "last_vacuum, last_autovacuum, last_analyze, "
+        "autovacuum_count, vacuum_count "
+        "FROM pg_stat_user_tables WHERE relname = 'positions'"
+    ))
+
+    await probe("wal", (
+        "SELECT count(*) AS segments, "
+        "pg_size_pretty(coalesce(sum(size), 0)) AS size "
+        "FROM pg_ls_waldir()"
+    ))
+
+    await probe("replication_slots", (
+        "SELECT slot_name, slot_type, active, "
+        "pg_size_pretty(coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn), 0)) "
+        "AS retained_wal "
+        "FROM pg_replication_slots"
+    ), many=True)
+
+    await probe("wal_settings", (
+        "SELECT name, setting, unit FROM pg_settings WHERE name IN "
+        "('wal_level', 'max_wal_size', 'min_wal_size', 'checkpoint_timeout', "
+        "'archive_mode', 'autovacuum', 'autovacuum_naptime') ORDER BY name"
+    ), many=True)
+
+    return report
+
+
+async def reclaim_position_space() -> Dict[str, Any]:
+    """
+    VACUUM (ANALYZE) positions so space freed by the retention worker becomes
+    reusable.
+
+    A DELETE only marks tuples dead: the heap file keeps every byte, so pruning
+    rows does NOT stop the volume growing. Autovacuum reclaims for reuse but
+    lags badly on a hot append table, and nothing returns space to the OS
+    without a rewrite. Runs right after a delete pass, on its own autocommit
+    connection (PostgreSQL refuses VACUUM inside a transaction block) with the
+    app's 10 second command timeout lifted.
+
+    VACUUM FULL is deliberately never automatic: it takes an ACCESS EXCLUSIVE
+    lock and needs free space equal to the table, which is exactly what a full
+    volume does not have.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+    from app.db import DATABASE_URL
+
+    out: Dict[str, Any] = {"status": "success", "operations": []}
+    engine = None
+    try:
+        engine = create_async_engine(
+            DATABASE_URL,
+            poolclass=NullPool,
+            connect_args={"timeout": 15, "command_timeout": None},
+        )
+        async with engine.connect() as conn:
+            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+            await conn.execute(text("VACUUM (ANALYZE) positions"))
+            out["operations"].append("VACUUM (ANALYZE) positions")
+            row = (await conn.execute(text(
+                "SELECT pg_size_pretty(pg_total_relation_size('positions')) AS size"
+            ))).mappings().first()
+            if row:
+                out["positions_size"] = row.get("size")
+    except Exception as exc:
+        out["status"] = "notice"
+        out["message"] = str(exc)
+    finally:
+        if engine is not None:
+            try:
+                await engine.dispose()
+            except Exception:
+                pass
+    return out

@@ -373,26 +373,42 @@ async def _usage_settlement_loop():
 
 async def _retention_daily_loop():
     """
-    Daily GPS retention run at 02:00 UTC. Does nothing unless
-    RETENTION_ENABLED=true; still respects RETENTION_DRY_RUN.
+    GPS retention: runs 5 minutes after boot, then every 24 hours.
+
+    Two defects fixed here:
+      * the old loop slept until the next 02:00 UTC, so any redeploy (Railway
+        redeploys often) restarted the timer and the window never fired;
+      * it called run_cleanup() with the worker's default dry_run=True, so even
+        when RETENTION_ENABLED was true nothing was ever deleted.
+
+    Deletes require RETENTION_ENABLED=true. RETENTION_DRY_RUN=true is the
+    explicit opt-out that keeps a run read-only.
     """
+    from app.db import AsyncSessionLocal
     from app.services.retention_worker import run_cleanup
 
-    await asyncio.sleep(120)
+    await asyncio.sleep(300)
     while True:
         try:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            target = now.replace(hour=2, minute=0, second=0, microsecond=0)
-            if target <= now:
-                target += datetime.timedelta(days=1)
-            await asyncio.sleep((target - now).total_seconds())
-            from app.db import AsyncSessionLocal
+            apply = os.getenv("RETENTION_DRY_RUN", "false").strip().lower() != "true"
             async with AsyncSessionLocal() as db:
-                result = await run_cleanup(db)
-            print(f"[Retention] run complete: {result.get('skipped') or result.get('report') or result.get('tenants')}")
+                result = await run_cleanup(db, dry_run=not apply)
+            if result.get("skipped"):
+                print(f"[Retention] skipped: {result['skipped']}")
+            elif not apply:
+                report = result.get("report") or {}
+                print(f"[Retention] DRY RUN would delete "
+                      f"{report.get('would_delete_rows', 0)} rows (RETENTION_DRY_RUN=true)")
+            else:
+                print(f"[Retention] deleted {result.get('deleted_rows', 0)} position rows "
+                      f"(orphans={result.get('orphans_deleted', 0)}), "
+                      f"vacuum={(result.get('vacuum') or {}).get('status')}")
+                if result.get("ineligible_tenants"):
+                    names = ", ".join(t["tenant"] for t in result["ineligible_tenants"])
+                    print(f"[Retention] WARNING no window for: {names} - set retention_days")
         except Exception as exc:
             print(f"[Retention] run failed: {exc}")
-            await asyncio.sleep(3600)
+        await asyncio.sleep(86400)
 
 
 async def _reseller_monthly_invoicing_loop():
@@ -507,6 +523,9 @@ async def startup_event():
         asyncio.create_task(_usage_settlement_loop())
     if os.getenv("RETENTION_ENABLED", "false").strip().lower() == "true" and os.getenv("RETENTION_SCHEDULER", "true").strip().lower() == "true":
         asyncio.create_task(_retention_daily_loop())
+    else:
+        print("[Retention] DISABLED - GPS history is not being pruned. "
+              "Set RETENTION_ENABLED=true to enforce the retention window.")
 
     # 2. Start Immediate Services
     print("Starting background services...")
