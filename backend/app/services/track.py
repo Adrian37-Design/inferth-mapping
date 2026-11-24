@@ -276,8 +276,14 @@ def _segments(chain, moving, validated):
                     validated[moving_idx[min(len(moving_idx) - 1, k + 1)]],
                 ]
                 top = max(top, min(three))
+        # A card is a trip only when it both covers ground and can show a speed;
+        # anything else is parking, and parking owes the day no kilometres. That
+        # keeps the sum of the trip cards equal to the total the popup shows.
+        kind = "trip" if (run["moving"] and distance >= TRACK_NOISE_KM and top > 0) else "stop"
+        if kind == "stop":
+            distance = 0.0
         segments.append({
-            "kind": "trip" if distance >= TRACK_NOISE_KM else "stop",
+            "kind": kind,
             "distance_km": round(distance, 3),
             "max_speed_kmh": round(top),
             "points": [
