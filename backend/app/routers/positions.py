@@ -11,6 +11,7 @@ import asyncio
 from pydantic import BaseModel
 from app.realtime import publish_position
 from app.services.device_resolver import resolve_device
+from app.services.track import analyze_track, TRACK_MAX_KMH
 from app.services.data_guardrails import (
     haversine_distance_km,
     validate_coordinates,
@@ -34,6 +35,7 @@ PARKED_NOISE_KM = 0.10
 # different copies, which is how one day could read 157.7 km on the Route
 # History strip while its own trip cards added up to a fraction of that.
 TRACK_GAP_MINUTES = 15        # a longer silence ends a continuous track
+TRACK_GAP_KM = 1.0            # ... and it must have covered real ground
 TRACK_JUMP_KM = 2.0           # a single hop this long is a gap, not a road
 TRACK_MAX_KMH = 200.0         # beyond this the pair is a teleport, not travel
 TRACK_STOP_KMH = 3.0          # at or below this the unit reports stationary
@@ -71,9 +73,10 @@ def _is_track_gap(prev_ts, prev_lat, prev_lng, ts, lat, lng) -> bool:
         # does cover several kilometres between fixes, and calling that a gap
         # would zero a highway's whole distance.
         return km > TRACK_JUMP_KM
-    if dt >= TRACK_GAP_MINUTES * 60 and km >= 1.0:
-        return True
-    return km > 0.3 and (km / (dt / 3600.0)) > TRACK_MAX_KMH
+    # Only a silence is a gap. A hop too fast to be true is a bad fix, which
+    # analyze_track drops while keeping the line continuous: calling it a gap
+    # is what broke one continuous track into hundreds of false breaks.
+    return dt >= TRACK_GAP_MINUTES * 60 and km >= TRACK_GAP_KM
 
 
 def _iso_utc(dt):
@@ -572,116 +575,54 @@ async def get_device_route(
     end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if end_date else None
     positions = await _route_rows(device_id, start_dt, end_dt, db)
 
-    # Find first real GNSS coordinate in window (if any) so coarse LBS rows
-    # (satellites >= 200 or 0) keep their timestamps (preserving parked/stationary
-    # coverage up to the current time) while pinning coordinates to the last
-    # real GNSS fix instead of jumping to cell towers.
-    first_gnss = next((p for p in positions if not _is_coarse_sats(p.sats)), None)
-    last_gnss_lat = first_gnss.latitude if first_gnss else None
-    last_gnss_lng = first_gnss.longitude if first_gnss else None
-
-    # Calculate route with distance and apply velocity jump / deduplication guardrail
-    route_points = []
-    total_distance = 0.0
-    last_valid_point = None
-
+    # Coarse LBS rows are cell-tower guesses 500 m - 8 km off the real fix, so
+    # they are pinned to the last real GNSS position instead of being drawn.
+    fixes = []
+    last_gnss = None
     for p in positions:
-        is_lbs = _is_coarse_sats(p.sats)
-        if not is_lbs:
-            last_gnss_lat = p.latitude
-            last_gnss_lng = p.longitude
-            p_lat = p.latitude
-            p_lng = p.longitude
-            curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
-        elif last_gnss_lat is not None and last_gnss_lng is not None:
-            p_lat = last_gnss_lat
-            p_lng = last_gnss_lng
-            curr_speed = 0.0
+        if _is_coarse_sats(p.sats):
+            if last_gnss is None:
+                continue
+            lat, lng, speed = last_gnss[0], last_gnss[1], 0.0
         else:
-            p_lat = p.latitude
-            p_lng = p.longitude
-            curr_speed = 0.0
+            lat, lng = p.latitude, p.longitude
+            last_gnss = (lat, lng)
+            speed = min(max(0.0, p.speed or 0.0), TRACK_MAX_KMH)
+        fixes.append({"lat": lat, "lng": lng, "timestamp": p.timestamp, "speed": speed})
 
-        point = {
-            "lat": p_lat,
-            "lng": p_lng,
-            "timestamp": _iso_utc(p.timestamp),
-            "speed": curr_speed
+    # One shared scan builds the whole day: it drops impossible fixes, banks
+    # distance only where the vehicle provably moved, ends the track at a real
+    # silence and returns the segments the client renders. The strip total, the
+    # trip cards and the max speed all come from this one result, which is why
+    # they can no longer disagree with each other or with the marker popup.
+    track = analyze_track(fixes)
+
+    def _out(q, with_break=False):
+        item = {
+            "lat": q["lat"],
+            "lng": q["lng"],
+            "timestamp": _iso_utc(q["timestamp"]),
+            "speed": q["speed"],
         }
+        if with_break and q.get("break"):
+            item["break"] = True
+        return item
 
-        if last_valid_point is not None:
-            prev_lat = last_valid_point["lat"]
-            prev_lng = last_valid_point["lng"]
-            try:
-                prev_ts = datetime.fromisoformat(last_valid_point["timestamp"].replace('Z', '+00:00'))
-            except Exception:
-                prev_ts = p.timestamp
-
-            # A gap is not travel and not a drawable line: the unit was silent,
-            # or the hop is physically impossible. Bank no distance and hand the
-            # client an explicit break so it cannot join the two sides.
-            if _is_track_gap(prev_ts, prev_lat, prev_lng, p.timestamp, p_lat, p_lng):
-                point["break"] = True
-                last_valid_point = point
-                route_points.append(point)
-                continue
-
-            curr_ts = p.timestamp.replace(tzinfo=prev_ts.tzinfo if prev_ts.tzinfo else None)
-            time_diff_sec = abs((curr_ts - prev_ts).total_seconds())
-
-            km = haversine_distance_km(prev_lat, prev_lng, p_lat, p_lng)
-            
-            # Guardrail 2: Reject impossible teleportation jumps (implied speed > 250 km/h or > 10km in < 60s)
-            if time_diff_sec > 0:
-                implied_speed = km / (time_diff_sec / 3600.0)
-                if implied_speed > 250.0 and km > 0.1:
-                    continue  # Skip jump glitch point
-                # Sub-30 m creep between minute fixes is the receiver wandering,
-                # not the vehicle moving. Pin it to the anchor and bank nothing,
-                # otherwise a parked unit still "drives" a kilometre a day.
-                if time_diff_sec < 60.0 and km < TRACK_NOISE_KM:
-                    point["lat"] = last_valid_point["lat"]
-                    point["lng"] = last_valid_point["lng"]
-                    route_points.append(point)
-                    continue
-                # Stationary GPS wander is not travel. Keep the point for playback
-                # (parked periods must still cover their timeline) but pin it to
-                # the anchor fix and add no distance, so jitter cannot accumulate
-                # into a day of km on a vehicle whose card says "Parked".
-                if curr_speed <= 3.0 and last_valid_point["speed"] <= 3.0 and km < PARKED_NOISE_KM:
-                    point["lat"] = last_valid_point["lat"]
-                    point["lng"] = last_valid_point["lng"]
-                    route_points.append(point)
-                    continue
-                # Recover realistic travel speed when firmware reports speed=0
-                # despite moving beyond the GPS noise radius between fixes
-                if curr_speed <= 3.0 and km >= PARKED_NOISE_KM and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
-                    curr_speed = round(implied_speed, 1)
-                    point["speed"] = curr_speed
-            # Collapsed receipt timestamps (buffered dumps): with no elapsed time
-            # there is no speed to test, and these fixes are the real breadcrumb
-            # trail the vehicle drove. The old `elif km > 0.05: continue` rule
-            # discarded them, which erased whole legs of a drive and left the map
-            # drawing long straight chords between the survivors. Only exact
-            # same-spot duplicates are collapsed, by the stationary rule below.
-
-            # Guardrail 3: Suppress consecutive stationary duplicates within 60s
-            # (keep periodic anchor points >=60s apart so parked periods don't
-            # fragment into artificial multi-hour gaps on the timeline)
-            if time_diff_sec < 60.0 and curr_speed <= 3.0 and last_valid_point["speed"] <= 3.0 and km < 0.005:
-                continue
-
-            if km >= 0.015 or curr_speed > 3.0:
-                total_distance += km
-        
-        last_valid_point = point
-        route_points.append(point)
-    
     return {
         "device_id": device_id,
-        "points": route_points,
-        "total_distance_km": round(total_distance, 2),
-        "total_points": len(route_points)
+        "points": [_out(q, True) for q in track["points"]],
+        "segments": [
+            {
+                "kind": seg["kind"],
+                "distance_km": seg["distance_km"],
+                "max_speed_kmh": seg["max_speed_kmh"],
+                "points": [_out(q) for q in seg["points"]],
+            }
+            for seg in track["segments"]
+        ],
+        "total_distance_km": track["distance_km"],
+        "max_speed_kmh": track["max_speed_kmh"],
+        "total_points": len(track["points"]),
     }
 
 @router.get("/trips/{device_id}")
@@ -1133,58 +1074,24 @@ async def get_device_daily_mileage(
         if p.latitude is not None and p.longitude is not None
         and abs(p.latitude) > 0.0001 and abs(p.longitude) > 0.0001
     ]
-    gnss_all = [p for p in valid_all if not _is_coarse_lbs_row(p.raw)]
-    if gnss_all:
-        valid_all = gnss_all
 
     def _accumulate_distance(rows):
-        """Same haversine + guardrail chain as get_device_route."""
-        total = 0.0
-        last_p = None
-        last_speed = 0.0
+        """Same clean-up and banking as get_device_route. The popup's 'Today'
+        figure and Route History's distance therefore come from one scan with
+        one set of rules, instead of two that disagreed by tens of kilometres."""
+        fixes = []
+        last = None
         for p in rows:
-            curr_speed = min(max(0.0, p.speed or 0.0), 200.0)
-            if last_p is not None:
-                try:
-                    t1 = p.timestamp.replace(tzinfo=None) if p.timestamp.tzinfo else p.timestamp
-                    t0 = last_p.timestamp.replace(tzinfo=None) if last_p.timestamp.tzinfo else last_p.timestamp
-                    time_diff_sec = abs((t1 - t0).total_seconds())
-                except Exception:
-                    time_diff_sec = 10.0
-
-                km = haversine_distance_km(last_p.latitude, last_p.longitude, p.latitude, p.longitude)
-
-                if _is_track_gap(last_p.timestamp, last_p.latitude, last_p.longitude,
-                                 p.timestamp, p.latitude, p.longitude):
-                    last_p = p
-                    last_speed = curr_speed
+            if _is_coarse_lbs_row(p.raw):
+                if last is None:
                     continue
-
-                if time_diff_sec > 0:
-                    implied_speed = km / (time_diff_sec / 3600.0)
-                    if implied_speed > 250.0 and km > 0.1:
-                        continue
-                    # Parked GPS wander is not travel. Keep the anchor fix until
-                    # the unit has actually left it, so a stationary vehicle's
-                    # "Today" figure stays flat instead of creeping up all day.
-                    if curr_speed <= 3.0 and last_speed <= 3.0 and km < PARKED_NOISE_KM:
-                        continue
-                    if curr_speed <= 3.0 and km >= PARKED_NOISE_KM and 3.5 <= implied_speed <= 160.0 and time_diff_sec <= 7200.0:
-                        curr_speed = round(implied_speed, 1)
-                # dt == 0: several fixes share a receipt timestamp (buffered
-                # dump). They are real breadcrumbs the vehicle drove, so their
-                # distance counts - dropping it here is why "Today" km used to
-                # disagree with Route History.
-
-                if time_diff_sec < 60.0 and km < TRACK_NOISE_KM:
-                    continue
-
-                if km >= 0.015 or curr_speed > 3.0:
-                    total += km
-
-            last_p = p
-            last_speed = curr_speed
-        return total
+                lat, lng, speed = last[0], last[1], 0.0
+            else:
+                lat, lng = p.latitude, p.longitude
+                last = (lat, lng)
+                speed = p.speed or 0.0
+            fixes.append({"lat": lat, "lng": lng, "timestamp": p.timestamp, "speed": speed})
+        return analyze_track(fixes)["distance_km"]
 
     total_mileage = _accumulate_distance(valid_all)
 

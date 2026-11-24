@@ -120,9 +120,17 @@ window.haversineDistanceKm = haversineDistanceKm;
 // drawn as a straight line across the map.
 const TRACK_GAP_MINUTES = 15;   // a longer silence ends a continuous track
 const TRACK_JUMP_KM = 2.0;      // a single hop this long is a gap, not a road
-const TRACK_MAX_KMH = 200;      // faster than this is a bad fix, not a road car
+const TRACK_MAX_KMH = 160;      // faster than this is a bad fix, not a road car
 const TRACK_STOP_KMH = 3.0;     // at or below this the unit reports stationary
 const TRACK_NOISE_KM = 0.03;    // sub-30 m creep between minute fixes is GPS jitter
+// Movement is proven by ground covered between fixes at least a minute
+// apart: this hardware reports 40-124 km/h parked on one coordinate, and a
+// 200 m change across a 3-second pair is scatter, not 240 km/h.
+const TRACK_MIN_EVIDENCE_S = 60;
+const TRACK_GROUND_WINDOW_S = 300;
+const TRACK_GROUND_MOVING_KMH = 8;
+const TRACK_STANDING_KMH = 5;
+const TRACK_SUPPORT_FACTOR = 1.5;
 
 function trackGapBetween(prev, curr) {
     if (!prev || !curr) return true;
@@ -135,51 +143,46 @@ function trackGapBetween(prev, curr) {
     // because a tracker uploading every 3 minutes covers several kilometres
     // between fixes and that is travel, not a gap.
     if (!(dtSec > 0)) return km > TRACK_JUMP_KM;
-    if (dtSec >= TRACK_GAP_MINUTES * 60 && km >= 1.0) return true;
-    return km > 0.3 && (km / (dtSec / 3600)) > TRACK_MAX_KMH;
+    // Only a silence is a gap. A hop too fast to be real is a bad fix, which
+    // the server drops while keeping the line continuous: calling it a gap is
+    // what used to break one continuous track into hundreds of false breaks.
+    return dtSec >= TRACK_GAP_MINUTES * 60 && km >= 1.0;
 }
 
-// A tracker can emit one impossible frame - 159 km/h on a car doing 40 - and a
-// single sample became the day's "MAX SPEED". A reported speed is only counted
-// when a neighbouring fix within two minutes backs it up, either by reporting a
-// comparable speed or by proving that ground was covered. Otherwise the sample
-// is capped to what the fixes around it support. With no neighbour to compare
-// against (sparse uploads) the reported value is trusted, capped at the
-// physical limit.
+// Speed the fixes can prove. This tracker reports 40-124 km/h while sitting
+// on one coordinate, so a reported value only counts when the ground covered
+// between fixes at least a minute apart supports it; a stationary fix counts
+// as zero however fast the firmware claims to be moving. The same rule runs
+// on the server (services/track.py), which is what the strip displays.
 function validatePointSpeeds(points) {
-    (points || []).forEach((p, i) => {
-        if (!p) return;
-        const reported = Number(p.speed) || 0;
-        const effective = Number(p._effectiveSpeed) || 0;
-        p._validatedSpeed = 0;
-        if (effective <= TRACK_STOP_KMH) return;          // stationary: no top speed here
-        if (reported <= TRACK_STOP_KMH) {
-            p._validatedSpeed = Math.min(effective, TRACK_MAX_KMH);
-            return;
-        }
-        let support = 0;
-        let compared = 0;
-        [i - 1, i + 1].forEach(j => {
-            const q = points[j];
-            if (!q || trackGapBetween(p, q)) return;
+    const list = points || [];
+    const ground = list.map((p, i) => {
+        if (!p) return 0;
+        let best = 0;
+        const from = Math.max(0, i - 6);
+        const to = Math.min(list.length - 1, i + 6);
+        for (let j = from; j <= to; j++) {
+            if (j === i) continue;
+            const q = list[j];
+            if (!q) continue;
             const dtSec = Math.abs(parseTimestamp(q.timestamp) - parseTimestamp(p.timestamp)) / 1000;
-            if (!(dtSec > 0)) {
-                compared++;
-                support = Math.max(support, Number(q._effectiveSpeed) || 0);
-                return;
-            }
-            if (dtSec > 120) return;
-            compared++;
+            if (!(dtSec >= TRACK_MIN_EVIDENCE_S) || dtSec > TRACK_GROUND_WINDOW_S) continue;
             const km = haversineDistanceKm(p.lat, p.lng, q.lat, q.lng);
-            support = Math.max(support, Number(q._effectiveSpeed) || 0, km / (dtSec / 3600));
-        });
-        if (compared === 0) {
-            p._validatedSpeed = Math.min(reported, TRACK_MAX_KMH);
+            const implied = km / (dtSec / 3600);
+            if (implied > best) best = implied;
+        }
+        return best;
+    });
+    list.forEach((p, i) => {
+        if (!p) return;
+        const g = ground[i];
+        if (g < TRACK_STANDING_KMH) {
+            p._validatedSpeed = 0;
             return;
         }
-        p._validatedSpeed = support >= reported * 0.6
-            ? Math.min(reported, TRACK_MAX_KMH)
-            : Math.min(support, TRACK_MAX_KMH);
+        const reported = Number(p.speed) || 0;
+        const supported = Math.min(reported > 0 ? reported : g, g * TRACK_SUPPORT_FACTOR);
+        p._validatedSpeed = Math.max(0, Math.min(supported, TRACK_MAX_KMH));
     });
 }
 
@@ -6141,6 +6144,11 @@ function filterValidRoutePoints(points) {
     // scramble the geometry, so leave them untouched.
     if (points.every(p => p && p.snapped)) return points;
 
+    // The server's cleaned track has already had bad fixes dropped and parked
+    // scatter pinned. Running the spike passes over it again deletes real
+    // geometry: that is what left the drawn line broken mid-drive.
+    if (points.every(p => p && p._serverCleaned)) return points;
+
     // 1. Sort chronologically by timestamp
     // Buffered dumps stamp many fixes with the same receipt time. Only those bursts
     // are reordered spatially; the rest of the day keeps its chronological order.
@@ -7123,15 +7131,51 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // uses. The timeline and every route it draws then come from one
         // identical point set: a parked vehicle's GPS wander no longer becomes
         // a fake "Trip · 0.3 km" card that draws no path when clicked.
-        const points = filterValidRoutePoints(
-            (data.points || []).filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
-        );
+        // The server already cleaned this track with the shared rules (bad
+        // fixes dropped, parked scatter pinned, real silences flagged) and sent
+        // the segments it measured. Re-filtering here used to delete real
+        // geometry and leave the drawn line broken in the middle of a drive.
+        const serverSegments = (data.segments && data.segments.length) ? data.segments : null;
+        const points = serverSegments
+            ? (data.points || [])
+                .filter(p => p && typeof p.lat === 'number' && typeof p.lng === 'number' && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
+                .map(p => ({ ...p, _serverCleaned: true, _effectiveSpeed: Number(p.speed) || 0, _validatedSpeed: Number(p.speed) || 0 }))
+            : filterValidRoutePoints(
+                (data.points || []).filter(p => p && p.lat && p.lng && Math.abs(p.lat) > 0.0001 && Math.abs(p.lng) > 0.0001)
+            );
 
         if (points.length === 0) {
             timeline.innerHTML = '<p class="empty-state">No valid route points recorded for this date range</p>';
             return;
         }
 
+        // The server's segments ARE the trip and stop cards: each carries the
+        // distance and top speed it measured, so the strip sums exactly the
+        // total the marker popup shows for the same day.
+        let mergedSegments = [];
+        if (serverSegments) {
+            mergedSegments = serverSegments.map(seg => {
+                const segPoints = (seg.points || []).map(p => {
+                    const spd = Number(p.speed) || 0;
+                    return {
+                        lat: p.lat,
+                        lng: p.lng,
+                        timestamp: p.timestamp,
+                        speed: spd,
+                        _serverCleaned: true,
+                        _effectiveSpeed: spd,
+                        _validatedSpeed: spd
+                    };
+                });
+                return {
+                    isMoving: seg.kind === 'trip',
+                    serverKind: seg.kind,
+                    maxSpeedKmh: seg.max_speed_kmh,
+                    distanceKm: seg.distance_km,
+                    points: segPoints
+                };
+            });
+        } else {
         // Compute effective speed for each point (recovers movement when tracker
         // reports speed=0 while moving across town, even across reconnect windows up to 2h)
         for (let i = 0; i < points.length; i++) {
@@ -7207,7 +7251,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // 6 min (or longer indoors), so a stationary segment's true end time is the
         // start of the NEXT segment — never swallow a 60-80m parking stop into a trip
         // just because only 1-2 stationary pings arrived at the start of the stop!
-        const mergedSegments = [];
+        mergedSegments = [];
         for (let i = 0; i < rawSegments.length; i++) {
             const seg = rawSegments[i];
             const startT = parseTimestamp(seg.points[0].timestamp);
@@ -7238,6 +7282,8 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
             } else {
                 mergedSegments.push(seg);
             }
+        }
+
         }
 
         // 4. Construct timeline items & summary totals
@@ -7271,11 +7317,18 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     if (!(stepSec < 60 && stepKm < TRACK_NOISE_KM)) distKm += stepKm;
                 }
             }
+            // A server segment carries the distance it measured over the whole
+            // track; re-deriving it from the visible points alone would drift a
+            // few hundred metres and put the cards back out of step with the total.
+            if (seg.distanceKm != null) distKm = Number(seg.distanceKm) || 0;
             const netDispKm = haversineDistanceKm(startP.lat, startP.lng, endP.lat, endP.lng);
             if (maxSpd > overallMaxSpeed) overallMaxSpeed = maxSpd;
 
-            // Classify as Driving Trip if moving with >=150m path OR net displacement >=200m
-            const isDrivingTrip = (seg.isMoving && maxEff > 3.0 && distKm >= 0.15) || (distKm >= 0.20 && netDispKm >= 0.15);
+            // Classify as Driving Trip if moving with >=150m path OR net displacement >=200m.
+            // A server segment already knows which it is.
+            const isDrivingTrip = seg.serverKind
+                ? seg.serverKind === 'trip'
+                : ((seg.isMoving && maxEff > 3.0 && distKm >= 0.15) || (distKm >= 0.20 && netDispKm >= 0.15));
 
             if (isDrivingTrip) {
                 tripsCount++;
@@ -7284,7 +7337,7 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
                     type: 'trip',
                     points: seg.points,
                     duration,
-                    maxSpeed: Math.round(maxSpd),
+                    maxSpeed: Math.round(seg.maxSpeedKmh != null ? seg.maxSpeedKmh : maxSpd),
                     distance: distKm.toFixed(1),
                     distanceKm: distKm,   // unrounded: the strip sums these, not the labels
                     start: startP,
@@ -7414,7 +7467,10 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
         // server's own total (a second scan with different rules), so a day read
         // 157.7 km above cards that added up to a fraction of that.
         const displayDistKm = totalTripDistKm;
-        updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, overallMaxSpeed);
+        // The top speed is the one the server could prove from the ground
+        // covered, not the fastest number the firmware printed.
+        const displayMaxSpeed = (data.max_speed_kmh != null) ? Number(data.max_speed_kmh) : overallMaxSpeed;
+        updateHistorySummaryStrip(displayDistKm, tripsCount, stopsCount, displayMaxSpeed);
 
         // If viewing Today's history, sync dailyMileageCache with the exact route
         // distance so the marker popup 'Today' km and Route History 'Distance' km
