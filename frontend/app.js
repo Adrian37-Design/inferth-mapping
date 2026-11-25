@@ -3185,7 +3185,11 @@ async function loadVehicles() {
                             if (marker) marker.openPopup();
                         }, 300);
                     } else {
-                        // Show the map button and switch to map view
+                        // No stored fix for this asset: say so. Silently re-fitting
+                        // the map reads as "the vehicle is somewhere in this view",
+                        // which is exactly the wrong conclusion when the server has
+                        // no usable coordinate for it at all.
+                        alert(`${vehicle.name || 'This asset'} has no GPS position on record yet.\n\nIts tracker is registered but has not sent a usable fix, so there is nothing to place on the map. Check the unit's power, SIM data and GPS antenna.`);
                         window.showFullMap();
                     }
                 });
