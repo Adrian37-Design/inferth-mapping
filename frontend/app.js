@@ -218,6 +218,10 @@ let fleetFilterFrame = null;
 // poll), not from the GPS fix time. Thresholds live in contact-status.js.
 const OFFLINE_THRESHOLD_MINS = window.ContactStatus.CONTACT_OFFLINE_MINS;
 const FIX_STALE_MINS = window.ContactStatus.FIX_STALE_MINS;
+// A unit that has only cell-tower (satellites >= 200) or no-fix (0) rows is
+// still moving. Holding its marker on the last satellite fix for longer than
+// this is what left a driving vehicle's dot standing still.
+const COARSE_PIN_MS = 5 * 60 * 1000;
 const contactAt = new Map(); // device id -> epoch ms of the last contact with the server
 const dailyMileageFetchedAt = new Map();
 
@@ -4002,6 +4006,13 @@ function addOrUpdateMarker(id, name, imei, lat, lng, speed, timestamp, rawData =
         if (!isHistoryMode && geoAllows(id) && typeof marker.addTo === 'function') marker.addTo(map);
     }
 
+    // Stamp the marker whenever it stands on a real satellite fix: the
+    // cell-tower guard only holds its position while that fix is fresh.
+    const fixSats = Number(rawData && rawData.satellites);
+    if (marker && Number.isFinite(fixSats) && fixSats > 0 && fixSats < 200) {
+        marker.gnssFixAt = Date.now();
+    }
+
     // Handle Address Resolution (Popup Only)
     setTimeout(async () => {
         const popupAddrEl = document.getElementById(`popup-addr-${imei}`);
@@ -5936,7 +5947,10 @@ function connectWebSocket() {
                     // cell-tower fallback coordinate. Never let a cell-tower
                     // fallback pull an existing marker away from its real GPS fix.
                     const rawSatsNum = Number(incomingObd.satellites);
-                    if (m && Number.isFinite(rawSatsNum) && (rawSatsNum === 0 || rawSatsNum >= 200)) {
+                    // This hold expires (COARSE_PIN_MS): once the unit has been
+                    // off satellite for longer, its cell-tower positions are the
+                    // only evidence of where it is and the marker must follow.
+                    if (m && Number.isFinite(rawSatsNum) && (rawSatsNum === 0 || rawSatsNum >= 200) && (Date.now() - (m.gnssFixAt || 0)) <= COARSE_PIN_MS) {
                         try {
                             if (typeof m.getLatLng === 'function') {
                                 const ll = m.getLatLng();

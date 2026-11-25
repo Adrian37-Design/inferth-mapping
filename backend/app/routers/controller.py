@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import json
 import base64
@@ -27,6 +27,27 @@ from app.services.alerts import AlertService
 from app.services.fuel import fuel_reading
 
 router = APIRouter(prefix="/api/controller", tags=["controller"])
+
+# How far back a real satellite fix may be to stand in for a cell-tower / no-lock
+# coordinate. Beyond this the unit has genuinely moved and that fix is itself the
+# stale point the live marker used to freeze on.
+COARSE_FIX_HOLD_MINUTES = 5
+
+
+def _row_has_trusted_gnss(raw) -> bool:
+    """True when a stored row came from a usable satellite fix.
+
+    Xcela R19 writes `200 + n` for an AT+CLBS cell-tower fallback and 0 when it
+    has no fix at all (GPS.ino:2846), so neither is a road position. A row that
+    carries no satellite count is treated as a real fix.
+    """
+    if not isinstance(raw, dict) or raw.get("satellites") is None:
+        return True
+    try:
+        sats = int(raw.get("satellites"))
+    except (TypeError, ValueError):
+        return True
+    return 1 <= sats < 200
 
 
 def extract_plate_from_jwt(token: Optional[str]) -> Optional[str]:
@@ -243,22 +264,29 @@ async def upsert_tracking_data(
 
         # 2b. R19 LBS / no-fix coordinate guard:
         # In GPS.ino:2846, `satellites = 200 + reportedSatellites` marks an
-        # AT+CLBS cell-tower fallback coordinate (and `satellites == 0` marks
-        # no GNSS fix). Cell-tower coordinates in Harare jump 500m-8km to the
-        # serving base station (e.g. Joshua Nkomo Rd / Harare CBD). If the
-        # device already has a trusted GNSS fix (1 <= satellites < 200), pin
-        # lat/lon to that last real GNSS coordinate while still recording the
-        # fresh telemetry & heartbeat.
+        # AT+CLBS cell-tower fallback coordinate, and `satellites == 0` means the
+        # unit has no fix and is repeating the position it last held. A
+        # cell-tower coordinate is 500 m - 8 km off the road, so it must not be
+        # read as travel — but it is the only evidence of movement a unit without
+        # GNSS has, so the row is stored exactly as reported and the map can
+        # follow it. Rewriting it to the last satellite fix is what left a moving
+        # vehicle's dot standing still at the place it lost GPS.
+        # Only derived state (alerts, duplicate/teleport comparisons) uses the
+        # last trusted fix, and only while that fix is recent — an older one is
+        # the stale point itself.
         try:
             raw_sats = int(row.get("satellites") if row.get("satellites") is not None else -1)
         except (ValueError, TypeError):
             raw_sats = -1
         is_coarse_lbs = (raw_sats == 0 or raw_sats >= 200)
+        trusted_lat, trusted_lon = clean_lat, clean_lon
         if is_coarse_lbs:
+            gnss_cutoff = now - timedelta(minutes=COARSE_FIX_HOLD_MINUTES)
             gnss_q = await db.execute(
                 select(Position)
                 .where(
                     Position.device_id == device.id,
+                    Position.timestamp >= gnss_cutoff,
                     Position.latitude.is_not(None),
                     Position.longitude.is_not(None),
                     Position.latitude != 0.0,
@@ -268,15 +296,9 @@ async def upsert_tracking_data(
                 .limit(50)
             )
             for cand in gnss_q.scalars().all():
-                cand_raw = cand.raw if isinstance(cand.raw, dict) else {}
-                try:
-                    c_sats = int(cand_raw.get("satellites") if cand_raw.get("satellites") is not None else 8)
-                except (ValueError, TypeError):
-                    c_sats = 8
-                if 1 <= c_sats < 200:
-                    clean_lat = cand.latitude
-                    clean_lon = cand.longitude
-                    clean_speed = 0.0
+                if _row_has_trusted_gnss(cand.raw):
+                    trusted_lat = cand.latitude
+                    trusted_lon = cand.longitude
                     break
 
         # 3. Timestamp validation
@@ -426,7 +448,12 @@ async def upsert_tracking_data(
         low_fuel_v = _b(row.get("low_fuel"))
 
         if prev_pos and prev_pos.latitude and prev_pos.longitude:
-            if is_teleportation_jump(
+            # A cell-tower / no-lock row is not a GPS fix, in either direction.
+            # Testing the hop between it and a real fix (or between two cells)
+            # rejected the row outright, so the map had nothing new to show
+            # while the vehicle drove on.
+            prev_is_coarse = not _row_has_trusted_gnss(prev_pos.raw)
+            if not is_coarse_lbs and not prev_is_coarse and is_teleportation_jump(
                 prev_pos.latitude, prev_pos.longitude, prev_pos.timestamp,
                 clean_lat, clean_lon, timestamp
             ):
@@ -545,7 +572,7 @@ async def upsert_tracking_data(
         db.add(pos)
         inserted_count += 1
         if is_fresh_ping:
-            alert_inputs.append({"latitude": clean_lat, "longitude": clean_lon, "speed": clean_speed, "raw": row, "timestamp": timestamp})
+            alert_inputs.append({"latitude": trusted_lat, "longitude": trusted_lon, "speed": clean_speed, "raw": row, "timestamp": timestamp})
 
         # Realtime WebSocket broadcasting — only for fresh positions.
         # Backfilled offline rows keep their original (older) timestamps;

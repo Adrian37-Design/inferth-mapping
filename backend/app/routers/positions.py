@@ -91,6 +91,12 @@ def _iso_utc(dt):
     return dt.isoformat()
 
 
+# How recent a real satellite fix must be to stand in for a coarse cell-tower /
+# no-lock row on the map. Beyond this the unit has moved and that fix is exactly
+# the point the marker would freeze on.
+SNAPSHOT_GNSS_PIN_MINUTES = 10
+
+
 def _is_coarse_lbs_row(raw) -> bool:
     """True when Xcela R19 firmware encoded a coarse cell-tower LBS fallback
     (satellites >= 200) or an unfixed/zero-satellite row (satellites == 0).
@@ -362,11 +368,16 @@ async def get_fleet_snapshot(
         # If the latest row is a coarse cell-tower LBS fallback (satellites >= 200
         # or 0), pin the map coordinates to the device's most recent real GNSS
         # satellite fix so the marker never jumps to a cell tower on the highway.
-        if _is_coarse_lbs_row(p.raw):
+        # Only a fix from the last SNAPSHOT_GNSS_PIN_MINUTES counts: a device that
+        # has been on cell towers for longer has genuinely moved, and pinning it to
+        # an older fix loaded the marker at a place the vehicle had already left.
+        if _is_coarse_lbs_row(p.raw) and p.timestamp is not None:
+            gnss_cutoff = p.timestamp - timedelta(minutes=SNAPSHOT_GNSS_PIN_MINUTES)
             recent_q = await db.execute(
                 select(Position)
                 .where(
                     Position.device_id == p.device_id,
+                    Position.timestamp >= gnss_cutoff,
                     Position.latitude.is_not(None),
                     Position.longitude.is_not(None),
                     Position.latitude != 0.0,
