@@ -66,12 +66,20 @@ _DELETE_SQL = text(
 
 _ORPHAN_DELETE_SQL = text(
     """
-    WITH doomed AS (
-        SELECT p.id
+    WITH ranked AS (
+        SELECT p.id,
+               p.timestamp,
+               row_number() OVER (
+                   PARTITION BY p.device_id ORDER BY p.timestamp DESC
+               ) AS rn
         FROM positions p
         LEFT JOIN devices d ON d.id = p.device_id
-        WHERE (d.id IS NULL OR d.tenant_id IS NULL)
-          AND p.timestamp < :cutoff
+        WHERE d.id IS NULL OR d.tenant_id IS NULL
+    ),
+    doomed AS (
+        SELECT id
+        FROM ranked
+        WHERE timestamp < :cutoff AND rn > :keep
         LIMIT :batch
     )
     DELETE FROM positions p
@@ -212,7 +220,7 @@ async def run_cleanup(
             while True:
                 result = await db.execute(
                     _ORPHAN_DELETE_SQL,
-                    {"cutoff": orphan_cutoff, "batch": BATCH_SIZE},
+                    {"cutoff": orphan_cutoff, "keep": KEEP_LATEST_PER_DEVICE, "batch": BATCH_SIZE},
                 )
                 await db.commit()
                 count = result.rowcount or 0
