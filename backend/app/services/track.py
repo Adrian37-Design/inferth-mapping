@@ -147,33 +147,71 @@ def _accept(fixes):
     return _recompute(chain)
 
 
+# Spans a fix is compared across: one, two, three and five minutes. Sampling
+# fixed spans instead of every neighbour keeps the scan linear while still
+# measuring the same thing the rule wants.
+_TRACK_EVIDENCE_SPANS = (TRACK_MIN_EVIDENCE_S, 120.0, 180.0, TRACK_GROUND_WINDOW_S)
+
+
 def _ground_speeds(chain):
     """Fastest ground covered between fixes one to five minutes apart.
 
     Deliberately ignores neighbours closer than a minute: on this hardware a
     200 m change across a 3-second pair is where the impossible speeds came
     from, and it is not evidence of travel.
+
+    The comparison is made by *time*, not by counting fixes. A moving unit
+    reports every few seconds, so a fixed +/-6-fix window covered 18-30 s of
+    travel and never reached the one-minute minimum: the whole drive then read
+    as parked, with no distance, no trips and no speed. Each span is located
+    with a pointer that only moves forward, so this stays linear in the number
+    of fixes however densely the tracker uploads.
     """
+    count = len(chain)
+    stamps = [node["ts"] for node in chain]
+    # Nearest index to the right / left whose distance from fix i is at least
+    # the span, for each span. Timestamps are ordered, so both only advance.
+    forward = [0] * len(_TRACK_EVIDENCE_SPANS)
+    backward = [-1] * len(_TRACK_EVIDENCE_SPANS)
     speeds = []
-    for i, node in enumerate(chain):
+
+    def implied(i, j):
+        other = chain[j]
+        node = chain[i]
+        if other["gap"] or node["gap"]:
+            return 0.0, 0.0
+        dt = abs(_seconds(stamps[i], stamps[j]))
+        if dt < TRACK_MIN_EVIDENCE_S or dt > TRACK_SPARSE_WINDOW_S:
+            return 0.0, 0.0
+        km = haversine_distance_km(node["lat"], node["lng"], other["lat"], other["lng"])
+        speed = km / (dt / 3600.0)
+        if dt <= TRACK_GROUND_WINDOW_S:
+            return speed, 0.0
+        # A tracker that uploaded once after a long silence still proves how
+        # far it travelled, just not how fast at any instant.
+        return 0.0, speed
+
+    for i in range(count):
         best = 0.0
         sparse = 0.0
-        for j in range(max(0, i - 6), min(len(chain), i + 7)):
-            if j == i:
-                continue
-            other = chain[j]
-            if other["gap"] or node["gap"]:
-                continue
-            dt = abs(_seconds(node["ts"], other["ts"]))
-            if dt < TRACK_MIN_EVIDENCE_S or dt > TRACK_SPARSE_WINDOW_S:
-                continue
-            km = haversine_distance_km(node["lat"], node["lng"], other["lat"], other["lng"])
-            implied = km / (dt / 3600.0)
-            if dt <= TRACK_GROUND_WINDOW_S:
-                best = max(best, implied)
-            # A tracker that uploaded once after a long silence still proves
-            # how far it travelled, just not how fast at any instant.
-            sparse = max(sparse, implied)
+        for k, span in enumerate(_TRACK_EVIDENCE_SPANS):
+            j = max(forward[k], i + 1)
+            while j < count and _seconds(stamps[i], stamps[j]) < span:
+                j += 1
+            forward[k] = j
+            if j < count:
+                fast, slow = implied(i, j)
+                best = max(best, fast)
+                sparse = max(sparse, slow)
+
+            j = i - 1 if backward[k] < 0 else backward[k]
+            while j - 1 >= 0 and _seconds(stamps[j - 1], stamps[i]) >= span:
+                j -= 1
+            backward[k] = j
+            if j >= 0:
+                fast, slow = implied(i, j)
+                best = max(best, fast)
+                sparse = max(sparse, slow)
         speeds.append(best if best > 0 else sparse)
     return speeds
 

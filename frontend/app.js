@@ -154,25 +154,52 @@ function trackGapBetween(prev, curr) {
 // between fixes at least a minute apart supports it; a stationary fix counts
 // as zero however fast the firmware claims to be moving. The same rule runs
 // on the server (services/track.py), which is what the strip displays.
+// Spans a fix is compared across: one, two, three and five minutes. The
+// comparison is by time, never by counting fixes: a unit reporting every few
+// seconds never reached the one-minute minimum inside a fixed window of fixes,
+// so a whole drive measured as parked. Each span is located with a pointer
+// that only moves forward, so this stays linear however dense the feed is.
+const TRACK_EVIDENCE_SPANS = [TRACK_MIN_EVIDENCE_S, 120, 180, TRACK_GROUND_WINDOW_S];
+
 function validatePointSpeeds(points) {
     const list = points || [];
-    const ground = list.map((p, i) => {
-        if (!p) return 0;
+    const count = list.length;
+    const stamps = list.map(p => (p ? parseTimestamp(p.timestamp).getTime() : NaN));
+    const ground = new Array(count).fill(0);
+    const forward = TRACK_EVIDENCE_SPANS.map(() => 0);
+    const backward = TRACK_EVIDENCE_SPANS.map(() => -1);
+    for (let i = 0; i < count; i++) {
+        const p = list[i];
+        const ti = stamps[i];
+        if (!p || !Number.isFinite(ti)) continue;
         let best = 0;
-        const from = Math.max(0, i - 6);
-        const to = Math.min(list.length - 1, i + 6);
-        for (let j = from; j <= to; j++) {
-            if (j === i) continue;
-            const q = list[j];
-            if (!q) continue;
-            const dtSec = Math.abs(parseTimestamp(q.timestamp) - parseTimestamp(p.timestamp)) / 1000;
-            if (!(dtSec >= TRACK_MIN_EVIDENCE_S) || dtSec > TRACK_GROUND_WINDOW_S) continue;
-            const km = haversineDistanceKm(p.lat, p.lng, q.lat, q.lng);
-            const implied = km / (dtSec / 3600);
-            if (implied > best) best = implied;
+        for (let k = 0; k < TRACK_EVIDENCE_SPANS.length; k++) {
+            const span = TRACK_EVIDENCE_SPANS[k];
+            let j = Math.max(forward[k], i + 1);
+            while (j < count && Math.abs(stamps[j] - ti) / 1000 < span) j++;
+            forward[k] = j;
+            if (j < count) {
+                const dtSec = Math.abs(stamps[j] - ti) / 1000;
+                const q = list[j];
+                if (q && dtSec > 0 && dtSec <= TRACK_GROUND_WINDOW_S) {
+                    const implied = haversineDistanceKm(p.lat, p.lng, q.lat, q.lng) / (dtSec / 3600);
+                    if (implied > best) best = implied;
+                }
+            }
+            let b = backward[k] < 0 ? i - 1 : backward[k];
+            while (b - 1 >= 0 && Math.abs(ti - stamps[b - 1]) / 1000 >= span) b--;
+            backward[k] = b;
+            if (b >= 0) {
+                const dtSec = Math.abs(ti - stamps[b]) / 1000;
+                const q = list[b];
+                if (q && dtSec > 0 && dtSec <= TRACK_GROUND_WINDOW_S) {
+                    const implied = haversineDistanceKm(p.lat, p.lng, q.lat, q.lng) / (dtSec / 3600);
+                    if (implied > best) best = implied;
+                }
+            }
         }
-        return best;
-    });
+        ground[i] = best;
+    }
     list.forEach((p, i) => {
         if (!p) return;
         const g = ground[i];
