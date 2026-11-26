@@ -66,6 +66,8 @@ class User(Base):
     last_login = Column(DateTime(timezone=True), nullable=True)
     phone = Column(String, nullable=True)  # WhatsApp number, digits-only MSISDN
     accessible_assets = Column(JSON, default=["*"]) # Default to all, or list of IDs
+    # Optional product email only; transactional mail is unaffected.
+    marketing_opt_out = Column(Boolean, default=False)
     tenant = relationship("Tenant")
 
 
@@ -571,3 +573,26 @@ class CustomerInvoice(Base):
     issued_at = Column(DateTime(timezone=True), server_default=func.now())
     paid_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PrivacyRequest(Base):
+    """A data-deletion or privacy request filed from the website or in writing.
+
+    Kept separate from the account tables so a request can be recorded for an
+    address that has no user row, and so the audit trail survives deletion.
+    """
+    __tablename__ = "privacy_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reference = Column(String(40), unique=True, index=True, nullable=False)
+    email = Column(String(255), index=True, nullable=False)
+    full_name = Column(String(120), nullable=False)
+    company = Column(String(160), nullable=True)
+    request_type = Column(String(30), default="deletion", nullable=False)
+    scope = Column(String(20), default="account", nullable=False)  # account | telemetry | user
+    reason = Column(Text, nullable=True)
+    status = Column(String(20), default="pending", index=True, nullable=False)  # pending | completed | rejected
+    source = Column(String(20), default="web")
+    handled_by = Column(String(160), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)

@@ -1,4 +1,5 @@
 from app.config import settings
+from app.services.consent import with_unsubscribe_footer
 import logging
 # import socket (unused)
 # import ssl (unused)
@@ -12,7 +13,12 @@ logger = logging.getLogger(__name__)
 def send_email(to_email: str, subject: str, html_content: str):
     """
     Sends an email using the configured SMTP server.
+
+    Every message carries a visible unsubscribe link and the matching
+    List-Unsubscribe headers, so an opt-out never depends on finding a footer.
     """
+    html_content, unsubscribe_link = with_unsubscribe_footer(html_content, to_email)
+
     if settings.RESEND_API_KEY:
         # Use Resend API (HTTP over Port 443 - Firewall Friendly)
         import httpx
@@ -39,7 +45,11 @@ def send_email(to_email: str, subject: str, html_content: str):
                 "from": "Inferth Mapping <" + from_email + ">", # Friendly name
                 "to": [to_email],
                 "subject": subject,
-                "html": html_content
+                "html": html_content,
+                "headers": {
+                    "List-Unsubscribe": "<" + unsubscribe_link + ">",
+                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                },
             }
             
             # Use sync call since this function is currently sync in auth.py

@@ -6,12 +6,13 @@
     <meta name="viewport" content="width=1024, viewport-fit=cover">
     <title>Login - Inferth Mapping</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/policy.css">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
     <style>
         :root {
-            --fire-from: #ff5a00;
-            --fire-to: #dc2626;
-            --fire-hover-from: #ea580c;
+            --fire-from: #c2410c;
+            --fire-to: #b91c1c;
+            --fire-hover-from: #9a3412;
             --fire-hover-to: #b91c1c;
             --fire-glow: rgba(255, 90, 0, 0.35);
             --fire-soft: #fff7ed;
@@ -367,7 +368,7 @@
         }
 
         .otp-sub strong {
-            color: #ff5a00;
+            color: #b45309;
             font-family: monospace;
             font-size: 0.95rem;
         }
@@ -923,6 +924,13 @@ body { background: #e8ecf1 !important; }
                     <span>A product of <strong style="color: #1e293b; font-weight: 700;">Inferth Projects</strong></span>
                 </div>
 
+                <p style="text-align:center; font-size:0.74rem; color:#475569; margin:10px 0 0; line-height:1.6;">
+                    By signing in you agree to our
+                    <a href="/static/terms.html" style="color:#b45309;text-decoration:underline;">Terms of Service</a> and
+                    <a href="/static/privacy.html" style="color:#b45309;text-decoration:underline;">Privacy Policy</a>.<br>
+                    <a href="/static/data-deletion.html" style="color:#b45309;text-decoration:underline;">Request data deletion</a>
+                </p>
+
             </div>
         </div>
     </div>
@@ -1036,6 +1044,7 @@ body { background: #e8ecf1 !important; }
             animate();
         })();
     </script>
+<script src="/static/consent.js"></script>
 </body>
 
 </html>

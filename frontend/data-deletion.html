@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Deletion Request — Inferth Mapping</title>
+<meta name="description" content="Ask Inferth Mapping to delete your account data or vehicle telemetry, and see what happens next.">
+<link rel="stylesheet" href="/static/policy.css">
+</head>
+<body class="policy-page">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="policy-header">
+  <div class="policy-header-inner">
+    <a class="policy-brand" href="/static/byot-marketing.html">
+      <img src="/static/inferth_mapping_mark.png" alt="">
+      <span>Inferth Mapping</span>
+    </a>
+    <nav class="policy-nav" aria-label="Legal pages">
+      <a href="/static/privacy.html">Privacy</a>
+      <a href="/static/terms.html">Terms</a>
+      <a href="/static/refund.html">Refunds</a>
+      <a href="/static/cookies.html">Cookies</a>
+      <a href="/static/licenses.html">Licences</a>
+      <a href="/static/data-deletion.html" aria-current="page">Data deletion</a>
+    </nav>
+  </div>
+</header>
+
+<main class="policy-main" id="main">
+  <article class="policy-card">
+    <p class="policy-eyebrow">Privacy</p>
+    <h1>Data Deletion Request</h1>
+    <p class="policy-meta">Ask us to delete your account information, vehicle telemetry or both.</p>
+
+    <div class="callout">
+      <strong>What we delete:</strong> account users, vehicle records, position history, alerts, geofences and insights.
+      <strong>What we must keep:</strong> invoices and payment records for the period Zimbabwean tax law requires, and a
+      short record of the request itself.
+    </div>
+
+    <h2>1. Before you submit</h2>
+    <ul>
+      <li>If your tracking is supplied by a reseller, tell them as well — they may hold their own copy of your account
+          and billing records.</li>
+      <li>Deletion is permanent. Exported reports and invoices you have downloaded remain yours.</li>
+      <li>If you want to keep the account but remove one vehicle, delete that device in the console instead.</li>
+      <li>We confirm the request with the account email before deleting, to stop someone else deleting your data.</li>
+    </ul>
+
+    <h2>2. Submit the request</h2>
+    <form class="policy-form" id="deletion-form" novalidate>
+      <label for="dd-email">Account email address
+        <input id="dd-email" name="email" type="email" autocomplete="email" required
+               placeholder="you@company.co.zw">
+      </label>
+      <label for="dd-name">Your full name
+        <input id="dd-name" name="full_name" type="text" autocomplete="name" required
+               placeholder="Name and surname">
+      </label>
+      <label for="dd-company">Company or account name (optional)
+        <input id="dd-company" name="company" type="text" autocomplete="organization"
+               placeholder="e.g. Matapi Logistics">
+      </label>
+      <label for="dd-scope">What should be deleted?
+        <select id="dd-scope" name="scope">
+          <option value="account">My whole account and all its data</option>
+          <option value="telemetry">Vehicle location history only</option>
+          <option value="user">My user profile only</option>
+        </select>
+      </label>
+      <label for="dd-reason">Reason (optional)
+        <textarea id="dd-reason" name="reason" placeholder="Anything that helps us handle the request correctly"></textarea>
+      </label>
+      <label class="checkline" for="dd-authority">
+        <input id="dd-authority" name="authority" type="checkbox" required>
+        <span>I confirm I am the account holder, or authorised by the account holder, to request this deletion, and
+          that I am 18 or older. I have read the <a href="/static/privacy.html">privacy policy</a>.</span>
+      </label>
+      <button type="submit" id="dd-submit">Submit deletion request</button>
+      <p class="form-status" id="dd-status" role="status" aria-live="polite"></p>
+    </form>
+
+    <h2>3. What happens next</h2>
+    <ol>
+      <li>You receive a reference number on screen, and a copy by email if the address matches an account.</li>
+      <li>We verify the request with the account contact (usually within 2 business days).</li>
+      <li>Once verified, account data is deleted within <strong>30 days</strong>. Backups roll over within a further
+          short period.</li>
+      <li>We email the outcome, including anything we were legally required to keep.</li>
+    </ol>
+    <p>
+      Prefer email? Write to <a href="mailto:sales@inferth.com">sales@inferth.com</a> with “Data deletion” in the subject
+      line, or message +263 78 300 9275 on WhatsApp.
+    </p>
+  </article>
+</main>
+
+<footer class="policy-footer">
+  <div class="policy-footer-inner">
+    <ul class="legal-links">
+      <li><a href="/static/privacy.html">Privacy policy</a></li>
+      <li><a href="/static/terms.html">Terms of service</a></li>
+      <li><a href="/static/refund.html">Refund policy</a></li>
+      <li><a href="/static/cookies.html">Cookie policy</a></li>
+      <li><a href="/static/licenses.html">Licences</a></li>
+      <li><a href="/static/data-deletion.html">Data deletion request</a></li>
+    </ul>
+    <p class="business-line">Inferth Mapping — telematics and fleet management. A product of Inferth Projects, Harare, Zimbabwe.</p>
+  </div>
+</footer>
+
+<script src="/static/consent.js"></script>
+<script>
+(function () {
+    var form = document.getElementById('deletion-form');
+    var status = document.getElementById('dd-status');
+    var button = document.getElementById('dd-submit');
+    if (!form) return;
+
+    function say(message, kind) {
+        status.textContent = message;
+        status.className = 'form-status ' + (kind || '');
+    }
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var email = (document.getElementById('dd-email').value || '').trim();
+        var name = (document.getElementById('dd-name').value || '').trim();
+        var authority = document.getElementById('dd-authority').checked;
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say('Enter the email address on the account.', 'error'); return; }
+        if (name.length < 2) { say('Enter your full name.', 'error'); return; }
+        if (!authority) { say('Please confirm you are authorised to make this request.', 'error'); return; }
+
+        button.disabled = true;
+        say('Submitting your request...');
+
+        try {
+            var response = await fetch('/privacy/data-deletion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email,
+                    full_name: name,
+                    company: (document.getElementById('dd-company').value || '').trim() || null,
+                    scope: document.getElementById('dd-scope').value,
+                    reason: (document.getElementById('dd-reason').value || '').trim() || null,
+                    authority_confirmed: true
+                })
+            });
+            var data = await response.json().catch(function () { return {}; });
+            if (!response.ok) {
+                throw new Error(data.detail || 'The request could not be submitted.');
+            }
+            form.reset();
+            say('Request ' + data.reference + ' received. We will confirm it with the account email before deleting anything.', 'ok');
+        } catch (error) {
+            say(error.message || 'The request could not be submitted. Please email sales@inferth.com.', 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>
+</body>
+</html>

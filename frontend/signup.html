@@ -6,12 +6,13 @@
     <meta name="viewport" content="width=1024, viewport-fit=cover">
     <title>Account Setup - Inferth Mapping</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/policy.css">
     <link rel="icon" type="image/png" href="/static/inferth_mapping_logo.png">
     <style>
         :root {
-            --fire-from: #ff5a00;
-            --fire-to: #dc2626;
-            --fire-hover-from: #ea580c;
+            --fire-from: #c2410c;
+            --fire-to: #b91c1c;
+            --fire-hover-from: #9a3412;
             --fire-hover-to: #b91c1c;
             --fire-glow: rgba(255, 90, 0, 0.35);
             --fire-soft: #fff7ed;
@@ -444,6 +445,15 @@
                         </ul>
                     </div>
 
+                    <div class="field" style="margin-top:4px;">
+                        <label for="terms-consent" style="display:flex;gap:10px;align-items:flex-start;font-size:0.78rem;color:#475569;line-height:1.5;font-weight:500;">
+                            <input type="checkbox" id="terms-consent" name="terms-consent" required style="width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:#ea580c;">
+                            <span>I confirm I am at least 18 years old and I accept the
+                                <a href="/static/terms.html" target="_blank" rel="noopener" style="color:#b45309;text-decoration:underline;">Terms of Service</a> and
+                                <a href="/static/privacy.html" target="_blank" rel="noopener" style="color:#b45309;text-decoration:underline;">Privacy Policy</a>.</span>
+                        </label>
+                    </div>
+
                     <div class="error-message" id="error-message"></div>
 
                     <button type="submit" class="submit-btn" id="signup-btn">
@@ -569,6 +579,7 @@
             animate();
         })();
     </script>
+<script src="/static/consent.js"></script>
 </body>
 
 </html>

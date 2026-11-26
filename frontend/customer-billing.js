@@ -634,6 +634,8 @@
             '<label style="font-size:0.74rem; font-weight:800; color:#334155;">Note (optional)' +
             '<input id="cb-m-notes" type="text" placeholder="Vehicle plate or anything helpful" style="width:100%; margin-top:4px; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.82rem;"></label>' +
             '<div id="cb-m-error"></div>' +
+            '<p style="margin:0; font-size:0.72rem; color:#64748b;">Submitting confirms these payment details are yours and may be verified with your provider, as described in the ' +
+            '<a href="/static/privacy.html" target="_blank" rel="noopener" style="color:#b45309;">privacy policy</a>.</p>' +
             '<div>' + button('Submit for verification', 'window.cbSubmitManual(' + id + ')', 'primary') + '</div>' +
             '<p style="margin:0; font-size:0.72rem; color:#64748b;">Your provider verifies the payment before it is applied to the invoice.</p>' +
             '</div>');

@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights, resellers, customer_billing
+from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights, resellers, customer_billing, privacy
 from app.services.mqtt_client import start_mqtt
 import asyncio
 import datetime
@@ -228,6 +228,11 @@ async def run_migrations_and_branding():
                     "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS invoice_id INTEGER DEFAULT NULL",
                     "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS customer_tenant_id INTEGER DEFAULT NULL",
                     "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS invoice_id INTEGER DEFAULT NULL",
+
+                    # ── Privacy ── Email preference and data-deletion requests ─────────────────
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS marketing_opt_out BOOLEAN DEFAULT FALSE",
+                    "CREATE TABLE IF NOT EXISTS privacy_requests (id SERIAL PRIMARY KEY, reference VARCHAR(40) UNIQUE NOT NULL, email VARCHAR(255) NOT NULL, full_name VARCHAR(120) NOT NULL, company VARCHAR(160) DEFAULT NULL, request_type VARCHAR(30) NOT NULL DEFAULT 'deletion', scope VARCHAR(20) NOT NULL DEFAULT 'account', reason TEXT DEFAULT NULL, status VARCHAR(20) NOT NULL DEFAULT 'pending', source VARCHAR(20) DEFAULT 'web', handled_by VARCHAR(160) DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, completed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL)",
+                    "CREATE INDEX IF NOT EXISTS idx_privacy_requests_email ON privacy_requests(email, created_at DESC)",
 
                     # ── Platform Fleet Rental ── Indexes ─────────────────────────────────────────
                     "CREATE INDEX IF NOT EXISTS idx_reseller_invoices_tenant ON reseller_invoices(tenant_id, billing_period_start DESC)",
@@ -1287,6 +1292,7 @@ app.include_router(geofences.router)
 app.include_router(payments.router)
 app.include_router(billing.router)
 app.include_router(customer_billing.router)
+app.include_router(privacy.router)
 app.include_router(admin.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)

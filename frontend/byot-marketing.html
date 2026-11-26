@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="policy.css">
 <style>
 :root {
   --bg: #e8ecf1;
@@ -18,8 +19,8 @@
   --pressed: inset 4px 4px 10px rgba(163, 177, 198, 0.6), inset -3px -3px 8px rgba(255, 255, 255, 0.8);
   --pressed-sm: inset 2px 2px 6px rgba(163, 177, 198, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.7);
   --flat: 3px 3px 8px var(--shadow-d), -2px -2px 6px var(--shadow-l);
-  --orange: #f97316;
-  --orange-dark: #ea6c0a;
+  --orange: #c2410c;
+  --orange-dark: #9a3412;
   --orange-glow: rgba(249, 115, 22, 0.22);
   --text: #1e293b;
   --text-dark: #0f172a;
@@ -371,9 +372,19 @@ footer {
   .sec-head h2 { font-size: 1.6rem; }
   nav { padding: 0 14px; }
 }
+/* Accessibility: visible keyboard focus and readable small caps on the light canvas */
+.skip-link { position: absolute; left: -9999px; top: 0; z-index: 10000; background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 0 0 8px 0; font-weight: 700; }
+.skip-link:focus { left: 0; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+.faq-item { cursor: pointer; }
+.faq-item:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 3px; }
+.illustrative-note { font-size: 0.7rem; color: #475569; margin: 10px 2px 0; line-height: 1.45; }
+.upper, .hero-tagline { color: #b45309; }
 </style>
 </head>
 <body>
+
+<a class="skip-link" href="#main-content">Skip to content</a>
 
 <!-- Navigation Bar -->
 <nav>
@@ -395,7 +406,7 @@ footer {
   </a>
 </nav>
 
-<div class="wrap">
+<div class="wrap" id="main-content" tabindex="-1">
 
   <!-- Header / Hero Section -->
   <section class="hero" id="top">
@@ -431,12 +442,12 @@ footer {
         </div>
         <div class="live-pill">
           <span class="live-dot"></span>
-          <span>Live Fleet Stream</span>
+          <span>Sample fleet stream</span>
         </div>
       </div>
       <div class="map-viewport">
         <div class="map-grid-bg"></div>
-        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+        <svg aria-hidden="true" focusable="false" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
           <path d="M 40 180 Q 140 140, 220 110 T 320 80" fill="none" stroke="#f97316" stroke-width="3" stroke-dasharray="6,4" opacity="0.8"/>
         </svg>
         <div class="vehicle-marker">
@@ -454,10 +465,11 @@ footer {
           <div class="map-stat-val">31.4 L/100km</div>
         </div>
         <div class="nm-inset map-stat">
-          <div class="map-stat-lbl">Telemetry Fix</div>
-          <div class="map-stat-val" style="color:#16a34a;">100% Valid</div>
+          <div class="map-stat-lbl">GPS fix</div>
+          <div class="map-stat-val" style="color:#15803d;">Valid</div>
         </div>
       </div>
+      <p class="illustrative-note">Illustrative interface with sample data — not a live customer fleet.</p>
     </div>
   </section>
 
@@ -648,6 +660,11 @@ footer {
       <p>
         Our subscription plans are designed for vehicle owners and businesses managing their own fleets.
         Prices are in USD and charged per active vehicle per month. Volume pricing is progressive: each rate applies only to vehicles within its stated band.
+      </p>
+      <p style="margin-top:8px;font-size:0.88rem;">
+        <strong>What you pay:</strong> the per-vehicle price for your band, for the period you choose. There is no setup
+        fee and no hidden charge. Hardware, SIM cards and mobile data are not included and are quoted separately.
+        See the <a href="refund.html" style="color:#b45309;text-decoration:underline;">refund policy</a> before subscribing.
       </p>
     </div>
 
@@ -1227,20 +1244,31 @@ footer {
 
 <!-- Tracker Compatibility Assessment Modal -->
 <div class="modal-overlay" id="compat-modal" onclick="if(event.target===this)closeCompatModal()">
-  <div class="nm-card modal-card">
-    <button type="button" class="modal-close" onclick="closeCompatModal()">&times;</button>
+  <div class="nm-card modal-card" role="dialog" aria-modal="true" aria-labelledby="compat-title">
+    <button type="button" class="modal-close" onclick="closeCompatModal()" aria-label="Close compatibility form">&times;</button>
     <span class="upper">Device Compatibility</span>
-    <h3 style="font-size:1.3rem;font-weight:900;color:var(--text-dark);margin:6px 0 10px;">Check My Tracker Compatibility</h3>
+    <h3 id="compat-title" style="font-size:1.3rem;font-weight:900;color:var(--text-dark);margin:6px 0 10px;">Check My Tracker Compatibility</h3>
     <p style="font-size:0.84rem;color:var(--muted);line-height:1.5;">
       Submit your hardware specifications. Our engineering team assesses protocol compatibility within 2 business hours.
     </p>
 
     <form class="modal-form" onsubmit="submitCompatForm(event)">
-      <input type="text" id="m-mfg" class="form-input" placeholder="Tracker manufacturer (e.g. Teltonika, Coban, SinoTrack)" required>
-      <input type="text" id="m-model" class="form-input" placeholder="Tracker model (e.g. FMC130, ST-901, GT06N)" required>
-      <input type="number" id="m-count" class="form-input" placeholder="Number of vehicles (e.g. 5)" min="1" required>
-      <input type="text" id="m-contact" class="form-input" placeholder="Contact person name" required>
-      <input type="tel" id="m-phone" class="form-input" placeholder="Phone or WhatsApp number (+263...)" required>
+      <label class="sr-only" for="m-mfg" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Tracker manufacturer</label>
+      <input type="text" id="m-mfg" class="form-input" aria-label="Tracker manufacturer" placeholder="Tracker manufacturer (e.g. Teltonika, Coban, SinoTrack)" required>
+      <label class="sr-only" for="m-model" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Tracker model</label>
+      <input type="text" id="m-model" class="form-input" aria-label="Tracker model" placeholder="Tracker model (e.g. FMC130, ST-901, GT06N)" required>
+      <label class="sr-only" for="m-count" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Number of vehicles</label>
+      <input type="number" id="m-count" class="form-input" aria-label="Number of vehicles" placeholder="Number of vehicles (e.g. 5)" min="1" required>
+      <label class="sr-only" for="m-contact" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Contact person name</label>
+      <input type="text" id="m-contact" class="form-input" aria-label="Contact person name" placeholder="Contact person name" required>
+      <label class="sr-only" for="m-phone" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Phone or WhatsApp number</label>
+      <input type="tel" id="m-phone" class="form-input" aria-label="Phone or WhatsApp number" placeholder="Phone or WhatsApp number (+263...)" required>
+
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:0.78rem;color:#475569;line-height:1.45;">
+        <input type="checkbox" id="m-consent" required style="width:18px;height:18px;margin-top:2px;flex-shrink:0;">
+        <span>I agree that Inferth Mapping may use these details to assess compatibility and contact me, as described in the
+        <a href="privacy.html" style="color:#b45309;text-decoration:underline;">privacy policy</a>. I am 18 or older.</span>
+      </label>
 
       <button type="submit" class="btn-primary" style="justify-content:center;margin-top:8px;">
         <i class="fab fa-whatsapp"></i>
@@ -1265,14 +1293,25 @@ footer {
         <a href="#payd" class="footer-link">PAYD</a>
         <a href="#console-rental" class="footer-link">Console Rental</a>
         <a href="#faq" class="footer-link">FAQ</a>
-        <a href="https://wa.me/263777000000?text=Hello%20Inferth%20Mapping%20Team" target="_blank" class="footer-link" style="color:#16a34a;font-weight:800;">
+        <a href="https://wa.me/263783009275?text=Hello%20Inferth%20Mapping%20Team" target="_blank" class="footer-link" style="color:#16a34a;font-weight:800;">
           <i class="fab fa-whatsapp"></i> WhatsApp Support
         </a>
       </div>
     </div>
-    <div class="footer-note">
-      Inferth Mapping — Telematics Infrastructure for Southern Africa.<br>
-      A product of <strong>Inferth Projects</strong>.
+    <div class="footer-links" style="justify-content:center;gap:4px 14px;margin-bottom:10px;">
+      <a href="privacy.html" class="footer-link">Privacy policy</a>
+      <a href="terms.html" class="footer-link">Terms of service</a>
+      <a href="refund.html" class="footer-link">Refund policy</a>
+      <a href="cookies.html" class="footer-link">Cookie policy</a>
+      <a href="licenses.html" class="footer-link">Licences</a>
+      <a href="data-deletion.html" class="footer-link">Data deletion</a>
+      <a href="#" class="footer-link" onclick="window.InferthConsent &amp;&amp; window.InferthConsent.open(); return false;">Cookie settings</a>
+    </div>
+    <div class="footer-note" style="line-height:1.75;">
+      <strong>Inferth Mapping</strong> — telematics and fleet management. A product of <strong>Inferth Projects</strong>.<br>
+      Harare, Zimbabwe · <a href="mailto:sales@inferth.com" class="footer-link" style="display:inline;padding:0;color:#b45309;">sales@inferth.com</a> ·
+      <a href="https://wa.me/263783009275" class="footer-link" style="display:inline;padding:0;color:#15803d;">+263 78 300 9275</a><br>
+      Support Monday–Friday, 08:00–17:00 CAT. Company registration and tax clearance details are available on request.
     </div>
   </div>
 </footer>
@@ -1280,21 +1319,51 @@ footer {
 <script>
 function toggleFaq(el) {
   var isOpen = el.classList.contains('open');
-  document.querySelectorAll('.faq-item').forEach(function(item) { item.classList.remove('open'); });
-  if (!isOpen) el.classList.add('open');
+  document.querySelectorAll('.faq-item').forEach(function(item) {
+    item.classList.remove('open');
+    item.setAttribute('aria-expanded', 'false');
+  });
+  if (!isOpen) {
+    el.classList.add('open');
+    el.setAttribute('aria-expanded', 'true');
+  }
 }
 
+// FAQ items are divs in the markup; give them button semantics and keyboard support.
+document.querySelectorAll('.faq-item').forEach(function(item) {
+  item.setAttribute('role', 'button');
+  item.setAttribute('tabindex', '0');
+  item.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
+  item.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleFaq(item);
+    }
+  });
+});
+
+var _compatReturnFocus = null;
+
 function openCompatModal() {
+  _compatReturnFocus = document.activeElement;
   document.getElementById('compat-modal').classList.add('active');
+  var first = document.getElementById('m-mfg');
+  if (first) first.focus();
 }
 
 function closeCompatModal() {
-  document.getElementById('compat-modal').classList.remove('active');
+  var modal = document.getElementById('compat-modal');
+  if (modal) modal.classList.remove('active');
+  if (_compatReturnFocus && _compatReturnFocus.focus) _compatReturnFocus.focus();
 }
+
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') closeCompatModal();
+});
 
 function openSubscribe(plan) {
   var text = "Hello Inferth Mapping, I would like to subscribe to the " + plan + " plan.";
-  var url = "https://wa.me/263777000000?text=" + encodeURIComponent(text);
+  var url = "https://wa.me/263783009275?text=" + encodeURIComponent(text);
   window.open(url, '_blank');
 }
 
@@ -1318,7 +1387,7 @@ function submitCompatForm(e) {
 " +
              "• Phone / WhatsApp: " + phone;
 
-  var waUrl = "https://wa.me/263777000000?text=" + encodeURIComponent(text);
+  var waUrl = "https://wa.me/263783009275?text=" + encodeURIComponent(text);
   window.open(waUrl, '_blank');
   closeCompatModal();
 }
@@ -1333,5 +1402,6 @@ document.querySelectorAll('a[href^="#"]').forEach(function (a) {
   });
 });
 </script>
+<script src="consent.js"></script>
 </body>
 </html>
