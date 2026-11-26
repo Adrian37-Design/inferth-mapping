@@ -9428,6 +9428,10 @@ function loadSettingsTab() {
             tenantEl.textContent = user.company_name || user.tenant_name || (user.tenant_id === 1 ? 'Inferth Superadmin' : 'Tenant #' + user.tenant_id);
         }
     }
+    // A read-only viewer is not offered the trip auto-play preference.
+    const settingsRole = String((user && user.role) || '').toLowerCase();
+    const autoPlayRow = document.getElementById('settings-autoplay-row');
+    if (autoPlayRow) autoPlayRow.style.display = settingsRole === 'viewer' ? 'none' : '';
     const autoPlayEl = document.getElementById('settings-autoplay-trips');
     if (autoPlayEl && typeof historyAutoPlayTrips === 'function') {
         autoPlayEl.checked = historyAutoPlayTrips();
