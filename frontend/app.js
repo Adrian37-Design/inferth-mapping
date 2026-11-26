@@ -909,6 +909,7 @@ window.switchTab = function(targetId) {
             window.toggleMobileDrawer && window.toggleMobileDrawer(false);
         }
         if (sidebar) sidebar.classList.remove('collapsed');
+        syncWorkspaceLayout();
 
         // Lazy Load Users
         if (targetId === 'tab-users' && !usersLoaded && window.AuthManager.isManager()) {
@@ -10177,6 +10178,18 @@ window.applySubscriptionGate = function () {
     if (typeof window.setBillingSubtabActive === 'function') window.setBillingSubtabActive('billing');
     if (!sub) return;
 
+    const card = document.getElementById('active-plan-card');
+    const hint = document.getElementById('subscription-chooser-hint');
+    const panel = document.getElementById('billing-change-panel');
+    const bar = document.getElementById('billing-change-bar');
+    const head = panel && panel.querySelector('.bcp-head');
+    const views = {
+        monthly: document.getElementById('billing-monthly-view'),
+        onceoff: document.getElementById('billing-onceoff-view'),
+        prepaid: document.getElementById('billing-prepaid-view'),
+        rental: document.getElementById('billing-rental-view')
+    };
+
     const resellerCustomer = !!(window.isResellerCustomerView && window.isResellerCustomerView());
     if (resellerCustomer) {
         // Show the retail packages, not the reseller's wholesale plan and not
@@ -10217,17 +10230,6 @@ window.applySubscriptionGate = function () {
     }
 
     const active = String(sub.status || '').toLowerCase() === 'active';
-    const card = document.getElementById('active-plan-card');
-    const hint = document.getElementById('subscription-chooser-hint');
-    const panel = document.getElementById('billing-change-panel');
-    const bar = document.getElementById('billing-change-bar');
-    const head = panel && panel.querySelector('.bcp-head');
-    const views = {
-        monthly: document.getElementById('billing-monthly-view'),
-        onceoff: document.getElementById('billing-onceoff-view'),
-        prepaid: document.getElementById('billing-prepaid-view'),
-        rental: document.getElementById('billing-rental-view')
-    };
 
     if (active) {
         const mode = _subscriptionMode(sub);
