@@ -8755,7 +8755,7 @@ async function loadCompanies() {
     const tableBody = document.getElementById('companies-table-body');
     if (!tableBody) return;
 
-    tableBody.innerHTML = '<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
 
     try {
         const response = await window.AuthManager.fetchAPI('/auth/tenants');
@@ -8772,7 +8772,7 @@ async function loadCompanies() {
         }
 
         if (companies.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="4" class="text-center">No companies found.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="5" class="text-center">No companies found.</td></tr>';
             return;
         }
 
@@ -8794,6 +8794,16 @@ async function loadCompanies() {
             const navbarBg = hasCustom ? (c.navbar_bg || '#ffffff').replace(/'/g, "\\'") : '#ffffff';
             const navbarTextColor = hasCustom ? (c.navbar_text_color || primaryColor).replace(/'/g, "\\'") : '#18181b';
 
+            // Subscription plan: the platform administrator assigns it by hand.
+            const planChoices = ['Basic', 'Premium', 'Enterprise', 'Prepaid', 'Starter Pass', 'Console Rental'];
+            const currentPlan = String(c.plan || 'Basic').trim();
+            if (!planChoices.some(p => p.toLowerCase() === currentPlan.toLowerCase())) planChoices.push(currentPlan);
+            const safePlan = currentPlan.replace(/'/g, "\\'");
+            const planOptions = planChoices.map(p =>
+                `<option value="${p}"${p.toLowerCase() === currentPlan.toLowerCase() ? ' selected' : ''}>${p}</option>`
+            ).join('');
+            const planStatus = String(c.subscription_status || 'active').toLowerCase() === 'active' ? '' : ' \u00b7 ' + (c.subscription_status || '');
+
             return `
             <tr>
                 <td>
@@ -8807,6 +8817,12 @@ async function loadCompanies() {
                         <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${c.primary_color || '#18181b'};"></span>
                         <small class="text-muted" style="font-size:10px;">${hasCustom ? 'Custom Theme' : 'Inferth Theme'}</small>
                     </div>
+                </td>
+                <td>
+                    <select class="form-select-small" onchange="changeCompanyPlan(${c.id}, this, '${safePlan}')" style="font-size:0.78rem; padding:4px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; font-weight:600; color:#0f172a;">
+                        ${planOptions}
+                    </select>
+                    <div id="company-plan-note-${c.id}" class="text-muted" style="font-size:10px; margin-top:2px;">${c.billing_cycle || 'Monthly'}${planStatus}</div>
                 </td>
                 <td class="text-muted"><small>#${c.id}</small></td>
                 <td class="text-right">
@@ -8825,9 +8841,41 @@ async function loadCompanies() {
 
     } catch (error) {
         console.error("Failed to load companies:", error);
-        tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-error">Failed to load companies: ${escapeHTML(error.message)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center text-error">Failed to load companies: ${escapeHTML(error.message)}</td></tr>`;
     }
 }
+
+// Assign a company's subscription plan by hand (platform administrator).
+window.changeCompanyPlan = async function (id, selectEl, previousPlan) {
+    const plan = selectEl ? selectEl.value : '';
+    if (!plan) return;
+    if (selectEl) selectEl.disabled = true;
+    try {
+        const res = await window.AuthManager.fetchAPI(`/admin/tenants/${id}/plan`, {
+            method: 'PATCH',
+            body: JSON.stringify({ plan })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        if (selectEl) selectEl.value = data.plan;
+        const note = document.getElementById('company-plan-note-' + id);
+        if (note) {
+            const historyNote = data.retention_days ? data.retention_days + '-day history' : 'history window unset';
+            note.textContent = (data.billing_cycle || 'Monthly') + ' \u00b7 ' + historyNote;
+        }
+        // Editing your own company: refresh the cached user so the Billing tab
+        // and the feature gates pick up the new plan straight away.
+        if (window.AuthManager && window.AuthManager.user && Number(window.AuthManager.user.tenant_id) === Number(id)) {
+            try { await window.AuthManager.refreshUser(); } catch (e) {}
+            if (typeof loadBillingData === 'function') loadBillingData();
+        }
+    } catch (err) {
+        if (selectEl) selectEl.value = previousPlan;
+        alert('Could not change plan: ' + err.message);
+    } finally {
+        if (selectEl) selectEl.disabled = false;
+    }
+};
 
 // ─── SUPER ADMIN: PLATFORM FLEET RENTAL (RESELLER PORTAL) ────────────────────
 

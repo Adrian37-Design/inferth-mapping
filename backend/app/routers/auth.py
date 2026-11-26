@@ -255,7 +255,7 @@ async def get_tenants(
         return []
 
     try:
-        query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color FROM tenants ORDER BY id ASC")
+        query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color, plan, subscription_status, billing_cycle FROM tenants ORDER BY id ASC")
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
@@ -270,7 +270,10 @@ async def get_tenants(
                 "primary_color": theme["primary"],
                 "secondary_color": theme["secondary"],
                 "navbar_bg": theme["navbar_bg"],
-                "navbar_text_color": theme["navbar_text"]
+                "navbar_text_color": theme["navbar_text"],
+                "plan": t["plan"] or "Basic",
+                "subscription_status": t["subscription_status"] or "active",
+                "billing_cycle": t["billing_cycle"] or "Monthly"
             })
 
         if current_user and (current_user.tenant_id != 1 or current_user.role not in ("admin", "super_admin")):

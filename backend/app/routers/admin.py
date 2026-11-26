@@ -430,3 +430,101 @@ async def activate_enterprise_quote(
         "next_billing_date": tenant.next_billing_date.isoformat() if tenant.next_billing_date else None,
     }
 
+
+
+# --- MANUAL SUBSCRIPTION PLAN CONTROL (PLATFORM ADMINISTRATOR) ---
+
+# Plans the platform sells. A manual change writes the same tenants.plan column
+# the Paynow handlers write, so Billing, the feature gates and the GPS retention
+# window all follow the new plan immediately.
+MANUAL_PLANS = ("Basic", "Premium", "Enterprise", "Prepaid", "Starter Pass", "Console Rental")
+MANUAL_CYCLES = {
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "annual": "Yearly",
+    "once-off": "Once-off",
+    "onceoff": "Once-off",
+}
+
+
+class PlanChangeRequest(BaseModel):
+    plan: str
+    billing_cycle: Optional[str] = None
+
+
+@router.patch("/tenants/{tenant_id}/plan")
+async def set_tenant_plan(
+    tenant_id: int,
+    payload: PlanChangeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Put a company on a plan by hand — bank transfer, quote or support call.
+
+    Only the platform administrator may do this. The change is audited, and the
+    response reports the retention window the new plan resolves to so the admin
+    can see the data consequence of the switch.
+    """
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalars().first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    wanted = (payload.plan or "").strip().lower()
+    plan = next((p for p in MANUAL_PLANS if p.lower() == wanted), None)
+    if not plan:
+        raise HTTPException(
+            status_code=400,
+            detail="Unknown plan. Choose one of: " + ", ".join(MANUAL_PLANS),
+        )
+
+    requested_cycle = (payload.billing_cycle or "").strip().lower()
+    if requested_cycle:
+        cycle = MANUAL_CYCLES.get(requested_cycle)
+        if not cycle:
+            raise HTTPException(
+                status_code=400,
+                detail="billing_cycle must be monthly, yearly or once-off",
+            )
+    else:
+        cycle = tenant.billing_cycle or "Monthly"
+
+    before = {
+        "plan": tenant.plan,
+        "billing_cycle": tenant.billing_cycle,
+        "subscription_status": tenant.subscription_status,
+    }
+    tenant.plan = plan
+    tenant.billing_cycle = cycle
+    # A plan assigned by hand is a live subscription; leaving a lapsed status
+    # behind would show "No Active Plan" in Billing right after being switched on.
+    tenant.subscription_status = "active"
+
+    policy = resolve_policy(tenant)
+
+    db.add(AuditLog(
+        user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        action="TENANT_PLAN_CHANGE",
+        details={
+            "target_tenant": tenant.id,
+            "before": before,
+            "after": {
+                "plan": tenant.plan,
+                "billing_cycle": tenant.billing_cycle,
+                "subscription_status": tenant.subscription_status,
+            },
+        },
+        ip_address="127.0.0.1",
+    ))
+    await db.commit()
+    await db.refresh(tenant)
+
+    return {
+        "tenant_id": tenant.id,
+        "name": tenant.name,
+        "plan": tenant.plan,
+        "billing_cycle": tenant.billing_cycle,
+        "subscription_status": tenant.subscription_status,
+        "retention_tier": policy.tier,
+        "retention_days": policy.retention_days,
+    }
