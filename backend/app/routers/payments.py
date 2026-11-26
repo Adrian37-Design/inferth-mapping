@@ -544,8 +544,21 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
     """Ask Paynow for the current status and persist it. Safe to call repeatedly."""
     if not txn or not txn.paynow_reference:
         return txn
+    # A customer invoice is paid into the reseller's merchant account, so the
+    # status check must use that reseller's credentials, not the customer's.
+    gateway_tenant_id = txn.tenant_id
+    if getattr(txn, "invoice_id", None):
+        from app.models import CustomerInvoice
+
+        invoice = (
+            await db.execute(
+                select(CustomerInvoice).where(CustomerInvoice.id == txn.invoice_id)
+            )
+        ).scalars().first()
+        if invoice:
+            gateway_tenant_id = invoice.reseller_tenant_id
     try:
-        active_paynow = await get_paynow_for_tenant(db, txn.tenant_id)
+        active_paynow = await get_paynow_for_tenant(db, gateway_tenant_id)
         status = active_paynow.check_transaction_status(txn.paynow_reference)
     except Exception:
         return txn
@@ -562,7 +575,13 @@ async def _refresh_paynow_status(db: AsyncSession, txn: Optional[Transaction]) -
         ).scalars().first()
         if tenant:
             plan = txn.plan_name or ""
-            if plan == "Prepaid_Wallet_Topup":
+            if getattr(txn, "invoice_id", None):
+                # A reseller customer paying an invoice: settle that invoice
+                # (never switch the customer's package from the invoice label).
+                from app.services import customer_billing as customer_billing_service
+
+                applied = await customer_billing_service.settle_invoice_transaction(db, txn)
+            elif plan == "Prepaid_Wallet_Topup":
                 # Credit the wallet exactly once, even if the webhook and the
                 # browser's status poll race each other.
                 from app.models import WalletLedger

@@ -996,6 +996,8 @@ window.showFullMap = function() {
 
 // --- Billing & Subscription Logic (Step 10) ---
 function loadBillingData() {
+    // Accounts billed by a reseller paint the customer billing panel first.
+    if (typeof window.loadCustomerBilling === 'function') window.loadCustomerBilling();
     const user = window.AuthManager && window.AuthManager.user;
     if (!user || !user.subscription) return;
 

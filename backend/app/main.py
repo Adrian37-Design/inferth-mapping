@@ -4,7 +4,7 @@ from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights, resellers
+from app.routers import auth, devices, positions, users, audit, geofences, payments, billing, admin, rules, alerts, reports, analytics, controller, tracker_secrets, insights, resellers, customer_billing
 from app.services.mqtt_client import start_mqtt
 import asyncio
 import datetime
@@ -218,6 +218,16 @@ async def run_migrations_and_branding():
 
                     # ── Platform Fleet Rental ── Device billable service status ───────────────────
                     "ALTER TABLE devices ADD COLUMN IF NOT EXISTS service_status VARCHAR DEFAULT 'active'",
+
+                    # ── Reseller customer billing ── Customers billed by a reseller tenant ─────
+                    "ALTER TABLE tenants ADD COLUMN IF NOT EXISTS reseller_tenant_id INTEGER DEFAULT NULL",
+                    "CREATE INDEX IF NOT EXISTS idx_tenants_reseller ON tenants(reseller_tenant_id)",
+                    "CREATE TABLE IF NOT EXISTS customer_invoices (id SERIAL PRIMARY KEY, invoice_number VARCHAR(50) UNIQUE NOT NULL, tenant_id INTEGER REFERENCES tenants(id) NOT NULL, reseller_tenant_id INTEGER REFERENCES tenants(id) NOT NULL, package VARCHAR(40) DEFAULT NULL, billing_period_start DATE NOT NULL, billing_period_end DATE NOT NULL, due_date DATE DEFAULT NULL, line_items JSON DEFAULT '[]', subtotal_usd NUMERIC(12,2) DEFAULT 0.00, tax_usd NUMERIC(12,2) DEFAULT 0.00, adjustments_usd NUMERIC(12,2) DEFAULT 0.00, total_usd NUMERIC(12,2) DEFAULT 0.00, amount_paid_usd NUMERIC(12,2) DEFAULT 0.00, status VARCHAR(20) DEFAULT 'unpaid', notes TEXT DEFAULT NULL, issued_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, paid_at TIMESTAMP WITH TIME ZONE DEFAULT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_invoices_period ON customer_invoices(tenant_id, billing_period_start)",
+                    "CREATE INDEX IF NOT EXISTS idx_customer_invoices_reseller ON customer_invoices(reseller_tenant_id, billing_period_start DESC)",
+                    "ALTER TABLE transactions ADD COLUMN IF NOT EXISTS invoice_id INTEGER DEFAULT NULL",
+                    "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS customer_tenant_id INTEGER DEFAULT NULL",
+                    "ALTER TABLE manual_payments ADD COLUMN IF NOT EXISTS invoice_id INTEGER DEFAULT NULL",
 
                     # ── Platform Fleet Rental ── Indexes ─────────────────────────────────────────
                     "CREATE INDEX IF NOT EXISTS idx_reseller_invoices_tenant ON reseller_invoices(tenant_id, billing_period_start DESC)",
@@ -1276,6 +1286,7 @@ app.include_router(audit.router)
 app.include_router(geofences.router)
 app.include_router(payments.router)
 app.include_router(billing.router)
+app.include_router(customer_billing.router)
 app.include_router(admin.router)
 app.include_router(rules.router)
 app.include_router(alerts.router)

@@ -1733,6 +1733,48 @@
                         <!-- Paynow checkout outcome (shown when the customer returns from payment) -->
                         <div id="payment-result-banner" class="payment-result hidden" role="status" aria-live="polite"></div>
 
+                        <!-- Customer billing: shown only for accounts billed by a reseller -->
+                        <div id="customer-billing-panel" class="hidden" style="margin-bottom:18px;">
+                            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px;">
+                                <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; border-bottom:1px solid #f1f5f9; padding-bottom:14px; margin-bottom:14px;">
+                                    <div style="min-width:200px;">
+                                        <p style="margin:0; font-size:0.68rem; letter-spacing:0.08em; font-weight:800; color:#64748b; text-transform:uppercase;">Billing account</p>
+                                        <h3 id="cb-reseller-name" style="margin:2px 0 0 0; font-size:1.05rem; font-weight:800; color:#0f172a;">Your tracking provider</h3>
+                                        <p id="cb-reseller-contact" style="margin:2px 0 0 0; font-size:0.75rem; color:#64748b;"></p>
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                        <span id="cb-account-status" style="font-size:0.7rem; font-weight:800; padding:5px 10px; border-radius:999px; background:#f1f5f9; color:#475569;">Loading</span>
+                                        <button type="button" id="cb-make-payment" class="hidden" onclick="window.cbPayOldest()" style="background:#0284c7; color:#ffffff; border:none; border-radius:7px; padding:9px 16px; font-size:0.8rem; font-weight:800; cursor:pointer;">
+                                            <i class="fas fa-credit-card"></i> Make Payment
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="cb-loading" style="font-size:0.8rem; color:#64748b; padding:8px 0;"><i class="fas fa-spinner fa-spin"></i> Loading your billing details...</div>
+                                <div id="cb-error" class="hidden" style="font-size:0.8rem; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px;"></div>
+
+                                <div id="cb-body" class="hidden">
+                                    <div id="cb-summary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px;"></div>
+                                    <div id="cb-subscription" style="margin-bottom:16px;"></div>
+                                    <div id="cb-payd"></div>
+                                    <div id="cb-lifetime"></div>
+                                    <div id="cb-invoices" style="margin-bottom:16px;"></div>
+                                    <div id="cb-payments" style="margin-bottom:16px;"></div>
+                                    <div id="cb-methods"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Modal host for invoice details and payment flows -->
+                        <div id="cb-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:12000; padding:16px; overflow-y:auto;">
+                            <div style="max-width:640px; margin:24px auto; background:#ffffff; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,0.25); overflow:hidden;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px; border-bottom:1px solid #e2e8f0;">
+                                    <h4 id="cb-modal-title" style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a;">Invoice</h4>
+                                    <button type="button" onclick="window.cbCloseModal()" aria-label="Close" style="background:transparent; border:none; font-size:1.1rem; color:#64748b; cursor:pointer;">&times;</button>
+                                </div>
+                                <div id="cb-modal-body" style="padding:16px 18px; max-height:75vh; overflow-y:auto; font-size:0.82rem; color:#334155;"></div>
+                            </div>
+                        </div>
+
                         <!-- Billing sub-tabs: plan views | transaction history -->
                         <div id="billing-subtabs" style="display:flex; gap:4px; background:#e2e8f0; padding:4px; border-radius:8px; margin-bottom:16px; max-width:320px;">
                             <button type="button" class="billing-pill active" id="btn-billing-subtab-billing" onclick="switchBillingSubtab('billing')" style="flex:1; padding:8px 12px; border:none; border-radius:6px; font-weight:700; font-size:0.8rem; cursor:pointer; background:#ffffff; color:#0f172a; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
@@ -3374,9 +3416,10 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=237"></script>
+    <script src="/static/app.js?v=238"></script>
     <script src="/static/geofence.js?v=10"></script>
     <script src="/static/insights.js?v=7"></script>
+    <script src="/static/customer-billing.js?v=1"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">
         <div class="modal-content payment-modal-content">

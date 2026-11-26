@@ -41,6 +41,9 @@ class Tenant(Base):
     retention_days = Column(Integer, nullable=True)
     # Prepaid Fleet Wallet balance in USD, stored to 6 dp (shown to 2 dp).
     wallet_balance_usd = Column(Numeric(14, 6, asdecimal=False), default=0.0)
+    # Customer billed by a reseller tenant: that reseller's tenant id.
+    # NULL = billed directly by Inferth (or this tenant is itself the reseller).
+    reseller_tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -211,6 +214,8 @@ class Transaction(Base):
     quote_vehicles = Column(Integer, nullable=True)
     quote_notes = Column(String, nullable=True)
     quote_contact = Column(String, nullable=True)
+    # Customer invoice this payment settles (reseller customer billing).
+    invoice_id = Column(Integer, ForeignKey("customer_invoices.id"), nullable=True, index=True)
     
     # Manual Fallback
     proof_url = Column(String, nullable=True) # Path to uploaded screnshot
@@ -480,13 +485,19 @@ class ManualPayment(Base):
     num_vehicles = Column(Integer, nullable=True)                   # Requested number of vehicles
     package_tier = Column(String(50), nullable=True)                # basic | premium | enterprise
     payment_plan = Column(String(50), nullable=True)                # monthly | onceoff_lifetime | payd
+    # Set when the payer is a reseller's customer paying that reseller: the
+    # paying tenant and the customer invoice the money belongs to.
+    customer_tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("customer_invoices.id"), nullable=True, index=True)
     status = Column(String(20), default="pending")                  # pending | confirmed | rejected
     confirmed_by = Column(String(100), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     activation_applied_at = Column(DateTime(timezone=True), nullable=True)  # package/contract switched on by the approval
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    tenant = relationship("Tenant")
+    # Two FKs point at tenants (the receiver and the paying customer), so the
+    # relationship must name the one it follows for the receiver.
+    tenant = relationship("Tenant", foreign_keys=[tenant_id])
 
 
 class ResellerInvoice(Base):
@@ -529,3 +540,34 @@ class ResellerCommissionLedger(Base):
 
     tenant = relationship("Tenant")
 
+
+
+class CustomerInvoice(Base):
+    """Retail invoice a reseller issues to one of its own customer tenants.
+
+    Distinct from `ResellerInvoice` (Inferth's wholesale bill to the reseller):
+    this is the customer's bill from the reseller, covering one billing period
+    of a recurring tracking package. Lifetime and PAYD packages never produce
+    these, because neither is a recurring subscription.
+    """
+    __tablename__ = "customer_invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_number = Column(String(50), unique=True, index=True, nullable=False)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)          # customer
+    reseller_tenant_id = Column(Integer, ForeignKey("tenants.id"), index=True, nullable=False)  # biller
+    package = Column(String(40), nullable=True)               # basic_monthly | premium_monthly | ...
+    billing_period_start = Column(Date, nullable=False)
+    billing_period_end = Column(Date, nullable=False)
+    due_date = Column(Date, nullable=True)
+    line_items = Column(JSON, default=[])
+    subtotal_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    tax_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    adjustments_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    total_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    amount_paid_usd = Column(Numeric(12, 2, asdecimal=False), default=0.0)
+    status = Column(String(20), default="unpaid", index=True)  # unpaid | partially_paid | paid | cancelled | refunded
+    notes = Column(Text, nullable=True)
+    issued_at = Column(DateTime(timezone=True), server_default=func.now())
+    paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

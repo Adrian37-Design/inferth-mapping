@@ -554,6 +554,14 @@ async def _activate_confirmed_package(
     money had been confirmed. This applies the rental contract or the package
     plan in the same transaction as the approval.
     """
+    # A reseller's customer paying a customer invoice: apply the money to that
+    # invoice. It must never create a Platform Fleet Rental contract or switch
+    # the reseller's own package.
+    if getattr(payment, "customer_tenant_id", None):
+        from app.services.customer_billing import settle_manual_payment
+
+        return await settle_manual_payment(db, payment)
+
     tenant = (
         await db.execute(select(Tenant).where(Tenant.id == payment.tenant_id))
     ).scalars().first()
