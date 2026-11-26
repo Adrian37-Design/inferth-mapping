@@ -42,8 +42,8 @@ def compute_driver_score(harsh_braking: int, harsh_accel: int, idling_minutes: f
 
 async def get_tenant_devices(db: AsyncSession, tenant_id: int, user: Optional[User] = None) -> List[Device]:
     stmt = select(Device)
-    if user and user.tenant_id == 1 and user.role == "admin":
-        # Super admin sees all, or can filter by tenant
+    if user and (user.role == "super_admin" or (user.tenant_id == 1 and user.role == "admin")):
+        # The platform administrator sees all, or can filter by one tenant
         if tenant_id and tenant_id != 1:
             stmt = stmt.where(Device.tenant_id == tenant_id)
     else:

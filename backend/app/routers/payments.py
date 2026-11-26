@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func, or_, update
 from app.db import get_db
 from app.models import Device, Tenant, Transaction, User
-from app.auth_middleware import get_current_user, scope_devices
+from app.auth_middleware import get_current_user, scope_devices, is_platform_admin
 from paynow import Paynow
 import os
 import uuid
@@ -885,7 +885,7 @@ async def paynow_transaction_status(
     ).scalars().first()
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    if current_user.tenant_id != 1 and txn.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and txn.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Transaction not found")
     if txn.status == "pending":
         txn = await _refresh_paynow_status(db, txn)

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth_middleware import get_current_user
+from app.auth_middleware import get_current_user, is_platform_admin
 from app.db import get_db
 from app.models import (
     Device,
@@ -64,7 +64,7 @@ async def _own_device(db: AsyncSession, user: User, device_id: int) -> Device:
     device = (await db.execute(select(Device).where(Device.id == device_id))).scalars().first()
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    if user.tenant_id != 1 and device.tenant_id != user.tenant_id:
+    if not is_platform_admin(user) and device.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Device not found")
     return device
 

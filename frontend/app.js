@@ -657,8 +657,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (railAuditBtn) railAuditBtn.classList.add('hidden');
         }
 
-        // 3. Companies Tab - Global Admin / Super Admin (Tenant 1)
-        if ((user.role === 'admin' || user.role === 'super_admin') && user.tenant_id === 1) {
+        // 3. Companies Tab - the platform administrator manages every company
+        const isPlatformAdminUser = (window.AuthManager && typeof window.AuthManager.isPlatformAdmin === 'function')
+            ? window.AuthManager.isPlatformAdmin()
+            : ((user.role === 'admin' || user.role === 'super_admin') && user.tenant_id === 1);
+        if (isPlatformAdminUser) {
             if (railCompaniesBtn) railCompaniesBtn.classList.remove('hidden');
         } else {
             if (railCompaniesBtn) railCompaniesBtn.classList.add('hidden');
@@ -5128,7 +5131,9 @@ function applyCompanyFieldLock() {
     const input = document.getElementById('vehicle-company');
     if (!input) return;
     const u = (window.AuthManager && window.AuthManager.user) || {};
-    const isPlatformAdmin = (u.role === 'admin' || u.role === 'super_admin') && u.tenant_id === 1;
+    const isPlatformAdmin = (window.AuthManager && typeof window.AuthManager.isPlatformAdmin === 'function')
+        ? window.AuthManager.isPlatformAdmin()
+        : ((u.role === 'admin' || u.role === 'super_admin') && u.tenant_id === 1);
     input.disabled = !isPlatformAdmin;
     const hint = input.parentElement ? input.parentElement.querySelector('small') : null;
     if (hint) {
@@ -9467,13 +9472,18 @@ function loadSettingsTab() {
         if (emailEl) emailEl.textContent = user.email || '--';
         if (roleEl) {
             const rawRole = String(user.role || 'user').toLowerCase();
-            const isSuper = rawRole === 'super_admin' || (rawRole === 'admin' && user.tenant_id === 1);
+            const isSuper = (window.AuthManager && typeof window.AuthManager.isPlatformAdmin === 'function')
+                ? window.AuthManager.isPlatformAdmin()
+                : (rawRole === 'super_admin' || (rawRole === 'admin' && user.tenant_id === 1));
             const role = isSuper ? 'SUPER ADMIN' : rawRole.replace(/_/g, ' ').toUpperCase();
             roleEl.textContent = role;
             roleEl.className = 'badge badge-' + (isSuper ? 'admin' : rawRole);
         }
         if (tenantEl) {
-            tenantEl.textContent = user.company_name || user.tenant_name || (user.tenant_id === 1 ? 'Inferth Superadmin' : 'Tenant #' + user.tenant_id);
+            const platformAccount = (window.AuthManager && typeof window.AuthManager.isPlatformAdmin === 'function')
+                ? window.AuthManager.isPlatformAdmin()
+                : user.tenant_id === 1;
+            tenantEl.textContent = user.company_name || user.tenant_name || (platformAccount ? 'Inferth Platform Account' : 'Tenant #' + user.tenant_id);
         }
     }
     // A read-only viewer is not offered the trip auto-play preference.

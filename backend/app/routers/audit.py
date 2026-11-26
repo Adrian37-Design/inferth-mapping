@@ -34,7 +34,7 @@ async def get_audit_logs(
     # Enforce access: only admins of Tenant 1 see all, others see their tenant
     # Normal users (viewer/manager) can't see audit logs usually, 
     # but we'll scope it by tenant if they have permission
-    if current_user.role not in ("admin", "super_admin") and current_user.tenant_id != 1:
+    if current_user.role not in ("admin", "super_admin") and not is_platform_admin(current_user):
          # Optionally allow managers to see their tenant's logs
          if current_user.role != "manager":
              raise HTTPException(status_code=403, detail="Not authorized")

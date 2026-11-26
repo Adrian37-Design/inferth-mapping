@@ -31,7 +31,7 @@ from app.models import (
     Tenant, User, Device, ResellerContract, TenantGateway,
     ResellerInvoice, ResellerCommissionLedger, ManualPayment
 )
-from app.auth_middleware import get_current_user, require_admin, require_super_admin
+from app.auth_middleware import get_current_user, require_admin, require_super_admin, is_platform_admin
 from app.services.reseller_billing import (
     compute_model_a_wholesale,
     compute_model_b_commission,
@@ -486,7 +486,7 @@ async def list_all_pending_pops(
         .join(Tenant, ManualPayment.tenant_id == Tenant.id)
         .where(ManualPayment.status == "pending")
     )
-    if current_user.tenant_id != 1:
+    if not is_platform_admin(current_user):
         stmt = stmt.where(ManualPayment.tenant_id == current_user.tenant_id)
     res = await db.execute(
         stmt.order_by(ManualPayment.created_at.desc()).limit(50)
@@ -672,7 +672,7 @@ async def confirm_manual_payment(
     if not p:
         raise HTTPException(status_code=404, detail="Payment record not found.")
 
-    if current_user.tenant_id != 1 and p.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and p.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     p.status = "confirmed"
@@ -706,7 +706,7 @@ async def reject_manual_payment(
     if not p:
         raise HTTPException(status_code=404, detail="Payment record not found.")
 
-    if current_user.tenant_id != 1 and p.tenant_id != current_user.tenant_id:
+    if not is_platform_admin(current_user) and p.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="Unauthorized.")
 
     p.status = "rejected"

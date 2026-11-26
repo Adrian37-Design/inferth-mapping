@@ -94,11 +94,19 @@ async def create_user(
     # Administrator is a per-company role: an admin only ever sees the data
     # of the company they are assigned to. Appointing one is a platform
     # decision, and "super_admin" stays with Inferth Mapping itself.
-    if user_in.role == "super_admin" and user_in.tenant_id != 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Platform administrator accounts belong to Inferth Mapping"
-        )
+    if user_in.role == "super_admin":
+        platform_tenant = (
+            await db.execute(
+                select(User.tenant_id).where(
+                    User.role == "super_admin", User.tenant_id.isnot(None)
+                ).limit(1)
+            )
+        ).scalars().first()
+        if platform_tenant is None or user_in.tenant_id != platform_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Platform administrator accounts belong to the platform account, not a customer company"
+            )
     if user_in.role in ("admin", "super_admin") and not is_platform_admin(current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -198,11 +206,19 @@ async def update_user(
     if target_role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role '{target_role}'")
 
-    if target_role == "super_admin" and target_tenant != 1:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Platform administrator accounts belong to Inferth Mapping"
-        )
+    if target_role == "super_admin":
+        platform_tenant = (
+            await db.execute(
+                select(User.tenant_id).where(
+                    User.role == "super_admin", User.tenant_id.isnot(None)
+                ).limit(1)
+            )
+        ).scalars().first()
+        if platform_tenant is None or target_tenant != platform_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Platform administrator accounts belong to the platform account, not a customer company"
+            )
         
     # Enforce tenant isolation
     if not is_platform_admin(current_user) and user.tenant_id != current_user.tenant_id:

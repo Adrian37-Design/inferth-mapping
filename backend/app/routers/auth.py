@@ -255,7 +255,9 @@ async def get_tenants(
         return []
 
     try:
-        query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color, plan, subscription_status, billing_cycle FROM tenants ORDER BY id ASC")
+        # The company that hosts the platform administrator is the operator's own
+        # account, not a customer company: it is never listed as a company.
+        query = text("SELECT id, name, logo_url, primary_color, secondary_color, navbar_bg, navbar_text_color, plan, subscription_status, billing_cycle FROM tenants WHERE id NOT IN (SELECT tenant_id FROM users WHERE role = 'super_admin' AND tenant_id IS NOT NULL) ORDER BY id ASC")
         result = await asyncio.wait_for(db.execute(query), timeout=5)
         tenants = result.mappings().all()
         
@@ -276,7 +278,7 @@ async def get_tenants(
                 "billing_cycle": t["billing_cycle"] or "Monthly"
             })
 
-        if current_user and (current_user.tenant_id != 1 or current_user.role not in ("admin", "super_admin")):
+        if current_user and not is_platform_admin(current_user):
             return [f for f in formatted if f["id"] == current_user.tenant_id]
             
         return formatted
@@ -408,6 +410,13 @@ async def delete_tenant(
     tenant = result.scalars().first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Company not found")
+    # The company that hosts the platform administrator is the operator's own
+    # account, not a customer company — deleting it would lock the platform out.
+    hosts_platform_admin = (await db.execute(
+        select(User.id).where(User.tenant_id == tenant_id, User.role == "super_admin").limit(1)
+    )).scalars().first()
+    if hosts_platform_admin:
+        raise HTTPException(status_code=400, detail="This company hosts the platform administrator and cannot be deleted.")
     await db.delete(tenant)
     await db.commit()
 
@@ -459,6 +468,7 @@ def _build_user_response(user: User) -> dict:
         "is_admin": user.is_admin,
         "tenant_id": user.tenant_id,
         "company_name": user.tenant.name if user.tenant else "Inferth Mapping",
+        "is_platform_admin": is_platform_admin(user),
         "last_login": user.last_login,
         "theme": resolve_tenant_theme(user.tenant),
         "subscription": {
@@ -784,6 +794,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "is_admin": current_user.is_admin,
         "tenant_id": current_user.tenant_id,
         "company_name": current_user.tenant.name if current_user.tenant else "Inferth Mapping",
+        "is_platform_admin": is_platform_admin(current_user),
         "theme": resolve_tenant_theme(current_user.tenant),
         "accessible_assets": current_user.accessible_assets or ["*"],
         "subscription": {

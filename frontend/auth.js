@@ -65,6 +65,16 @@ class AuthManager {
         return this.user ? (this.user.role || 'viewer') : 'viewer';
     }
 
+    // The operator account is not a customer company user: it manages every
+    // company. is_platform_admin comes from the API; the role/tenant checks
+    // keep older cached sessions working.
+    isPlatformAdmin() {
+        const u = this.user || {};
+        if (u.is_platform_admin === true) return true;
+        const role = String(u.role || '').toLowerCase();
+        return role === 'super_admin' || (role === 'admin' && Number(u.tenant_id) === 1);
+    }
+
     // Check if user is admin
     isAdmin() {
         return this.user && (this.user.is_admin || this.user.role === 'admin');
@@ -1033,7 +1043,7 @@ class AuthManager {
             const userDisplay = document.getElementById('user-role-display');
             if (userDisplay) {
                 const role = String(this.user.role || '').toLowerCase();
-                const isSuper = role === 'super_admin' || (role === 'admin' && this.user.tenant_id === 1);
+                const isSuper = this.isPlatformAdmin();
                 const roleLabel = isSuper ? 'SUPER ADMIN' : role.replace(/_/g, ' ').toUpperCase();
                 userDisplay.textContent = `${this.user.email} (${roleLabel})`;
                 userDisplay.classList.add('show');
