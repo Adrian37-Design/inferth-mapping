@@ -10070,6 +10070,32 @@ var _billingOptionsOpen = false;
 var _billingCurrentMode = 'monthly';
 var _billingModes = ['monthly', 'onceoff', 'rental', 'prepaid'];
 
+// A non-admin user inside a reseller's company sits under that reseller's own
+// wholesale plan ("Platform Fleet Rental"). That plan is the reseller's cost
+// basis, not a product their end customer buys: such a user must only ever see
+// the retail tracking packages, and must never be able to cancel or change the
+// reseller's platform subscription.
+window.isResellerCustomerView = function () {
+    const user = window.AuthManager && window.AuthManager.user;
+    if (!user) return false;
+    const role = String(user.role || '').toLowerCase();
+    if (role === 'admin' || role === 'super_admin') return false;
+    if (window.AuthManager && typeof window.AuthManager.isPlatformAdmin === 'function' && window.AuthManager.isPlatformAdmin()) return false;
+    const sub = user.subscription || {};
+    const cycle = String(sub.cycle || '').toLowerCase();
+    const plan = String(sub.plan || '').toLowerCase();
+    if (cycle.indexOf('rent') !== -1) return true;
+    if (/rental|reseller/.test(plan)) return true;
+    return /console\s*telematics/i.test(String(user.company_name || ''));
+};
+
+function hideResellerOnlyBilling() {
+    const rentalBtn = document.getElementById('btn-billing-rental');
+    if (rentalBtn) rentalBtn.classList.add('hidden');
+    const rentalView = document.getElementById('billing-rental-view');
+    if (rentalView) rentalView.classList.add('hidden');
+}
+
 window.billingModeFromCycle = function(cycle) {
     const c = String(cycle || 'monthly').toLowerCase();
     if (c.indexOf('once') !== -1) return 'onceoff';
@@ -10079,6 +10105,8 @@ window.billingModeFromCycle = function(cycle) {
 };
 
 function applyBillingView(mode) {
+    // The wholesale rental view is never a customer-facing page.
+    if (mode === 'rental' && window.isResellerCustomerView && window.isResellerCustomerView()) mode = 'monthly';
     // A plan view and the history sub-tab are mutually exclusive.
     var historyView = document.getElementById('billing-history-view');
     if (historyView) historyView.classList.add('hidden');
@@ -10117,6 +10145,7 @@ function applyBillingView(mode) {
         targetBtn.style.color = '#0f172a';
         targetBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
     }
+    if (window.isResellerCustomerView && window.isResellerCustomerView()) hideResellerOnlyBilling();
 
     if (mode === 'prepaid' && typeof window.loadWalletBalance === 'function') {
         window.loadWalletBalance();
@@ -10147,6 +10176,45 @@ window.applySubscriptionGate = function () {
     if (historyView) historyView.classList.add('hidden');
     if (typeof window.setBillingSubtabActive === 'function') window.setBillingSubtabActive('billing');
     if (!sub) return;
+
+    const resellerCustomer = !!(window.isResellerCustomerView && window.isResellerCustomerView());
+    if (resellerCustomer) {
+        // Show the retail packages, not the reseller's wholesale plan and not
+        // its cancel/change controls.
+        _billingOptionsOpen = false;
+        _billingCurrentMode = 'monthly';
+        if (card) card.classList.add('hidden');
+        if (hint) {
+            hint.classList.remove('hidden');
+            hint.innerHTML = '<i class="fas fa-circle-info"></i>';
+            const note = document.createElement('span');
+            const provider = (user && user.company_name) ? String(user.company_name) : 'your provider';
+            note.textContent = ' Your tracking is billed through ' + provider + '. Choose a package below.';
+            hint.appendChild(note);
+        }
+        document.querySelectorAll('[data-plan-purchase]').forEach(function (el) {
+            el.style.display = '';
+        });
+        const statusBarEl = document.getElementById('billing-current-plan-bar');
+        if (statusBarEl) statusBarEl.style.display = 'none';
+        const usageEl = document.getElementById('billing-monthly-usage-card');
+        if (usageEl) usageEl.style.display = 'none';
+        Object.keys(views).forEach(function (m) {
+            if (views[m]) views[m].classList.toggle('hidden', m !== 'monthly');
+        });
+        if (panel) panel.classList.remove('hidden');
+        if (bar) bar.classList.add('hidden');
+        if (head) head.classList.remove('hidden');
+        const bcpCancelEl = panel && panel.querySelector('.bcp-cancel');
+        if (bcpCancelEl) bcpCancelEl.style.display = 'none';
+        _billingModes.forEach(function (m) {
+            const b = document.getElementById('btn-billing-' + m);
+            if (b) b.classList.remove('hidden');
+        });
+        hideResellerOnlyBilling();
+        window.loadWalletBalance();
+        return;
+    }
 
     const active = String(sub.status || '').toLowerCase() === 'active';
     const card = document.getElementById('active-plan-card');
@@ -10831,7 +10899,8 @@ window.initBillingAccess = function() {
     const cycle = (user && user.subscription && user.subscription.cycle) || (cycleEl && cycleEl.textContent) || 'Monthly';
     _billingCurrentMode = window.billingModeFromCycle(cycle);
     const billingCompany = (user && user.company_name) || '';
-    if (/console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'rental';
+    if (_billingIsAdmin && /console\s*telematics/i.test(billingCompany)) _billingCurrentMode = 'rental';
+    if (window.isResellerCustomerView && window.isResellerCustomerView()) _billingCurrentMode = 'monthly';
     if (window.markActiveRentalPlan) window.markActiveRentalPlan();
 
     const bar = document.getElementById('billing-change-bar');
