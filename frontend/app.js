@@ -1152,8 +1152,25 @@ function renderFeatureAccess(features, plan) {
     }).join('');
 }
 
+window.getEffectivePlanTier = function() {
+    const user = window.AuthManager && window.AuthManager.user;
+    if (!user) return 'basic';
+    const role = String(user.role || '').toLowerCase();
+    if (role === 'super_admin' || (role === 'admin' && Number(user.tenant_id) === 1)) return 'enterprise';
+    const sub = user.subscription || {};
+    const cycle = String(sub.cycle || '').toLowerCase();
+    // Only monthly-cycle subscriptions are restricted by Basic/Premium/Enterprise tiers
+    if (cycle && cycle !== 'monthly' && cycle !== 'yearly') return 'enterprise';
+    const raw = String(sub.plan || 'Basic').toLowerCase();
+    if (raw === 'enterprise') return 'enterprise';
+    if (raw === 'premium' || raw === 'pro' || raw === 'professional') return 'premium';
+    return 'basic';
+};
+
 function applyPremiumLocks(features, plan) {
-    const isProfessionalTier = (plan === 'Premium' || plan === 'Professional' || plan === 'Enterprise');
+    const tier = window.getEffectivePlanTier ? window.getEffectivePlanTier() : ((plan === 'Premium' || plan === 'Professional' || plan === 'Enterprise') ? 'premium' : 'basic');
+    const isProfessionalTier = (tier === 'premium' || tier === 'enterprise');
+    features = features || {};
 
     // Feature enablement with tier overrides
     const hasReports = features.reports || isProfessionalTier;
@@ -1164,17 +1181,17 @@ function applyPremiumLocks(features, plan) {
     if (exportBtn) {
         if (!hasReports) {
             exportBtn.classList.add('premium-locked', 'premium-locked-dim');
-            exportBtn.title = 'Upgrade to PRO to export reports';
+            exportBtn.title = 'Upgrade to Premium to export reports';
         } else {
             exportBtn.classList.remove('premium-locked', 'premium-locked-dim');
             exportBtn.title = 'Export Fleet Intelligence';
         }
     }
 
-    // B. Advanced Rule Triggers (e.g., Harsh Braking)
+    // B. Advanced Rule Triggers (e.g., Harsh Braking, Geofence Entry/Exit)
     const eventSelect = document.getElementById('rule-event');
     if (eventSelect) {
-        const premiumOptions = ['harsh_braking', 'geofence_entry', 'geofence_exit']; // Example premium events
+        const premiumOptions = ['harsh_braking', 'geofence_entry', 'geofence_exit'];
         Array.from(eventSelect.options).forEach(opt => {
             if (premiumOptions.includes(opt.value)) {
                 if (!hasAdvancedRules) {
@@ -7165,6 +7182,16 @@ async function loadAssetHistory(id, startDateStr, endDateStr) {
     try {
         const sd = new Date(startDateStr);
         const ed = new Date(endDateStr);
+        const tier = window.getEffectivePlanTier ? window.getEffectivePlanTier() : 'enterprise';
+        const daysBack = (now.getTime() - sd.getTime()) / (1000 * 60 * 60 * 24);
+        if (tier === 'basic' && daysBack > 31) {
+            timeline.innerHTML = '<div style="padding:16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:0.84rem;"><i class="fas fa-lock"></i> <strong>30-Day History Limit:</strong> Basic monthly plan includes up to 30 days of route history. Upgrade to <strong>Premium</strong> for 90-day history.</div>';
+            return;
+        }
+        if (tier === 'premium' && daysBack > 91) {
+            timeline.innerHTML = '<div style="padding:16px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:0.84rem;"><i class="fas fa-lock"></i> <strong>90-Day History Limit:</strong> Premium monthly plan includes up to 90 days of route history. Upgrade to <strong>Enterprise</strong> for extended retention.</div>';
+            return;
+        }
         const urlPath = `/positions/routes/${id}?start_date=${encodeURIComponent(sd.toISOString())}&end_date=${encodeURIComponent(ed.toISOString())}`;
 
         const signal = beginHistoryFetch();
@@ -9500,7 +9527,62 @@ function loadSettingsTab() {
     if (typeof window.loadRetentionSettings === 'function') window.loadRetentionSettings();
     if (typeof window.loadEnterpriseQuotes === 'function') window.loadEnterpriseQuotes();
     if (typeof window.loadAdminPendingPops === 'function') window.loadAdminPendingPops();
+    if (typeof window.loadSettingsEcocash === 'function') window.loadSettingsEcocash();
 }
+
+window.loadSettingsEcocash = async function() {
+    const card = document.getElementById('settings-ecocash-card');
+    if (!card) return;
+    const isAdmin = window.AuthManager && typeof window.AuthManager.isAdmin === 'function' && window.AuthManager.isAdmin();
+    if (!isAdmin) {
+        card.classList.add('hidden');
+        return;
+    }
+    card.classList.remove('hidden');
+    try {
+        const res = await window.AuthManager.fetchAPI('/resellers/my-gateway');
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        const numEl = document.getElementById('settings-ecocash-number');
+        const nameEl = document.getElementById('settings-ecocash-name');
+        const waEl = document.getElementById('settings-whatsapp-number');
+        const instrEl = document.getElementById('settings-payment-instructions');
+        if (numEl) numEl.value = data.ecocash_number || '';
+        if (nameEl) nameEl.value = data.ecocash_name || '';
+        if (waEl) waEl.value = data.whatsapp_number || '';
+        if (instrEl) instrEl.value = data.payment_instructions || '';
+    } catch (e) {}
+};
+
+window.saveSettingsEcocash = async function() {
+    const num = (document.getElementById('settings-ecocash-number') || {}).value || '';
+    const name = (document.getElementById('settings-ecocash-name') || {}).value || '';
+    const wa = (document.getElementById('settings-whatsapp-number') || {}).value || '';
+    const instr = (document.getElementById('settings-payment-instructions') || {}).value || '';
+    const statusEl = document.getElementById('settings-ecocash-status');
+    if (!num.trim()) {
+        alert('Please enter your EcoCash number.');
+        return;
+    }
+    if (statusEl) { statusEl.style.color = '#64748b'; statusEl.textContent = 'Saving...'; }
+    try {
+        const res = await window.AuthManager.fetchAPI('/resellers/my-gateway', {
+            method: 'POST',
+            body: JSON.stringify({
+                ecocash_number: num.trim(),
+                ecocash_name: name.trim(),
+                whatsapp_number: wa.trim() || num.trim(),
+                payment_instructions: instr.trim(),
+                accept_manual_payments: true
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res || !res.ok) throw new Error(data.detail || 'Could not save EcoCash details');
+        if (statusEl) { statusEl.style.color = '#059669'; statusEl.textContent = 'Saved! Customers will see this number.'; }
+    } catch (err) {
+        if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.textContent = err.message; }
+    }
+};
 
 
 // --- GPS retention management (platform admin) ---
@@ -10999,63 +11081,33 @@ window.switchBillingPlanMode = function(mode) {
 // The amount is always sent when the button knows it, so the server never has to
 // guess which product (and price) the customer clicked.
 window.triggerPlanPayment = async function(planName, amountUsd) {
-    // Basic/Premium are priced per vehicle on the fleet band, monthly or yearly.
-    // Rental tiers still pass their own fixed amount.
     const quote = typeof window.planQuoteFor === 'function' ? window.planQuoteFor(planName) : null;
+    if (quote && quote.custom) {
+        window.requestEnterpriseQuote();
+        return;
+    }
     let amount = Number(amountUsd);
-    let hasAmount = Number.isFinite(amount) && amount > 0;
-    if (!hasAmount && quote) {
-        if (quote.custom) {
-            window.open('https://wa.me/263783009275?text=' + encodeURIComponent(`${planName} quotation for ${quote.count} vehicles`), '_blank');
-            return;
-        }
-        amount = quote.total;
-        hasAmount = true;
+    if (!Number.isFinite(amount) || amount <= 0) {
+        amount = quote ? quote.total : (String(planName).toLowerCase() === 'premium' ? 25 : 15);
     }
-    const amountParam = hasAmount ? `&amount=${amount}` : '';
-    const periodParam = (quote && !Number.isFinite(Number(amountUsd))) ? `&period=${quote.period}` : '';
-    const priceLabel = hasAmount
-        ? ` ($${Number(amount).toFixed(2)} USD${quote ? ` for ${quote.count} vehicle${quote.count === 1 ? '' : 's'} — ${quote.period}` : ''})`
-        : '';
-
-    if (!confirm(`Subscribe to "${planName}"${priceLabel} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
-    try {
-        const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=${encodeURIComponent(planName)}${amountParam}${periodParam}`,
-            { method: 'POST' }
-        );
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.detail || 'Payment initiation failed');
-        if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-        } else {
-            alert('Paynow did not return a checkout page. Please try again or use the bank transfer option.');
-        }
-    } catch (err) {
-        alert('Could not start the Paynow checkout: ' + err.message);
-    }
+    const tierMap = { basic: 'basic', premium: 'premium', pro: 'premium', professional: 'premium', enterprise: 'enterprise' };
+    const tier = tierMap[String(planName || '').toLowerCase()] || 'basic';
+    window.openSubmitManualPaymentModal({
+        payment_plan: 'monthly',
+        package_tier: tier,
+        amount: amount,
+        num_vehicles: quote ? quote.count : 1
+    });
 };
 
 // Once-Off Tracking Payment handler
 window.triggerOnceOffTracking = async function(tier, priceUsd) {
-    const labels = { starter: 'Starter Pass (Lifetime Tracking)' };
-    const label = labels[tier] || tier;
-    if (!confirm(`Pay $${priceUsd} USD once-off for ${label} via Paynow (EcoCash / OneMoney / Zimswitch)?`)) return;
-    try {
-        const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=${encodeURIComponent(label)}&amount=${priceUsd}`,
-            { method: 'POST' }
-        );
-        if (!response.ok) throw new Error('Payment initiation failed');
-        const result = await response.json();
-        if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-        } else {
-            alert(`Payment session initiated for ${label}. Check your EcoCash prompt for $${priceUsd} USD.`);
-        }
-    } catch (err) {
-        alert(`Initiating once-off payment of $${priceUsd} USD for ${label}.\nOur team will send an EcoCash prompt to your registered number.`);
-    }
+    window.openSubmitManualPaymentModal({
+        payment_plan: 'onceoff_lifetime',
+        package_tier: 'starter',
+        amount: Number(priceUsd) || 60,
+        num_vehicles: 1
+    });
 };
 
 // Enterprise is not a self-serve checkout: the request has to reach a human and
@@ -11127,26 +11179,14 @@ window.submitEnterpriseQuote = async function () {
 };
 
 window.topUpPrepaidWallet = async function(amountUsd) {
-    const amount = Number(amountUsd);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    if (!confirm(`Proceed to top up $${amount.toFixed(2)} USD into your Prepaid Fleet Wallet via Paynow (EcoCash / OneMoney / Card)?`)) {
-        return;
-    }
-    try {
-        const response = await window.AuthManager.fetchAPI(
-            `/payments/paynow/initiate?plan_name=Prepaid_Wallet_Topup&amount=${amount}`,
-            { method: 'POST' }
-        );
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.detail || 'Failed to initiate Paynow top-up');
-        if (result.redirect_url) {
-            window.location.href = result.redirect_url;
-        } else {
-            alert('Paynow did not return a checkout page. Please try again.');
-        }
-    } catch (err) {
-        alert('Top-up could not be started: ' + err.message);
-    }
+    const amount = Number(amountUsd) || 10;
+    const fleetCnt = (typeof allVehicles !== 'undefined' && Array.isArray(allVehicles) && allVehicles.length) ? allVehicles.length : 1;
+    window.openSubmitManualPaymentModal({
+        payment_plan: 'payd',
+        package_tier: 'payd_wallet',
+        amount: amount,
+        num_vehicles: fleetCnt
+    });
 };
 
 function setupPaymentListeners() {
@@ -12251,7 +12291,18 @@ window.onManualPaymentPlanChange = function(plan) {
     }
 };
 
-window.openSubmitManualPaymentModal = function() {
+window.copyManualDestEcocash = function() {
+    var numEl = document.getElementById('mp-dest-ecocash-number');
+    var num = numEl ? numEl.textContent.trim() : '';
+    if (!num || num === '--') return;
+    navigator.clipboard.writeText(num).then(function() {
+        alert('Copied EcoCash number: ' + num);
+    }).catch(function() {
+        alert('EcoCash number: ' + num);
+    });
+};
+
+window.openSubmitManualPaymentModal = function(prefill) {
     // Reset form fields
     ['mp-payer-name','mp-payer-phone','mp-amount','mp-notes','mp-num-vehicles','mp-proof-filename'].forEach(function(id) {
         var el = document.getElementById(id);
@@ -12260,6 +12311,39 @@ window.openSubmitManualPaymentModal = function() {
     var sel2 = document.getElementById('mp-payment-plan');
     if (sel2) sel2.value = '';
     window.onManualPaymentPlanChange('');
+
+    // Apply prefill from subscription button click (Monthly / Once-Off / PAYD)
+    if (prefill && typeof prefill === 'object') {
+        if (prefill.payment_plan && sel2) {
+            sel2.value = prefill.payment_plan;
+            window.onManualPaymentPlanChange(prefill.payment_plan);
+        }
+        var tierSel = document.getElementById('mp-package-tier');
+        if (prefill.package_tier && tierSel) tierSel.value = prefill.package_tier;
+        var amtEl = document.getElementById('mp-amount');
+        if (prefill.amount && amtEl) amtEl.value = Number(prefill.amount).toFixed(2);
+        var vehEl = document.getElementById('mp-num-vehicles');
+        if (prefill.num_vehicles && vehEl) vehEl.value = String(prefill.num_vehicles);
+    }
+
+    // Fetch reseller's or super-admin's EcoCash number for this user
+    var destNameEl = document.getElementById('mp-dest-ecocash-name');
+    var destNumEl = document.getElementById('mp-dest-ecocash-number');
+    var destInstrEl = document.getElementById('mp-dest-instructions');
+    if (destNameEl) destNameEl.textContent = 'Loading...';
+    if (destNumEl) destNumEl.textContent = '--';
+    if (destInstrEl) destInstrEl.textContent = '';
+    if (window.AuthManager && window.AuthManager.fetchAPI) {
+        window.AuthManager.fetchAPI('/resellers/payment-destination').then(function(res) {
+            return res && res.ok ? res.json() : null;
+        }).then(function(dest) {
+            if (!dest) return;
+            if (destNameEl) destNameEl.textContent = dest.ecocash_name || 'Administrator';
+            if (destNumEl) destNumEl.textContent = dest.ecocash_number || '+263783009275';
+            if (destInstrEl) destInstrEl.textContent = dest.payment_instructions || '';
+        }).catch(function() {});
+    }
+
     var preview = document.getElementById('mp-proof-preview-wrap');
     if (preview) preview.style.display = 'none';
     var fn = document.getElementById('mp-proof-filename');

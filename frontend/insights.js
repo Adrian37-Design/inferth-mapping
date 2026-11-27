@@ -26,17 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Role Preview Switcher for Platform Admins (allows toggling between Manager and Driver views)
+// Role Preview Switcher (allows toggling between Manager and Driver views for all roles)
 window.switchInsightsRoleMode = function(mode) {
-    const isAdmin = window.AuthManager && window.AuthManager.isAdmin();
-    if (!isAdmin) return; // Only Admin can toggle views
-
-    currentInsightsRoleMode = mode;
+    currentInsightsRoleMode = mode === 'driver' ? 'driver' : 'manager';
     const btnMgr = document.getElementById('btn-mode-manager');
     const btnDrv = document.getElementById('btn-mode-driver');
 
     if (btnMgr && btnDrv) {
-        if (mode === 'manager') {
+        if (currentInsightsRoleMode === 'manager') {
             btnMgr.classList.add('active');
             btnDrv.classList.remove('active');
         } else {
@@ -59,22 +56,11 @@ window.loadInsights = async function(force = false) {
 
     if (!container || !topBar) return;
 
-    // Role Visibility & Enforcements:
-    // 1. Admin: Can see both Manager and Driver views (switcher is visible)
-    // 2. Manager: Sees Manager view only (switcher is hidden)
-    // 3. Driver: Sees Driver view only (switcher is hidden)
-    const isAdmin = window.AuthManager && window.AuthManager.isAdmin();
-    const isManager = window.AuthManager && window.AuthManager.isManager();
-
-    if (isAdmin) {
-        if (roleSwitcher) roleSwitcher.classList.remove('hidden');
-        if (!currentInsightsRoleMode) currentInsightsRoleMode = 'manager';
-    } else if (isManager) {
-        if (roleSwitcher) roleSwitcher.classList.add('hidden');
-        currentInsightsRoleMode = 'manager';
-    } else {
-        if (roleSwitcher) roleSwitcher.classList.add('hidden');
-        currentInsightsRoleMode = 'driver';
+    // Allow both Manager and Driver Insights across all roles
+    if (roleSwitcher) roleSwitcher.classList.remove('hidden');
+    if (!currentInsightsRoleMode) {
+        const isMgr = window.AuthManager && window.AuthManager.isManager();
+        currentInsightsRoleMode = isMgr ? 'manager' : 'driver';
     }
 
     // Sync pill button states if switcher is rendered

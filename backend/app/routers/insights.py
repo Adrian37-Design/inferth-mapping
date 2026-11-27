@@ -43,14 +43,8 @@ async def get_manager_insights_endpoint(
 ):
     """
     Manager Insights: 'Where am I losing money?'
-    Strict RBAC: Only admin or manager role may access this endpoint.
+    Scoped to the user's tenant (or all tenants for platform super_admin).
     """
-    if current_user.role not in ["admin", "manager", "super_admin"] and not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access restricted: Manager role required to view Fleet Manager Insights"
-        )
-
     data = await generate_manager_insights(db, current_user.tenant_id, current_user)
     return data
 

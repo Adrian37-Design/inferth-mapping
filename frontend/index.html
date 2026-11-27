@@ -1883,27 +1883,6 @@
                                 <p class="usage-helper" id="billing-usage-helper">Managed vehicles within your plan limits.</p>
                             </div>
 
-                            <!-- Customer EcoCash & Mobile Payment Option Banner -->
-                            <div class="customer-payment-banner" style="background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border:1px solid #bbf7d0; border-radius:12px; padding:16px 20px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                                <div style="display:flex; align-items:center; gap:12px;">
-                                    <div style="background:#16a34a; color:#fff; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
-                                        <i class="fas fa-receipt"></i>
-                                    </div>
-                                    <div>
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            <strong style="color:#0f172a; font-size:0.95rem;">Pay via Direct EcoCash or WhatsApp</strong>
-                                            <span class="badge" style="background:#16a34a; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;">NO CARDS REQUIRED</span>
-                                        </div>
-                                        <p style="margin:2px 0 0 0; font-size:0.78rem; color:#475569;" id="customer-p2p-instructions-text">
-                                            Already sent your subscription via EcoCash? Upload your screenshot proof of payment here for instant account crediting.
-                                        </p>
-                                    </div>
-                                </div>
-                                <button type="button" class="btn-primary" onclick="openSubmitManualPaymentModal()" style="background:#16a34a; border:none; padding:10px 18px; font-size:0.85rem; font-weight:700; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(22,163,74,0.25);">
-                                    <i class="fas fa-upload"></i> Submit Proof of Payment
-                                </button>
-                            </div>
-
                             <!-- Monthly / Yearly Period Toggle -->
                             <div class="billing-period-toggle-wrap" data-plan-purchase>
                                 <div class="billing-period-toggle">
@@ -2564,6 +2543,40 @@
                             </div>
                         </div>
 
+                        <!-- 1b. Reseller / Super Admin EcoCash Payment Details -->
+                        <div class="card hidden" id="settings-ecocash-card" style="background:#fff; border:1px solid #bbf7d0; border-radius:10px; padding:18px;">
+                            <h4 style="margin:0 0 6px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-mobile-alt" style="color:#16a34a;"></i> EcoCash Receiving Number (Customer Payments)
+                            </h4>
+                            <p style="margin:0 0 12px; font-size:0.78rem; color:#64748b;">
+                                Customers see this EcoCash number and registered name when they click any subscription button (Monthly, Once-Off, or Pay-As-You-Drive).
+                            </p>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; margin-bottom:10px;">
+                                <div>
+                                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">EcoCash Number *</label>
+                                    <input type="text" id="settings-ecocash-number" placeholder="e.g. +263774123456" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Registered EcoCash Name *</label>
+                                    <input type="text" id="settings-ecocash-name" placeholder="e.g. Luke Mahambo" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">WhatsApp Number (Optional)</label>
+                                    <input type="text" id="settings-whatsapp-number" placeholder="e.g. +263774123456" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
+                                </div>
+                            </div>
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Payment Instructions (Optional)</label>
+                                <input type="text" id="settings-payment-instructions" placeholder="e.g. Dial *151*1*1*0774123456*AMOUNT# then upload your screenshot" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; box-sizing:border-box;">
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                                <span id="settings-ecocash-status" style="font-size:0.78rem; color:#059669; font-weight:600;"></span>
+                                <button type="button" onclick="saveSettingsEcocash()" style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:8px 18px; font-size:0.82rem; font-weight:700; cursor:pointer;">
+                                    <i class="fas fa-save"></i> Save EcoCash Details
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- 2. Telematics & Map Preferences -->
                         <div class="card" style="background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:18px;">
                             <h4 style="margin:0 0 12px; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
@@ -3108,9 +3121,26 @@
                 </button>
             </div>
             <div style="margin-bottom:14px;">
-                <p style="font-size:0.78rem; color:#64748b; margin:0 0 14px; line-height:1.5;">
-                    Fill in your contact details, the package you need, and upload your EcoCash payment screenshot. The admin will be notified instantly and approve your account once funds are confirmed.
+                <p style="font-size:0.78rem; color:#64748b; margin:0 0 12px; line-height:1.5;">
+                    Send your EcoCash payment to the number below, then fill in your details and upload your payment screenshot.
                 </p>
+
+                <!-- Recipient EcoCash Box -->
+                <div id="mp-dest-box" style="background:#f0fdf4; border:1.5px solid #22c55e; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+                    <div style="font-size:0.7rem; font-weight:800; color:#166534; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">
+                        <i class="fas fa-mobile-alt"></i> Send EcoCash Payment To
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <div style="font-size:0.82rem; color:#14532d;">Name: <strong id="mp-dest-ecocash-name">Loading...</strong></div>
+                            <div style="font-size:0.95rem; color:#15803d; font-weight:800; margin-top:2px;" id="mp-dest-ecocash-number">--</div>
+                        </div>
+                        <button type="button" onclick="window.copyManualDestEcocash()" style="background:#16a34a; color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:0.75rem; font-weight:700; cursor:pointer;">
+                            <i class="fas fa-copy"></i> Copy Number
+                        </button>
+                    </div>
+                    <div id="mp-dest-instructions" style="font-size:0.74rem; color:#166534; margin-top:6px;"></div>
+                </div>
 
                 <!-- Contact Details -->
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:14px;">
@@ -3420,9 +3450,9 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=241"></script>
-    <script src="/static/geofence.js?v=10"></script>
-    <script src="/static/insights.js?v=7"></script>
+    <script src="/static/app.js?v=242"></script>
+    <script src="/static/geofence.js?v=11"></script>
+    <script src="/static/insights.js?v=8"></script>
     <script src="/static/customer-billing.js?v=1"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">

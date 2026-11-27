@@ -60,6 +60,9 @@
     border-radius: 6px;
     gap: 2px;
 }
+.insights-pill-toggle.hidden {
+    display: none !important;
+}
 
 .insights-pill-toggle .toggle-pill {
     border: none;

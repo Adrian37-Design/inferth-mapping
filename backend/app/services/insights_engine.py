@@ -765,7 +765,10 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
     if device_ids:
         rows = await load_telemetry(db, device_ids, last_24h - timedelta(days=6))
         metrics = analyse_devices(rows)
-        matrix_24h = analyse_devices([r for r in rows if r.timestamp >= last_24h])
+        matrix_24h = analyse_devices([
+            r for r in rows
+            if r.timestamp and (r.timestamp.replace(tzinfo=None) if r.timestamp.tzinfo else r.timestamp) >= last_24h
+        ])
 
     primary_dev = devices[0] if devices else None
     veh_name = primary_dev.name if primary_dev else "Your Vehicle"

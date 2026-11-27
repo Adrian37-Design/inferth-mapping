@@ -228,6 +228,9 @@
     async function save(event) {
         event.preventDefault();
         if (!draft) return;
+        if (window.getEffectivePlanTier && window.getEffectivePlanTier() === 'basic' && zones.length >= 5) {
+            return setError('Basic plan supports up to 5 geofences. Upgrade to Premium for unlimited geofences.');
+        }
         const name = els.name.value.trim();
         const channel = els.channel.value;
         const contact = els.contact.value.trim();

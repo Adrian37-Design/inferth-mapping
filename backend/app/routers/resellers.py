@@ -279,6 +279,49 @@ async def set_my_gateway_config(
     }
 
 
+@router.get("/payment-destination")
+async def get_payment_destination(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Customer-facing endpoint returning the EcoCash / mobile money recipient
+    for the logged-in user's reseller/company, falling back to platform Super Admin."""
+    gw_res = await db.execute(
+        select(TenantGateway).where(TenantGateway.tenant_id == current_user.tenant_id)
+    )
+    gw = gw_res.scalar_one_or_none()
+    if gw and (gw.ecocash_number or gw.whatsapp_number):
+        return {
+            "ecocash_number": gw.ecocash_number or gw.whatsapp_number,
+            "ecocash_name": gw.ecocash_name or "Account Administrator",
+            "whatsapp_number": gw.whatsapp_number or gw.ecocash_number,
+            "payment_instructions": gw.payment_instructions or "",
+            "source": "tenant",
+        }
+
+    # Fall back to Super Admin (tenant_id = 1)
+    plat_res = await db.execute(
+        select(TenantGateway).where(TenantGateway.tenant_id == 1)
+    )
+    plat = plat_res.scalar_one_or_none()
+    if plat and (plat.ecocash_number or plat.whatsapp_number):
+        return {
+            "ecocash_number": plat.ecocash_number or plat.whatsapp_number,
+            "ecocash_name": plat.ecocash_name or "Adrian Kwaramba",
+            "whatsapp_number": plat.whatsapp_number or plat.ecocash_number,
+            "payment_instructions": plat.payment_instructions or "",
+            "source": "platform",
+        }
+
+    return {
+        "ecocash_number": "+263783009275",
+        "ecocash_name": "Adrian Kwaramba",
+        "whatsapp_number": "+263783009275",
+        "payment_instructions": "Send via EcoCash and upload your screenshot proof below.",
+        "source": "default",
+    }
+
+
 @router.get("/my-invoices")
 async def get_my_invoices(
     db: AsyncSession = Depends(get_db),
