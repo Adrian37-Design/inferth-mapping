@@ -9144,6 +9144,9 @@ window.loadAdminResellers = async function() {
                                 <button type="button" class="icon-btn edit-btn" title="Edit Agreement" onclick="openEditResellerContractModal(${c.tenant_id})">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                <button type="button" class="icon-btn delete-btn" title="Remove Reseller (Keep Records)" onclick="deleteResellerContract(${c.tenant_id}, '${escapeHTML(c.tenant_name || 'Tenant #' + c.tenant_id)}')" style="color:#dc2626;">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -9164,6 +9167,23 @@ window.loadAdminResellers = async function() {
     } catch (err) {
         console.error("Failed to load reseller contracts:", err);
         tableBody.innerHTML = `<tr><td colspan="6" class="text-center" style="color:#b91c1c; padding:16px;">Error loading reseller agreements: ${escapeHTML(err.message)}</td></tr>`;
+    }
+};
+
+window.deleteResellerContract = async function(tenantId, tenantName) {
+    if (!confirm('Remove reseller agreement for "' + tenantName + '"?\n\nHistorical invoices, commissions, and fleet records will be preserved.')) {
+        return;
+    }
+    try {
+        const res = await window.AuthManager.fetchAPI('/admin/resellers/contracts/' + tenantId + '?keep_records=true', {
+            method: 'DELETE'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res || !res.ok) throw new Error(data.detail || 'Could not remove reseller agreement');
+        alert(data.message || 'Reseller agreement removed. Historical records preserved.');
+        window.loadAdminResellers();
+    } catch (err) {
+        alert('Error: ' + err.message);
     }
 };
 
@@ -12302,6 +12322,36 @@ window.copyManualDestEcocash = function() {
     });
 };
 
+window.recalculateManualPaymentAmount = function() {
+    var planEl = document.getElementById('mp-payment-plan');
+    var tierEl = document.getElementById('mp-package-tier');
+    var vehEl = document.getElementById('mp-num-vehicles');
+    var amtEl = document.getElementById('mp-amount');
+    if (!amtEl) return;
+    var plan = planEl ? planEl.value : '';
+    var tier = tierEl ? tierEl.value : '';
+    var veh = Math.max(1, parseInt(vehEl ? vehEl.value : '1', 10) || 1);
+    var computed = null;
+    if (plan === 'monthly') {
+        if (tier === 'basic') {
+            var qB = typeof window.planQuoteFor === 'function' ? window.planQuoteFor('Basic') : null;
+            var unitB = qB && !qB.custom ? qB.perVehicle : 15;
+            computed = unitB * veh;
+        } else if (tier === 'premium') {
+            var qP = typeof window.planQuoteFor === 'function' ? window.planQuoteFor('Premium') : null;
+            var unitP = qP && !qP.custom ? qP.perVehicle : 25;
+            computed = unitP * veh;
+        }
+    } else if (plan === 'onceoff_lifetime' && tier === 'starter') {
+        computed = 60 * veh;
+    } else if (plan === 'payd' && tier === 'payd_wallet') {
+        if (!parseFloat(amtEl.value)) computed = 10;
+    }
+    if (computed !== null && Number.isFinite(computed)) {
+        amtEl.value = computed.toFixed(2);
+    }
+};
+
 window.openSubmitManualPaymentModal = function(prefill) {
     // Reset form fields
     ['mp-payer-name','mp-payer-phone','mp-amount','mp-notes','mp-num-vehicles','mp-proof-filename'].forEach(function(id) {
@@ -12312,6 +12362,16 @@ window.openSubmitManualPaymentModal = function(prefill) {
     if (sel2) sel2.value = '';
     window.onManualPaymentPlanChange('');
 
+    // Lock package price for non-admin customers; only Super Admin and Reseller Admins can edit prices
+    var canEditPrice = !!(window.AuthManager && typeof window.AuthManager.isAdmin === 'function' && window.AuthManager.isAdmin());
+    var amtEl = document.getElementById('mp-amount');
+    if (amtEl) {
+        amtEl.readOnly = !canEditPrice;
+        amtEl.style.background = canEditPrice ? '#ffffff' : '#f1f5f9';
+        amtEl.style.cursor = canEditPrice ? 'text' : 'not-allowed';
+        amtEl.title = canEditPrice ? 'Admin / Reseller can override price' : 'Package price is set by your Reseller / Platform Admin';
+    }
+
     // Apply prefill from subscription button click (Monthly / Once-Off / PAYD)
     if (prefill && typeof prefill === 'object') {
         if (prefill.payment_plan && sel2) {
@@ -12320,7 +12380,6 @@ window.openSubmitManualPaymentModal = function(prefill) {
         }
         var tierSel = document.getElementById('mp-package-tier');
         if (prefill.package_tier && tierSel) tierSel.value = prefill.package_tier;
-        var amtEl = document.getElementById('mp-amount');
         if (prefill.amount && amtEl) amtEl.value = Number(prefill.amount).toFixed(2);
         var vehEl = document.getElementById('mp-num-vehicles');
         if (prefill.num_vehicles && vehEl) vehEl.value = String(prefill.num_vehicles);

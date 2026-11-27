@@ -214,7 +214,9 @@ def _is_coarse_fix(sats) -> bool:
 
 def _secs(a, b) -> float:
     try:
-        return (b - a).total_seconds()
+        a_naive = a.replace(tzinfo=None) if getattr(a, "tzinfo", None) else a
+        b_naive = b.replace(tzinfo=None) if getattr(b, "tzinfo", None) else b
+        return (b_naive - a_naive).total_seconds()
     except Exception:
         return 0.0
 
@@ -700,16 +702,43 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
         })
 
     # Fleet health = share of vehicles that reported in the last 48h and have
-    # no open red exception. No devices reporting means no figure at all.
+    # no open red exception. Fall back to device.last_seen / total devices when
+    # a vehicle hasn't sent fresh fixes in the current 7d window.
     monitored = [
         d_id for d_id, m in metrics.items()
         if m["last_ts"] is not None and _secs(m["last_ts"], now) <= ONLINE_WINDOW_HOURS * 3600
     ]
+    if not monitored and devices:
+        monitored = [
+            d.id for d in devices
+            if getattr(d, "last_seen", None) is not None and _secs(d.last_seen, now) <= ONLINE_WINDOW_HOURS * 3600
+        ]
     if monitored:
         healthy = [d for d in monitored if d not in red_devices]
         fleet_health = round(100.0 * len(healthy) / len(monitored), 1)
+    elif devices:
+        healthy_all = [d.id for d in devices if d.id not in red_devices and getattr(d, "is_active", True)]
+        fleet_health = round(100.0 * len(healthy_all) / len(devices), 1)
     else:
         fleet_health = None
+
+    per_tracker = []
+    for d in devices:
+        m = metrics.get(d.id) or _blank_metrics()
+        per_tracker.append({
+            "device_id": d.id,
+            "vehicle_name": d.name,
+            "driver_name": (getattr(d, "driver_name", None) or "").strip() or "Unassigned",
+            "distance_km": round(float(m.get("distance_km") or 0.0), 1),
+            "idle_minutes": int(round(float(m.get("idle_minutes") or 0.0))),
+            "speeding_events": int(m.get("speeding_events") or 0),
+            "harsh_brakes": int(m.get("harsh_brakes") or 0),
+            "score": _device_score(m),
+            "online": (
+                (m.get("last_ts") is not None and _secs(m["last_ts"], now) <= ONLINE_WINDOW_HOURS * 3600)
+                or (getattr(d, "last_seen", None) is not None and _secs(d.last_seen, now) <= ONLINE_WINDOW_HOURS * 3600)
+            ),
+        })
 
     primary_country = "ZW"
     primary_fuel_type = "diesel"
@@ -731,7 +760,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             "money_lost_this_week_usd": round(total_money_lost, 2),
             "urgent_actions_count": urgent_actions,
             "total_insights_count": len(cards),
-            "vehicles_monitored": len(metrics),
+            "vehicles_monitored": len(monitored) or len(devices),
             "currency": "USD",
             "fuel_benchmark": {
                 "unit_price": benchmark_unit_price,
@@ -742,6 +771,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 "diesel_price": c_info["diesel"],
             },
         },
+        "per_tracker": per_tracker,
         "cards": cards,
     }
 

@@ -3166,7 +3166,7 @@
                     <div style="font-size:0.72rem; font-weight:800; color:#92400e; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:10px;">2. Package Requirements</div>
                     <div style="margin-bottom:10px;">
                         <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Payment Plan *</label>
-                        <select id="mp-payment-plan" onchange="window.onManualPaymentPlanChange(this.value)" style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
+                        <select id="mp-payment-plan" onchange="window.onManualPaymentPlanChange(this.value); window.recalculateManualPaymentAmount();" style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
                             <option value="">— Select payment plan —</option>
                             <option value="monthly">Monthly Subscription</option>
                             <option value="onceoff_lifetime">Once-Off Lifetime Payment</option>
@@ -3176,13 +3176,13 @@
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                         <div>
                             <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Subscription Tier *</label>
-                            <select id="mp-package-tier" disabled style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
+                            <select id="mp-package-tier" disabled onchange="window.recalculateManualPaymentAmount()" style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
                                 <option value="">— Select payment plan first —</option>
                             </select>
                         </div>
                         <div>
                             <label style="display:block; font-size:0.75rem; font-weight:700; color:#334155; margin-bottom:4px;">Number of Vehicles *</label>
-                            <input type="number" id="mp-num-vehicles" min="1" max="500" placeholder="e.g. 5" style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
+                            <input type="number" id="mp-num-vehicles" min="1" max="500" placeholder="e.g. 5" oninput="window.recalculateManualPaymentAmount()" style="width:100%; padding:8px 10px; border:1px solid #fde68a; border-radius:6px; font-size:0.85rem; box-sizing:border-box; background:#fffdf0;">
                         </div>
                     </div>
                 </div>
@@ -3450,9 +3450,9 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=242"></script>
+    <script src="/static/app.js?v=243"></script>
     <script src="/static/geofence.js?v=11"></script>
-    <script src="/static/insights.js?v=8"></script>
+    <script src="/static/insights.js?v=9"></script>
     <script src="/static/customer-billing.js?v=1"></script>
     <!-- Payment Modal -->
     <div id="payment-modal" class="modal-overlay hidden">

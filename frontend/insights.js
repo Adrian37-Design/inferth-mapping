@@ -100,7 +100,7 @@ window.loadInsights = async function(force = false) {
         renderInsightsTopBar(data.top_bar, currentInsightsRoleMode);
 
         // Render Feed Cards
-        renderInsightCards(data.cards, currentInsightsRoleMode);
+        renderInsightCards(data.cards, currentInsightsRoleMode, data.per_tracker);
 
     } catch (err) {
         console.error('Insights load error:', err);
@@ -133,8 +133,8 @@ function renderInsightsTopBar(topBarData, roleMode) {
         const money = Number(topBarData.money_lost_this_week_usd || 0);
         const urgent = Number(topBarData.urgent_actions_count || 0);
         const fuel = topBarData.fuel_benchmark || {};
-        const diesel = fmtNum(fuel.diesel_price, 2);
-        const petrol = fmtNum(fuel.petrol_price, 2);
+        const diesel = fmtNum(fuel.diesel_price != null ? fuel.diesel_price : 2.04, 2);
+        const petrol = fmtNum(fuel.petrol_price != null ? fuel.petrol_price : 2.05, 2);
         const country = escapeHTML(fuel.country_name || 'Zimbabwe');
 
         el.innerHTML = `
@@ -202,10 +202,53 @@ function renderInsightsTopBar(topBarData, roleMode) {
     }
 }
 
-// Render Cards Feed
-function renderInsightCards(cards, roleMode) {
+// Render Cards Feed + Per-Tracker Summary
+function renderInsightCards(cards, roleMode, perTracker) {
     const container = document.getElementById('insights-cards-list');
     if (!container) return;
+
+    let trackerHtml = '';
+    if (roleMode === 'manager' && Array.isArray(perTracker) && perTracker.length > 0) {
+        const rowsHtml = perTracker.map(t => {
+            const statusDot = t.online
+                ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:6px;"></span>Active'
+                : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;margin-right:6px;"></span>Idle';
+            const scoreColor = t.score >= 85 ? '#16a34a' : (t.score >= 65 ? '#d97706' : '#dc2626');
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 12px; font-weight:600; color:#0f172a;">${escapeHTML(t.vehicle_name)}</td>
+                    <td style="padding:10px 12px; color:#475569;">${escapeHTML(t.driver_name)}</td>
+                    <td style="padding:10px 12px; font-size:0.78rem; color:#334155;">${statusDot}</td>
+                    <td style="padding:10px 12px; font-weight:600; color:#0f172a;">${Number(t.distance_km || 0).toFixed(1)} km</td>
+                    <td style="padding:10px 12px; color:#475569;">${t.idle_minutes || 0} min</td>
+                    <td style="padding:10px 12px; color:#475569;">${t.speeding_events || 0} / ${t.harsh_brakes || 0}</td>
+                    <td style="padding:10px 12px; font-weight:700; color:${scoreColor};">${t.score}/100</td>
+                </tr>
+            `;
+        }).join('');
+        trackerHtml = `
+            <div style="margin-top:16px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; overflow-x:auto;">
+                <div style="padding:12px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:0.85rem; color:#0f172a;"><i class="fas fa-satellite-dish" style="color:#ea580c;"></i> Per-Tracker Performance (Last 7 Days)</strong>
+                    <span style="font-size:0.74rem; color:#64748b;">${perTracker.length} tracker${perTracker.length === 1 ? '' : 's'}</span>
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:0.82rem; text-align:left;">
+                    <thead>
+                        <tr style="background:#f8fafc; color:#64748b; font-size:0.72rem; text-transform:uppercase; border-bottom:1px solid #e2e8f0;">
+                            <th style="padding:8px 12px;">Tracker / Vehicle</th>
+                            <th style="padding:8px 12px;">Driver</th>
+                            <th style="padding:8px 12px;">Status</th>
+                            <th style="padding:8px 12px;">Distance</th>
+                            <th style="padding:8px 12px;">Idling</th>
+                            <th style="padding:8px 12px;">Speed / Brake</th>
+                            <th style="padding:8px 12px;">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        `;
+    }
 
     if (!cards || cards.length === 0) {
         container.innerHTML = `
@@ -214,11 +257,12 @@ function renderInsightCards(cards, roleMode) {
                 <h5 style="margin:0 0 4px; color:#0f172a; font-size:0.95rem; font-weight:600;">No open exceptions</h5>
                 <p style="margin:0; font-size:0.8rem;">No telemetry exceptions were recorded for this account in the current window.</p>
             </div>
+            ${trackerHtml}
         `;
         return;
     }
 
-    container.innerHTML = cards.map(c => renderSingleEnterpriseCard(c, roleMode)).join('');
+    container.innerHTML = cards.map(c => renderSingleEnterpriseCard(c, roleMode)).join('') + trackerHtml;
 }
 
 // Render Single Professional Card

@@ -889,6 +889,37 @@ async def update_reseller_contract(
     return {"message": "Contract updated successfully."}
 
 
+@admin_router.delete("/contracts/{tenant_id}")
+async def remove_reseller_contract(
+    tenant_id: int,
+    keep_records: bool = True,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Super Admin: remove a reseller agreement while preserving historical invoices,
+    commissions, vehicles, and payment records by default."""
+    res = await db.execute(
+        select(ResellerContract).where(ResellerContract.tenant_id == tenant_id)
+    )
+    contract = res.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Reseller contract not found.")
+
+    await db.delete(contract)
+    if not keep_records:
+        await db.execute(
+            update(ResellerInvoice)
+            .where(ResellerInvoice.tenant_id == tenant_id, ResellerInvoice.status == "unpaid")
+            .values(status="voided")
+        )
+    await db.commit()
+    return {
+        "message": "Reseller agreement removed. Historical records have been preserved." if keep_records else "Reseller agreement removed and unpaid invoices voided.",
+        "tenant_id": tenant_id,
+        "records_preserved": keep_records,
+    }
+
+
 @admin_router.get("/invoices")
 async def list_all_invoices(
     db: AsyncSession = Depends(get_db),
