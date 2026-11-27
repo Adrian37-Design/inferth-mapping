@@ -9264,6 +9264,10 @@ textarea::placeholder,
     box-shadow: 0 20px 60px rgba(24, 24, 27, 0.3) !important;
     overflow: hidden !important;
 }
+#manual-payment-modal .modal-content {
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+}
 .modal-header {
     padding: 16px 22px !important;
     border-bottom: 1px solid rgba(163, 177, 198, 0.35) !important;

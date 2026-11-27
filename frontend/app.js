@@ -10190,7 +10190,9 @@ window.applySubscriptionGate = function () {
         rental: document.getElementById('billing-rental-view')
     };
 
+    const entCard = document.querySelector('#billing-monthly-view .bplan-card.enterprise');
     const resellerCustomer = !!(window.isResellerCustomerView && window.isResellerCustomerView());
+    if (entCard) entCard.style.display = resellerCustomer ? 'none' : '';
     if (resellerCustomer) {
         // Show the retail packages, not the reseller's wholesale plan and not
         // its cancel/change controls.
@@ -11325,8 +11327,8 @@ function _setPlanCard(key, quote) {
         );
     } else if (quote) {
         const unit = yearly ? 'yr' : 'mo';
-        // Just the price to pay — never the arithmetic behind it.
-        btn.innerHTML = `<i class="fas fa-credit-card"></i> Subscribe to ${label} — $${quote.total}/${unit}`;
+        // Show the per-vehicle tier price on the button so it matches the card header ($15/mo, $25/mo).
+        btn.innerHTML = `<i class="fas fa-credit-card"></i> Subscribe to ${label} — $${quote.perVehicle}/${unit}`;
         btn.onclick = () => triggerPlanPayment(label);
     }
 }
@@ -12199,16 +12201,65 @@ window.switchBillingSubtab = function(tab) {
 };
 
 
+window.onManualPaymentPlanChange = function(plan) {
+    var tierSel = document.getElementById('mp-package-tier');
+    if (!tierSel) return;
+    var isResellerCust = !!(window.isResellerCustomerView && window.isResellerCustomerView());
+    var optionsByPlan = {
+        monthly: [
+            { value: 'basic', label: 'Basic — $15/vehicle/mo (GPS tracking & geofencing)' },
+            { value: 'premium', label: 'Premium — $25/vehicle/mo (OBD/fuel & immobilizer)' }
+        ],
+        onceoff_lifetime: [
+            { value: 'starter', label: 'Starter Pass — $60/vehicle once-off (Lifetime GPS)' }
+        ],
+        payd: [
+            { value: 'payd_wallet', label: 'Prepaid Fleet Wallet — $0.02/tracked hr (max $0.48/day)' }
+        ]
+    };
+    if (!isResellerCust) {
+        optionsByPlan.monthly.push({ value: 'enterprise', label: 'Enterprise — Custom Quote (API & multi-depot)' });
+    }
+
+    var opts = optionsByPlan[plan] || [];
+    tierSel.innerHTML = '';
+    if (!plan || opts.length === 0) {
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '— Select payment plan first —';
+        tierSel.appendChild(placeholder);
+        tierSel.disabled = true;
+        tierSel.value = '';
+        return;
+    }
+
+    tierSel.disabled = false;
+    if (opts.length > 1) {
+        var chooseOpt = document.createElement('option');
+        chooseOpt.value = '';
+        chooseOpt.textContent = '— Select tier —';
+        tierSel.appendChild(chooseOpt);
+    }
+    opts.forEach(function(o) {
+        var optEl = document.createElement('option');
+        optEl.value = o.value;
+        optEl.textContent = o.label;
+        tierSel.appendChild(optEl);
+    });
+    if (opts.length === 1) {
+        tierSel.value = opts[0].value;
+    }
+};
+
 window.openSubmitManualPaymentModal = function() {
     // Reset form fields
     ['mp-payer-name','mp-payer-phone','mp-amount','mp-notes','mp-num-vehicles','mp-proof-filename'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) { if (el.tagName === 'INPUT') el.value = ''; }
     });
-    var sel1 = document.getElementById('mp-package-tier');
     var sel2 = document.getElementById('mp-payment-plan');
-    if (sel1) sel1.value = '';
     if (sel2) sel2.value = '';
+    window.onManualPaymentPlanChange('');
     var preview = document.getElementById('mp-proof-preview-wrap');
     if (preview) preview.style.display = 'none';
     var fn = document.getElementById('mp-proof-filename');

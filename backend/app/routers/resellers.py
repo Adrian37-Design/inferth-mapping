@@ -415,7 +415,11 @@ async def submit_manual_payment(
     # the endpoint only returned a wa.me link to one hardcoded number, so nothing
     # reached the admins unless the customer chose to forward it themselves.
     tier_label = {
-        "basic": "Basic", "premium": "Premium", "enterprise": "Enterprise"
+        "basic": "Basic",
+        "premium": "Premium",
+        "enterprise": "Enterprise",
+        "starter": "Starter Pass (Once-Off)",
+        "payd_wallet": "Prepaid Fleet Wallet (PAYD)",
     }.get(req.package_tier or "", req.package_tier or "—")
     plan_label = {
         "monthly": "Monthly Subscription",
@@ -492,7 +496,13 @@ async def list_all_pending_pops(
         stmt.order_by(ManualPayment.created_at.desc()).limit(50)
     )
     rows = res.all()
-    tier_labels = {"basic": "Basic", "premium": "Premium", "enterprise": "Enterprise"}
+    tier_labels = {
+        "basic": "Basic",
+        "premium": "Premium",
+        "enterprise": "Enterprise",
+        "starter": "Starter Pass (Once-Off)",
+        "payd_wallet": "Prepaid Fleet Wallet (PAYD)",
+    }
     plan_labels = {"monthly": "Monthly", "onceoff_lifetime": "Once-Off Lifetime", "payd": "Pay-As-You-Drive"}
     return [
         {
