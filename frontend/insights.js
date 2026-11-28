@@ -208,7 +208,7 @@ function renderInsightCards(cards, roleMode, perTracker) {
     if (!container) return;
 
     let trackerHtml = '';
-    if (roleMode === 'manager' && Array.isArray(perTracker) && perTracker.length > 0) {
+    if (Array.isArray(perTracker) && perTracker.length > 0) {
         const rowsHtml = perTracker.map(t => {
             const st = t.status || (t.online ? 'Stationary' : 'Offline');
             const dotColor = st === 'Moving' ? '#16a34a' : (st === 'Stationary' ? '#0284c7' : '#94a3b8');

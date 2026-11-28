@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, and_, or_, desc
 
-from app.models import Position, Device, User, Insight, InsightAction, DriverScore, Geofence
+from app.models import Position, Device, User, Tenant, Insight, InsightAction, DriverScore, Geofence
 from app.services.track import analyze_track, TRACK_STOP_KMH
 from app.services.data_guardrails import haversine_distance_km
 from app.config import settings
@@ -42,21 +42,30 @@ def compute_driver_score(harsh_braking: int, harsh_accel: int, idling_minutes: f
 
 async def get_tenant_devices(db: AsyncSession, tenant_id: int, user: Optional[User] = None) -> List[Device]:
     stmt = select(Device)
-    if user and (user.role == "super_admin" or (user.tenant_id == 1 and user.role == "admin")):
+    is_plat_admin = bool(user and (user.role == "super_admin" or (user.tenant_id == 1 and user.role == "admin")))
+    if is_plat_admin:
         # The platform administrator sees all, or can filter by one tenant
         if tenant_id and tenant_id != 1:
-            stmt = stmt.where(Device.tenant_id == tenant_id)
+            t_res = await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))
+            t_name = t_res.scalar()
+            if t_name:
+                stmt = stmt.where((Device.tenant_id == tenant_id) | (func.lower(Device.company) == t_name.lower().strip()))
+            else:
+                stmt = stmt.where(Device.tenant_id == tenant_id)
     else:
-        stmt = stmt.where(Device.tenant_id == tenant_id)
+        t_res = await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))
+        t_name = t_res.scalar()
+        if t_name:
+            stmt = stmt.where((Device.tenant_id == tenant_id) | (func.lower(Device.company) == t_name.lower().strip()))
+        else:
+            stmt = stmt.where(Device.tenant_id == tenant_id)
     result = await db.execute(stmt)
     return result.scalars().all()
 
 
 async def get_driver_devices(db: AsyncSession, user: User) -> List[Device]:
-    """Find device(s) assigned to a driver."""
-    stmt = select(Device).where(Device.tenant_id == user.tenant_id)
-    result = await db.execute(stmt)
-    all_devs = result.scalars().all()
+    """Find device(s) assigned to a driver (using the same tenant + company matching as /devices/)."""
+    all_devs = await get_tenant_devices(db, user.tenant_id, user)
     
     assigned = []
     # Check accessible_assets in user profile
@@ -1016,6 +1025,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
             seen.add("service_reminder")
 
     # Fuel economy and standing come from measurement, not a placeholder.
+    effective_score = driver_score if today["distance_km"] > 0 else _device_score(week)
     my_fuel = week["fuel_rate"]
     my_rank = None
     tenant_devices = await get_tenant_devices(db, user.tenant_id, user)
@@ -1026,19 +1036,56 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
             ((d_id, _device_score(m)) for d_id, m in crew.items() if m["distance_km"] > 0),
             key=lambda x: x[1], reverse=True,
         )
+        if not board:
+            crew_7d_rows = await load_telemetry(db, [d.id for d in tenant_devices], last_24h - timedelta(days=6))
+            crew_7d = analyse_devices(crew_7d_rows)
+            board = sorted(
+                ((d_id, _device_score(m)) for d_id, m in crew_7d.items() if m["distance_km"] > 0),
+                key=lambda x: x[1], reverse=True,
+            )
         for idx, (d_id, _score) in enumerate(board):
             if d_id == primary_dev.id:
                 my_rank = f"{idx + 1} of {len(board)}"
                 break
 
+    latest_rows: Dict[int, Any] = {}
+    for r in rows:
+        latest_rows[r.device_id] = r
+    per_tracker = []
+    for d in devices:
+        m = metrics.get(d.id) or _blank_metrics()
+        lr = latest_rows.get(d.id)
+        last_ts = m.get("last_ts") or getattr(d, "last_seen", None)
+        age_sec = _secs(last_ts, now) if last_ts is not None else None
+        last_speed = float(getattr(lr, "speed", 0.0) or 0.0) if lr is not None else 0.0
+        if age_sec is None or age_sec > 1800:
+            tracker_status = "Offline"
+        elif last_speed > 3.0:
+            tracker_status = "Moving"
+        else:
+            tracker_status = "Stationary"
+        per_tracker.append({
+            "device_id": d.id,
+            "vehicle_name": d.name,
+            "driver_name": (getattr(d, "driver_name", None) or "").strip() or "Unassigned",
+            "distance_km": round(float(m.get("distance_km") or 0.0), 1),
+            "idle_minutes": int(round(float(m.get("idle_minutes") or 0.0))),
+            "speeding_events": int(m.get("speeding_events") or 0),
+            "harsh_brakes": int(m.get("harsh_brakes") or 0),
+            "score": _device_score(m),
+            "status": tracker_status,
+            "online": tracker_status != "Offline",
+        })
+
     return {
         "top_bar": {
-            "my_score": driver_score,
+            "my_score": effective_score,
             "my_fuel_l100km": my_fuel,
             "my_rank": my_rank,
             "vehicle_name": veh_name,
             "distance_today_km": today["distance_km"],
             "night_trips_24h": night_trips,
         },
+        "per_tracker": per_tracker,
         "cards": cards,
     }
