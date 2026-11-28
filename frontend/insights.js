@@ -531,7 +531,8 @@ function formatEventTime(iso) {
         const now = new Date();
         const diffMs = now - d;
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 60) return `${diffMins || 1} min ago`;
+        if (diffMins <= 0) return 'Just now';
+        if (diffMins < 60) return `${diffMins} min ago`;
         const diffHours = Math.floor(diffMins / 60);
         if (diffHours < 24) return `${diffHours} hr ago`;
         return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });

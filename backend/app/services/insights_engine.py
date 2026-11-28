@@ -695,6 +695,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 "distance_km": m["distance_km"],
                 "speeding_events": m["speeding_events"],
                 "harsh_brakes": m["harsh_brakes"],
+                "last_ts": m.get("last_ts"),
             })
 
     if scored and ("best_driver_week", 0) not in seen:
@@ -713,7 +714,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             "driver_name": best["driver_name"],
             "metric_value": f"{best['score']}/100",
             "money_impact": None,
-            "created_at": _utc_iso(now),
+            "created_at": _utc_iso(best.get("last_ts") or now),
             "extra_data": {
                 "score": best["score"],
                 "distance_km": best["distance_km"],
