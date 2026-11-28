@@ -11336,7 +11336,7 @@ window.planQuoteFor = function(planName) {
     const perVehicle = _roundMoney(band.rate * (yearly ? YEARLY_MONTHS : 1));
     return {
         key, count, band, perVehicle, period,
-        total: _roundMoney(perVehicle * count),
+        total: count <= 5 ? perVehicle : _roundMoney(perVehicle * count),
         months: yearly ? YEARLY_MONTHS : 1
     };
 };
@@ -12336,11 +12336,11 @@ window.recalculateManualPaymentAmount = function() {
         if (tier === 'basic') {
             var qB = typeof window.planQuoteFor === 'function' ? window.planQuoteFor('Basic') : null;
             var unitB = qB && !qB.custom ? qB.perVehicle : 15;
-            computed = unitB * veh;
+            computed = veh <= 5 ? unitB : unitB * veh;
         } else if (tier === 'premium') {
             var qP = typeof window.planQuoteFor === 'function' ? window.planQuoteFor('Premium') : null;
             var unitP = qP && !qP.custom ? qP.perVehicle : 25;
-            computed = unitP * veh;
+            computed = veh <= 5 ? unitP : unitP * veh;
         }
     } else if (plan === 'onceoff_lifetime' && tier === 'starter') {
         computed = 60 * veh;

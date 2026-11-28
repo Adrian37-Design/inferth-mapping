@@ -430,6 +430,15 @@ def _utcnow():
     return datetime.utcnow()
 
 
+def _utc_iso(dt: Optional[datetime]) -> Optional[str]:
+    if dt is None:
+        return None
+    s = dt.isoformat()
+    if dt.tzinfo is None and not s.endswith("Z"):
+        s += "Z"
+    return s
+
+
 async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User) -> Dict[str, Any]:
     fuel_price = getattr(settings, "FUEL_PRICE_USD", 2.04)
     devices = await get_tenant_devices(db, tenant_id, user)
@@ -438,8 +447,12 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
     now = _utcnow()
 
     metrics: Dict[int, Dict[str, Any]] = {}
+    latest_rows: Dict[int, Any] = {}
     if device_ids:
-        metrics = analyse_devices(await load_telemetry(db, device_ids, now - timedelta(days=7)))
+        raw_rows = await load_telemetry(db, device_ids, now - timedelta(days=7))
+        metrics = analyse_devices(raw_rows)
+        for r in raw_rows:
+            latest_rows[r.device_id] = r
 
     # 1. Insights already raised and persisted for this company
     db_insights_stmt = (
@@ -576,7 +589,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                 "driver_name": driver,
                 "metric_value": f"{m['night_km']:.1f} km ({fuel_est} L est.)",
                 "money_impact": loss,
-                "created_at": m["night_start"].isoformat() if m["night_start"] else now.isoformat(),
+                "created_at": _utc_iso(m["night_start"]) if m["night_start"] else _utc_iso(now),
                 "extra_data": {
                     "start_time": start_txt,
                     "end_time": end_txt,
@@ -615,7 +628,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                     "driver_name": driver,
                     "metric_value": f"{m['fuel_rate']:.1f} vs {fleet_avg_rate:.1f} L/100km",
                     "money_impact": impact,
-                    "created_at": now.isoformat(),
+                    "created_at": _utc_iso(now),
                     "extra_data": {
                         "driver_l100km": m["fuel_rate"],
                         "fleet_avg_l100km": fleet_avg_rate,
@@ -652,7 +665,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
                     "driver_name": driver,
                     "metric_value": f"{km_since:,.0f} / 10,000 km",
                     "money_impact": None,
-                    "created_at": now.isoformat(),
+                    "created_at": _utc_iso(now),
                     "extra_data": {
                         "km_since_service": km_since,
                         "odometer_km": m["odometer"],
@@ -691,7 +704,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             "driver_name": best["driver_name"],
             "metric_value": f"{best['score']}/100",
             "money_impact": None,
-            "created_at": now.isoformat(),
+            "created_at": _utc_iso(now),
             "extra_data": {
                 "score": best["score"],
                 "distance_km": best["distance_km"],
@@ -701,9 +714,8 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             "source": "live",
         })
 
-    # Fleet health = share of vehicles that reported in the last 48h and have
-    # no open red exception. Fall back to device.last_seen / total devices when
-    # a vehicle hasn't sent fresh fixes in the current 7d window.
+    # Fleet health = average per-tracker health score across monitored vehicles
+    # (penalising trackers with open red faults by 25 points).
     monitored = [
         d_id for d_id, m in metrics.items()
         if m["last_ts"] is not None and _secs(m["last_ts"], now) <= ONLINE_WINDOW_HOURS * 3600
@@ -713,18 +725,27 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             d.id for d in devices
             if getattr(d, "last_seen", None) is not None and _secs(d.last_seen, now) <= ONLINE_WINDOW_HOURS * 3600
         ]
-    if monitored:
-        healthy = [d for d in monitored if d not in red_devices]
-        fleet_health = round(100.0 * len(healthy) / len(monitored), 1)
-    elif devices:
-        healthy_all = [d.id for d in devices if d.id not in red_devices and getattr(d, "is_active", True)]
-        fleet_health = round(100.0 * len(healthy_all) / len(devices), 1)
-    else:
-        fleet_health = None
 
     per_tracker = []
+    tracker_health_scores = []
     for d in devices:
         m = metrics.get(d.id) or _blank_metrics()
+        lr = latest_rows.get(d.id)
+        last_ts = m.get("last_ts") or getattr(d, "last_seen", None)
+        age_sec = _secs(last_ts, now) if last_ts is not None else None
+        last_speed = float(getattr(lr, "speed", 0.0) or 0.0) if lr is not None else 0.0
+        if age_sec is None or age_sec > 1800:  # > 30 mins without fix = Offline
+            tracker_status = "Offline"
+        elif last_speed > 3.0:
+            tracker_status = "Moving"
+        else:
+            tracker_status = "Stationary"
+
+        score = _device_score(m)
+        health_val = max(0, score - (25 if d.id in red_devices else 0))
+        if d.id in monitored or not monitored:
+            tracker_health_scores.append(health_val)
+
         per_tracker.append({
             "device_id": d.id,
             "vehicle_name": d.name,
@@ -733,12 +754,15 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
             "idle_minutes": int(round(float(m.get("idle_minutes") or 0.0))),
             "speeding_events": int(m.get("speeding_events") or 0),
             "harsh_brakes": int(m.get("harsh_brakes") or 0),
-            "score": _device_score(m),
-            "online": (
-                (m.get("last_ts") is not None and _secs(m["last_ts"], now) <= ONLINE_WINDOW_HOURS * 3600)
-                or (getattr(d, "last_seen", None) is not None and _secs(d.last_seen, now) <= ONLINE_WINDOW_HOURS * 3600)
-            ),
+            "score": score,
+            "status": tracker_status,
+            "online": tracker_status != "Offline",
         })
+
+    if tracker_health_scores:
+        fleet_health = round(sum(tracker_health_scores) / len(tracker_health_scores), 1)
+    else:
+        fleet_health = None
 
     primary_country = "ZW"
     primary_fuel_type = "diesel"
@@ -883,7 +907,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
                 "description": f"What happened: {plain['issue']} What to do now: {plain['action']}",
                 "vehicle_name": veh_name,
                 "metric_value": "Action Required",
-                "created_at": now.isoformat(),
+                "created_at": _utc_iso(now),
                 "extra_data": {
                     "plain_issue": plain["issue"],
                     "plain_action": plain["action"],
@@ -907,7 +931,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
             ),
             "vehicle_name": veh_name,
             "metric_value": f"{today['harsh_brakes']} events / 24h",
-            "created_at": now.isoformat(),
+            "created_at": _utc_iso(now),
             "extra_data": {
                 "count": today["harsh_brakes"],
                 "tip": "Keep a 3-second gap behind vehicles to slow down smoothly.",
@@ -931,7 +955,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
             ),
             "vehicle_name": veh_name,
             "metric_value": f"{int(today['idle_minutes'])} min idle",
-            "created_at": now.isoformat(),
+            "created_at": _utc_iso(now),
             "extra_data": {
                 "total_idle_mins": int(today["idle_minutes"]),
                 "tip": "Switch off your engine whenever you are waiting for more than 2 minutes.",
@@ -956,7 +980,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
                 ),
                 "vehicle_name": veh_name,
                 "metric_value": f"{driver_score}/100",
-                "created_at": now.isoformat(),
+                "created_at": _utc_iso(now),
                 "extra_data": {
                     "distance_km": today["distance_km"],
                     "speeding_events": 0,
@@ -980,7 +1004,7 @@ async def generate_driver_insights(db: AsyncSession, user: User) -> Dict[str, An
                 "description": f"Routine maintenance is due in approximately {km_left} km.",
                 "vehicle_name": veh_name,
                 "metric_value": f"{km_left} km left",
-                "created_at": now.isoformat(),
+                "created_at": _utc_iso(now),
                 "extra_data": {
                     "km_left": km_left,
                     "odometer_km": week["odometer"],

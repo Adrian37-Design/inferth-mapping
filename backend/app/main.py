@@ -630,6 +630,15 @@ if frontend_path:
     # Static Files (UI and Uploads)
     app.mount("/static", StaticFiles(directory=frontend_path, html=True), name="static")
     print(f"Mounted static files from: {frontend_path}")
+
+    @app.middleware("http")
+    async def no_cache_html_middleware(request, call_next):
+        response = await call_next(request)
+        if request.url.path.endswith(".html") or request.url.path in ("/", "/static/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 else:
     print(f"Warning: Frontend not found. Checked: {possible_paths}")
 

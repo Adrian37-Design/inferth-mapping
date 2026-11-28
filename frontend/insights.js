@@ -210,9 +210,9 @@ function renderInsightCards(cards, roleMode, perTracker) {
     let trackerHtml = '';
     if (roleMode === 'manager' && Array.isArray(perTracker) && perTracker.length > 0) {
         const rowsHtml = perTracker.map(t => {
-            const statusDot = t.online
-                ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:6px;"></span>Active'
-                : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;margin-right:6px;"></span>Idle';
+            const st = t.status || (t.online ? 'Stationary' : 'Offline');
+            const dotColor = st === 'Moving' ? '#16a34a' : (st === 'Stationary' ? '#0284c7' : '#94a3b8');
+            const statusDot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};margin-right:6px;"></span>${escapeHTML(st)}`;
             const scoreColor = t.score >= 85 ? '#16a34a' : (t.score >= 65 ? '#d97706' : '#dc2626');
             return `
                 <tr style="border-bottom:1px solid #f1f5f9;">
