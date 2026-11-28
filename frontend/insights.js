@@ -6,6 +6,9 @@
 let currentInsightsRoleMode = 'manager';
 let currentFuelChart = null;
 let activeInsightData = null;
+let _insightsLoadSeq = 0;
+let _insightsAbort = null;
+const _insightsCache = { manager: null, driver: null };
 
 // Role Determination & Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,33 +16,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMgr = window.AuthManager.isManager();
         currentInsightsRoleMode = isMgr ? 'manager' : 'driver';
     }
-
-    const insightsTabRail = document.querySelector('[data-tab="tab-insights"]');
-    if (insightsTabRail) {
-        insightsTabRail.addEventListener('click', () => {
-            setTimeout(() => {
-                if (typeof window.loadInsights === 'function') {
-                    window.loadInsights();
-                }
-            }, 100);
-        });
-    }
 });
 
-// Role Preview Switcher (allows toggling between Manager and Driver views for all roles)
+// Role Preview Switcher (instant transition with background refresh)
 window.switchInsightsRoleMode = function(mode) {
-    currentInsightsRoleMode = mode === 'driver' ? 'driver' : 'manager';
+    const targetMode = mode === 'driver' ? 'driver' : 'manager';
+    if (currentInsightsRoleMode === targetMode && _insightsCache[targetMode]) return;
+    currentInsightsRoleMode = targetMode;
+
     const btnMgr = document.getElementById('btn-mode-manager');
     const btnDrv = document.getElementById('btn-mode-driver');
-
     if (btnMgr && btnDrv) {
-        if (currentInsightsRoleMode === 'manager') {
-            btnMgr.classList.add('active');
-            btnDrv.classList.remove('active');
-        } else {
-            btnDrv.classList.add('active');
-            btnMgr.classList.remove('active');
-        }
+        btnMgr.classList.toggle('active', targetMode === 'manager');
+        btnDrv.classList.toggle('active', targetMode === 'driver');
+    }
+
+    // Instant paint from cache if available, otherwise clear stale view immediately
+    if (_insightsCache[targetMode]) {
+        activeInsightData = _insightsCache[targetMode];
+        renderInsightsTopBar(_insightsCache[targetMode].top_bar, targetMode);
+        renderInsightCards(_insightsCache[targetMode].cards, targetMode, _insightsCache[targetMode].per_tracker);
     }
 
     window.loadInsights(true);
@@ -62,22 +58,18 @@ window.loadInsights = async function(force = false) {
         const isMgr = window.AuthManager && window.AuthManager.isManager();
         currentInsightsRoleMode = isMgr ? 'manager' : 'driver';
     }
+    const mode = currentInsightsRoleMode === 'driver' ? 'driver' : 'manager';
 
-    // Sync pill button states if switcher is rendered
+    // Sync pill button states
     const btnMgr = document.getElementById('btn-mode-manager');
     const btnDrv = document.getElementById('btn-mode-driver');
     if (btnMgr && btnDrv) {
-        if (currentInsightsRoleMode === 'manager') {
-            btnMgr.classList.add('active');
-            btnDrv.classList.remove('active');
-        } else {
-            btnDrv.classList.add('active');
-            btnMgr.classList.remove('active');
-        }
+        btnMgr.classList.toggle('active', mode === 'manager');
+        btnDrv.classList.toggle('active', mode === 'driver');
     }
 
-    // Update subtitles & headers
-    if (currentInsightsRoleMode === 'manager') {
+    // Update subtitles & headers synchronously
+    if (mode === 'manager') {
         if (subtitle) subtitle.textContent = 'Exceptions raised from vehicle telemetry, with the next action for each';
         if (heading) heading.textContent = 'Open exceptions';
         if (counterBadge) counterBadge.textContent = 'By severity';
@@ -87,22 +79,39 @@ window.loadInsights = async function(force = false) {
         if (counterBadge) counterBadge.textContent = 'This vehicle';
     }
 
+    // Show cached data immediately if not already painted, or show clean loading state
+    if (!_insightsCache[mode]) {
+        topBar.innerHTML = '<div class="insights-kpi-card" style="grid-column:1/-1; text-align:center; padding:18px; color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Loading ' + (mode === 'manager' ? 'Manager' : 'Driver') + ' insights...</div>';
+        container.innerHTML = '';
+    }
+
+    // Abort any older in-flight insights fetch so stale responses never overwrite newer clicks
+    const seq = ++_insightsLoadSeq;
+    if (_insightsAbort) {
+        try { _insightsAbort.abort(); } catch (_) {}
+    }
+    _insightsAbort = new AbortController();
+
     try {
-        const endpoint = currentInsightsRoleMode === 'manager' ? '/insights/manager' : '/insights/driver';
-        const response = await window.AuthManager.fetchAPI(endpoint);
+        const endpoint = mode === 'manager' ? '/insights/manager' : '/insights/driver';
+        const response = await window.AuthManager.fetchAPI(endpoint, { signal: _insightsAbort.signal });
+        if (seq !== _insightsLoadSeq) return;
         if (!response.ok) {
             throw new Error(`Failed to load insights (${response.status})`);
         }
         const data = await response.json();
+        if (seq !== _insightsLoadSeq) return;
+
+        _insightsCache[mode] = data;
         activeInsightData = data;
 
-        // Render Top Bar KPI Cards
-        renderInsightsTopBar(data.top_bar, currentInsightsRoleMode);
-
-        // Render Feed Cards
-        renderInsightCards(data.cards, currentInsightsRoleMode, data.per_tracker);
+        // Render using the captured `mode` (never mutable global)
+        renderInsightsTopBar(data.top_bar, mode);
+        renderInsightCards(data.cards, mode, data.per_tracker);
 
     } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        if (seq !== _insightsLoadSeq) return;
         console.error('Insights load error:', err);
         container.innerHTML = `
             <div style="text-align:center; padding:32px 20px; color:#64748b; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px;">
