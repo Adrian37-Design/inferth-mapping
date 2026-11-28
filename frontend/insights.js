@@ -152,7 +152,7 @@ function renderInsightsTopBar(topBarData, roleMode) {
                 <div class="insights-kpi-value-row">
                     <span class="insights-kpi-value ${healthClass}">${health === null ? dash : health.toFixed(1) + '%'}</span>
                 </div>
-                <span class="insights-kpi-subtext">Share of monitored vehicles reporting normally</span>
+                <span class="insights-kpi-subtext">Average health score across all fleet vehicles</span>
             </div>
             <div class="insights-kpi-card">
                 <span class="insights-kpi-label">Estimated fuel loss, 7 days</span>

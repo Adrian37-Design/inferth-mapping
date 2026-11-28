@@ -752,8 +752,7 @@ async def generate_manager_insights(db: AsyncSession, tenant_id: int, user: User
 
         score = _device_score(m)
         health_val = max(0, score - (25 if d.id in red_devices else 0))
-        if d.id in monitored or not monitored:
-            tracker_health_scores.append(health_val)
+        tracker_health_scores.append(health_val)
 
         per_tracker.append({
             "device_id": d.id,
